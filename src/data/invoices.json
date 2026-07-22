@@ -1,0 +1,25 @@
+{
+  "invoices": [
+    {
+      "id": "INV-DEMO-001",
+      "clientId": "client_001",
+      "clientName": "Mario Rossi",
+      "clientEmail": "demo@progettoimpresa.it",
+      "projectCode": "PI-2026-0024",
+      "level": "L3",
+      "amount": 22500,
+      "currency": "EUR",
+      "description": "SAL 2 - Consegna Audit Report (Fase 1)",
+      "status": "paid",
+      "paymentMethod": "stripe",
+      "paymentLink": "/checkout/INV-DEMO-001",
+      "iban": "IT60 X030 6903 2000 CB00 0000 0000",
+      "createdAt": "2026-07-01T10:00:00.000Z",
+      "dueDate": "2026-07-30T23:59:59.000Z",
+      "salNumber": 2,
+      "demo": true,
+      "updatedAt": "2026-07-13T14:26:47.456Z",
+      "paidAt": "2026-07-13T14:26:47.456Z"
+    }
+  ]
+}

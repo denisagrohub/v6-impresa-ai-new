@@ -1,0 +1,369 @@
+{
+    "module_id": "commercial-windows",
+    "descrizione": "Finestre commerciali filtrate per settore del cliente",
+    "brands": {
+        "v6_progetto_impresa": {
+            "nome": "V6ProgettoImpresa",
+            "logo": "/brands/v6-progetto-impresa.svg",
+            "colore": "#1a2744"
+        },
+        "v6_zero_sprechi": {
+            "nome": "V6ZeroSprechi",
+            "logo": "/brands/v6-zero-sprechi.svg",
+            "colore": "#059669"
+        },
+        "v6_bandi_finanziamenti": {
+            "nome": "V6Bandi&Finanziamenti",
+            "logo": "/brands/v6-bandi.svg",
+            "colore": "#7c3aed"
+        },
+        "v6_contabile": {
+            "nome": "V6Contabile",
+            "logo": "/brands/v6-contabile.svg",
+            "colore": "#0891b2"
+        }
+    },
+    "settori_disponibili": [
+        {
+            "id": "food",
+            "nome": "Food & Beverage",
+            "icone": "🍽️"
+        },
+        {
+            "id": "hospitality",
+            "nome": "Ospitalità & Turismo",
+            "icone": "🏨"
+        },
+        {
+            "id": "agricolo",
+            "nome": "Agricoltura & Agroindustria",
+            "icone": "🌾"
+        },
+        {
+            "id": "tech",
+            "nome": "Tech & AI",
+            "icone": "🤖"
+        },
+        {
+            "id": "manifatturiero",
+            "nome": "Manifatturiero",
+            "icone": "⚙️"
+        },
+        {
+            "id": "servizi",
+            "nome": "Servizi",
+            "icone": "💼"
+        },
+        {
+            "id": "retail",
+            "nome": "Retail & E-commerce",
+            "icone": "🛍️"
+        },
+        {
+            "id": "generico",
+            "nome": "Tutti i settori",
+            "icone": "🌐"
+        }
+    ],
+    "finestre": [
+        {
+            "id": "CW-01",
+            "brand": "v6_progetto_impresa",
+            "serviceCode": "BP-BUDGET",
+            "serviceName": "Pianificazione Budget Annuale",
+            "categoria": "CICLO BUDGET",
+            "mese": "Settembre-Ottobre",
+            "evento": "Pianificazione budget anno successivo",
+            "opportunita": "FINESTRA D'ORO: il cliente ha budget da allocare",
+            "azione": "Anticipare la proposta ad agosto",
+            "priorita": "ALTA",
+            "kairos_impact": "+3",
+            "settori_target": [
+                "generico"
+            ]
+        },
+        {
+            "id": "CW-02",
+            "brand": "v6_progetto_impresa",
+            "serviceCode": "BP-ACTIVE",
+            "serviceName": "Attivazione Budget Approvato",
+            "categoria": "CICLO BUDGET",
+            "mese": "Gennaio",
+            "evento": "Attivazione budget approvato",
+            "opportunita": "Budget disponibile, manager cercano come spenderlo",
+            "azione": "Prima proposta strutturata dell'anno",
+            "priorita": "ALTA",
+            "kairos_impact": "+2",
+            "settori_target": [
+                "generico"
+            ]
+        },
+        {
+            "id": "CW-03",
+            "brand": "v6_contabile",
+            "serviceCode": "FISC-DEDUC",
+            "serviceName": "Investimenti Deducibili",
+            "categoria": "FISCALE",
+            "mese": "Dicembre",
+            "evento": "Chiusura anno — investimenti deducibili",
+            "opportunita": "Alta ricettività. Mese migliore per chiudere",
+            "azione": "Presentare investimenti con beneficio fiscale",
+            "priorita": "ALTA",
+            "kairos_impact": "+3",
+            "settori_target": [
+                "generico"
+            ]
+        },
+        {
+            "id": "CW-04",
+            "brand": "v6_contabile",
+            "serviceCode": "FISC-SALDO",
+            "serviceName": "Saldo Imposte",
+            "categoria": "FISCALE",
+            "mese": "Giugno",
+            "evento": "Saldo imposte",
+            "opportunita": "Picco fiscale — liquidità bassa",
+            "azione": "EVITARE proposte con costi immediati",
+            "priorita": "MEDIA",
+            "kairos_impact": "-2",
+            "settori_target": [
+                "generico"
+            ]
+        },
+        {
+            "id": "CW-05",
+            "brand": "v6_zero_sprechi",
+            "serviceCode": "5S-AUDIT",
+            "serviceName": "Audit 5S Operativo",
+            "categoria": "OPERATIVO",
+            "mese": "Gennaio-Febbraio",
+            "evento": "Revisione processi inizio anno",
+            "opportunita": "Alta ricettività per proposte di miglioramento",
+            "azione": "Proporre audit 5S come primo step",
+            "priorita": "ALTA",
+            "kairos_impact": "+2",
+            "settori_target": [
+                "manifatturiero",
+                "servizi",
+                "food"
+            ]
+        },
+        {
+            "id": "CW-06",
+            "brand": "v6_zero_sprechi",
+            "serviceCode": "KAIZEN-POSTAUDIT",
+            "serviceName": "Ciclo Kaizen Post-Audit",
+            "categoria": "OPERATIVO",
+            "mese": "Post-audit interno",
+            "evento": "Dopo audit interni negativi",
+            "opportunita": "Finestra Kairós: dolore presente, urgenza alta, budget disponibile",
+            "azione": "Proporre ciclo Kaizen strutturato",
+            "priorita": "ALTA",
+            "kairos_impact": "+3",
+            "settori_target": [
+                "manifatturiero",
+                "servizi"
+            ]
+        },
+        {
+            "id": "CW-07",
+            "brand": "v6_bandi_finanziamenti",
+            "serviceCode": "CREDITO-40",
+            "serviceName": "Credito d'Imposta 4.0/5.0",
+            "categoria": "BANDI",
+            "mese": "Variabile",
+            "evento": "Bandi Transizione 4.0 — voucher digitali",
+            "opportunita": "FINESTRA D'ORO. Monitorare scadenze",
+            "azione": "Verificare su mimit.gov.it le misure attive",
+            "priorita": "ALTA",
+            "kairos_impact": "+3",
+            "settori_target": [
+                "manifatturiero",
+                "tech",
+                "servizi"
+            ]
+        },
+        {
+            "id": "CW-08",
+            "brand": "v6_bandi_finanziamenti",
+            "serviceCode": "PNRR-DIGIT",
+            "serviceName": "PNRR Digitalizzazione",
+            "categoria": "BANDI",
+            "mese": "Variabile",
+            "evento": "Bandi PNRR per innovazione digitale",
+            "opportunita": "Contributi per digitalizzazione e AI",
+            "azione": "Monitorare scadenze MIMIT e Invitalia",
+            "priorita": "ALTA",
+            "kairos_impact": "+3",
+            "settori_target": [
+                "tech",
+                "manifatturiero",
+                "servizi"
+            ]
+        },
+        {
+            "id": "CW-09",
+            "brand": "v6_zero_sprechi",
+            "serviceCode": "HACCP-AUDIT",
+            "serviceName": "Audit HACCP Interni",
+            "categoria": "NORMATIVO",
+            "mese": "Gennaio",
+            "evento": "Audit HACCP interni",
+            "opportunita": "Proporre supporto audit o pre-audit",
+            "azione": "Anticipare a novembre dell'anno precedente",
+            "priorita": "ALTA",
+            "kairos_impact": "+2",
+            "settori_target": [
+                "food"
+            ]
+        },
+        {
+            "id": "CW-10",
+            "brand": "v6_zero_sprechi",
+            "serviceCode": "ISO-22000",
+            "serviceName": "Certificazione ISO 22000",
+            "categoria": "NORMATIVO",
+            "mese": "Continuo",
+            "evento": "Rinnovo certificazione ISO 22000",
+            "opportunita": "Finestra sempre aperta, verificare scadenza specifica",
+            "azione": "Chiedere sempre la data scadenza in prima call",
+            "priorita": "MEDIA",
+            "kairos_impact": "+1",
+            "settori_target": [
+                "food"
+            ]
+        },
+        {
+            "id": "CW-11",
+            "brand": "v6_progetto_impresa",
+            "serviceCode": "CALL-LUNEDI",
+            "serviceName": "Call di Apertura Settimana",
+            "categoria": "TIMING",
+            "mese": "Lunedì mattina",
+            "evento": "Alta energia post-weekend",
+            "opportunita": "Ottimismo, apertura a nuove idee",
+            "azione": "Call di apertura, prima call con lead nuovo",
+            "priorita": "ALTA",
+            "kairos_impact": "+1",
+            "settori_target": [
+                "generico"
+            ]
+        },
+        {
+            "id": "CW-12",
+            "brand": "v6_progetto_impresa",
+            "serviceCode": "CALL-VENERDI",
+            "serviceName": "Chiusura Settimana",
+            "categoria": "TIMING",
+            "mese": "Venerdì pomeriggio",
+            "evento": "Decision fatigue + desiderio chiusura",
+            "opportunita": "Se ha elaborato: chiudere. Se no: rimandare",
+            "azione": "Leggere il segnale: energico → spingere, stanco → lunedì",
+            "priorita": "MEDIA",
+            "kairos_impact": "0",
+            "settori_target": [
+                "generico"
+            ]
+        },
+        {
+            "id": "CW-13",
+            "brand": "v6_bandi_finanziamenti",
+            "serviceCode": "PSR-AGRO",
+            "serviceName": "Bandi PSR Agroalimentare",
+            "categoria": "BANDI",
+            "mese": "Primavera",
+            "evento": "Bandi PSR trasformazione agroalimentare",
+            "opportunita": "FINESTRA D'ORO: il cliente cerca investimenti finanziabili",
+            "azione": "Verificare apertura bandi regionali",
+            "priorita": "ALTA",
+            "kairos_impact": "+3",
+            "settori_target": [
+                "agricolo"
+            ]
+        },
+        {
+            "id": "CW-14",
+            "brand": "v6_zero_sprechi",
+            "serviceCode": "LEAN-POSTFIERA",
+            "serviceName": "Intervento Lean Post-Fiera",
+            "categoria": "OPERATIVO",
+            "mese": "Post-fiera",
+            "evento": "Dopo fiere di settore principali",
+            "opportunita": "Cliente pieno di stimoli, ricettivo",
+            "azione": "Contattare subito dopo la fiera con aggancio a ciò che ha visto",
+            "priorita": "ALTA",
+            "kairos_impact": "+2",
+            "settori_target": [
+                "manifatturiero",
+                "food",
+                "retail"
+            ]
+        },
+        {
+            "id": "CW-15",
+            "brand": "v6_contabile",
+            "serviceCode": "RD-CREDITO",
+            "serviceName": "Credito d'Imposta R&S",
+            "categoria": "BANDI",
+            "mese": "Continuo",
+            "evento": "Credito d'imposta R&D",
+            "opportunita": "Finestra sempre aperta — molte aziende non sanno di poterne beneficiare",
+            "azione": "Verificare l'applicabilità con il commercialista del cliente",
+            "priorita": "ALTA",
+            "kairos_impact": "+2",
+            "settori_target": [
+                "tech",
+                "manifatturiero"
+            ]
+        },
+        {
+            "id": "CW-16",
+            "brand": "v6_zero_sprechi",
+            "serviceCode": "STAGIONALITA-ALTA",
+            "serviceName": "Preparazione Alta Stagione",
+            "categoria": "STAGIONALITÀ",
+            "mese": "Marzo-Aprile",
+            "evento": "Preparazione stagione turistica",
+            "opportunita": "Ottimizzare operazioni prima del picco",
+            "azione": "Proporre audit operativo e formazione staff",
+            "priorita": "ALTA",
+            "kairos_impact": "+2",
+            "settori_target": [
+                "hospitality",
+                "food"
+            ]
+        },
+        {
+            "id": "CW-17",
+            "brand": "v6_bandi_finanziamenti",
+            "serviceCode": "AI-ACT",
+            "serviceName": "EU AI Act Compliance",
+            "categoria": "NORMATIVO",
+            "mese": "Variabile",
+            "evento": "Entrata in vigore EU AI Act",
+            "opportunita": "Conformità normativa obbligatoria per aziende che usano AI",
+            "azione": "Proporre assessment conformità AI",
+            "priorita": "ALTA",
+            "kairos_impact": "+3",
+            "settori_target": [
+                "tech"
+            ]
+        },
+        {
+            "id": "CW-18",
+            "brand": "v6_zero_sprechi",
+            "serviceCode": "TURISMO-ESPERIENZIALE",
+            "serviceName": "Turismo Esperienziale",
+            "categoria": "MARKET",
+            "mese": "Novembre-Marzo",
+            "evento": "Bassa stagione — tempo per strutturare esperienze",
+            "opportunita": "Creare pacchetti esperienziali per destagionalizzare",
+            "azione": "Proporre design esperienze e marketing territoriale",
+            "priorita": "ALTA",
+            "kairos_impact": "+2",
+            "settori_target": [
+                "hospitality"
+            ]
+        }
+    ]
+}

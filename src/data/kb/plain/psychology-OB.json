@@ -1,0 +1,40 @@
+{
+    "module_id": "psychology-OB",
+    "objections": [
+        {
+            "id": "OB-01",
+            "dichiarata": "«Costa troppo»",
+            "significato_reale": "Non ha ancora percepito il valore sufficiente.",
+            "tecnica": "Ricalibra il valore prima del prezzo. Porta il ROI in primo piano.",
+            "frase": "«Capisco. Prima di parlare di costo, dimmi: quanto ti costa adesso non avere questo sistema?»"
+        },
+        {
+            "id": "OB-02",
+            "dichiarata": "«Ci devo pensare»",
+            "significato_reale": "Non ha ancora le informazioni che gli servono per decidere.",
+            "tecnica": "Chiedi cosa manca. Non lasciare aperto.",
+            "frase": "«Cosa ti serve per sentirti pronto a decidere? Manca qualcosa che non ho spiegato bene?»"
+        },
+        {
+            "id": "OB-05",
+            "dichiarata": "«Non ho tempo»",
+            "significato_reale": "Il tempo è una priorità. Non la percepisce come urgente.",
+            "tecnica": "Offri il minimo impegno possibile come primo step.",
+            "frase": "«Per questo il primo step richiede solo 45 minuti al mese. Il sistema lavora per te, non tu per il sistema.»"
+        },
+        {
+            "id": "OB-06",
+            "dichiarata": "«Ho già provato cose simili e non hanno funzionato»",
+            "significato_reale": "Ha avuto esperienze negative con consulenti o soluzioni.",
+            "tecnica": "Validare l'esperienza negativa. Differenziare concretamente.",
+            "frase": "«Ti credo. Cosa non ha funzionato esattamente? Voglio capire dove gli altri hanno fallito.»"
+        },
+        {
+            "id": "OB-07",
+            "dichiarata": "«Devo sentire anche [socio/moglie/commercialista]»",
+            "significato_reale": "C'è un decisore nascosto.",
+            "tecnica": "Coinvolgere il decisore nascosto nel processo.",
+            "frase": "«Perfetto. Quando potremmo fare una call tutti insieme?»"
+        }
+    ]
+}

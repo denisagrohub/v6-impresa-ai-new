@@ -1,0 +1,13 @@
+{
+  "base": 50000,
+  "pesoImporto": 0.015,
+  "pesoComplessita": 25000,
+  "pesoUrgenza": 1.25,
+  "settoriComplessi": [
+    "m&a",
+    "ristrutturazione debito",
+    "acquisizione",
+    "fusione",
+    "ipo"
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "appointments": [
+    {
+      "projectId": "PI-2026-0024",
+      "projectName": "Business Plan Startup Tech",
+      "clientName": "Innovazione S.p.A.",
+      "date": "2026-07-16",
+      "time": "10:00",
+      "type": "Call Discovery (30 min, gratuita)",
+      "title": "qweq",
+      "notes": "qwdq",
+      "id": "APT-1784019260123",
+      "status": "scheduled",
+      "createdAt": "2026-07-14T08:54:20.123Z"
+    },
+    {
+      "projectId": "PI-2026-0024",
+      "projectName": "Business Plan Startup Tech",
+      "clientName": "Innovazione S.p.A.",
+      "date": "2026-07-23",
+      "time": "10:00",
+      "type": "Call Discovery (30 min, gratuita)",
+      "title": "EW",
+      "notes": "WEQ",
+      "id": "APT-1784019276961",
+      "status": "scheduled",
+      "createdAt": "2026-07-14T08:54:36.961Z"
+    },
+    {
+      "projectId": "PI-2026-0024",
+      "projectName": "Business Plan Startup Tech",
+      "clientName": "Innovazione S.p.A.",
+      "date": "2026-07-22",
+      "time": "10:00",
+      "type": "Call Discovery (30 min, gratuita)",
+      "title": "rte",
+      "notes": "rtet",
+      "id": "APT-1784020112809",
+      "status": "scheduled",
+      "createdAt": "2026-07-14T09:08:32.809Z"
+    },
+    {
+      "projectId": "PI-2026-0024",
+      "projectName": "Business Plan Startup Tech",
+      "clientName": "Innovazione S.p.A.",
+      "date": "2026-07-17",
+      "time": "12:00",
+      "type": "Call Discovery (30 min, gratuita)",
+      "title": "prova",
+      "notes": "",
+      "id": "APT-1784277363095",
+      "status": "scheduled",
+      "createdAt": "2026-07-17T08:36:03.095Z"
+    },
+    {
+      "projectId": "PI-2026-0024",
+      "projectName": "Business Plan Startup Tech",
+      "clientName": "Innovazione S.p.A.",
+      "date": "2026-07-17",
+      "time": "10:00",
+      "type": "Call Discovery (30 min, gratuita)",
+      "title": "call",
+      "notes": "",
+      "participants": [
+        {
+          "name": "martina",
+          "email": "fattoriaaitosimati@gmail.com",
+          "source": "manual"
+        }
+      ],
+      "id": "APT-1784278733166",
+      "status": "scheduled",
+      "createdAt": "2026-07-17T08:58:53.166Z",
+      "meetingLink": "https://v6impresa.daily.co/call-PI-2026-0024-1784278733321",
+      "updatedAt": "2026-07-17T08:58:55.286Z"
+    }
+  ]
+}

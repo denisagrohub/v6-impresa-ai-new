@@ -1,0 +1,68 @@
+{
+    "module_id": "psychology-PL",
+    "patterns": [
+        {
+            "id": "PL-01",
+            "pattern": "Uso eccessivo del condizionale (potrebbe, forse, vedremo)",
+            "signal": "Posticipazione decisionale",
+            "action": "Aspettare 7-10gg. Inviare contenuto, non proposta.",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-02",
+            "pattern": "Linguaggio «noi» riferito al progetto",
+            "signal": "Identificazione col progetto",
+            "action": "Alimentare visione. Usare «noi». Avvicinarsi a chiusura.",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-05",
+            "pattern": "«Ma» dopo affermazione positiva",
+            "signal": "Obiezione vera mascherata",
+            "action": "Ignorare il positivo. Lavorare solo su ciò che segue il «ma».",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-07",
+            "pattern": "Linguaggio di scarsità autoproclamata (siamo piccoli, non abbiamo risorse)",
+            "signal": "Test di adattabilità",
+            "action": "Non confutare. «Per questo partiamo da dove sei adesso.»",
+            "priority": "MEDIA"
+        },
+        {
+            "id": "PL-12",
+            "pattern": "Tempi futuri definiti (quando iniziamo a marzo)",
+            "signal": "Decisione già presa mentalmente",
+            "action": "Allinearsi al futuro. «Cosa serve per formalizzare?»",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-13",
+            "pattern": "Tempi futuri indefiniti (prima o poi, magari l'anno prossimo)",
+            "signal": "Non è il momento",
+            "action": "Non spingere. Rientrare tra 60-90 giorni.",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-17",
+            "pattern": "Obiezione tecnica specifica a sorpresa",
+            "signal": "Interesse alto mascherato",
+            "action": "Rispondere con precisione. Ringraziare. È segnale positivo.",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-18",
+            "pattern": "Stessa domanda in modi diversi",
+            "signal": "Incertezza non risolta",
+            "action": "«Cosa ti preoccupa davvero?»",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-20",
+            "pattern": "Parla al presente di problemi futuri",
+            "signal": "Pain già elaborato",
+            "action": "Collegare subito soluzione allo scenario futuro.",
+            "priority": "ALTA"
+        }
+    ]
+}

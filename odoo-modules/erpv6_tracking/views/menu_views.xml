@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menu principale -->
+    <menuitem id="menu_erpv6_tracking_root" name="Tracciamento" sequence="100"/>
+
+    <!-- Menu Configurazione -->
+    <menuitem id="menu_erpv6_tracking_config" name="Configurazione" parent="menu_erpv6_tracking_root" sequence="10"/>
+
+    <menuitem id="menu_erpv6_tracking_config_list" name="Configurazioni" parent="menu_erpv6_tracking_config" action="action_tracking_config" sequence="10"/>
+
+    <!-- Menu Lotti -->
+    <menuitem id="menu_erpv6_tracking_lots" name="Lotti" parent="menu_erpv6_tracking_root" sequence="20"/>
+
+    <menuitem id="menu_erpv6_tracking_all_lots" name="Tutti i Lotti" parent="menu_erpv6_tracking_lots" action="action_tracking_lot" sequence="10"/>
+
+    <menuitem id="menu_erpv6_tracking_batch_lots" name="Lotti Batch" parent="menu_erpv6_tracking_lots" action="action_tracking_batch_lot" sequence="20"/>
+
+    <menuitem id="menu_erpv6_tracking_definitive_lots" name="Lotti Definitivi" parent="menu_erpv6_tracking_lots" action="action_tracking_definitive_lot" sequence="30"/>
+</odoo>

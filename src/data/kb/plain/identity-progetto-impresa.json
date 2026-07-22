@@ -1,0 +1,30 @@
+{
+    "module_id": "identity-progetto-impresa",
+    "brand": "Progetto Impresa",
+    "tagline": "Il metodo che trasforma le PMI e le Startup in aziende strutturate",
+    "prodotti": {
+        "L1": "Business Plan essenziale per negozi e piccole aziende",
+        "L2": "Piano Industriale per PMI (strutturazione, bandi, finanziamenti)",
+        "L3": "Advisory Strategico per grandi gruppi, fundraising, internazionalizzazione"
+    },
+    "custodi": [
+        {
+            "nome": "Denis D'Este",
+            "pilastro": "Diagnosi e Relazioni"
+        },
+        {
+            "nome": "Christian Ghirardi",
+            "pilastro": "Tecnologia e Tracciabilità"
+        },
+        {
+            "nome": "Alessandro Candian",
+            "pilastro": "Finanza e Governance"
+        }
+    ],
+    "regole_output": [
+        "Il Metodo V6 è sempre il protagonista. Le persone sono custodi.",
+        "Tono umano, non meccanico. Frasi corte e lunghe si alternano.",
+        "Pricing come accesso al valore, mai come fee.",
+        "Output per Carbone.io: solo JSON strutturato, mai Markdown."
+    ]
+}

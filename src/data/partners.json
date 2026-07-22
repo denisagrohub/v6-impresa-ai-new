@@ -1,0 +1,97 @@
+{
+  "partners": [
+    {
+      "id": "PART-001",
+      "type": "consultant",
+      "name": "Davide Bianchi",
+      "email": "davide@studiobianchi.it",
+      "phone": "+39 333 1234567",
+      "company": "Studio Bianchi & Associati",
+      "vatNumber": "IT12345678901",
+      "status": "active",
+      "contractType": "percentage",
+      "commissionRate": 15,
+      "fixedFee": 0,
+      "hourlyRate": 160,
+      "maxDiscount": 5,
+      "specialties": [
+        "financial-modeling",
+        "m&a"
+      ],
+      "createdAt": "2026-01-15T10:00:00.000Z",
+      "demo": true,
+      "updatedAt": "2026-07-13T20:06:50.280Z"
+    },
+    {
+      "id": "PART-002",
+      "type": "referral",
+      "name": "Marco Verdi",
+      "email": "marco@investmentsim.it",
+      "phone": "+39 340 9876543",
+      "company": "Investment SIM S.p.A.",
+      "vatNumber": "IT98765432109",
+      "status": "active",
+      "contractType": "percentage",
+      "commissionRate": 10,
+      "fixedFee": 0,
+      "hourlyRate": 0,
+      "maxDiscount": 0,
+      "specialties": [
+        "corporate-finance",
+        "family-office"
+      ],
+      "createdAt": "2026-06-20T14:30:00.000Z",
+      "demo": true,
+      "updatedAt": "2026-07-15T20:03:01.780Z"
+    },
+    {
+      "id": "PART-003",
+      "type": "consultant",
+      "name": "Laura Neri",
+      "email": "laura@nexgenconsulting.com",
+      "phone": "+39 348 5551234",
+      "company": "NexGen Consulting",
+      "vatNumber": "IT55512345678",
+      "status": "active",
+      "contractType": "fixed_plus_percentage",
+      "commissionRate": 10,
+      "fixedFee": 500,
+      "hourlyRate": 120,
+      "maxDiscount": 5,
+      "specialties": [
+        "business-plan",
+        "startup"
+      ],
+      "createdAt": "2026-03-10T09:00:00.000Z",
+      "demo": true
+    },
+    {
+      "id": "PART-004",
+      "name": "Christian Rossi",
+      "email": "christian@progettoimpresa.it",
+      "type": "consultant",
+      "isChief": true,
+      "brand": "progetto-impresa",
+      "status": "active",
+      "hourlyRate": 180,
+      "commissionRate": 35,
+      "maxDiscount": 10,
+      "promotedAt": "2026-07-16T10:30:00Z",
+      "promotedBy": "admin",
+      "createdAt": "2026-01-15T09:00:00Z"
+    },
+    {
+      "id": "PART-005",
+      "name": "Laura Neri",
+      "email": "laura@progettoimpresa.it",
+      "type": "consultant",
+      "isChief": false,
+      "brand": "progetto-impresa",
+      "status": "active",
+      "hourlyRate": 120,
+      "commissionRate": 10,
+      "maxDiscount": 5,
+      "createdAt": "2026-03-10T14:00:00Z"
+    }
+  ]
+}

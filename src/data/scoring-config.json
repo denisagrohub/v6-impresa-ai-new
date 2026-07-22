@@ -1,0 +1,16 @@
+{
+  "fatturatoAlto": 20,
+  "fatturatoMedio": 10,
+  "settoreHot": 10,
+  "importoOperazioneAlto": 10,
+  "ruoloDecisionale": 20,
+  "ruoloOperativo": 10,
+  "emailAziendale": 10,
+  "mandatoScritto": 20,
+  "mandatoVerbale": 5,
+  "partnerRicorrente": 10,
+  "sogliaWhale": 80,
+  "sogliaHot": 50,
+  "settoriHot": "tech, finanza, energia, farmaceutico, aerospazio, biotech, fintech, sustainability, green",
+  "ruoliDecisionali": "ceo, cfo, owner, fondatore, direttore generale, partner, amministratore, presidente"
+}

@@ -1,0 +1,87 @@
+{
+    "module_id": "module-c-startup",
+    "contesto": "Startup e PMI Innovative: strutturazione, business plan, fundraising",
+    "pilastri": [
+        {
+            "numero": 1,
+            "nome": "Diagnostica e Founder-Market Fit",
+            "strumenti": [
+                "Mappa 6 Aree con VAL",
+                "Pareto dei Rischi",
+                "Kairós del Founder"
+            ],
+            "focus": "Problem/Solution fit, composizione founding team, gap competenze, burn rate attuale, Unit Economics (CAC vs LTV)"
+        },
+        {
+            "numero": 2,
+            "nome": "Mercato e Validazione",
+            "strumenti": [
+                "TAM/SAM/SOM",
+                "Matrice Competitiva",
+                "Go-to-Market Strategy"
+            ],
+            "focus": "Dimensionamento realistico (no '1% del mercato globale'), trazione (MRR, utenti attivi, LOI), canali acquisizione"
+        },
+        {
+            "numero": 3,
+            "nome": "Finanza, Scalabilità e Funding",
+            "strumenti": [
+                "Cash Flow 36 mesi",
+                "Analisi Sensitività -20%",
+                "Use of Funds"
+            ],
+            "focus": "Burn rate mensile, Runway, Funding Ask con pre/post money, break-even, scenario worst case"
+        }
+    ],
+    "errori_da_evitare": [
+        "Presentare pricing prima che il founder capisca il valore del metodo",
+        "Costruire BP solo per il founder (I/S) ignorando banca/investitore (D/C)",
+        "Ignorare il Layer 0: se l'obiettivo è exit in 3 anni, il piano deve puntare all'exit",
+        "Usare proiezioni irrealistiche ('crescita 300%') senza ancorarle al burn rate"
+    ],
+    "carbone_io_schema": {
+        "documento": "Business Plan Startup / PMI Innovativa",
+        "metadata": {
+            "azienda": "string",
+            "settore": "string",
+            "livello": "L1|L2|L3",
+            "data": "YYYY-MM-DD",
+            "custode_metodo": "string"
+        },
+        "executive_summary": {
+            "problema": "string",
+            "soluzione": "string",
+            "trazione": "string",
+            "funding_ask": "string"
+        },
+        "diagnostica_v6": {
+            "kairos_score": "number 5-15",
+            "kairos_livello": "BASSO|MEDIO|ALTO",
+            "quadrante_fp": "PREPARA|KAIROS_AUTENTICO|QUICK_WIN|PARCHEGGIO",
+            "rischio_pareto": "string"
+        },
+        "sei_aree_val": {
+            "strategia": "VERDE|GIALLO|ROSSO",
+            "economico": "VERDE|GIALLO|ROSSO",
+            "operativa": "VERDE|GIALLO|ROSSO",
+            "persone": "VERDE|GIALLO|ROSSO",
+            "conformita": "VERDE|GIALLO|ROSSO",
+            "continuita": "VERDE|GIALLO|ROSSO"
+        },
+        "piano_finanziario": {
+            "burn_rate_mensile": "number",
+            "runway_mesi": "number",
+            "use_of_funds": {
+                "prodotto_pct": "number",
+                "marketing_pct": "number",
+                "team_pct": "number"
+            },
+            "break_even_mese": "number",
+            "worst_case_ebitda": "number"
+        },
+        "narrativa": {
+            "story_master": "string max 150 parole",
+            "declinazione_investitore": "string"
+        }
+    }
+}

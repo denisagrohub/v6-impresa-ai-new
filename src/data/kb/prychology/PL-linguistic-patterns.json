@@ -1,0 +1,184 @@
+{
+    "patterns": [
+        {
+            "id": "PL-01",
+            "pattern": "Uso eccessivo del condizionale («potrebbe», «forse», «vedremo», «magari»)",
+            "signal": "Posticipazione decisionale",
+            "interpretation": "Il cliente non ha ancora elaborato internamente. Spingere ora produce rifiuto.",
+            "action": "Aspettare. Inviare contenuto informativo, non proposta. Rientrare dopo 7-10 giorni.",
+            "context": "Qualsiasi fase",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-02",
+            "pattern": "Linguaggio «noi» riferito al progetto («noi faremmo», «la nostra azienda potrebbe»)",
+            "signal": "Identificazione col progetto",
+            "interpretation": "Il cliente si vede già dentro. Ha elaborato l'ipotesi internamente.",
+            "action": "Alimentare la visione. Usare «noi» anche tu. Avvicinarsi alla chiusura.",
+            "context": "Post-proposta",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-03",
+            "pattern": "Linguaggio «noi» che diventa «io» nel corso della conversazione",
+            "signal": "Distanza crescente dal progetto",
+            "interpretation": "Si sta scollegando. Qualcosa è cambiato internamente.",
+            "action": "Fermarsi. Domanda aperta: «Cosa sta cambiando nella tua valutazione?»",
+            "context": "Qualsiasi fase",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-04",
+            "pattern": "Domande molto specifiche su dettagli operativi («come funziona esattamente X»)",
+            "signal": "Elaborazione mentale avanzata",
+            "interpretation": "Sta già immaginando l'implementazione. Vicino alla decisione.",
+            "action": "Rispondere con precisione. Non perdere l'onda. Proporre step concreto.",
+            "context": "Post-proposta",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-05",
+            "pattern": "«Ma» dopo affermazione positiva («è interessante, ma...»)",
+            "signal": "Obiezione vera mascherata",
+            "interpretation": "L'apertura è di cortesia. Il «ma» è la vera posizione.",
+            "action": "Ignorare il positivo. Lavorare solo su ciò che segue il «ma».",
+            "context": "Qualsiasi fase",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-06",
+            "pattern": "Ripetizione frequente del nome dell'azienda o del proprio",
+            "signal": "Ego coinvolto, leva identitaria disponibile",
+            "interpretation": "L'identità aziendale è centrale. Il progetto deve valorizzare l'identità.",
+            "action": "Usare il nome dell'azienda spesso. Frammare come valorizzazione identità.",
+            "context": "Prima call",
+            "priority": "MEDIA"
+        },
+        {
+            "id": "PL-07",
+            "pattern": "Linguaggio di scarsità autoproclamata («siamo piccoli», «non abbiamo risorse»)",
+            "signal": "Test di adattabilità — non verità assoluta",
+            "interpretation": "Spesso difesa preventiva contro il fallimento.",
+            "action": "Non confutare. «Per questo partiamo esattamente da dove sei adesso.»",
+            "context": "Prima call",
+            "priority": "MEDIA"
+        },
+        {
+            "id": "PL-08",
+            "pattern": "Domande su referenze («avete già lavorato con aziende come la mia?»)",
+            "signal": "Bisogno di validazione sociale",
+            "interpretation": "Non vuole essere il primo. Rischio percepito alto.",
+            "action": "Fornire referenze esatte dello stesso settore/dimensione.",
+            "context": "Prima e seconda call",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-09",
+            "pattern": "Silenzio dopo proposta (3-7 giorni)",
+            "signal": "Elaborazione attiva O evitamento",
+            "interpretation": "Se call positiva: elabora. Se call tiepida: evita.",
+            "action": "Valutare col contesto. Se positivo: aspettare 7gg. Se tiepido: contatto leggero a 4gg.",
+            "context": "Post-proposta",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-10",
+            "pattern": "Risposta lunga e molto dettagliata alla proposta",
+            "signal": "Elaborazione interna già avvenuta",
+            "interpretation": "Ha già riflettuto. Sta condividendo il suo processo. È coinvolto.",
+            "action": "Rispondere punto per punto. Non riassumere mai.",
+            "context": "Post-proposta",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-11",
+            "pattern": "Risposta molto breve e secca («ok», «capito», «ci penso»)",
+            "signal": "Non elaborato O non interessato",
+            "interpretation": "Se immediata: non ha letto. Se dopo giorni: mantiene distanza.",
+            "action": "Non escalare. Inviare domanda aperta semplice per riaprire.",
+            "context": "Qualsiasi fase",
+            "priority": "MEDIA"
+        },
+        {
+            "id": "PL-12",
+            "pattern": "Tempi futuri definiti («quando iniziamo a marzo»)",
+            "signal": "Decisione già presa mentalmente",
+            "interpretation": "Mentalmente è già cliente. Manca solo la firma.",
+            "action": "Allinearsi al suo futuro. «Sì, marzo perfetto. Cosa serve per formalizzare?»",
+            "context": "Post-proposta",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-13",
+            "pattern": "Tempi futuri indefiniti («prima o poi», «magari l'anno prossimo»)",
+            "signal": "Non è il momento",
+            "interpretation": "Non c'è urgenza reale. Non è un no.",
+            "action": "Non spingere. Rientrare tra 60-90 giorni con nuovo spunto.",
+            "context": "Qualsiasi fase",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-14",
+            "pattern": "Menziona soci/coniuge/commercialista senza che tu abbia chiesto",
+            "signal": "Decisori nascosti presenti",
+            "interpretation": "Non decide da solo.",
+            "action": "Chiedere esplicitamente di coinvolgerli nella prossima call.",
+            "context": "Prima e seconda call",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-15",
+            "pattern": "Non menziona mai altri decisori",
+            "signal": "Decide solo O li nasconde",
+            "interpretation": "Se azienda piccola: decide solo. Se strutturata: potrebbero esserci altri.",
+            "action": "Domanda diretta in seconda call: «Chi è coinvolto nella valutazione finale?»",
+            "context": "Seconda call",
+            "priority": "MEDIA"
+        },
+        {
+            "id": "PL-16",
+            "pattern": "Usa parole del tuo vocabolario dopo averle sentite da te",
+            "signal": "Allineamento linguistico — rapport alto",
+            "interpretation": "Si sta adattando. Segnale di connessione e fiducia.",
+            "action": "Continuare a usare quel vocabolario. Non cambiarlo.",
+            "context": "Qualsiasi fase",
+            "priority": "MEDIA"
+        },
+        {
+            "id": "PL-17",
+            "pattern": "Obiezione tecnica specifica e dettagliata a sorpresa",
+            "signal": "Interesse alto mascherato da obiezione",
+            "interpretation": "Sta studiando il tuo caso. Le obiezioni specifiche nascono da chi valuta seriamente.",
+            "action": "Rispondere con precisione tecnica. Ringraziarli. È segnale positivo.",
+            "context": "Post-proposta",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-18",
+            "pattern": "Fa la stessa domanda in modi diversi nel corso della conversazione",
+            "signal": "Incertezza non risolta",
+            "interpretation": "C'è un dubbio che non riesce ad articolare.",
+            "action": "«Ho l'impressione che ci sia qualcosa su cui vuoi chiarezza. Cosa ti preoccupa davvero?»",
+            "context": "Qualsiasi fase",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-19",
+            "pattern": "Usa «tu» o «voi» per riferirsi ai consulenti con distanza («voi consulenti dite sempre che...»)",
+            "signal": "Diffidenza strutturale verso la categoria",
+            "interpretation": "Ha avuto esperienze negative con consulenti in passato.",
+            "action": "Non difendersi. Concordare: «Capisco. Molti consulenti promettono e non consegnano. Per questo voglio mostrarti risultati concreti, non promesse.»",
+            "context": "Prima call",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PL-20",
+            "pattern": "Parla al presente di problemi futuri («quando avremo 7 appartamenti IL CAOS sarà insostenibile»)",
+            "signal": "Proiezione negativa — pain già elaborato",
+            "interpretation": "Il cliente ha già immaginato il problema futuro. Il dolore è anticipato, non teorico.",
+            "action": "Non devi creare urgenza — esiste già. Collegare subito la soluzione al suo scenario futuro.",
+            "context": "Prima call",
+            "priority": "ALTA"
+        }
+    ]
+}

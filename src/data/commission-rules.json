@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "L1": {
+      "nome": "Pacchetto Startup",
+      "prezzoBase": 1500,
+      "tipoProvvigioneConsulente": "fisso",
+      "valoreConsulente": 500,
+      "percentualeReferral": 5,
+      "costiFissiAzienda": 150
+    },
+    "L2": {
+      "nome": "Piano Industriale",
+      "prezzoBase": 20000,
+      "tipoProvvigioneConsulente": "percentuale",
+      "valoreConsulente": 30,
+      "percentualeReferral": 10,
+      "costiFissiAzienda": 500
+    },
+    "L3": {
+      "nome": "Advisory Strategico",
+      "prezzoBase": 50000,
+      "tipoProvvigioneConsulente": "percentuale",
+      "valoreConsulente": 30,
+      "percentualeReferral": 10,
+      "costiFissiAzienda": 5000
+    }
+  }
+}

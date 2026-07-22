@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Estensione vista calendario eventi -->
+    <record id="view_calendar_event_form_pi" model="ir.ui.view">
+        <field name="name">calendar.event.form.pi</field>
+        <field name="model">calendar.event</field>
+        <field name="inherit_id" ref="calendar.view_calendar_event_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Progetto Impresa" name="pi_booking">
+                    <group>
+                        <field name="x_pi_event_type"/>
+                        <field name="x_pi_consultant_id"/>
+                        <field name="x_pi_project_id"/>
+                        <field name="x_pi_brand_id"/>
+                    </group>
+                    <group>
+                        <field name="x_pi_is_public"/>
+                        <field name="x_pi_booking_token" readonly="1"/>
+                        <field name="x_pi_meeting_link" widget="url"/>
+                        <button name="action_generate_meeting_link" type="object" string="Genera Link Video Call" class="btn-secondary" invisible="x_pi_meeting_link"/>
+                    </group>
+                </group>
+                <group string="Cliente (Prenotazione Pubblica)" name="pi_client" invisible="not x_pi_client_email">
+                    <group>
+                        <field name="x_pi_client_name"/>
+                        <field name="x_pi_client_email" widget="email"/>
+                        <field name="x_pi_client_phone" widget="phone"/>
+                    </group>
+                    <group>
+                        <field name="x_pi_notes"/>
+                        <field name="x_pi_lead_id"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Vista lista con campi custom -->
+    <record id="view_calendar_event_tree_pi" model="ir.ui.view">
+        <field name="name">calendar.event.tree.pi</field>
+        <field name="model">calendar.event</field>
+        <field name="inherit_id" ref="calendar.view_calendar_event_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="x_pi_event_type" optional="show"/>
+                <field name="x_pi_consultant_id" optional="show"/>
+                <field name="x_pi_is_public" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Filtro: solo slot pubblici -->
+    <record id="view_calendar_event_search_pi" model="ir.ui.view">
+        <field name="name">calendar.event.search.pi</field>
+        <field name="model">calendar.event</field>
+        <field name="inherit_id" ref="calendar.view_calendar_event_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <filter string="Slot Pubblici" name="public_slots" domain="[('x_pi_is_public', '=', True)]"/>
+                <filter string="Slot Prenotati" name="booked_slots" domain="[('x_pi_client_email', '!=', False)]"/>
+                <separator/>
+                <filter string="Discovery Call" name="discovery" domain="[('x_pi_event_type', '=', 'discovery')]"/>
+                <filter string="Review" name="review" domain="[('x_pi_event_type', '=', 'review')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Consulente" name="group_consultant" context="{'group_by': 'x_pi_consultant_id'}"/>
+                    <filter string="Tipo Evento" name="group_type" context="{'group_by': 'x_pi_event_type'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Action per slot pubblici -->
+    <record id="action_pi_public_slots" model="ir.actions.act_window">
+        <field name="name">Slot Pubblici</field>
+        <field name="res_model">calendar.event</field>
+        <field name="view_mode">tree,form,calendar</field>
+        <field name="domain">[('x_pi_is_public', '=', True)]</field>
+        <field name="context">{'search_default_public_slots': 1}</field>
+    </record>
+
+    <!-- Menu in Calendario -->
+    <menuitem id="menu_pi_booking_root" name="Progetto Impresa" parent="calendar.menu_calendar_root" sequence="20"/>
+
+    <menuitem id="menu_pi_public_slots" name="Slot Pubblici" parent="menu_pi_booking_root" action="action_pi_public_slots" sequence="10"/>
+</odoo>

@@ -1,0 +1,70 @@
+{
+    "module_id": "module-d-interview",
+    "descrizione": "Output strutturato in JSON per Carbone.io dopo intervista diagnostica",
+    "schema_output": {
+        "cliente": {
+            "nome": "string",
+            "azienda": "string",
+            "settore": "string",
+            "data": "YYYY-MM-DD"
+        },
+        "pareto": {
+            "problema_radice": "string",
+            "top3_problemi": [
+                {
+                    "problema": "string",
+                    "impatto_pct": "number",
+                    "priorita": "ALTA|MEDIA|BASSA"
+                }
+            ]
+        },
+        "sei_aree": {
+            "strategia": {
+                "stato": "string",
+                "gap": "string",
+                "val": "VERDE|GIALLO|ROSSO"
+            },
+            "economico_finanziaria": {
+                "stato": "string",
+                "gap": "string",
+                "val": "VERDE|GIALLO|ROSSO"
+            },
+            "operativa": {
+                "stato": "string",
+                "gap": "string",
+                "val": "VERDE|GIALLO|ROSSO"
+            },
+            "persone_clima": {
+                "stato": "string",
+                "gap": "string",
+                "val": "VERDE|GIALLO|ROSSO"
+            },
+            "conformita": {
+                "stato": "string",
+                "gap": "string",
+                "val": "VERDE|GIALLO|ROSSO"
+            },
+            "continuita": {
+                "stato": "string",
+                "gap": "string",
+                "val": "VERDE|GIALLO|ROSSO"
+            }
+        },
+        "kairos": {
+            "score_totale": "number (5-15)",
+            "livello": "BASSO|MEDIO|ALTO",
+            "quadrante": "PREPARA|KAIROS_AUTENTICO|QUICK_WIN|PARCHEGGIO",
+            "percorso": "P4|P1|P2|P3"
+        },
+        "piano_azioni": [
+            {
+                "priorita": "number",
+                "azione": "string",
+                "responsabile": "string",
+                "output_atteso": "string",
+                "tempo": "string"
+            }
+        ]
+    },
+    "istruzioni": "Non aggiungere testo fuori dal JSON. Non usare markdown. Solo JSON valido."
+}

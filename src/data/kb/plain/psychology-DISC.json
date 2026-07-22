@@ -1,0 +1,41 @@
+{
+    "module_id": "psychology-DISC",
+    "profiles": [
+        {
+            "tipo": "D — DOMINANTE",
+            "come_riconoscerlo": "Parla veloce, va al punto, interrompe, fa domande dirette su risultati e ROI. Decide rapidamente.",
+            "motivazione": "Controllo, risultati, velocità, status",
+            "paura": "Perdere il controllo. Essere ingannato. Perdere tempo.",
+            "come_aprire": "Entrare subito sul problema e sul risultato: «Ecco cosa otterrai e in quanto tempo.»",
+            "come_chiudere": "Proposta chiara, due opzioni max, deadline reale.",
+            "startup_context": "Founder visionario che vuole scalare velocemente. Vuole KPI, non chiacchiere."
+        },
+        {
+            "tipo": "I — INFLUENTE",
+            "come_riconoscerlo": "Entusiasta, parla tanto, salta da un argomento all'altro, cerca connessione personale.",
+            "motivazione": "Riconoscimento, relazioni, essere apprezzato",
+            "paura": "Essere ignorato, perdere l'approvazione degli altri",
+            "come_aprire": "Creare connessione personale prima del business: trovare un terreno comune umano.",
+            "come_chiudere": "Usare visioni e storie di successo di altri simili. La firma deve sentirsi come un «sì» condiviso.",
+            "startup_context": "Founder carismatico che vende la visione. Vuole sentirsi un pioniere."
+        },
+        {
+            "tipo": "S — STABILE",
+            "come_riconoscerlo": "Parla lentamente, ascolta molto, fa domande su team e persone, ha bisogno di rassicurazioni.",
+            "motivazione": "Stabilità, armonia, sicurezza",
+            "paura": "Il cambiamento rapido. I conflitti. Deludere gli altri.",
+            "come_aprire": "Costruire fiducia lentamente. Prima meeting relazionale, poi business.",
+            "come_chiudere": "Rassicurazione esplicita: «Saremo qui con te in ogni fase. Non sei solo.»",
+            "startup_context": "Co-founder operativo che teme il caos della crescita. Vuole sistemi, non rivoluzioni."
+        },
+        {
+            "tipo": "C — COSCIENZIOSO",
+            "come_riconoscerlo": "Fa molte domande tecniche, chiede dati e referenze, legge tutto prima di rispondere.",
+            "motivazione": "Precisione, qualità, fare le cose per bene",
+            "paura": "Fare errori. Essere criticato. Decisioni sbagliate senza informazioni.",
+            "come_aprire": "Inviare materiale dettagliato PRIMA della call. Lasciare tempo per analizzare.",
+            "come_chiudere": "Proposta scritta completa con tutti i dettagli. Non aspettarti entusiasmo verbale.",
+            "startup_context": "CFO o co-founder finanziario. Vuole burn rate, runway, unit economics documentati."
+        }
+    ]
+}

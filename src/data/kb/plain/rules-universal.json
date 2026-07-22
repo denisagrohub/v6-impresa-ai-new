@@ -1,0 +1,55 @@
+{
+    "module_id": "rules-universal",
+    "regole": [
+        {
+            "id": "R01",
+            "nome": "Kairós Separato dallo Score",
+            "testo": "Il Kairós si valuta separatamente dallo score. Un contesto con score basso può avere Kairós alto. Usare sempre entrambi."
+        },
+        {
+            "id": "R02",
+            "nome": "Pricing come Accesso al Valore",
+            "testo": "Il frame precede il numero. €30K che sbloccano €300K = ROI 10x, non una parcella."
+        },
+        {
+            "id": "R03",
+            "nome": "Term Sheet in Seconda Riunione",
+            "testo": "Prima riunione: far dire 'voglio saperne di più'. Seconda: 'come si struttura'."
+        },
+        {
+            "id": "R04",
+            "nome": "Newco come Possibilità",
+            "testo": "Presentare 3 opzioni (Newco, entità esistente, consorzio). Diventa concreta solo dopo preferenza esplicita."
+        },
+        {
+            "id": "R05",
+            "nome": "Pareto Operativo",
+            "testo": "Il 20% dei colli di bottiglia causa l'80% del rischio. Identificare e aggredire per primi."
+        },
+        {
+            "id": "R06",
+            "nome": "Triangolo di Heinrich",
+            "testo": "Zero segnalazioni near-miss = azienda silenziosa. Il silenzio è il sintomo più pericoloso."
+        },
+        {
+            "id": "R07",
+            "nome": "DISC Situazionale",
+            "testo": "Il profilo DISC cambia per dominio decisionale. Adattare il linguaggio al contesto, non alla persona."
+        },
+        {
+            "id": "R08",
+            "nome": "Silenzio di Elaborazione",
+            "testo": "3-7 giorni post-proposta con segnali positivi = elaborazione. Inviare solo contenuto di valore al giorno 7."
+        },
+        {
+            "id": "R09",
+            "nome": "Layer 0 del Founder",
+            "testo": "Prima di qualsiasi piano, capire la motivazione profonda del founder. Senza allineamento, il progetto fallisce."
+        },
+        {
+            "id": "R10",
+            "nome": "Output Carbone.io Strict",
+            "testo": "I dossier devono essere JSON validi che rispettano lo schema. Nessun testo in Markdown."
+        }
+    ]
+}

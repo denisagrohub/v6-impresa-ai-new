@@ -1,0 +1,98 @@
+{
+    "referral": {
+        "id": "PART-002",
+        "name": "Marco Verdi",
+        "role": "referral",
+        "commissionRate": 10,
+        "totalClients": 3,
+        "activeDeals": 2,
+        "closedDeals": 1
+    },
+    "clients": [
+        {
+            "id": "CLIENT-001",
+            "company": "Azienda Demo S.r.l.",
+            "contactName": "Mario Rossi",
+            "contactEmail": "demo@progettoimpresa.it",
+            "projectCode": "PI-2026-0024",
+            "projectName": "Ristrutturazione Debito & Passaggio Generazionale",
+            "level": "L3",
+            "status": "in_corso",
+            "value": 105000,
+            "commissionEarned": 10500,
+            "commissionStatus": "in_maturazione",
+            "dateReferred": "2026-01-15",
+            "consultantAssigned": "Christian Rossi"
+        },
+        {
+            "id": "CLIENT-002",
+            "company": "Tech Innovation S.p.A.",
+            "contactName": "Giulia Bianchi",
+            "contactEmail": "giulia@techinnovation.it",
+            "projectCode": "PI-2026-0018",
+            "projectName": "Business Plan Startup Tech",
+            "level": "L2",
+            "status": "completato",
+            "value": 20000,
+            "commissionEarned": 2000,
+            "commissionStatus": "erogato",
+            "dateReferred": "2025-11-20",
+            "consultantAssigned": "Laura Neri"
+        },
+        {
+            "id": "CLIENT-003",
+            "company": "Green Energy S.r.l.",
+            "contactName": "Paolo Verdi",
+            "contactEmail": "paolo@greenenergy.it",
+            "projectCode": "PI-2026-0030",
+            "projectName": "Piano Industriale Transizione Energetica",
+            "level": "L2",
+            "status": "in_attesa_firma",
+            "value": 25000,
+            "commissionEarned": 2500,
+            "commissionStatus": "in_attesa",
+            "dateReferred": "2026-06-10",
+            "consultantAssigned": "Davide Bianchi"
+        }
+    ],
+    "commissions": {
+        "totalEarned": 15000,
+        "paid": 2000,
+        "pending": 13000,
+        "breakdown": [
+            {
+                "id": "COMM-001",
+                "client": "Tech Innovation S.p.A.",
+                "project": "PI-2026-0018",
+                "projectValue": 20000,
+                "commissionRate": 10,
+                "commissionAmount": 2000,
+                "status": "erogato",
+                "paidDate": "2026-02-15",
+                "invoiceNumber": "FT-REF-2026-001"
+            },
+            {
+                "id": "COMM-002",
+                "client": "Azienda Demo S.r.l.",
+                "project": "PI-2026-0024",
+                "projectValue": 105000,
+                "commissionRate": 10,
+                "commissionAmount": 10500,
+                "status": "in_maturazione",
+                "paidDate": null,
+                "note": "Erogamento rateale al pagamento dei SAL"
+            },
+            {
+                "id": "COMM-003",
+                "client": "Green Energy S.r.l.",
+                "project": "PI-2026-0030",
+                "projectValue": 25000,
+                "commissionRate": 10,
+                "commissionAmount": 2500,
+                "status": "in_attesa",
+                "paidDate": null,
+                "note": "In attesa di firma contratto"
+            }
+        ]
+    }
+}

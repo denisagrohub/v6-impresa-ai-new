@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- 
+            Automated Action: Invia reminder 24h prima dell'evento
+            Nota: per funzionare richiede il modulo 'base_automation' (non incluso in Community base)
+            Se non installato, questo file viene ignorato
+        -->
+    </data>
+</odoo>

@@ -1,0 +1,38 @@
+{
+    "payments": [
+        {
+            "id": "PAY-PART-001",
+            "partnerId": "PART-001",
+            "partnerName": "Davide Bianchi",
+            "partnerType": "consultant",
+            "projectCode": "PI-2026-020",
+            "projectName": "Piano Industriale - PMI Metalmeccanica",
+            "type": "commission",
+            "baseAmount": 20000,
+            "commissionRate": 15,
+            "fixedFee": 0,
+            "totalAmount": 3000,
+            "status": "paid",
+            "paidAt": "2026-06-30T10:00:00.000Z",
+            "paymentMethod": "bonifico",
+            "invoiceNumber": "FT-PART-2026-015",
+            "demo": true
+        },
+        {
+            "id": "PAY-PART-002",
+            "partnerId": "PART-002",
+            "partnerName": "Marco Verdi",
+            "partnerType": "referral",
+            "projectCode": "PI-2026-024",
+            "projectName": "Advisory M&A - Banca Generali",
+            "type": "referral_fee",
+            "baseAmount": 105000,
+            "commissionRate": 10,
+            "fixedFee": 0,
+            "totalAmount": 10500,
+            "status": "pending",
+            "createdAt": "2026-07-13T09:00:00.000Z",
+            "demo": true
+        }
+    ]
+}

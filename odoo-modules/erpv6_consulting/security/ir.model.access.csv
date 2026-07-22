@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_consulting_brand_user,erpv6.consulting.brand.user,model_erpv6_consulting_brand,base.group_user,1,0,0,0
+access_consulting_brand_manager,erpv6.consulting.brand.manager,model_erpv6_consulting_brand,base.group_system,1,1,1,1

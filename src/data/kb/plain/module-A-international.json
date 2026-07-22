@@ -1,0 +1,202 @@
+{
+    "module_id": "module-A-international",
+    "brand_target": [
+        "agrohub"
+    ],
+    "context": "Sviluppo agro-industriale in mercati emergenti con fondi istituzionali EU, SACE o equivalenti",
+    "regole_operative": [
+        {
+            "id": "V6.A.01",
+            "nome": "Kairós vs Scoring",
+            "descrizione": "Il Kairós del paese si valuta separatamente dallo scoring standard. Un paese con score basso può avere Kairós alto per filiere specifiche. Usare sempre entrambi gli strumenti insieme."
+        },
+        {
+            "id": "V6.A.02",
+            "nome": "Vantaggio di primo operatore",
+            "descrizione": "Un paese con score 73/100 dove nessun competitor è presente è preferibile a un paese con score 87/100 dove le filiere migliori sono già presidiate."
+        },
+        {
+            "id": "V6.A.03",
+            "nome": "Connessione operativa con l'Italia",
+            "descrizione": "La diaspora del paese target in Italia, la presenza di operatori italiani già attivi, sono dati che entrano nel Kairós con lo stesso peso dei dati economici."
+        },
+        {
+            "id": "V6.A.04",
+            "nome": "Filtro A non negoziabile",
+            "descrizione": "Paesi con colpi di stato recenti, sanzioni internazionali attive o conflitti armati in corso vengono esclusi prima dello scoring. Nessun punteggio compensa l'instabilità strutturale."
+        },
+        {
+            "id": "V6.A.05",
+            "nome": "Layer 0 comunitario obbligatorio",
+            "descrizione": "Sei mesi di ascolto puro nella comunità target prima di qualsiasi macchinario o contratto. L'unico indicatore di completamento è che la comunità chieda di procedere."
+        },
+        {
+            "id": "V6.A.06",
+            "nome": "Passaggio al layer successivo",
+            "descrizione": "Si autorizza con autonomia verificata, non con il calendario. Layer 1 completato quando gli operatori locali gestiscono la filiera in autonomia per 30 giorni consecutivi."
+        },
+        {
+            "id": "V6.A.07",
+            "nome": "Principio 70/30",
+            "descrizione": "Il 70% della produzione va valorizzato nel mercato locale del paese di produzione. Non è etica, è la condizione di sostenibilità e finanziabilità EU."
+        },
+        {
+            "id": "V6.A.08",
+            "nome": "Triade con sinergia trasversale",
+            "descrizione": "L'apicoltura o una filiera ad alta sinergia trasversale va sempre inclusa in una triade. Riduce costi operativi, dipendenza da un singolo mercato e aumenta il valore percepito."
+        },
+        {
+            "id": "V6.A.09",
+            "nome": "Dossier per 3 lettori DISC",
+            "descrizione": "Il dossier ha tre lettori: D/C (banca finanziaria, vuole numeri), C/S (garanzia pubblica, vuole procedure), I/S (fondi EU, vuole narrativa e impatto). L'Executive Summary risolve il D/C, le parti tecniche il C/S, la Story Master e l'ESG l'I/S."
+        },
+        {
+            "id": "V6.A.10",
+            "nome": "Il metodo è il protagonista",
+            "descrizione": "Ogni documento istituzionale presenta AgroHub Italia Farm e il Metodo V6 come soggetti. I nomi delle persone compaiono solo come custodi del metodo, mai come protagonisti autonomi."
+        },
+        {
+            "id": "V6.A.11",
+            "nome": "Pricing come accesso al capitale",
+            "descrizione": "Una fee di €800K che sblocca €16M di fondi già assegnati ha un ROI del 20x. Il frame in cui si presenta il prezzo è parte integrante del prezzo stesso."
+        },
+        {
+            "id": "V6.A.12",
+            "nome": "Term sheet nella seconda riunione",
+            "descrizione": "La prima riunione serve a far dire 'voglio saperne di più'. La seconda serve a far dire 'come si struttura'. Portare il term sheet nella prima riunione chiude la conversazione."
+        },
+        {
+            "id": "V6.A.13",
+            "nome": "Newco come possibilità strutturata",
+            "descrizione": "La Newco viene presentata come possibilità strutturata in negoziazione (Newco autonoma, entità esistente, consorzio RTI) e diventa concreta solo dopo che il finanziatore ha espresso la propria preferenza."
+        },
+        {
+            "id": "V6.A.14",
+            "nome": "Partner locale con equity",
+            "descrizione": "La differenza tra un partner locale con quota societaria e un fornitore locale è la differenza tra un progetto che la comunità protegge e uno che subisce. Va strutturato nel term sheet come non negoziabile."
+        },
+        {
+            "id": "V6.A.15",
+            "nome": "Governance progressiva documentata",
+            "descrizione": "Il trasferimento progressivo del potere decisionale alla struttura locale è un piano operativo con indicatori misurabili per ogni layer, scritto dalla fase di strutturazione."
+        }
+    ],
+    "strumenti_struttura": {
+        "STR-A-01_Matrice_Selezione_Geografica": {
+            "livello_A_filtro_hard": [
+                "Nessun colpo di stato nei 3 anni",
+                "Nessuna sanzione internazionale attiva",
+                "Nessun conflitto armato in aree operative"
+            ],
+            "livello_B_score_6_criteri": {
+                "stabilita_politica": 25,
+                "base_agricola": 20,
+                "logistica": 20,
+                "apertura_investimenti_esteri": 15,
+                "ecosistema_partner_locali": 10,
+                "allineamento_fondi_EU": 10
+            },
+            "livello_C_kairos_5_indicatori": [
+                "Stato leadership e apertura riformista",
+                "Energia ecosistema per le filiere target",
+                "Materia prima disponibile",
+                "Pressione che crea urgenza",
+                "Storia tentativi precedenti"
+            ]
+        },
+        "STR-A-02_Scheda_Filiera_A-G": {
+            "A_Mercato_globale": "Dimensione mercato, CAGR, prezzi EU bio vs conv, mercati primari, trend domanda",
+            "B_Investitori_in_Africa": "Chi ha già investito, capacità esistente, gap non presidiato",
+            "C_Rendimenti_reali": "Rese, costi produzione, margini lordi, break-even",
+            "D_Macchinari_knowhow_italiani": "Aziende italiane, distretti, volume export, expertise specifica (nominare aziende reali)",
+            "E_Carbon_credits": "Potenziale crediti, standard applicabili (Verra VCS, Gold Standard), studi impatto",
+            "F_Normativa_EU_import": "Requisiti, certificazioni, barriere non tariffarie (identificare il percorso più lungo)",
+            "G_70_30_Principio_AgroHub": "Mercato locale 70% dettagliato, export EU 30% dettagliato (prodotti specifici per canale specifico)",
+            "H_Glamping": "Tipo struttura (mirror houses/cupole geodetiche), posizionamento nel hub, tariffe stimate, target"
+        },
+        "STR-A-03_BP_Slim_Indotto_Italia": {
+            "capex": "Totale, ripartizione EU/SACE, ripartizione per filiera",
+            "revenue_model": "5 flussi: mercato locale 70%, export EU 30%, glamping, carbon credits, licenza metodo",
+            "break_even": "Mese stimato su scenario base (conservativo)",
+            "irr": "Range percentuale (mostrare nei due scenari)",
+            "indotto_italia": "Macchinari, know-how V6, personale italiano, forniture continuative, totale 4 anni (espresso anche come €/€ EU investito)",
+            "impatto_sociale": "Posti lavoro diretti, cooperative femminili, CO2 sequestrata (KPI misurabili con standard internazionali)"
+        },
+        "STR-A-04_ESG_Pre_Assessment": {
+            "E_Environmental": "Rating target A/AA. Standard: GRI, Verra VCS, Gold Standard. KPI: CO2 sequestrata ton/anno, suolo rigenerato ha, consumo idrico ridotto %",
+            "S_Social": "Rating target AA. Standard: IRIS+, SDG. KPI: Posti lavoro diretti, cooperative femminili, % ricavi al mercato locale, ore formazione/persona",
+            "G_Governance": "Rating target A. Standard: EU Taxonomy, FCPA. KPI: % decisioni autonome locali per layer, audit completati, non conformità risolte"
+        }
+    },
+    "errori_da_evitare": [
+        "Presentare il pricing prima che il cliente abbia capito il valore.",
+        "Assumere che lo scoring standard identifichi il paese giusto (usare sempre anche il Kairós).",
+        "Saltare o comprimere il Layer 0 per rispettare la timeline.",
+        "Presentare i nomi delle persone come protagonisti invece del metodo.",
+        "Proporre la Newco come certezza prima della negoziazione.",
+        "Costruire un dossier per un solo tipo di lettore (D/C, C/S o I/S)."
+    ],
+    "carbone_io_output_schema": {
+        "description": "Schema JSON STRICT che l'AI DEVE generare per i dossier internazionali. Nessun Markdown, nessun testo fuori dal JSON.",
+        "schema": {
+            "documento": "Dossier Internazionale Agro-Industriale",
+            "metadata": {
+                "cliente": "string",
+                "paese_target": "string",
+                "filiera_principale": "string",
+                "data": "YYYY-MM-DD",
+                "custode_metodo": "string (es. Denis D'Este, Christian Ghirardi, Alessandro Candian)"
+            },
+            "executive_summary": {
+                "contesto": "string (max 150 parole)",
+                "opportunita": "string (max 150 parole)",
+                "richiesta_finanziaria": "string",
+                "roi_stimato": "string"
+            },
+            "analisi_geografica": {
+                "filtro_A": "PASS o FAIL",
+                "score_B": "number (0-100)",
+                "kairos_C": "number (5-15)",
+                "motivazione_scelta": "string"
+            },
+            "scheda_filiera_AG": {
+                "mercato_globale": "string",
+                "gap_non_presidiato": "string",
+                "rendimenti_reali": "string",
+                "partner_italiani": [
+                    "string",
+                    "string"
+                ],
+                "principio_70_30": "string",
+                "componente_glamping": "string"
+            },
+            "piano_finanziario_slim": {
+                "capex_totale": "number",
+                "ripartizione_EU_SACE": "string",
+                "break_even_mese": "number",
+                "irr_range": "string",
+                "indotto_italia_euro_per_euro_EU": "number"
+            },
+            "esg_pre_assessment": {
+                "rating_E": "string",
+                "rating_S": "string",
+                "rating_G": "string",
+                "kpi_principali": [
+                    "string",
+                    "string",
+                    "string"
+                ]
+            },
+            "sistema_narrativo": {
+                "story_master": "string (il perché del progetto, max 200 parole)",
+                "declinazione_istituzionale": "string",
+                "declinazione_comunitaria": "string"
+            },
+            "governance_e_rischi": {
+                "struttura_newco_proposta": "string (Newco autonoma / Entità esistente / Consorzio RTI)",
+                "equity_partner_locale": "boolean",
+                "piano_mitigazione_country_manager": "string"
+            }
+        }
+    }
+}

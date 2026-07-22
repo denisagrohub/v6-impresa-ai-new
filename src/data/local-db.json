@@ -1,0 +1,243 @@
+{
+  "brands": {
+    "progetto-impresa": {
+      "id": "progetto-impresa",
+      "name": "V6 Impresa",
+      "tagline": "Dal Progetto al Finanziamento",
+      "description": "Il Metodo V6 per trasformare i progetti in finanziamenti",
+      "colors": {
+        "primary": "#1a2744",
+        "secondary": "#f97316",
+        "accent": "#0f3460",
+        "background": "#f8fafc"
+      },
+      "logo": {
+        "text": "PI",
+        "url": "/images/logo-progetto-impresa.svg"
+      },
+      "contact": {
+        "email": "info@progettoimpresa.it",
+        "phone": "+39 351 99 88 083",
+        "address": "Via Trentino 22 ",
+        "city": "30010 Campolongo Maggiore VE",
+        "hours": "Lun-Ven 9:00-18:00"
+      },
+      "stats": {
+        "year": "2018",
+        "projects": "200+",
+        "revenue": "€50M+",
+        "satisfaction": "98%"
+      },
+      "team": [
+        {
+          "name": "Il Fondatore",
+          "role": "CEO & Strategy Director",
+          "bio": "15+ anni in consulenza finanziaria. Ha strutturato operazioni per oltre €50M.",
+          "initials": "F",
+          "avatar": null
+        },
+        {
+          "name": "Christian",
+          "role": "Lead Financial Analyst",
+          "bio": "Ex investment banking. Specialista in financial modeling e due diligence.",
+          "initials": "C",
+          "avatar": null
+        },
+        {
+          "name": "Davide",
+          "role": "Business Analyst",
+          "bio": "Esperto in analisi di mercato e ricerca bandi. Supporta i progetti L1 e L2.",
+          "initials": "D",
+          "avatar": null
+        }
+      ],
+      "values": [
+        {
+          "icon": "Target",
+          "title": "Risultati concreti",
+          "description": "Non vendiamo documenti. Vendiamo finanziamenti ottenuti."
+        },
+        {
+          "icon": "Heart",
+          "title": "Trasparenza totale",
+          "description": "Prezzi chiari, tempistiche definite, zero sorprese."
+        },
+        {
+          "icon": "Award",
+          "title": "Eccellenza metodologica",
+          "description": "Il Metodo V6 è il nostro asset proprietario."
+        },
+        {
+          "icon": "Users",
+          "title": "Partnership, non fornitura",
+          "description": "Ti affianchiamo fino al closing dell'operazione."
+        }
+      ],
+      "caseStudies": [
+        {
+          "sector": "Tecnologia",
+          "client": "Startup SaaS B2B",
+          "level": "L1",
+          "icon": "Building2",
+          "challenge": "La startup aveva un prodotto innovativo ma nessun business plan strutturato.",
+          "solution": "Abbiamo costruito il BP in 48 ore, con focus su unit economics e CAC/LTV.",
+          "result": "€150.000 raccolti da 3 business angel. Valutazione: €1.2M."
+        },
+        {
+          "sector": "Manifatturiero",
+          "client": "PMI metalmeccanica",
+          "level": "L2",
+          "icon": "Briefcase",
+          "challenge": "Azienda con €8M di fatturato, necessaria espansione internazionale.",
+          "solution": "Piano industriale 5 anni con analisi di mercato Europa e modello DCF.",
+          "result": "Finanziamento di €3.2M approvato da Intesa Sanpaolo."
+        },
+        {
+          "sector": "Agroalimentare",
+          "client": "Gruppo alimentare",
+          "level": "L3",
+          "icon": "Landmark",
+          "challenge": "Passaggio generazionale + acquisizione competitor. Operazione da €15M.",
+          "solution": "Information Memorandum, financial model LBO, supporto roadshow.",
+          "result": "Operazione chiusa in 6 mesi. Valore: €18M."
+        }
+      ],
+      "faqs": [
+        {
+          "question": "Qual è la differenza tra i 3 pacchetti?",
+          "answer": "Il Pacchetto Startup (L1) è per chi parte da zero. Il Piano Industriale (L2) è per PMI strutturate. L'Advisory (L3) è per operazioni finanziarie complesse sopra i 5M€."
+        },
+        {
+          "question": "I business plan sono accettati dalle banche?",
+          "answer": "Sì. I nostri documenti seguono gli standard richiesti dai principali istituti di credito italiani ed europei."
+        },
+        {
+          "question": "Posso pagare a rate?",
+          "answer": "Certamente. Offriamo piani di pagamento flessibili: 50% all'ordine e 50% alla consegna per L1. Per L2 e L3 proponiamo piani personalizzati."
+        }
+      ],
+      "products": [
+        {
+          "id": "l1",
+          "name": "Pacchetto Startup",
+          "price": "da €1.500",
+          "target": "Per chi parte da zero",
+          "description": "Trasforma la tua idea in un business plan professionale in 48 ore.",
+          "link": "/business-plan-startup"
+        },
+        {
+          "id": "l2",
+          "name": "Piano Industriale PMI",
+          "price": "da €20.000",
+          "target": "Per aziende in crescita",
+          "description": "Piano strategico 3-5 anni, analisi finanziaria avanzata e Pitch Deck.",
+          "link": "/business-plan-pmi"
+        },
+        {
+          "id": "l3",
+          "name": "Advisory & Project Finance",
+          "price": "Su misura",
+          "target": "Per grandi operazioni",
+          "description": "Financial modeling complesso, Information Memorandum e supporto M&A.",
+          "link": "/project-finance"
+        }
+      ]
+    },
+    "zero-sprechi": {
+      "id": "zero-sprechi",
+      "name": "Zero Sprechi",
+      "tagline": "Sostenibilità che genera valore.",
+      "description": "Aiutiamo le aziende a ridurre gli sprechi e migliorare la sostenibilità ambientale, trasformandola in vantaggio competitivo.",
+      "colors": {
+        "primary": "#064e3b",
+        "secondary": "#10b981",
+        "accent": "#065f46",
+        "background": "#f0fdf4"
+      },
+      "logo": {
+        "text": "ZS",
+        "url": "/images/logo-zero-sprechi.svg"
+      },
+      "contact": {
+        "email": "info@zerosprechi.it",
+        "phone": "+39 02 123 4568",
+        "address": "Via Monte Napoleone, 8",
+        "city": "20121 Milano MI",
+        "hours": "Lun-Ven 9:00-18:00"
+      },
+      "stats": {
+        "year": "2020",
+        "projects": "85+",
+        "revenue": "€12M+",
+        "satisfaction": "96%"
+      },
+      "team": [
+        {
+          "name": "Marco Verdi",
+          "role": "Sustainability Director",
+          "bio": "Esperto ESG con 10 anni di esperienza in consulenza ambientale.",
+          "initials": "MV",
+          "avatar": null
+        }
+      ],
+      "values": [
+        {
+          "icon": "Leaf",
+          "title": "Impatto misurabile",
+          "description": "Ogni azione si traduce in numeri concreti di riduzione sprechi."
+        },
+        {
+          "icon": "Recycle",
+          "title": "Economia circolare",
+          "description": "Trasformiamo i rifiuti in risorse e opportunità di business."
+        }
+      ],
+      "caseStudies": [],
+      "faqs": [],
+      "products": []
+    },
+    "manuale-rapido": {
+      "id": "manuale-rapido",
+      "name": "Manuale Rapido",
+      "tagline": "Documentazione tecnica senza stress.",
+      "description": "Generiamo manuali tecnici, procedure operative e documentazione ISO in tempi record.",
+      "colors": {
+        "primary": "#7c2d12",
+        "secondary": "#f97316",
+        "accent": "#9a3412",
+        "background": "#fff7ed"
+      },
+      "logo": {
+        "text": "MR",
+        "url": "/images/logo-manuale-rapido.svg"
+      },
+      "contact": {
+        "email": "info@manuelrapido.it",
+        "phone": "+39 02 123 4569",
+        "address": "Via Monte Napoleone, 8",
+        "city": "20121 Milano MI",
+        "hours": "Lun-Ven 9:00-18:00"
+      },
+      "stats": {
+        "year": "2021",
+        "projects": "120+",
+        "revenue": "€8M+",
+        "satisfaction": "94%"
+      },
+      "team": [],
+      "values": [],
+      "caseStudies": [],
+      "faqs": [],
+      "products": []
+    }
+  },
+  "system": {
+    "version": "1.0.0",
+    "lastUpdate": "2026-07-12",
+    "features": {
+      "aiWriter": false,
+      "socialDashboard": false,
+      "callTranscription": false
+    }
+  }
+}

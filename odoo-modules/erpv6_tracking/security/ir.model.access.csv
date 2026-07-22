@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_tracking_config_user,erpv6.tracking.config.user,model_erpv6_tracking_config,base.group_user,1,0,0,0
+access_tracking_config_manager,erpv6.tracking.config.manager,model_erpv6_tracking_config,base.group_system,1,1,1,1
+access_tracking_lot_user,erpv6.tracking.lot.user,model_erpv6_tracking_lot,base.group_user,1,1,1,0
+access_tracking_lot_manager,erpv6.tracking.lot.manager,model_erpv6_tracking_lot,base.group_system,1,1,1,1

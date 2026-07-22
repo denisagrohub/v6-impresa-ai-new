@@ -1,0 +1,54 @@
+{
+    "module_id": "module-f-scoring",
+    "descrizione": "Scoring e selezione — output numerico per priorizzazione",
+    "kairos_matrix": {
+        "indicatori": [
+            {
+                "nome": "Stato emotivo del founder",
+                "scala": "1-3",
+                "descrizione": "Il founder ha vissuto un evento che ha aperto uno spazio di riflessione?"
+            },
+            {
+                "nome": "Energia del team",
+                "scala": "1-3",
+                "descrizione": "Il team ha capacità di assorbire un cambiamento ora?"
+            },
+            {
+                "nome": "Risorse disponibili",
+                "scala": "1-3",
+                "descrizione": "Esiste tempo e attenzione manageriale?"
+            },
+            {
+                "nome": "Pressione esterna",
+                "scala": "1-3",
+                "descrizione": "Esiste una scadenza o evento che crea urgenza?"
+            },
+            {
+                "nome": "Storia tentativi",
+                "scala": "1-3",
+                "descrizione": "Questo problema è già stato affrontato senza successo?"
+            }
+        ],
+        "calcolo": "Somma dei 5 indicatori (5-15)",
+        "livelli": {
+            "5-8": "Prontezza BASSA",
+            "9-12": "Prontezza MEDIA",
+            "13-15": "Prontezza ALTA"
+        },
+        "quadranti": {
+            "IMPATTO_ALTO_PRONTEZZA_BASSA": "PREPARA LE CONDIZIONI — Lavora prima sulle condizioni umane",
+            "IMPATTO_ALTO_PRONTEZZA_ALTA": "KAIRÓS AUTENTICO — Inserisci subito nella matrice 5S e agisci",
+            "IMPATTO_BASSO_PRONTEZZA_BASSA": "PARCHEGGIO — Documenta e monitora",
+            "IMPATTO_BASSO_PRONTEZZA_ALTA": "QUICK WIN — Affronta subito per costruire fiducia"
+        }
+    },
+    "heinrich_triangle": {
+        "descrizione": "Per ogni infortunio grave, 29-30 lievi, 300+ near miss",
+        "applicazione_startup": "Zero segnalazioni di near miss (errori nascosti, dimissioni silenziose) = azienda silenziosa. Il silenzio è il sintomo più preoccupante.",
+        "segnalazioni": {
+            "verde": "Near miss — segnale debole, monitoraggio",
+            "giallo": "Infortunio lieve — attenzione, intervento programmato",
+            "rosso": "Infortunio grave — escalation immediata, review entro 48h"
+        }
+    }
+}

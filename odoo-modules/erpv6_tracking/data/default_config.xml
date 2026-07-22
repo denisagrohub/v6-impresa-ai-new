@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Configurazione default per Prodotti -->
+        <record id="tracking_config_product" model="erpv6.tracking.config">
+            <field name="name">Configurazione Prodotti</field>
+            <field name="code">product</field>
+            <field name="tracking_types">product</field>
+            <field name="company_code">ERP</field>
+            <field name="default_brand">PI</field>
+            <field name="use_batch_lot" eval="True"/>
+            <field name="use_definitive_lot" eval="True"/>
+            <field name="use_julian_day" eval="True"/>
+            <field name="include_time" eval="True"/>
+            <field name="active" eval="True"/>
+            <field name="description">Configurazione di default per il tracciamento prodotti</field>
+        </record>
+
+        <!-- Configurazione default per Documenti -->
+        <record id="tracking_config_document" model="erpv6.tracking.config">
+            <field name="name">Configurazione Documenti</field>
+            <field name="code">document</field>
+            <field name="tracking_types">document</field>
+            <field name="company_code">ERP</field>
+            <field name="default_brand">PI</field>
+            <field name="use_batch_lot" eval="True"/>
+            <field name="use_definitive_lot" eval="False"/>
+            <field name="use_julian_day" eval="True"/>
+            <field name="include_time" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="description">Configurazione per il tracciamento documenti</field>
+        </record>
+
+        <!-- Configurazione default per Progetti -->
+        <record id="tracking_config_project" model="erpv6.tracking.config">
+            <field name="name">Configurazione Progetti</field>
+            <field name="code">project</field>
+            <field name="tracking_types">project</field>
+            <field name="company_code">ERP</field>
+            <field name="default_brand">PI</field>
+            <field name="use_batch_lot" eval="True"/>
+            <field name="use_definitive_lot" eval="False"/>
+            <field name="use_julian_day" eval="True"/>
+            <field name="include_time" eval="False"/>
+            <field name="active" eval="True"/>
+            <field name="description">Configurazione per il tracciamento progetti</field>
+        </record>
+    </data>
+</odoo>

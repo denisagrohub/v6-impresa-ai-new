@@ -1,0 +1,89 @@
+{
+    "module_id": "method-6areas",
+    "aree": [
+        {
+            "numero": 1,
+            "nome": "Strategia e Visione",
+            "domanda": "Dove vuole andare l'imprenditore, e perché?",
+            "custodi": "Lean, visione strategica, accesso",
+            "matrice_5s": {
+                "1S_Elimina": "Obiettivi non prioritizzati, iniziative abbandonate",
+                "2S_Ordina": "Visione comunicata solo verbalmente, nessun piano scritto",
+                "3S_Pulisci": "Confusione tra obiettivi personali e aziendali",
+                "4S_Standardizza": "Nessuna revisione periodica della strategia",
+                "5S_Sostieni": "Resistenza al cambiamento non gestita"
+            },
+            "startup_adaptation": "Per startup: Problem/Solution fit chiaro? Visione a 3-5 anni definita?"
+        },
+        {
+            "numero": 2,
+            "nome": "Economico-Finanziaria",
+            "domanda": "L'azienda è sostenibile, e su quali basi?",
+            "custodi": "Commercialista, mediatore creditizio",
+            "matrice_5s": {
+                "1S_Elimina": "Report ridondanti, dati prodotti ma mai letti",
+                "2S_Ordina": "Dati dispersi tra email e Excel non aggiornati",
+                "3S_Pulisci": "Situazione finanziaria reale non visibile in modo aggregato",
+                "4S_Standardizza": "Procedure amministrative non standardizzate",
+                "5S_Sostieni": "KPI definiti ma non monitorati regolarmente"
+            },
+            "startup_adaptation": "Per startup: Burn rate mensile? Runway (mesi di vita)? Unit Economics (CAC vs LTV)?"
+        },
+        {
+            "numero": 3,
+            "nome": "Operativa e Organizzativa",
+            "domanda": "L'azienda funziona bene al suo interno?",
+            "custodi": "Lean, kaizen, visione operativa",
+            "matrice_5s": {
+                "1S_Elimina": "Attività e approvazioni non necessari",
+                "2S_Ordina": "Ruoli non definiti, 'lo fa chi capita'",
+                "3S_Pulisci": "Sprechi operativi invisibili: attese, rilavorazioni",
+                "4S_Standardizza": "Processi eseguiti diversamente da persona a persona",
+                "5S_Sostieni": "Miglioramenti introdotti ma non mantenuti"
+            },
+            "startup_adaptation": "Per startup: Scalabilità del prodotto/servizio? MVP stato di avanzamento?"
+        },
+        {
+            "numero": 4,
+            "nome": "Persone e Clima",
+            "domanda": "Le persone che lavorano qui stanno bene?",
+            "custodi": "Counsellor, operatore del bene comune",
+            "matrice_5s": {
+                "1S_Elimina": "Tensioni non risolte, dinamiche disfunzionali",
+                "2S_Ordina": "Ruoli e aspettative non chiariti",
+                "3S_Pulisci": "Clima reale non rilevato, problemi nascosti",
+                "4S_Standardizza": "Riconoscimento lasciato all'umore del titolare",
+                "5S_Sostieni": "Interventi di cura isolati e occasionali"
+            },
+            "startup_adaptation": "Per startup: Composizione founding team? Gap di competenze? Turnover?"
+        },
+        {
+            "numero": 5,
+            "nome": "Conformità, Rischio ed Etica",
+            "domanda": "L'azienda opera in modo corretto e sostenibile?",
+            "custodi": "Tecnico informatico, commercialista",
+            "matrice_5s": {
+                "1S_Elimina": "Procedure obsolete, adempimenti duplicati",
+                "2S_Ordina": "Documentazione di compliance dispersa",
+                "3S_Pulisci": "Gap etici e rischi nascosti non rilevati",
+                "4S_Standardizza": "Pratiche affidate alla memoria di chi 'sa come si fa'",
+                "5S_Sostieni": "Valori dichiarati ma non agiti"
+            },
+            "startup_adaptation": "Per startup: Compliance normativa (GDPR, settore specifico)? Proprietà intellettuale?"
+        },
+        {
+            "numero": 6,
+            "nome": "Continuità e Futuro",
+            "domanda": "L'azienda è progettata per sopravvivere al suo fondatore?",
+            "custodi": "Temporary manager, visione strategica",
+            "matrice_5s": {
+                "1S_Elimina": "Piani non scritti, dipendenze critiche dal fondatore",
+                "2S_Ordina": "Piano di successione non documentato",
+                "3S_Pulisci": "Stato reale della prontezza al cambiamento non valutato",
+                "4S_Standardizza": "Nessun processo di pianificazione periodica",
+                "5S_Sostieni": "Piani creati ma non monitorati"
+            },
+            "startup_adaptation": "Per startup: Exit strategy? Piano fundraising? Scalabilità internazionale?"
+        }
+    ]
+}

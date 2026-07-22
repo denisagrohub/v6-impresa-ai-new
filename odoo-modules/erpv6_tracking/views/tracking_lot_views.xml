@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_tracking_lot_form" model="ir.ui.view">
+        <field name="name">erpv6.tracking.lot.form</field>
+        <field name="model">erpv6.tracking.lot</field>
+        <field name="arch" type="xml">
+            <form string="Lotto di Tracciamento">
+                <header>
+                    <button name="action_close" string="Chiudi" type="object" states="active" class="btn-primary"/>
+                    <button name="action_cancel" string="Annulla" type="object" states="draft,active"/>
+                    <button name="action_draft" string="Riporta in Bozza" type="object" states="closed,cancelled"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,closed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="code" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Dati Lotto">
+                            <field name="name"/>
+                            <field name="tracking_type"/>
+                            <field name="config_id"/>
+                            <field name="parent_lot_id" invisible="tracking_type != 'definitive'"/>
+                        </group>
+                        <group string="Azienda e Brand">
+                            <field name="company_code"/>
+                            <field name="brand_code"/>
+                            <field name="quantity"/>
+                        </group>
+                    </group>
+                    <group string="Data Produzione">
+                        <group>
+                            <field name="production_date"/>
+                            <field name="year"/>
+                            <field name="julian_day"/>
+                        </group>
+                        <group>
+                            <field name="hour"/>
+                            <field name="minute"/>
+                        </group>
+                    </group>
+                    <group string="Relazioni">
+                        <field name="product_id"/>
+                        <field name="document_id"/>
+                        <field name="project_id"/>
+                        <field name="order_id"/>
+                    </group>
+                    <group string="Note">
+                        <field name="notes" nolabel="1"/>
+                    </group>
+                    <group string="Lotti Figli" invisible="tracking_type != 'batch'">
+                        <field name="child_lot_ids" nolabel="1">
+                            <tree>
+                                <field name="code"/>
+                                <field name="tracking_type"/>
+                                <field name="production_date"/>
+                                <field name="state"/>
+                            </tree>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_tracking_lot_tree" model="ir.ui.view">
+        <field name="name">erpv6.tracking.lot.tree</field>
+        <field name="model">erpv6.tracking.lot</field>
+        <field name="arch" type="xml">
+            <tree string="Lotti di Tracciamento">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="tracking_type"/>
+                <field name="company_code"/>
+                <field name="brand_code"/>
+                <field name="production_date"/>
+                <field name="quantity"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_tracking_lot_search" model="ir.ui.view">
+        <field name="name">erpv6.tracking.lot.search</field>
+        <field name="model">erpv6.tracking.lot</field>
+        <field name="arch" type="xml">
+            <search string="Cerca Lotti">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="product_id"/>
+                <filter string="Lotti Batch" name="batch" domain="[('tracking_type', '=', 'batch')]"/>
+                <filter string="Lotti Definitivi" name="definitive" domain="[('tracking_type', '=', 'definitive')]"/>
+                <separator/>
+                <filter string="Attivi" name="active" domain="[('state', '=', 'active')]"/>
+                <filter string="Chiusi" name="closed" domain="[('state', '=', 'closed')]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter string="Tipologia" name="group_type" context="{'group_by': 'tracking_type'}"/>
+                    <filter string="Brand" name="group_brand" context="{'group_by': 'brand_code'}"/>
+                    <filter string="Stato" name="group_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_tracking_lot" model="ir.actions.act_window">
+        <field name="name">Lotti di Tracciamento</field>
+        <field name="res_model">erpv6.tracking.lot</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea il primo lotto di tracciamento
+            </p>
+        </field>
+    </record>
+
+    <record id="action_tracking_batch_lot" model="ir.actions.act_window">
+        <field name="name">Lotti Batch</field>
+        <field name="res_model">erpv6.tracking.lot</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('tracking_type', '=', 'batch')]</field>
+        <field name="context">{'default_tracking_type': 'batch'}</field>
+    </record>
+
+    <record id="action_tracking_definitive_lot" model="ir.actions.act_window">
+        <field name="name">Lotti Definitivi</field>
+        <field name="res_model">erpv6.tracking.lot</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('tracking_type', '=', 'definitive')]</field>
+        <field name="context">{'default_tracking_type': 'definitive'}</field>
+    </record>
+</odoo>

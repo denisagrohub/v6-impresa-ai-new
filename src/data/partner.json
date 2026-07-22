@@ -1,0 +1,50 @@
+{
+    "partners": [
+        {
+            "id": "PART-001",
+            "name": "Christian Rossi",
+            "email": "christian@progettoimpresa.it",
+            "phone": "+39 333 1234567",
+            "type": "consultant",
+            "status": "active",
+            "hourlyRate": 180,
+            "commissionRate": 35,
+            "maxDiscount": 10,
+            "isChief": true,
+            "promotedAt": "2026-07-16T10:30:00Z",
+            "promotedBy": "admin",
+            "specialties": [
+                "M&A",
+                "Business Plan"
+            ],
+            "createdAt": "2026-01-15T09:00:00Z"
+        },
+        {
+            "id": "PART-002",
+            "name": "Laura Neri",
+            "email": "laura@progettoimpresa.it",
+            "phone": "+39 333 7654321",
+            "type": "consultant",
+            "status": "active",
+            "hourlyRate": 120,
+            "commissionRate": 10,
+            "maxDiscount": 5,
+            "isChief": false,
+            "specialties": [
+                "Startup",
+                "Project Finance"
+            ],
+            "createdAt": "2026-03-10T14:00:00Z"
+        },
+        {
+            "id": "PART-003",
+            "name": "Marco Verdi",
+            "email": "marco@referral.it",
+            "phone": "+39 333 9876543",
+            "type": "referral",
+            "status": "active",
+            "commissionRate": 10,
+            "createdAt": "2026-05-20T11:00:00Z"
+        }
+    ]
+}

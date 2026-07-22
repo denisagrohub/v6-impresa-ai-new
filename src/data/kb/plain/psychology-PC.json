@@ -1,0 +1,53 @@
+{
+    "module_id": "psychology-PC",
+    "patterns": [
+        {
+            "id": "PC-01",
+            "comportamento": "Risposta entro 1 ora",
+            "signal": "Engagement alto",
+            "interpretation": "Sei nella sua testa. Il tema è caldo.",
+            "action": "Rispondere con uguale velocità.",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PC-03",
+            "comportamento": "Risposta dopo 10+ giorni senza spiegazione",
+            "signal": "Evitamento attivo",
+            "interpretation": "Ha scelto di non rispondere.",
+            "action": "Cambiare canale. Cambiare approccio. Non ripetere lo stesso messaggio.",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PC-05",
+            "comportamento": "Chiede di rinviare call senza proporre alternativa",
+            "signal": "Resistenza passiva",
+            "interpretation": "Non vuole la call ma non sa come dirlo.",
+            "action": "«Cosa ti renderebbe più comodo parlarne?»",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PC-09",
+            "comportamento": "Introduce nuovo interlocutore a metà percorso",
+            "signal": "Processo decisionale allargato",
+            "interpretation": "Sta prendendo sul serio. Costruisce consenso interno.",
+            "action": "Includere il nuovo interlocutore. Riproporre basi in modo sintetico.",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PC-12",
+            "comportamento": "Torna spontaneamente dopo lungo silenzio",
+            "signal": "Trigger event interno",
+            "interpretation": "Un fatto nuovo ha riattivato la necessità.",
+            "action": "Rispondere subito. Chiedere cos'è cambiato. Finestra preziosa.",
+            "priority": "ALTA"
+        },
+        {
+            "id": "PC-13",
+            "comportamento": "Fa screenshot o salva materiali durante call",
+            "signal": "Elaborazione attiva",
+            "interpretation": "Sta archiviando per consultazione futura o condivisione interna.",
+            "action": "Buon segnale. Assicurarsi che il materiale sia chiaro e ben strutturato.",
+            "priority": "ALTA"
+        }
+    ]
+}
