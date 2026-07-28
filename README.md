@@ -16,3 +16,4 @@ Piattaforma di consulenza avanzata per business plan, brand analysis e marketing
 
 ```bash
 npm run dev
+# v6-impresa-ai-new
