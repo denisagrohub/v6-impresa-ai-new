@@ -12,7 +12,7 @@ function getDailyApiKey(): string | null {
         const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
         return config.callAI?.dailyApiKey || null;
     } catch (error) {
-        console.debug('Errore lettura Daily API key:', error);
+        console.debug('Errore lettura Daily API key');
         return null;
     }
 }

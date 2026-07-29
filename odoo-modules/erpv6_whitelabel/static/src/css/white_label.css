@@ -1,0 +1,122 @@
+/* White Label CSS per Odoo 18 */
+
+:root {
+    --wl-primary-color: #1a2744;
+    --wl-secondary-color: #f97316;
+    --wl-success-color: #10b981;
+    --wl-warning-color: #f59e0b;
+    --wl-danger-color: #ef4444;
+    --wl-font-family: 'Inter', sans-serif;
+    --wl-border-radius: 6px;
+}
+
+/* Applicazione font globale */
+body, .o_web_client, .o_form_view, .o_list_view {
+    font-family: var(--wl-font-family) !important;
+}
+
+/* Navbar principale */
+.o_main_navbar {
+    background-color: var(--wl-primary-color) !important;
+    border-color: var(--wl-primary-color) !important;
+}
+
+/* Bottoni primari */
+.btn-primary,
+.o_btn_primary,
+.o_form_button_save,
+.o_form_button_create {
+    background-color: var(--wl-primary-color) !important;
+    border-color: var(--wl-primary-color) !important;
+    border-radius: var(--wl-border-radius) !important;
+}
+
+.btn-primary:hover,
+.o_btn_primary:hover {
+    background-color: rgba(26, 39, 68, 0.9) !important;
+    border-color: rgba(26, 39, 68, 0.9) !important;
+}
+
+/* Bottoni secondari */
+.btn-secondary,
+.o_btn_secondary {
+    background-color: var(--wl-secondary-color) !important;
+    border-color: var(--wl-secondary-color) !important;
+    border-radius: var(--wl-border-radius) !important;
+}
+
+.btn-secondary:hover {
+    background-color: rgba(249, 115, 22, 0.9) !important;
+    border-color: rgba(249, 115, 22, 0.9) !important;
+}
+
+/* Link e testi */
+a, .text-primary {
+    color: var(--wl-primary-color) !important;
+}
+
+.text-secondary {
+    color: var(--wl-secondary-color) !important;
+}
+
+/* Input focus */
+.form-control:focus,
+.o_form_input:focus {
+    border-color: var(--wl-primary-color) !important;
+    box-shadow: 0 0 0 0.2rem rgba(26, 39, 68, 0.25) !important;
+}
+
+/* Badge e tag */
+.badge-primary {
+    background-color: var(--wl-primary-color) !important;
+}
+
+.badge-secondary {
+    background-color: var(--wl-secondary-color) !important;
+}
+
+/* Card e pannelli */
+.o_form_sheet_bg,
+.o_control_panel {
+    border-radius: var(--wl-border-radius) !important;
+}
+
+/* Tabelle */
+.o_list_table thead th {
+    background-color: var(--wl-primary-color) !important;
+    color: white !important;
+}
+
+/* Menu laterale */
+.o_main_sidebar {
+    border-radius: 0 var(--wl-border-radius) var(--wl-border-radius) 0 !important;
+}
+
+/* Alert e notifiche */
+.alert-success {
+    border-left: 4px solid var(--wl-success-color) !important;
+}
+
+.alert-warning {
+    border-left: 4px solid var(--wl-warning-color) !important;
+}
+
+.alert-danger {
+    border-left: 4px solid var(--wl-danger-color) !important;
+}
+
+/* Loading spinner */
+.o_loading_spinner {
+    color: var(--wl-primary-color) !important;
+}
+
+/* Scrollbar personalizzata */
+::-webkit-scrollbar-thumb {
+    background-color: var(--wl-primary-color);
+    border-radius: var(--wl-border-radius);
+}
+
+::-webkit-scrollbar-track {
+    background-color: #f1f1f1;
+    border-radius: var(--wl-border-radius);
+}

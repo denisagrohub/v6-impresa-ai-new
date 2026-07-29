@@ -78,6 +78,7 @@ export default function ClientDashboard() {
     const menuItems = [
         { id: "panoramica", label: "Panoramica", icon: LayoutDashboard, badge: null },
         { id: "pagamenti", label: "Pagamenti", icon: CreditCard, badge: pagamenti.filter((p: any) => p.stato === 'in_attesa' || p.stato === 'scaduto').length },
+        { id: "contabilita", label: "Contabilità", icon: FileText, badge: null },
         { id: "documenti", label: "Documenti", icon: FileText, badge: null },
         { id: "messaggi", label: "Messaggi", icon: MessageSquare, badge: messaggiNonLetti },
     ];

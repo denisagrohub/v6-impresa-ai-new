@@ -1,0 +1,31 @@
+{
+  "commissions": [
+    {
+      "id": "comm-001",
+      "partnerId": "partner-001",
+      "partnerName": "Mario Rossi",
+      "projectCode": "PROJ-2024-001",
+      "amount": 750,
+      "status": "paid",
+      "paidAt": "2024-03-20"
+    },
+    {
+      "id": "comm-002",
+      "partnerId": "partner-001",
+      "partnerName": "Mario Rossi",
+      "projectCode": "PROJ-2024-002",
+      "amount": 1200,
+      "status": "pending",
+      "paidAt": null
+    },
+    {
+      "id": "comm-003",
+      "partnerId": "partner-002",
+      "partnerName": "Luca Bianchi",
+      "projectCode": "PROJ-2024-003",
+      "amount": 500,
+      "status": "pending",
+      "paidAt": null
+    }
+  ]
+}
