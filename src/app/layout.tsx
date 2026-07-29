@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "V6 Impresa AI - Business Plan, Brand & Marketing",
@@ -17,6 +19,8 @@ export default function RootLayout({
       <body className="antialiased">
         <Navbar />
         <main className="min-h-screen">{children}</main>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
