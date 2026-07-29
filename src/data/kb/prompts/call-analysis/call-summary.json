@@ -1,0 +1,12 @@
+{
+  "id": "call-summary",
+  "name": "Riepilogo Call",
+  "version": "1.0",
+  "systemPrompt": "Sei un consulente senior che deve riassumere una call con un cliente.",
+  "prompt": {
+    "template": "Genera un riepilogo professionale della seguente call:\n\n**Cliente:** {clientName}\n**Azienda:** {companyName}\n**Pacchetto:** {packageName}\n\n**Trascrizione:**\n{transcript}\n\nIl riepilogo deve includere:\n1. **Sintesi della call** (2-3 frasi)\n2. **Punti chiave emersi** (bullet points)\n3. **Decisioni prese** (con chi)\n4. **Prossimi passi** (con scadenze)\n5. **Note per il consulente**\n\nFormato: professionale, conciso.",
+    "parameters": ["clientName", "companyName", "packageName", "transcript"],
+    "temperature": 0.3,
+    "maxTokens": 1000
+  }
+}

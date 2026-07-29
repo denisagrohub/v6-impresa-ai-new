@@ -1,0 +1,15 @@
+{
+  "metrics": {
+    "totalInterviews": 0,
+    "completionRate": 0,
+    "averageTimePerPhase": {},
+    "dropOffRate": {},
+    "questionPerformance": {}
+  },
+  "insights": {
+    "bestPerformingQuestions": [],
+    "worstPerformingQuestions": [],
+    "commonDropOffPoints": [],
+    "suggestedImprovements": []
+  }
+}

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_v6" model="ir.ui.view">
+        <field name="name">res.partner.form.v6</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="V6 Impresa - Dati Fiscali">
+                    <group>
+                        <field name="v6_ateco_code"/>
+                        <field name="v6_ateco_description"/>
+                        <field name="v6_fiscal_regime"/>
+                    </group>
+                    <group>
+                        <field name="v6_revenue_forecast"/>
+                        <field name="v6_predicted_annual_tax"/>
+                        <field name="v6_kairos_score"/>
+                        <field name="v6_kairos_level"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

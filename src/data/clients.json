@@ -1,0 +1,12 @@
+{
+  "users": [
+    {
+      "id": "client_001",
+      "email": "demo@progettoimpresa.it",
+      "password": "demo123",
+      "name": "Mario Rossi",
+      "company": "Azienda Demo S.r.l.",
+      "createdAt": "2026-07-26T17:57:01.080Z"
+    }
+  ]
+}

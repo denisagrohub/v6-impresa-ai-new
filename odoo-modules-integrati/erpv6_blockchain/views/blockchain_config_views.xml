@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_blockchain_config_form" model="ir.ui.view">
+        <field name="name">erpv6.blockchain.config.form</field>
+        <field name="model">erpv6.blockchain.config</field>
+        <field name="arch" type="xml">
+            <form string="Configurazione Blockchain">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Nome Configurazione"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Rete e Stato">
+                            <field name="network"/>
+                            <field name="active"/>
+                            <field name="gas_limit"/>
+                        </group>
+                        <group string="Credenziali (Mantenere Sicure)">
+                            <field name="rpc_url" widget="url"/>
+                            <field name="private_key" password="True"/>
+                            <field name="contract_address" widget="url"/>
+                        </group>
+                        <group string="Statistiche">
+                            <field name="total_certified"/>
+                            <field name="total_cost_eth"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_blockchain_config" model="ir.actions.act_window">
+        <field name="name">Configurazioni Blockchain</field>
+        <field name="res_model">erpv6.blockchain.config</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

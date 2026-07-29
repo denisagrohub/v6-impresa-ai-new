@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ateco_regime_user,erpv6.ateco.regime.user,model_erpv6_ateco_regime,base.group_user,1,0,0,0
+access_ateco_regime_manager,erpv6.ateco.regime.manager,model_erpv6_ateco_regime,account.group_account_manager,1,1,1,1
+access_fiscal_prediction_user,erpv6.fiscal.prediction.user,model_erpv6_fiscal_prediction,account.group_account_invoice,1,0,0,0
+access_fiscal_prediction_manager,erpv6.fiscal.prediction.manager,model_erpv6_fiscal_prediction,account.group_account_manager,1,1,1,1
+access_deduction_suggestion_user,erpv6.deduction.suggestion.user,model_erpv6_deduction_suggestion,account.group_account_invoice,1,0,0,0
+access_deduction_suggestion_manager,erpv6.deduction.suggestion.manager,model_erpv6_deduction_suggestion,account.group_account_manager,1,1,1,1
+access_asset_advisor_user,erpv6.asset.advisor.user,model_erpv6_asset_advisor,account.group_account_invoice,1,0,0,0
+access_asset_advisor_manager,erpv6.asset.advisor.manager,model_erpv6_asset_advisor,account.group_account_manager,1,1,1,1

@@ -1,0 +1,12 @@
+{
+  "id": "call-psychological-analysis",
+  "name": "Analisi Psicologica Call",
+  "version": "1.0",
+  "systemPrompt": "Sei uno psicologo esperto in analisi del comportamento e pattern linguistici.",
+  "prompt": {
+    "template": "Analizza la seguente trascrizione di una call con un cliente per identificare:\n\n1. **Profilo DISC**: identifica la dimensione predominante (D=Dominanza, I=Influenza, S=Stabilità, C=Conformità) con una breve descrizione.\n\n2. **Pattern di Programmazione Linguistica (PL)**: identifica i pattern PL presenti (PL-01, PL-02, ecc.) con il testo specifico che li evidenzia.\n\n3. **Sentiment generale**: positivo, neutro, negativo con percentuale di fiducia.\n\n4. **Obiezioni e preoccupazioni**: elenca le principali obiezioni con gravità (bassa/alta) e suggerimento per superarle.\n\n5. **Momenti decisionali**: identifica i momenti in cui il cliente prende una decisione o esprime un impegno.\n\n6. **Suggerimenti per il consulente**: 3-5 suggerimenti pratici per gestire la call.\n\nTrascrizione:\n{transcript}",
+    "parameters": ["transcript"],
+    "temperature": 0.3,
+    "maxTokens": 2000
+  }
+}

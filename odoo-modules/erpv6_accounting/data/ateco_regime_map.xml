@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Mappatura ATECO → Regime Fiscale -->
+
+        <!-- Manifatturiero -->
+        <record id="ateco_10_manifatturiero" model="erpv6.ateco.regime">
+            <field name="code">10</field>
+            <field name="description">Industrie alimentari</field>
+            <field name="regime_default">ordinario</field>
+            <field name="coefficiente_redditivita">0.35</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">manifatturiero</field>
+        </record>
+
+        <record id="ateco_13_tessile" model="erpv6.ateco.regime">
+            <field name="code">13</field>
+            <field name="description">Industrie tessili</field>
+            <field name="regime_default">ordinario</field>
+            <field name="coefficiente_redditivita">0.30</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">manifatturiero</field>
+        </record>
+
+        <record id="ateco_25_metallurgia" model="erpv6.ateco.regime">
+            <field name="code">25</field>
+            <field name="description">Fabbricazione di prodotti in metallo</field>
+            <field name="regime_default">ordinario</field>
+            <field name="coefficiente_redditivita">0.40</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">manifatturiero</field>
+        </record>
+
+        <!-- Commercio -->
+        <record id="ateco_46_commercio_ingrosso" model="erpv6.ateco.regime">
+            <field name="code">46</field>
+            <field name="description">Commercio all'ingrosso</field>
+            <field name="regime_default">ordinario</field>
+            <field name="coefficiente_redditivita">0.25</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">commercio</field>
+        </record>
+
+        <record id="ateco_47_commercio_dettaglio" model="erpv6.ateco.regime">
+            <field name="code">47</field>
+            <field name="description">Commercio al dettaglio</field>
+            <field name="regime_default">semplificato</field>
+            <field name="coefficiente_redditivita">0.30</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">commercio</field>
+        </record>
+
+        <!-- Servizi -->
+        <record id="ateco_62_informatica" model="erpv6.ateco.regime">
+            <field name="code">62</field>
+            <field name="description">Produzione di software</field>
+            <field name="regime_default">ordinario</field>
+            <field name="coefficiente_redditivita">0.50</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">tech</field>
+        </record>
+
+        <record id="ateco_69_consulenza" model="erpv6.ateco.regime">
+            <field name="code">69</field>
+            <field name="description">Attività professionali</field>
+            <field name="regime_default">ordinario</field>
+            <field name="coefficiente_redditivita">0.60</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">servizi</field>
+        </record>
+
+        <record id="ateco_70_consulenza_direzionale" model="erpv6.ateco.regime">
+            <field name="code">70</field>
+            <field name="description">Consulenza direzionale</field>
+            <field name="regime_default">ordinario</field>
+            <field name="coefficiente_redditivita">0.55</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">servizi</field>
+        </record>
+
+        <!-- Agricoltura -->
+        <record id="ateco_01_agricoltura" model="erpv6.ateco.regime">
+            <field name="code">01</field>
+            <field name="description">Coltivazioni agricole</field>
+            <field name="regime_default">agricolo_speciale</field>
+            <field name="coefficiente_redditivita">0.15</field>
+            <field name="aliquota_iva_media">4.0</field>
+            <field name="settore">agricolo</field>
+        </record>
+
+        <!-- Food & Beverage -->
+        <record id="ateco_56_ristorazione" model="erpv6.ateco.regime">
+            <field name="code">56</field>
+            <field name="description">Ristorazione</field>
+            <field name="regime_default">semplificato</field>
+            <field name="coefficiente_redditivita">0.35</field>
+            <field name="aliquota_iva_media">10.0</field>
+            <field name="settore">food</field>
+        </record>
+
+        <!-- Tech -->
+        <record id="ateco_58_editoria_digital" model="erpv6.ateco.regime">
+            <field name="code">58</field>
+            <field name="description">Attività editoriali digitali</field>
+            <field name="regime_default">ordinario</field>
+            <field name="coefficiente_redditivita">0.45</field>
+            <field name="aliquota_iva_media">22.0</field>
+            <field name="settore">tech</field>
+        </record>
+    </data>
+</odoo>

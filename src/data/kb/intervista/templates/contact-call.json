@@ -1,0 +1,44 @@
+{
+  "name": "Call di Contatto",
+  "duration": 30,
+  "description": "Primo contatto con il cliente per completare i dati e avviare il progetto",
+  "sections": [
+    {
+      "name": "Azienda",
+      "questions": [
+        "Conferma l'anno di fondazione della tua azienda",
+        "Qual è la forma giuridica? (S.r.l., S.p.A., S.a.s.)",
+        "Conferma la partita IVA"
+      ]
+    },
+    {
+      "name": "Finanziario",
+      "questions": [
+        "Qual è il fatturato esatto dell'ultimo anno?",
+        "Qual è l'EBITDA (margine operativo)?",
+        "Quanto prevedi di investire nei prossimi 3 anni?",
+        "Di che finanziamento hai bisogno?"
+      ]
+    },
+    {
+      "name": "Mercato",
+      "questions": [
+        "Chi è il tuo cliente ideale? (descrivi il mercato target)",
+        "Chi sono i tuoi principali competitor?",
+        "Qual è il tuo vantaggio competitivo?"
+      ]
+    },
+    {
+      "name": "Obiettivi",
+      "questions": [
+        "Quali sono i tuoi obiettivi specifici per i prossimi 3 anni?",
+        "Quali sono le tempistiche per raggiungerli?"
+      ]
+    }
+  ],
+  "nextSteps": [
+    "Inserisci i dati nel sistema",
+    "Avvia generazione Business Plan",
+    "Fissa prossima call di review"
+  ]
+}

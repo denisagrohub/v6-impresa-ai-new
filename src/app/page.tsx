@@ -118,7 +118,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ✅ NUOVA SEZIONE: SCOPRI I PACCHETTI */}
+      {/* Sezione Pacchetti */}
       <section className="container mx-auto px-4 py-16">
         <div className="text-center animate-fadeIn delay-300">
           <Badge variant="primary" className="mb-4">🆕 Nuovi Pacchetti</Badge>
@@ -136,31 +136,6 @@ export default function Home() {
           </Link>
         </div>
       </section>
-
-      {/* CTA Section */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="bg-gradient-orange rounded-2xl p-12 text-center text-white animate-fadeIn delay-200">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Pronto a trasformare la tua azienda?
-          </h2>
-          <p className="text-lg text-orange-100 mb-8 max-w-2xl mx-auto">
-            Unisciti a centinaia di imprenditori che hanno già portato la loro 
-            azienda al livello successivo con V6 Impresa AI.
-          </p>
-          <Link href="/intervista">
-            <Button 
-              variant="secondary" 
-              size="lg" 
-              className="bg-white text-orange-600 hover:bg-orange-50 border-white"
-            >
-              🚀 Inizia la tua trasformazione
-            </Button>
-          </Link>
-        </div>
-      </section>
-    </main>
-  );
-}
 
       {/* OFFERTA A TEMPO LIMITATO */}
       <section className="container mx-auto px-4 py-8">
@@ -191,3 +166,43 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* V6 Assessment CTA */}
+      <section className="container mx-auto px-4 py-12">
+        <div className="bg-gradient-to-r from-orange-100 to-orange-50 rounded-2xl p-8 border-2 border-orange-200">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <h3 className="text-2xl font-bold text-[#1a2744]">🎯 Scopri il tuo V6 Score</h3>
+              <p className="text-gray-600 mt-1">Rispondi a 6 domande e ricevi un report personalizzato</p>
+            </div>
+            <Link href="/intervista?assessment=true">
+              <Button size="lg" className="whitespace-nowrap">Inizia il test →</Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section - CORRETTA CON TESTO VISIBILE */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-12 text-center text-white shadow-xl">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+            Pronto a trasformare la tua azienda?
+          </h2>
+          <p className="text-lg text-orange-100 mb-8 max-w-2xl mx-auto">
+            Unisciti a centinaia di imprenditori che hanno già portato la loro 
+            azienda al livello successivo con V6 Impresa AI.
+          </p>
+          <Link href="/intervista">
+            <Button 
+              variant="secondary" 
+              size="lg" 
+              className="bg-white text-orange-600 hover:bg-orange-50 border-white font-bold"
+            >
+              🚀 Inizia la tua trasformazione
+            </Button>
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}

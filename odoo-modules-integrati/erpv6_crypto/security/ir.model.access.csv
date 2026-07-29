@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_crypto_engine_user,erpv6.crypto.engine user,model_erpv6_crypto_engine,base.group_user,1,0,0,0
+access_crypto_engine_manager,erpv6.crypto.engine manager,model_erpv6_crypto_engine,base.group_system,1,1,1,1
+access_crypto_key_manager,erpv6.crypto.key manager,model_erpv6_crypto_key,base.group_system,1,1,1,1
+access_crypto_audit_user,erpv6.crypto.audit user,model_erpv6_crypto_audit,base.group_system,1,1,1,0

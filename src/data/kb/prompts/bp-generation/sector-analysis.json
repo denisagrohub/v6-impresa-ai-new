@@ -1,0 +1,12 @@
+{
+  "id": "bp-sector-analysis",
+  "name": "Analisi Settore per Business Plan",
+  "version": "1.0",
+  "systemPrompt": "Sei un analista di mercato esperto, specializzato in analisi di settore per business plan.",
+  "prompt": {
+    "template": "Genera un'analisi di settore per il Business Plan di {companyName} nel settore {sector}.\n\n**Dati azienda:**\n- Nome: {companyName}\n- Settore: {sector}\n- Fatturato: {revenue}\n- Dipendenti: {employees}\n\n**Mercato target:** {targetMarket}\n**Competitor:** {competitors}\n**Vantaggio competitivo:** {competitiveAdvantage}\n\n**REGOLE:**\n- NON inventare numeri (TAM, SAM, SOM)\n- Usa placeholder [DA DEFINIRE] dove mancano dati\n- Descrivi trend in modo qualitativo, non quantitativo\n- Basati solo sui dati forniti\n\nGenera un'analisi che copra:\n1. Contesto generale del settore (qualitativo)\n2. Mercato target descritto in modo qualitativo\n3. Mappatura competitor (solo quelli forniti)\n4. Vantaggio competitivo (da fornire)\n5. Opportunità di mercato (qualitative)",
+    "parameters": ["companyName", "sector", "revenue", "employees", "targetMarket", "competitors", "competitiveAdvantage"],
+    "temperature": 0.2,
+    "maxTokens": 1500
+  }
+}
