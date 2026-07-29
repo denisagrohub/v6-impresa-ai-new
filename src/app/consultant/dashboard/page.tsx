@@ -103,7 +103,7 @@ export default function ConsultantDashboard() {
                 });
 
             // 2. Carica le richieste/segnalazioni
-            fetch(`/api/consultant/requests?consultantId=${user.clientId}`)
+            fetch(`/api/consultant/requests?consultantId=${user.clientId || user.id}`)
                 .then(res => res.json())
                 .then(reqData => setMyRequests(reqData))
                 .catch(err => console.error('Errore caricamento richieste:', err));
@@ -120,7 +120,7 @@ export default function ConsultantDashboard() {
         try {
             const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
             const endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-31`;
-            const res = await fetch(`/api/consultant/calendar?consultantId=${user.clientId}&startDate=${startDate}&endDate=${endDate}`);
+            const res = await fetch(`/api/consultant/calendar?consultantId=${user.clientId || user.id}&startDate=${startDate}&endDate=${endDate}`);
             const data = await res.json();
             setCalendarEvents(data.events || []);
         } catch (error) {

@@ -68,6 +68,7 @@ export default function AdminDashboard() {
     { icon: CheckCircle2, label: "Validazione", href: "/admin/validazione" },
     { icon: Users, label: "Coda Lead", href: "/admin/leads" },
     { icon: Calculator, label: "Pagamenti", href: "/admin/payments" },
+    { icon: Landmark, label: "Contabilità", href: "/admin/accounting" },
     { icon: Mail, label: "Email", href: "/admin/email" },
     { icon: Users, label: "Partner", href: "/admin/partners" },
     { icon: Palette, label: "Gestione Brand", href: "/admin/settings/brands" },
