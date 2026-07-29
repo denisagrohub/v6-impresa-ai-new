@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menu Principale -->
+    <menuitem id="menu_erpv6_typst_root" 
+              name="Documenti & Report" 
+              parent="base.menu_custom" 
+              sequence="10"/>
+
+    <!-- Sottomenu Template -->
+    <menuitem id="menu_erpv6_typst_templates" 
+              name="Template Tipst" 
+              parent="menu_erpv6_typst_root" 
+              action="action_erpv6_typst_template" 
+              sequence="10"/>
+
+    <!-- Sottomenu Documenti Generati -->
+    <menuitem id="menu_erpv6_typst_documents" 
+              name="Documenti Generati" 
+              parent="menu_erpv6_typst_root" 
+              action="action_erpv6_typst_document" 
+              sequence="20"/>
+</odoo>

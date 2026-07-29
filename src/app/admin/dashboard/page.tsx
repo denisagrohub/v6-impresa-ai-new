@@ -75,12 +75,18 @@ export default function AdminDashboard() {
     { icon: FolderKanban, label: "Progetti", href: "/admin/projects" },
     { icon: CheckCircle2, label: "Validazione", href: "/admin/validazione" },
     { icon: Users, label: "Coda Lead", href: "/admin/leads" },
+
+    { icon: Calculator, label: "Pagamenti", href: "/admin/payments" },
+    { icon: Landmark, label: "Contabilità", href: "/admin/accounting" },
+    { icon: Mail, label: "Email", href: "/admin/email" },
+
     { icon: Brain, label: "Knowledge Base", href: "/admin/kb" },
     { icon: FileText, label: "Libreria", href: "/admin/library" },
     { icon: Palette, label: "Brand Projects", href: "/admin/brand" },
     { icon: TrendingUp, label: "Marketing Plans", href: "/admin/marketing" },
     { icon: Shield, label: "Sicurezza", href: "/admin/security" },
     { icon: DollarSign, label: "Pagamenti", href: "/admin/payments" },
+main
     { icon: Users, label: "Partner", href: "/admin/partners" },
     { icon: Settings, label: "Impostazioni", href: "/admin/settings/system" },
     { icon: AlertTriangle, label: "Richieste", href: "/admin/requests" },

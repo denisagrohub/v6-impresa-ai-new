@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_omni_provider_admin,erpv6.omni.provider.admin,model_erpv6_omni_provider,base.group_system,1,1,1,1
+access_omni_provider_user,erpv6.omni.provider.user,model_erpv6_omni_provider,base.group_user,1,0,0,0
+access_omni_route_config_admin,erpv6.omni.route.config.admin,model_erpv6_omni_route_config,base.group_system,1,1,1,1
+access_omni_route_config_user,erpv6.omni.route.config.user,model_erpv6_omni_route_config,base.group_user,1,0,0,0
+access_omni_call_log_admin,erpv6.omni.call.log.admin,model_erpv6_omni_call_log,base.group_system,1,1,1,1
+access_omni_call_log_consultant,erpv6.omni.call.log.consultant,model_erpv6_omni_call_log,base.group_user,1,0,0,0

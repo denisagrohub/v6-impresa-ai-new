@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import fs from 'fs';
+import path from 'path';
+import { requirePermission, handleAuthError } from '@/lib/auth';
+
+const CONFIG_PATH = path.join(process.cwd(), 'src/data/secure-config.json');
+const DAILY_API_URL = 'https://api.daily.co/v1';
+
+function getDailyApiKey(): string | null {
+    try {
+        if (!fs.existsSync(CONFIG_PATH)) return null;
+        const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+        return config.callAI?.dailyApiKey || null;
+    } catch (error) {
+        console.debug('Errore lettura Daily API key');
+        return null;
+    }
+}
+
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

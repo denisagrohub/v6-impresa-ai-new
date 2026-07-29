@@ -1,0 +1,37 @@
+{
+  "invoices": [
+    {
+      "id": "inv-001",
+      "clientId": "client-001",
+      "salId": "sal-001",
+      "amount": 6100,
+      "issueDate": "2024-02-15",
+      "dueDate": "2024-03-15",
+      "status": "paid",
+      "paymentLink": null,
+      "iban": "IT60X0542811101000000123456"
+    },
+    {
+      "id": "inv-002",
+      "clientId": "client-001",
+      "salId": "sal-002",
+      "amount": 9760,
+      "issueDate": "2024-04-15",
+      "dueDate": "2024-05-15",
+      "status": "pending",
+      "paymentLink": "https://pay.example.com/inv-002",
+      "iban": "IT60X0542811101000000123456"
+    },
+    {
+      "id": "inv-003",
+      "clientId": "client-002",
+      "salId": null,
+      "amount": 2440,
+      "issueDate": "2024-03-01",
+      "dueDate": "2024-03-31",
+      "status": "overdue",
+      "paymentLink": "https://pay.example.com/inv-003",
+      "iban": "IT60X0542811101000000123456"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Template Business Plan Standard -->
+        <record id="typst_template_business_plan_standard" model="erpv6.typst.template">
+            <field name="name">Business Plan Standard</field>
+            <field name="code">BP-STD-001</field>
+            <field name="category">business_plan</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Template standard per Business Plan PMI - Include executive summary, analisi di mercato, piano finanziario e SWOT analysis</field>
+            <field name="sequence">10</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields">{
+                "executive_summary": {"type": "object"},
+                "market_analysis": {"type": "object"},
+                "financial_plan": {"type": "object"},
+                "swot_analysis": {"type": "object"}
+            }</field>
+        </record>
+
+        <!-- Template Report Finanziario -->
+        <record id="typst_template_financial_report" model="erpv6.typst.template">
+            <field name="name">Report Finanziario Trimestrale</field>
+            <field name="code">FR-QTR-001</field>
+            <field name="category">financial_report</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Report finanziario trimestrale con conto economico, stato patrimoniale e flussi di cassa</field>
+            <field name="sequence">20</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields">{
+                "period": {"type": "string"},
+                "income_statement": {"type": "object"},
+                "balance_sheet": {"type": "object"},
+                "cash_flow": {"type": "object"}
+            }</field>
+        </record>
+
+        <!-- Template Candidatura Bando -->
+        <record id="typst_template_bando_application" model="erpv6.typst.template">
+            <field name="name">Candidatura Bando PNRR</field>
+            <field name="code">BA-PNRR-001</field>
+            <field name="category">bando_application</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Template per candidature bandi PNRR - Include descrizione progetto, budget, cronoprogramma e allegati tecnici</field>
+            <field name="sequence">30</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields">{
+                "bando_info": {"type": "object"},
+                "project_description": {"type": "string"},
+                "budget": {"type": "object"},
+                "timeline": {"type": "array"}
+            }</field>
+        </record>
+
+        <!-- Template Proposta Commerciale -->
+        <record id="typst_template_proposal" model="erpv6.typst.template">
+            <field name="name">Proposta Commerciale L2</field>
+            <field name="code">PROP-L2-001</field>
+            <field name="category">proposal</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Proposta commerciale per prodotto L2 (€20.000) con dettaglio servizi, ROI e condizioni</field>
+            <field name="sequence">40</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields">{
+                "client_info": {"type": "object"},
+                "service_details": {"type": "array"},
+                "pricing": {"type": "object"},
+                "roi_analysis": {"type": "object"}
+            }</field>
+        </record>
+    </data>
+</odoo>

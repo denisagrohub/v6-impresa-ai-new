@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Route Config Form View -->
+    <record id="view_omni_route_config_form" model="ir.ui.view">
+        <field name="name">erpv6.omni.route.config.form</field>
+        <field name="model">erpv6.omni.route.config</field>
+        <field name="arch" type="xml">
+            <form string="Configurazione Routing">
+                <header>
+                    <button name="action_test_routing" type="object" string="Test Routing" 
+                            class="btn-primary" icon="fa-random"/>
+                    <field name="is_active" widget="boolean_toggle" statusbar="1"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Nome Regola"/>
+                        </h1>
+                        <h3>
+                            <field name="task_type" placeholder="es: chat_general, transcription, rag_query"/>
+                        </h3>
+                    </div>
+                    <group>
+                        <group string="Provider">
+                            <field name="primary_provider_id"/>
+                            <field name="fallback_provider_ids" widget="many2many_tags"/>
+                        </group>
+                        <group string="Strategia">
+                            <field name="routing_strategy"/>
+                            <field name="priority"/>
+                            <field name="max_retries"/>
+                            <field name="timeout_override"/>
+                            <field name="max_cost_per_call"/>
+                        </group>
+                    </group>
+                    <group string="Contesto Knowledge Base">
+                        <field name="kb_module_ids" widget="many2many_tags"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Route Config Tree View -->
+    <record id="view_omni_route_config_tree" model="ir.ui.view">
+        <field name="name">erpv6.omni.route.config.tree</field>
+        <field name="model">erpv6.omni.route.config</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="task_type"/>
+                <field name="primary_provider_id"/>
+                <field name="routing_strategy"/>
+                <field name="priority"/>
+                <field name="is_active" widget="boolean_toggle"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_omni_route_config" model="ir.actions.act_window">
+        <field name="name">Regole Routing AI</field>
+        <field name="res_model">erpv6.omni.route.config</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea la tua prima regola di routing
+            </p>
+            <p>
+                Definisci quale provider usare per ogni tipo di task AI, con fallback automatici.
+            </p>
+        </field>
+    </record>
+</odoo>

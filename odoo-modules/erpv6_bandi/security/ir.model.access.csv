@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_erpv6_bando_admin,erpv6.bando admin,model_erpv6_bando,base.group_system,1,1,1,1
+access_erpv6_bando_consultant,erpv6.bando consultant,model_erpv6_bando,base.group_user,1,0,0,0
+access_erpv6_bando_match_admin,erpv6.bando.match admin,model_erpv6_bando_match,base.group_system,1,1,1,1
+access_erpv6_bando_match_consultant,erpv6.bando.match consultant,model_erpv6_bando_match,base.group_user,1,1,1,0
+access_erpv6_bando_application_admin,erpv6.bando.application admin,model_erpv6_bando_application,base.group_system,1,1,1,1
+access_erpv6_bando_application_consultant,erpv6.bando.application consultant,model_erpv6_bando_application,base.group_user,1,1,1,0
+access_erpv6_bando_source_admin,erpv6.bando.source admin,model_erpv6_bando_source,base.group_system,1,1,1,1
+access_erpv6_bando_source_user,erpv6.bando.source user,model_erpv6_bando_source,base.group_user,1,0,0,0

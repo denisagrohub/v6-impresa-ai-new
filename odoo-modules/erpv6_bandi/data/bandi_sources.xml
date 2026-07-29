@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Fonti istituzionali preconfigurate -->
+        <record id="source_mimit" model="erpv6.bando.source">
+            <field name="name">MIMIT - Ministero Imprese</field>
+            <field name="url">https://www.mimit.gov.it/bandi</field>
+            <field name="source_type">ministero</field>
+            <field name="active">True</field>
+            <field name="scrape_interval_hours">6</field>
+        </record>
+
+        <record id="source_invitalia" model="erpv6.bando.source">
+            <field name="name">Invitalia</field>
+            <field name="url">https://invitalia.it/bandi</field>
+            <field name="source_type">invitalia</field>
+            <field name="active">True</field>
+            <field name="scrape_interval_hours">6</field>
+        </record>
+
+        <record id="source_ue" model="erpv6.bando.source">
+            <field name="name">Unione Europea - Funding &amp; Tenders</field>
+            <field name="url">https://ec.europa.eu/info/funding-tenders</field>
+            <field name="source_type">ue</field>
+            <field name="active">True</field>
+            <field name="scrape_interval_hours">12</field>
+        </record>
+
+        <record id="source_lombardia" model="erpv6.bando.source">
+            <field name="name">Regione Lombardia</field>
+            <field name="url">https://www.regione.lombardia.it/bandi</field>
+            <field name="source_type">regione</field>
+            <field name="active">True</field>
+            <field name="scrape_interval_hours">6</field>
+        </record>
+
+        <record id="source_psr" model="erpv6.bando.source">
+            <field name="name">PSR - Programma Sviluppo Rurale</field>
+            <field name="url">https://www.psr-online.it</field>
+            <field name="source_type">custom</field>
+            <field name="active">True</field>
+            <field name="scrape_interval_hours">24</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menu Principale -->
+    <menuitem id="menu_erpv6_bandi_root"
+              name="Bandi &amp; Finanziamenti"
+              sequence="50"
+              web_icon="erpv6_bandi,static/description/icon.png"/>
+
+    <!-- Sottomenu Bandi -->
+    <menuitem id="menu_erpv6_bandi_bandi"
+              name="Bandi Attivi"
+              parent="menu_erpv6_bandi_root"
+              action="action_erpv6_bando"
+              sequence="10"/>
+
+    <!-- Sottomenu Match -->
+    <menuitem id="menu_erpv6_bandi_match"
+              name="Match Clienti"
+              parent="menu_erpv6_bandi_root"
+              action="action_erpv6_bando_match"
+              sequence="20"/>
+
+    <!-- Sottomenu Candidature -->
+    <menuitem id="menu_erpv6_bandi_applications"
+              name="Candidature"
+              parent="menu_erpv6_bandi_root"
+              action="action_erpv6_bando_application"
+              sequence="30"/>
+
+    <!-- Sottomenu Fonti -->
+    <menuitem id="menu_erpv6_bandi_sources"
+              name="Fonti Scraping"
+              parent="menu_erpv6_bandi_root"
+              action="action_erpv6_bando_source"
+              sequence="40"/>
+
+    <!-- Action per le fonti (mancante) -->
+    <record id="action_erpv6_bando_source" model="ir.actions.act_window">
+        <field name="name">Fonti Scraping</field>
+        <field name="res_model">erpv6.bando.source</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Vista per le fonti -->
+    <record id="view_erpv6_bando_source_tree" model="ir.ui.view">
+        <field name="name">erpv6.bando.source.tree</field>
+        <field name="model">erpv6.bando.source</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="url"/>
+                <field name="source_type"/>
+                <field name="active"/>
+                <field name="last_scrape"/>
+                <field name="scrape_interval_hours"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_erpv6_bando_source_form" model="ir.ui.view">
+        <field name="name">erpv6.bando.source.form</field>
+        <field name="model">erpv6.bando.source</field>
+        <field name="arch" type="xml">
+            <form string="Fonte Scraping">
+                <header>
+                    <button name="action_scrape_now" string="Esegui Scraping Ora" type="object" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="url"/>
+                            <field name="source_type"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="last_scrape"/>
+                            <field name="scrape_interval_hours"/>
+                            <field name="api_endpoint"/>
+                            <field name="api_key" password="True"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

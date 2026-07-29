@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View per configurazione White Label -->
+    <record id="view_whitelabel_config_form" model="ir.ui.view">
+        <field name="name">erpv6.whitelabel.config.form</field>
+        <field name="model">erpv6.whitelabel.config</field>
+        <field name="arch" type="xml">
+            <form string="Configurazione White Label">
+                <header>
+                    <button name="action_preview" type="object" string="Anteprima" class="btn-secondary" icon="fa-eye"/>
+                    <field name="active" widget="boolean_toggle" string="Attivo"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                    </div>
+                    <div class="oe_title mb24">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1><field name="name"/></h1>
+                    </div>
+                    
+                    <group>
+                        <group string="Informazioni Azienda">
+                            <field name="company_id" options="{'no_create': True}"/>
+                            <field name="sequence"/>
+                            <field name="company_name" placeholder="Nome visualizzato nel brand"/>
+                        </group>
+                        <group string="Stato">
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Branding" name="branding">
+                            <group>
+                                <group string="Logo e Icone">
+                                    <field name="logo" widget="image" class="oe_avatar"/>
+                                    <field name="logo_small" widget="image" class="oe_avatar"/>
+                                    <field name="favicon" widget="image" class="oe_avatar"/>
+                                </group>
+                                <group string="Colori del Brand">
+                                    <field name="primary_color" widget="color"/>
+                                    <field name="secondary_color" widget="color"/>
+                                    <field name="success_color" widget="color"/>
+                                    <field name="warning_color" widget="color"/>
+                                    <field name="danger_color" widget="color"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Stile e Font" name="style">
+                            <group>
+                                <group string="Tipografia">
+                                    <field name="font_family" placeholder="'Inter', sans-serif"/>
+                                    <field name="border_radius"/>
+                                </group>
+                                <group string="CSS Personalizzato">
+                                    <field name="custom_css" widget="code" options="{'mode': 'css'}" colspan="2"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Testi e Contatti" name="texts">
+                            <group>
+                                <group string="Messaggi">
+                                    <field name="welcome_message" placeholder="Messaggio di benvenuto..."/>
+                                    <field name="footer_text" placeholder="Testo footer..."/>
+                                </group>
+                                <group string="Supporto">
+                                    <field name="support_email" widget="email"/>
+                                    <field name="support_phone" widget="phone"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Impostazioni Avanzate" name="advanced">
+                            <group>
+                                <field name="hide_odoo_branding"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View per configurazione White Label -->
+    <record id="view_whitelabel_config_tree" model="ir.ui.view">
+        <field name="name">erpv6.whitelabel.config.tree</field>
+        <field name="model">erpv6.whitelabel.config</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="company_id"/>
+                <field name="company_name"/>
+                <field name="primary_color" widget="color_picker"/>
+                <field name="active" widget="boolean_toggle"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_whitelabel_config_search" model="ir.ui.view">
+        <field name="name">erpv6.whitelabel.config.search</field>
+        <field name="model">erpv6.whitelabel.config</field>
+        <field name="arch" type="xml">
+            <search string="Cerca Configurazione">
+                <field name="name"/>
+                <field name="company_name"/>
+                <field name="company_id"/>
+                <filter string="Attive" name="active" domain="[('active','=',True)]"/>
+                <filter string="Non Attive" name="inactive" domain="[('active','=',False)]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter string="Azienda" name="group_company" context="{'group_by':'company_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action per aprire la configurazione -->
+    <record id="action_whitelabel_config" model="ir.actions.act_window">
+        <field name="name">Configurazione White Label</field>
+        <field name="res_model">erpv6.whitelabel.config</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_whitelabel_config_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea la tua prima configurazione White Label
+            </p>
+            <p>
+                Personalizza logo, colori e testi del tuo sistema Odoo.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu principale sotto Impostazioni -->
+    <menuitem id="menu_whitelabel_root" 
+              name="White Label" 
+              parent="base.menu_settings" 
+              sequence="50"/>
+    
+    <menuitem id="menu_whitelabel_config" 
+              name="Configurazioni" 
+              parent="menu_whitelabel_root" 
+              action="action_whitelabel_config"
+              sequence="10"/>
+</odoo>

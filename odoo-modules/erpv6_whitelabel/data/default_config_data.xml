@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dati iniziali per configurazione default -->
+    <record id="default_whitelabel_config" model="erpv6.whitelabel.config">
+        <field name="name">Configurazione Default</field>
+        <field name="sequence">1</field>
+        <field name="company_id" ref="base.main_company"/>
+        <field name="primary_color">#1a2744</field>
+        <field name="secondary_color">#f97316</field>
+        <field name="success_color">#10b981</field>
+        <field name="warning_color">#f59e0b</field>
+        <field name="danger_color">#ef4444</field>
+        <field name="font_family">'Inter', sans-serif</field>
+        <field name="border_radius">6.0</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

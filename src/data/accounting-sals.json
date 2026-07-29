@@ -1,0 +1,31 @@
+{
+  "sals": [
+    {
+      "id": "sal-001",
+      "projectId": "proj-001",
+      "description": "SAL n.1 - Progettazione preliminare",
+      "amount": 5000,
+      "dueDate": "2024-03-15",
+      "status": "paid",
+      "issueDate": "2024-02-15"
+    },
+    {
+      "id": "sal-002",
+      "projectId": "proj-001",
+      "description": "SAL n.2 - Sviluppo prototipo",
+      "amount": 8000,
+      "dueDate": "2024-05-15",
+      "status": "pending",
+      "issueDate": "2024-04-15"
+    },
+    {
+      "id": "sal-003",
+      "projectId": "proj-002",
+      "description": "SAL n.1 - Analisi requisiti",
+      "amount": 3500,
+      "dueDate": "2024-04-30",
+      "status": "draft",
+      "issueDate": null
+    }
+  ]
+}

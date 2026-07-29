@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menu Principale -->
+    <menuitem id="menu_omni_root" 
+              name="AI &amp; OmniRoute" 
+              parent="base.menu_custom"
+              sequence="1"/>
+
+    <menuitem id="menu_omni_config" 
+              name="Configurazione" 
+              parent="menu_omni_root"
+              sequence="10"/>
+
+    <menuitem id="menu_omni_logs" 
+              name="Log &amp; Monitoraggio" 
+              parent="menu_omni_root"
+              sequence="20"/>
+
+    <!-- Sottomenu Configurazione -->
+    <menuitem id="menu_omni_providers" 
+              name="Provider AI" 
+              parent="menu_omni_config"
+              action="action_omni_provider"
+              sequence="1"/>
+
+    <menuitem id="menu_omni_routes" 
+              name="Regole Routing" 
+              parent="menu_omni_config"
+              action="action_omni_route_config"
+              sequence="2"/>
+
+    <!-- Sottomenu Log -->
+    <menuitem id="menu_omni_call_logs" 
+              name="Log Chiamate" 
+              parent="menu_omni_logs"
+              action="action_omni_call_log"
+              sequence="1"/>
+</odoo>

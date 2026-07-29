@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Template per override assets backend -->
+    <template id="assets_backend_white_label" inherit_id="web.assets_backend">
+        <xpath expr="." position="inside">
+            <link rel="stylesheet" href="/erpv6_whitelabel/static/src/css/white_label.css"/>
+        </xpath>
+    </template>
+
+    <!-- Template per override assets frontend (website) -->
+    <template id="assets_frontend_white_label" inherit_id="web.assets_frontend">
+        <xpath expr="." position="inside">
+            <link rel="stylesheet" href="/erpv6_whitelabel/static/src/css/white_label.css"/>
+        </xpath>
+    </template>
+
+    <!-- Override del layout principale per inserire variabili CSS -->
+    <template id="white_label_layout" inherit_id="web.layout">
+        <xpath expr="//title" position="after">
+            <style>
+                :root {
+                    --wl-primary-color: <t t-esc="request.env['erpv6.whitelabel.config'].sudo().get_active_config().primary_color or '#1a2744'"/>;
+                    --wl-secondary-color: <t t-esc="request.env['erpv6.whitelabel.config'].sudo().get_active_config().secondary_color or '#f97316'"/>;
+                    --wl-success-color: <t t-esc="request.env['erpv6.whitelabel.config'].sudo().get_active_config().success_color or '#10b981'"/>;
+                    --wl-warning-color: <t t-esc="request.env['erpv6.whitelabel.config'].sudo().get_active_config().warning_color or '#f59e0b'"/>;
+                    --wl-danger-color: <t t-esc="request.env['erpv6.whitelabel.config'].sudo().get_active_config().danger_color or '#ef4444'"/>;
+                    --wl-font-family: <t t-esc="request.env['erpv6.whitelabel.config'].sudo().get_active_config().font_family or &quot;'Inter', sans-serif&quot;"/>;
+                    --wl-border-radius: <t t-esc="request.env['erpv6.whitelabel.config'].sudo().get_active_config().border_radius or '6'"/>px;
+                }
+                
+                body {
+                    font-family: var(--wl-font-family);
+                }
+                
+                .o_main_navbar {
+                    background-color: var(--wl-primary-color) !important;
+                }
+                
+                .btn-primary {
+                    background-color: var(--wl-primary-color) !important;
+                    border-color: var(--wl-primary-color) !important;
+                    border-radius: var(--wl-border-radius) !important;
+                }
+                
+                .btn-secondary {
+                    background-color: var(--wl-secondary-color) !important;
+                    border-color: var(--wl-secondary-color) !important;
+                    border-radius: var(--wl-border-radius) !important;
+                }
+                
+                .text-primary {
+                    color: var(--wl-primary-color) !important;
+                }
+                
+                .text-secondary {
+                    color: var(--wl-secondary-color) !important;
+                }
+            </style>
+        </xpath>
+    </template>
+
+    <!-- Override del logo nel navbar -->
+    <template id="white_label_logo" inherit_id="web.navbar">
+        <xpath expr="//img[@alt='Company Logo']" position="attributes">
+            <attribute name="t-att-src">request.env['erpv6.whitelabel.config'].sudo().get_active_config().logo_small or '/web/binary/company_logo'</attribute>
+        </xpath>
+    </template>
+
+    <!-- Override della favicon -->
+    <template id="white_label_favicon" inherit_id="web.layout">
+        <xpath expr="//link[@rel='shortcut icon']" position="attributes">
+            <attribute name="t-att-href">request.env['erpv6.whitelabel.config'].sudo().get_active_config().favicon or '/web/static/src/img/favicon.ico'</attribute>
+        </xpath>
+    </template>
+
+    <!-- Template per nascondere branding Odoo se richiesto -->
+    <template id="white_label_hide_odoo" inherit_id="web.login">
+        <xpath expr="//div[@class='oe_login_form']" position="after">
+            <t t-if="request.env['erpv6.whitelabel.config'].sudo().get_active_config().hide_odoo_branding">
+                <style>
+                    .o_login_branding {
+                        display: none !important;
+                    }
+                </style>
+            </t>
+        </xpath>
+    </template>
+</odoo>

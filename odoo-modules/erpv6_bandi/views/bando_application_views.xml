@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tree View Application -->
+    <record id="view_erpv6_bando_application_tree" model="ir.ui.view">
+        <field name="name">erpv6.bando.application.tree</field>
+        <field name="model">erpv6.bando.application</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="status=='draft'" decoration-warning="status=='under_review'" decoration-success="status=='funded'" decoration-danger="status=='rejected'">
+                <field name="bando_id"/>
+                <field name="partner_id"/>
+                <field name="application_date"/>
+                <field name="amount_requested" sum="Totale"/>
+                <field name="status"/>
+                <field name="funded_amount" sum="Erogato"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View Application -->
+    <record id="view_erpv6_bando_application_form" model="ir.ui.view">
+        <field name="name">erpv6.bando.application.form</field>
+        <field name="model">erpv6.bando.application</field>
+        <field name="arch" type="xml">
+            <form string="Candidatura Bando">
+                <header>
+                    <button name="action_submit" string="Invia Candidatura" type="object" class="btn-primary" states="draft"/>
+                    <button name="action_approve" string="Approva" type="object" states="under_review"/>
+                    <button name="action_reject" string="Respingi" type="object" states="under_review"/>
+                    <button name="action_fund" string="Segna Erogata" type="object" class="btn-success" states="approved"/>
+                    <field name="status" widget="statusbar" statusbar_visible="draft,submitted,under_review,approved,funded"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="match_id"/>
+                            <field name="bando_id"/>
+                            <field name="partner_id"/>
+                            <field name="application_date"/>
+                            <field name="reference_number"/>
+                        </group>
+                        <group>
+                            <field name="amount_requested"/>
+                            <field name="funded_amount"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Note">
+                            <field name="notes" placeholder="Note interne..."/>
+                        </page>
+                        <page string="Note Ente">
+                            <field name="review_notes" placeholder="Note dall'ente valutatore..."/>
+                        </page>
+                        <page string="Documenti">
+                            <field name="documents_ids">
+                                <tree>
+                                    <field name="name"/>
+                                    <field name="create_date"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action Window -->
+    <record id="action_erpv6_bando_application" model="ir.actions.act_window">
+        <field name="name">Candidature</field>
+        <field name="res_model">erpv6.bando.application</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

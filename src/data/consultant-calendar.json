@@ -1,4 +1,19 @@
 {
+
+    "events": [],
+    "settings": {
+        "maxDailyPublicSlots": 3,
+        "defaultDuration": 60,
+        "workingHours": {
+            "start": "09:00",
+            "end": "18:00",
+            "days": [1, 2, 3, 4, 5]
+        },
+        "googleCalendarSync": false,
+        "googleCalendarId": null
+    }
+}
+
   "events": [
     {
       "id": "CAL-AI-1784902036573",
@@ -39,3 +54,4 @@
   ],
   "settings": {}
 }
+

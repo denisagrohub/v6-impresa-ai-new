@@ -18,6 +18,10 @@ export function requirePermission(req: NextRequest, allowedRoles: string[]) {
     if (!allowedRoles.includes(session.role)) {
         return NextResponse.json({ error: 'Permesso negato. Ruolo non sufficiente.' }, { status: 403 });
     }
+    // ✅ Normalizza la sessione: aggiungi 'id' se esiste solo 'clientId'
+    if (!session.id && session.clientId) {
+        session.id = session.clientId;
+    }
     return session;
 }
 

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vista Tree per Documenti -->
+    <record id="view_erpv6_typst_document_tree" model="ir.ui.view">
+        <field name="name">erpv6.typst.document.tree</field>
+        <field name="model">erpv6.typst.document</field>
+        <field name="arch" type="xml">
+            <tree string="Documenti Generati" decoration-info="status=='draft'" decoration-warning="status=='rendering'" decoration-success="status=='ready'" decoration-danger="status=='failed'">
+                <field name="name"/>
+                <field name="template_id"/>
+                <field name="partner_id"/>
+                <field name="project_id"/>
+                <field name="status"/>
+                <field name="created_at"/>
+                <field name="rendered_at"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vista Form per Documenti -->
+    <record id="view_erpv6_typst_document_form" model="ir.ui.view">
+        <field name="name">erpv6.typst.document.form</field>
+        <field name="model">erpv6.typst.document</field>
+        <field name="arch" type="xml">
+            <form string="Documento Tipst">
+                <header>
+                    <button name="action_render" type="object" string="Genera PDF" class="btn-primary" icon="fa-cog" states="draft"/>
+                    <button name="action_send_to_partner" type="object" string="Invia al Cliente" class="btn-primary" icon="fa-envelope" states="ready"/>
+                    <button name="action_download" type="object" string="Scarica" class="btn-secondary" icon="fa-download" states="ready"/>
+                    <field name="status" widget="statusbar" statusbar_visible="draft,rendering,ready,sent"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="template_id"/>
+                            <field name="partner_id"/>
+                            <field name="project_id"/>
+                            <field name="bando_match_id"/>
+                        </group>
+                        <group>
+                            <field name="language"/>
+                            <field name="page_count"/>
+                            <field name="file_size"/>
+                            <field name="created_at"/>
+                            <field name="rendered_at"/>
+                            <field name="sent_at"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Dati Rendering">
+                            <field name="render_data" widget="json" options='{"mode": "view"}'/>
+                        </page>
+                        <page string="PDF">
+                            <group>
+                                <field name="pdf_file" filename="pdf_filename"/>
+                                <field name="pdf_filename" invisible="1"/>
+                            </group>
+                        </page>
+                        <page string="Errori">
+                            <field name="error_message" placeholder="Nessun errore..." readonly="1"/>
+                        </page>
+                        <page string="Log">
+                            <field name="log_ids">
+                                <tree>
+                                    <field name="created_at"/>
+                                    <field name="operation"/>
+                                    <field name="duration_ms"/>
+                                    <field name="success"/>
+                                    <field name="error"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vista Search per Documenti -->
+    <record id="view_erpv6_typst_document_search" model="ir.ui.view">
+        <field name="name">erpv6.typst.document.search</field>
+        <field name="model">erpv6.typst.document</field>
+        <field name="arch" type="xml">
+            <search string="Cerca Documenti">
+                <field name="name"/>
+                <field name="template_id"/>
+                <field name="partner_id"/>
+                <field name="project_id"/>
+                <filter string="Bozza" name="draft" domain="[('status','=','draft')]"/>
+                <filter string="Pronti" name="ready" domain="[('status','=','ready')]"/>
+                <filter string="Inviati" name="sent" domain="[('status','=','sent')]"/>
+                <filter string="Falliti" name="failed" domain="[('status','=','failed')]"/>
+                <separator/>
+                <filter string="Oggi" name="today" domain="[('created_at','>=', context_today().strftime('%Y-%m-%d'))]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter string="Template" name="group_template" context="{'group_by': 'template_id'}"/>
+                    <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Stato" name="group_status" context="{'group_by': 'status'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action per Documenti -->
+    <record id="action_erpv6_typst_document" model="ir.actions.act_window">
+        <field name="name">Documenti Generati</field>
+        <field name="res_model">erpv6.typst.document</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_erpv6_typst_document_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nessun documento generato
+            </p>
+            <p>
+                I documenti appariranno qui dopo la generazione
+            </p>
+        </field>
+    </record>
+</odoo>

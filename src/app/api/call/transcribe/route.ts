@@ -12,8 +12,8 @@ function getApiKeys() {
             deepgram: config.callAI?.deepgramApiKey || null,
             anthropic: config.callAI?.anthropicApiKey || null
         };
-    } catch (error) {
-        console.error('Errore lettura API keys:', error);
+    } catch (error: any) {
+        console.debug('Errore lettura API keys');
         return { deepgram: null, anthropic: null };
     }
 }

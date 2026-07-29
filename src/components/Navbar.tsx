@@ -7,6 +7,9 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [session, setSession] = useState<any>(null);
 
+  const pathname = usePathname();
+
+
   useEffect(() => {
     const saved = localStorage.getItem("pi_session");
     setSession(saved ? JSON.parse(saved) : null);

@@ -14,7 +14,7 @@ export async function gatewayGet<T = any>(
     }
 
     const url = `/api/gateway/${feature}${searchParams.toString() ? `?${searchParams}` : ''}`;
-    const response = await fetch(`http://localhost:3000${url}`, {
+    const response = await fetch(url, {
         cache: 'no-store',
     });
 
@@ -34,7 +34,7 @@ export async function gatewayPost<T = any>(
     if (params?.id) searchParams.append('id', params.id);
 
     const url = `/api/gateway/${feature}${searchParams.toString() ? `?${searchParams}` : ''}`;
-    const response = await fetch(`http://localhost:3000${url}`, {
+    const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -56,7 +56,7 @@ export async function gatewayPut<T = any>(
     if (params?.id) searchParams.append('id', params.id);
 
     const url = `/api/gateway/${feature}${searchParams.toString() ? `?${searchParams}` : ''}`;
-    const response = await fetch(`http://localhost:3000${url}`, {
+    const response = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -73,7 +73,7 @@ export async function gatewayDelete<T = any>(
     feature: string,
     params: { id: string }
 ): Promise<T> {
-    const response = await fetch(`http://localhost:3000/api/gateway/${feature}?id=${params.id}`, {
+    const response = await fetch(`/api/gateway/${feature}?id=${params.id}`, {
         method: 'DELETE',
     });
 

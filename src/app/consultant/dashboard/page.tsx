@@ -79,6 +79,50 @@ export default function ConsultantDashboard() {
         }
     }, [router]);
 
+    // ✅ FIX: Carica i dati della dashboard quando l'utente è definito
+    useEffect(() => {
+        if (user?.clientId) {
+            // 1. Carica i dati principali (progetti, timesheet, provvigioni)
+            fetch('/api/consultant/dashboard')
+                .then(res => {
+                    if (!res.ok) throw new Error('Errore caricamento dashboard');
+                    return res.json();
+                })
+                .then(dashboardData => {
+                    setData(dashboardData);
+                    setLoading(false);
+                })
+                .catch(err => {
+                    console.error('Errore caricamento dashboard:', err);
+                    setLoading(false);
+                });
+
+            // 2. Carica le richieste/segnalazioni
+            fetch(`/api/consultant/requests?consultantId=${user.clientId || user.id}`)
+                .then(res => res.json())
+                .then(reqData => setMyRequests(reqData))
+                .catch(err => console.error('Errore caricamento richieste:', err));
+        }
+    }, [user]);
+
+    useEffect(() => {
+        if (activeTab === 'calendario' && user?.clientId) {
+            loadCalendarEvents();
+        }
+    }, [activeTab, user, currentMonth, currentYear]);
+
+    const loadCalendarEvents = async () => {
+        try {
+            const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+            const endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-31`;
+            const res = await fetch(`/api/consultant/calendar?consultantId=${user.clientId || user.id}&startDate=${startDate}&endDate=${endDate}`);
+            const data = await res.json();
+            setCalendarEvents(data.events || []);
+        } catch (error) {
+            console.error('Errore caricamento calendario:', error);
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem("pi_session");
         document.cookie = "pi_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";

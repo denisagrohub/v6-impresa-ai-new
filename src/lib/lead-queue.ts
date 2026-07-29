@@ -33,7 +33,7 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
             });
 
             lead.synced = true;
-            console.log(`✅ Lead ${lead.id} salvato su Odoo`);
+            console.debug(`✅ Lead ${lead.id} salvato su Odoo`);
             return { success: true, queued: false };
         } catch (error) {
             console.error('⚠️ Odoo non disponibile, salvataggio in coda locale:', error);
@@ -61,7 +61,7 @@ async function saveLeadToQueue(lead: Lead): Promise<void> {
         const queue = JSON.parse(fileContent);
         queue.leads.push(lead);
         fs.writeFileSync(filePath, JSON.stringify(queue, null, 2));
-        console.log(` Lead ${lead.id} aggiunto alla coda locale`);
+        console.debug(` Lead ${lead.id} aggiunto alla coda locale`);
     } catch (error) {
         console.error('❌ Errore nel salvataggio in coda:', error);
         throw error;
@@ -105,7 +105,7 @@ export async function syncPendingLeads(): Promise<{ synced: number; failed: numb
             lead.syncAttempts++;
             lead.lastSyncAttempt = new Date().toISOString();
             synced++;
-            console.log(`✅ Lead ${lead.id} sincronizzato`);
+            console.debug(`✅ Lead ${lead.id} sincronizzato`);
         } catch (error) {
             lead.syncAttempts++;
             lead.lastSyncAttempt = new Date().toISOString();
