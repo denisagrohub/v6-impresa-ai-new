@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Cron: Fetch Amazon Trends (ogni 6 ore) -->
+    <record id="cron_fetch_amazon_trends" model="ir.cron">
+        <field name="name">Fenice: Fetch Amazon Trends</field>
+        <field name="model_id" ref="model_fenice_market_trend"/>
+        <field name="state">code</field>
+        <field name="code">model.fetch_amazon_trends()</field>
+        <field name="interval_number">6</field>
+        <field name="interval_type">hours</field>
+        <!-- numbercall rimosso: non più necessario in Odoo 18 -->
+        <field name="active">True</field>
+    </record>
+    
+    <!-- Cron: Fetch Google Trends (ogni giorno) -->
+    <record id="cron_fetch_google_trends" model="ir.cron">
+        <field name="name">Fenice: Fetch Google Trends</field>
+        <field name="model_id" ref="model_fenice_market_trend"/>
+        <field name="state">code</field>
+        <field name="code">model.fetch_google_trends()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <!-- numbercall rimosso: non più necessario in Odoo 18 -->
+        <field name="active">True</field>
+    </record>
+    
+    <!-- Cron: Generate Daily KPI Dashboard (ogni giorno alle 6:00) -->
+    <record id="cron_generate_daily_dashboard" model="ir.cron">
+        <field name="name">Fenice: Generate Daily KPI Dashboard</field>
+        <field name="model_id" ref="model_fenice_kpi_dashboard"/>
+        <field name="state">code</field>
+        <field name="code">model.generate_daily_dashboard()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <!-- numbercall rimosso: non più necessario in Odoo 18 -->
+        <field name="active">True</field>
+    </record>
+</odoo>

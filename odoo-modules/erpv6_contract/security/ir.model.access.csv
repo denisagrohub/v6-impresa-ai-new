@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_contract_user,erpv6.contract user,model_erpv6_contract,base.group_user,1,1,1,0
+access_contract_manager,erpv6.contract manager,model_erpv6_contract,base.group_system,1,1,1,1
+access_contract_doc_user,erpv6.contract.document user,model_erpv6_contract_document,base.group_user,1,1,1,0
+access_contract_doc_manager,erpv6.contract.document manager,model_erpv6_contract_document,base.group_system,1,1,1,1

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dati di esempio per configurazione iniziale -->
+    <record id="website_veneto" model="website">
+        <field name="name">Fenice Shop Veneto</field>
+        <field name="domain">veneto.feniceshop.it</field>
+        <field name="company_id" ref="base.main_company"/>
+    </record>
+    
+    <record id="website_sardegna" model="website">
+        <field name="name">Fenice Shop Sardegna</field>
+        <field name="domain">sardegna.feniceshop.it</field>
+        <field name="company_id" ref="base.main_company"/>
+    </record>
+    
+    <record id="website_nazionale" model="website">
+        <field name="name">Fenice Shop Italia</field>
+        <field name="domain">www.feniceshop.it</field>
+        <field name="company_id" ref="base.main_company"/>
+    </record>
+</odoo>

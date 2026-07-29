@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_fenice_score_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <div class="page" style="font-family: Arial, sans-serif; padding: 20px;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="color: #2D5016;">Report Fenice Score Preliminare</h1>
+                        <p style="color: #C8A951; font-size: 14px;">Fattorie Venexiane - Rete d'Impresa Agricola</p>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+                        <div style="width: 48%;">
+                            <h3 style="color: #2D5016; border-bottom: 2px solid #C8A951; padding-bottom: 5px;">Dati Azienda</h3>
+                            <p><strong>Azienda:</strong> <span t-field="o.partner_name"/></p>
+                            <p><strong>Contatto:</strong> <span t-field="o.contact_name"/></p>
+                            <p><strong>Email:</strong> <span t-field="o.email_from"/></p>
+                        </div>
+                        <div style="width: 48%;">
+                            <h3 style="color: #2D5016; border-bottom: 2px solid #C8A951; padding-bottom: 5px;">Risultati Valutazione</h3>
+                            <p><strong>Fenice Score:</strong> <span t-field="o.x_fenice_score"/> / 100</p>
+                            <p><strong>Livello:</strong> <span t-field="o.x_fenice_livello"/></p>
+                            <p><strong>Moduli Interesse:</strong> <span t-field="o.x_fenice_moduli_interesse"/></p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 30px;">
+                        <h3 style="color: #2D5016; border-bottom: 2px solid #C8A951; padding-bottom: 5px;">Prossimi Passi Consigliati</h3>
+                        <ol>
+                            <li>Colloquio conoscitivo con il Gestore di Rete (30 minuti)</li>
+                            <li>Visita ispettiva entro 60 giorni dalla firma</li>
+                            <li>Attivazione Moduli consigliati entro 30 giorni</li>
+                        </ol>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+    <template id="report_fenice_score">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="fenice_lead_automation.report_fenice_score_document" t-lang="o.partner_id.lang"/>
+            </t>
+        </t>
+    </template>
+    <record id="action_report_fenice_score" model="ir.actions.report">
+        <field name="name">Report Fenice Score</field>
+        <field name="model">crm.lead</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fenice_lead_automation.report_fenice_score</field>
+        <field name="report_file">fenice_lead_automation.report_fenice_score</field>
+        <field name="binding_model_id" ref="crm.model_crm_lead"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>

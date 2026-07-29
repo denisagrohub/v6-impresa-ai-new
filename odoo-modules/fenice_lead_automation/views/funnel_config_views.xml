@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_funnel_config_form" model="ir.ui.view">
+        <field name="name">fenice.funnel.config.form</field>
+        <field name="model">fenice.funnel.config</field>
+        <field name="arch" type="xml">
+            <form string="Configurazione Funnel">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="is_active"/>
+                    </group>
+                    <group string="Timing Email">
+                        <field name="delay_email_2"/>
+                        <field name="delay_email_3"/>
+                        <field name="delay_email_4"/>
+                        <field name="delay_email_5"/>
+                    </group>
+                    <group string="Template Email">
+                        <field name="template_email_1"/>
+                        <field name="template_email_2"/>
+                        <field name="template_email_3"/>
+                        <field name="template_email_4"/>
+                        <field name="template_email_5"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_funnel_config" model="ir.actions.act_window">
+        <field name="name">Configurazione Funnel</field>
+        <field name="res_model">fenice.funnel.config</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

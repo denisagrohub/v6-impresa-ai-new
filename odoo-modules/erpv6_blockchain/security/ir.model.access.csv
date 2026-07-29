@@ -1,5 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_blockchain_config_user,erpv6.blockchain.config.user,model_erpv6_blockchain_config,base.group_user,1,0,0,0
-access_blockchain_config_manager,erpv6.blockchain.config.manager,model_erpv6_blockchain_config,base.group_system,1,1,1,1
-access_blockchain_record_user,erpv6.blockchain.record.user,model_erpv6_blockchain_record,base.group_user,1,1,1,0
-access_blockchain_record_manager,erpv6.blockchain.record.manager,model_erpv6_blockchain_record,base.group_system,1,1,1,1
+access_blockchain_config_manager,erpv6.blockchain.config manager,model_erpv6_blockchain_config,base.group_system,1,1,1,1
+access_blockchain_record_user,erpv6.blockchain.record user,model_erpv6_blockchain_record,base.group_user,1,0,0,0
+access_blockchain_record_manager,erpv6.blockchain.record manager,model_erpv6_blockchain_record,base.group_system,1,1,1,1

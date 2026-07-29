@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_send_funnel_emails" model="ir.cron">
+        <field name="name">Fenice: Invio Email Funnel Automatico</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_send_funnel_emails()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <!-- numbercall rimosso: non più necessario in Odoo 18 -->
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

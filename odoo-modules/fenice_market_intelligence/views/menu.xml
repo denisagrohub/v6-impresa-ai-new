@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_fenice_market_intelligence" name="Market Intelligence" sequence="101"/>
+    
+    <menuitem id="menu_fenice_trends" name="Trend di Mercato" parent="menu_fenice_market_intelligence" action="action_fenice_market_trend" sequence="10"/>
+    <menuitem id="menu_fenice_product_analysis" name="Analisi Prodotti" parent="menu_fenice_market_intelligence" sequence="20"/>
+    <menuitem id="menu_fenice_competitors" name="Competitor" parent="menu_fenice_market_intelligence" sequence="30"/>
+    <menuitem id="menu_fenice_api_logs" name="Log API" parent="menu_fenice_market_intelligence" sequence="40"/>
+    <menuitem id="menu_fenice_dashboard" name="Dashboard KPI" parent="menu_fenice_market_intelligence" sequence="5"/>
+</odoo>

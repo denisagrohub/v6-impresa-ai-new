@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fenice_market_trend_tree" model="ir.ui.view">
+        <field name="name">fenice.market.trend.tree</field>
+        <field name="model">fenice.market.trend</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="date"/>
+                <field name="name"/>
+                <field name="source"/>
+                <field name="category"/>
+                <field name="trend_score"/>
+                <field name="growth_rate"/>
+                <field name="opportunity_level"/>
+                <field name="is_trending"/>
+            </list>
+        </field>
+    </record>
+    
+    <record id="view_fenice_market_trend_form" model="ir.ui.view">
+        <field name="name">fenice.market.trend.form</field>
+        <field name="model">fenice.market.trend</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="date"/>
+                            <field name="source"/>
+                            <field name="category"/>
+                        </group>
+                        <group>
+                            <field name="trend_score"/>
+                            <field name="growth_rate"/>
+                            <field name="search_volume"/>
+                            <field name="opportunity_level"/>
+                        </group>
+                    </group>
+                    <group string="Dati Amazon">
+                        <field name="amazon_best_seller_rank"/>
+                        <field name="amazon_avg_price"/>
+                        <field name="amazon_complements"/>
+                    </group>
+                    <group string="Analisi">
+                        <field name="sentiment_score"/>
+                        <field name="seasonality"/>
+                        <field name="notes"/>
+                    </group>
+                    <group string="Prodotti Correlati">
+                        <field name="product_ids" widget="many2many_tags"/>
+                        <button name="action_view_products" type="object" string="Vedi Prodotti" class="oe_highlight"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <record id="action_fenice_market_trend" model="ir.actions.act_window">
+        <field name="name">Trend di Mercato</field>
+        <field name="res_model">fenice.market.trend</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

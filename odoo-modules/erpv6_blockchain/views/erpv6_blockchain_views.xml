@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_erpv6" model="ir.actions.act_window">
+        <field name="name">ERP V6</field>
+        <field name="res_model">erpv6.base</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_erpv6_root" name="ERP V6" sequence="100"/>
+    <menuitem id="menu_erpv6" name="ERPV6" parent="menu_erpv6_root" action="action_erpv6" sequence="10"/>
+</odoo>

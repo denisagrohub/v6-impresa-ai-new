@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_brand_list" model="ir.ui.view">
+        <field name="name">erpv6.consulting.brand.list</field>
+        <field name="model">erpv6.consulting.brand</field>
+        <field name="arch" type="xml">
+            <list><field name="name"/><field name="code"/><field name="default_hourly_rate"/><field name="consultant_count"/><field name="active"/></list>
+        </field>
+    </record>
+    <record id="view_brand_form" model="ir.ui.view">
+        <field name="name">erpv6.consulting.brand.form</field>
+        <field name="model">erpv6.consulting.brand</field>
+        <field name="arch" type="xml">
+            <form><sheet>
+                <group><group><field name="name"/><field name="code"/><field name="active"/></group>
+                <group><field name="default_hourly_rate"/><field name="default_commission_rate"/><field name="color" widget="color"/></group></group>
+                <group string="Descrizione"><field name="description" nolabel="1"/></group>
+            </sheet></form>
+        </field>
+    </record>
+    <record id="action_brand" model="ir.actions.act_window">
+        <field name="name">Brand</field><field name="res_model">erpv6.consulting.brand</field><field name="view_mode">list,form</field>
+    </record>
+    <record id="view_consultant_list" model="ir.ui.view">
+        <field name="name">erpv6.consulting.consultant.list</field>
+        <field name="model">erpv6.consulting.consultant</field>
+        <field name="arch" type="xml">
+            <list><field name="partner_id"/><field name="brand_id"/><field name="hourly_rate"/><field name="is_active"/></list>
+        </field>
+    </record>
+    <record id="view_consultant_form" model="ir.ui.view">
+        <field name="name">erpv6.consulting.consultant.form</field>
+        <field name="model">erpv6.consulting.consultant</field>
+        <field name="arch" type="xml">
+            <form><sheet>
+                <group><group><field name="partner_id"/><field name="brand_id"/><field name="is_active"/></group>
+                <group><field name="hourly_rate"/><field name="commission_rate"/></group></group>
+            </sheet></form>
+        </field>
+    </record>
+    <record id="action_consultant" model="ir.actions.act_window">
+        <field name="name">Consulenti</field><field name="res_model">erpv6.consulting.consultant</field><field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_consulting" name="Consulenza" parent="erpv6_core.menu_erpv6_root" sequence="40"/>
+    <menuitem id="menu_brands" name="Brand" parent="menu_consulting" action="action_brand" sequence="10"/>
+    <menuitem id="menu_consultants" name="Consulenti" parent="menu_consulting" action="action_consultant" sequence="20"/>
+</odoo>

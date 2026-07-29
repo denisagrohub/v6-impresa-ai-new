@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_lot_form" model="ir.ui.view">
+        <field name="name">erpv6.tracking.lot.form</field>
+        <field name="model">erpv6.tracking.lot</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_close" type="object" string="Chiudi" class="oe_highlight" invisible="state != 'active'"/>
+                    <button name="action_cancel" type="object" string="Annulla" invisible="state not in ['draft', 'active']"/>
+                    <button name="action_draft" type="object" string="Riporta in Bozza" invisible="state not in ['closed', 'cancelled']"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,closed"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="name"/>
+                            <field name="tracking_type"/>
+                        </group>
+                        <group>
+                            <field name="company_code"/>
+                            <field name="brand_code"/>
+                            <field name="config_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="quantity"/>
+                        <field name="production_date"/>
+                        <field name="notes"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <record id="view_lot_list" model="ir.ui.view">
+        <field name="name">erpv6.tracking.lot.list</field>
+        <field name="model">erpv6.tracking.lot</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="brand_code"/>
+                <field name="quantity"/>
+                <field name="production_date"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+    
+    <record id="action_lot" model="ir.actions.act_window">
+        <field name="name">Lotti</field>
+        <field name="res_model">erpv6.tracking.lot</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

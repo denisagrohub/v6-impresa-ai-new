@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fenice_commission_report_tree" model="ir.ui.view">
+        <field name="name">fenice.commission.report.tree</field>
+        <field name="model">fenice.commission.report</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="date"/>
+                <field name="vendor_id"/>
+                <field name="total_sales"/>
+                <field name="commission_rate"/>
+                <field name="commission_amount"/>
+                <field name="vendor_amount"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+    
+    <record id="action_fenice_commission_report" model="ir.actions.act_window">
+        <field name="name">Report Commissioni</field>
+        <field name="res_model">fenice.commission.report</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+    
+    <menuitem id="menu_fenice_commission" name="Report Commissioni" parent="menu_fenice_marketplace" action="action_fenice_commission_report" sequence="20"/>
+</odoo>

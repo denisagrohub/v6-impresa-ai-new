@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="funnel_config_default" model="fenice.funnel.config">
+        <field name="name">Configurazione Default Funnel Fenice</field>
+        <field name="is_active" eval="True"/>
+        <field name="delay_email_2">2</field>
+        <field name="delay_email_3">5</field>
+        <field name="delay_email_4">10</field>
+        <field name="delay_email_5">20</field>
+        <field name="template_email_1" ref="email_template_funnel_step_1"/>
+        <field name="template_email_2" ref="email_template_funnel_step_2"/>
+        <field name="template_email_3" ref="email_template_funnel_step_3"/>
+        <field name="template_email_4" ref="email_template_funnel_step_4"/>
+        <field name="template_email_5" ref="email_template_funnel_step_5"/>
+    </record>
+</odoo>

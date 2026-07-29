@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_fenice" model="ir.ui.view">
+        <field name="name">res.partner.form.fenice</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Sistema di Qualità Fenice" name="fenice_aderente">
+                    <group string="Classificazione Contrattuale" invisible="not is_fenice_aderente">
+                        <group>
+                            <field name="tipo_aderente"/>
+                            <field name="stato_aderente"/>
+                            <field name="data_ammissione"/>
+                            <field name="anno_adesione"/>
+                        </group>
+                        <group>
+                            <field name="provincia_id"/>
+                            <field name="partecipa_biocircolo"/>
+                            <field name="is_public_profile"/>
+                        </group>
+                    </group>
+                    <group string="Sistema di Qualità e Moduli" invisible="not is_fenice_aderente">
+                        <group>
+                            <field name="fenice_livello"/>
+                            <field name="livello_ecommerce"/>
+                        </group>
+                        <group>
+                            <field name="logo_azienda" widget="image" class="oe_avatar" options="{'size': [90, 90]}"/>
+                        </group>
+                    </group>
+                    <group string="Catalogo Referenze" invisible="not is_fenice_aderente">
+                        <field name="prodotti_principali" widget="text"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
