@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- Bando Demo 1 -->
+        <record id="demo_bando_1" model="erpv6.bando">
+            <field name="name">PNRR - Transizione 4.0</field>
+            <field name="code">PNRR-DIGIT-2024-001</field>
+            <field name="source_id" ref="source_mimit"/>
+            <field name="ente">MIMIT</field>
+            <field name="descrizione">&lt;p&gt;Incentivi per investimenti in beni materiali e immateriali funzionali alla trasformazione tecnologica e digitale delle imprese secondo il modello Industry 4.0.&lt;/p&gt;</field>
+            <field name="importo_max">500000</field>
+            <field name="percent_max">45.0</field>
+            <field name="tipo_agevolazione">credito_imposta</field>
+            <field name="scadenza_domanda">2025-12-31</field>
+            <field name="settori_target">manifatturiero,tech,servizi</field>
+            <field name="requisiti_minimi">&lt;ul&gt;&lt;li&gt;Essere un'impresa&lt;/li&gt;&lt;li&gt;Investimenti superiori a 50k€&lt;/li&gt;&lt;/ul&gt;</field>
+            <field name="area_geografica">nazionale</field>
+            <field name="status">active</field>
+        </record>
+
+        <!-- Bando Demo 2 -->
+        <record id="demo_bando_2" model="erpv6.bando">
+            <field name="name">Fondo Perduto - Giovani Imprenditori</field>
+            <field name="code">INVITALIA-GIOVANI-2024</field>
+            <field name="source_id" ref="source_invitalia"/>
+            <field name="ente">Invitalia</field>
+            <field name="descrizione">&lt;p&gt;Agevolazioni per la creazione di nuove imprese da parte di giovani under 35.&lt;/p&gt;</field>
+            <field name="importo_max">200000</field>
+            <field name="percent_max">70.0</field>
+            <field name="tipo_agevolazione">fondo_perduto</field>
+            <field name="scadenza_domanda">2025-06-30</field>
+            <field name="settori_target">commercio,servizi,turismo</field>
+            <field name="requisiti_minimi">&lt;ul&gt;&lt;li&gt;Età inferiore a 35 anni&lt;/li&gt;&lt;li&gt;Nuova costituzione&lt;/li&gt;&lt;/ul&gt;</field>
+            <field name="area_geografica">nazionale</field>
+            <field name="status">active</field>
+        </record>
+
+        <!-- Bando Demo 3 -->
+        <record id="demo_bando_3" model="erpv6.bando">
+            <field name="name">PSR Lombardia - Innovazione Agricola</field>
+            <field name="code">PSR-LOMB-2024-AGR</field>
+            <field name="source_id" ref="source_lombardia"/>
+            <field name="ente">Regione Lombardia</field>
+            <field name="descrizione">&lt;p&gt;Sostegno agli investimenti per l'innovazione nel settore agricolo.&lt;/p&gt;</field>
+            <field name="importo_max">100000</field>
+            <field name="percent_max">60.0</field>
+            <field name="tipo_agevolazione">misto</field>
+            <field name="scadenza_domanda">2025-03-31</field>
+            <field name="settori_target">agricoltura,agroalimentare</field>
+            <field name="requisiti_minimi">&lt;ul&gt;&lt;li&gt;Impresa agricola&lt;/li&gt;&lt;li&gt;Sede in Lombardia&lt;/li&gt;&lt;/ul&gt;</field>
+            <field name="area_geografica">regionale</field>
+            <field name="regione">Lombardia</field>
+            <field name="status">active</field>
+        </record>
+    </data>
+</odoo>

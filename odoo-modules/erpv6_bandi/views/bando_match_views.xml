@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tree View Match -->
+    <record id="view_erpv6_bando_match_tree" model="ir.ui.view">
+        <field name="name">erpv6.bando.match.tree</field>
+        <field name="model">erpv6.bando.match</field>
+        <field name="arch" type="xml">
+            <tree decoration-success="eligibility_level=='high'" decoration-warning="eligibility_level=='medium'" decoration-danger="eligibility_level=='low'">
+                <field name="bando_id"/>
+                <field name="partner_id"/>
+                <field name="eligibility_score" widget="progressbar"/>
+                <field name="eligibility_level"/>
+                <field name="importo_stimato" sum="Totale"/>
+                <field name="status"/>
+                <field name="consultant_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View Match -->
+    <record id="view_erpv6_bando_match_form" model="ir.ui.view">
+        <field name="name">erpv6.bando.match.form</field>
+        <field name="model">erpv6.bando.match</field>
+        <field name="arch" type="xml">
+            <form string="Match Bando-Cliente">
+                <header>
+                    <button name="action_notify_consultant" string="Notifica Consulente" type="object" class="btn-primary" states="new"/>
+                    <button name="action_mark_interested" string="Segna Interessato" type="object" states="notified"/>
+                    <button name="action_create_application" string="Crea Candidatura" type="object" class="btn-success" states="interested"/>
+                    <field name="status" widget="statusbar" statusbar_visible="new,notified,interested,applied,won"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="bando_id"/>
+                            <field name="partner_id"/>
+                            <field name="project_id"/>
+                            <field name="consultant_id"/>
+                        </group>
+                        <group>
+                            <field name="eligibility_score" widget="gauge" options="{'max': 100, 'green': 80, 'red': 60}"/>
+                            <field name="eligibility_level"/>
+                            <field name="importo_stimato"/>
+                            <field name="deadline_interna"/>
+                            <field name="notified_at"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Dettagli">
+                            <group>
+                                <field name="motivi_compatibilita" placeholder="Motivi per cui questo bando è compatibile..."/>
+                                <field name="motivi_esclusione" placeholder="Motivi di eventuale esclusione..."/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View Match -->
+    <record id="view_erpv6_bando_match_search" model="ir.ui.view">
+        <field name="name">erpv6.bando.match.search</field>
+        <field name="model">erpv6.bando.match</field>
+        <field name="arch" type="xml">
+            <search string="Cerca Match">
+                <field name="bando_id"/>
+                <field name="partner_id"/>
+                <field name="consultant_id"/>
+                <filter string="Alta Priorità" name="high_priority" domain="[('eligibility_level','=','high')]"/>
+                <filter string="Media Priorità" name="medium_priority" domain="[('eligibility_level','=','medium')]"/>
+                <separator/>
+                <filter string="Nuovi" name="new" domain="[('status','=','new')]"/>
+                <filter string="Interessati" name="interested" domain="[('status','=','interested')]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter string="Consulente" name="group_consultant" context="{'group_by':'consultant_id'}"/>
+                    <filter string="Stato" name="group_status" context="{'group_by':'status'}"/>
+                    <filter string="Livello" name="group_level" context="{'group_by':'eligibility_level'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action Window -->
+    <record id="action_erpv6_bando_match" model="ir.actions.act_window">
+        <field name="name">Match Clienti-Bandi</field>
+        <field name="res_model">erpv6.bando.match</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_erpv6_bando_match_search"/>
+    </record>
+</odoo>

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tree View Bandi -->
+    <record id="view_erpv6_bando_tree" model="ir.ui.view">
+        <field name="name">erpv6.bando.tree</field>
+        <field name="model">erpv6.bando</field>
+        <field name="arch" type="xml">
+            <tree decoration-warning="status=='expired'" decoration-muted="status=='closed'">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="ente"/>
+                <field name="importo_max" sum="Totale"/>
+                <field name="scadenza_domanda"/>
+                <field name="status"/>
+                <field name="match_count"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View Bando -->
+    <record id="view_erpv6_bando_form" model="ir.ui.view">
+        <field name="name">erpv6.bando.form</field>
+        <field name="model">erpv6.bando</field>
+        <field name="arch" type="xml">
+            <form string="Bando di Finanziamento">
+                <header>
+                    <button name="action_validate" string="Valida e Pubblica in KB" type="object" class="btn-primary" states="draft"/>
+                    <button name="action_expire" string="Segna come Scaduto" type="object" states="active"/>
+                    <field name="status" widget="statusbar" statusbar_visible="draft,active,expired,closed"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_matches" type="object" class="oe_stat_button" icon="fa-handshake-o">
+                            <field name="match_count" widget="statinfo" string="Match"/>
+                        </button>
+                        <button name="action_open_applications" type="object" class="oe_stat_button" icon="fa-file-text-o">
+                            <field name="application_count" widget="statinfo" string="Candidature"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Nome Bando"/>
+                        </h1>
+                        <field name="code" placeholder="Codice Univoco"/>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="source_id"/>
+                            <field name="ente"/>
+                            <field name="tipo_agevolazione"/>
+                            <field name="importo_max"/>
+                            <field name="percent_max"/>
+                        </group>
+                        <group>
+                            <field name="area_geografica"/>
+                            <field name="regione" attrs="{'invisible': [('area_geografica', '!=', 'regionale')]}"/>
+                            <field name="scadenza_domanda"/>
+                            <field name="scadenza_erogazione"/>
+                            <field name="last_sync"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Descrizione">
+                            <field name="descrizione" placeholder="Descrizione completa del bando..."/>
+                        </page>
+                        <page string="Requisiti">
+                            <group>
+                                <group>
+                                    <field name="settori_target"/>
+                                </group>
+                                <group>
+                                    <field name="requisiti_minimi"/>
+                                    <field name="requisiti_esclusivi"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="KB Integration">
+                            <group>
+                                <field name="kb_module_id"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View Bando -->
+    <record id="view_erpv6_bando_search" model="ir.ui.view">
+        <field name="name">erpv6.bando.search</field>
+        <field name="model">erpv6.bando</field>
+        <field name="arch" type="xml">
+            <search string="Cerca Bandi">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="ente"/>
+                <filter string="Attivi" name="active" domain="[('status','=','active')]"/>
+                <filter string="Scaduti" name="expired" domain="[('status','=','expired')]"/>
+                <separator/>
+                <filter string="Con Match" name="with_matches" domain="[('match_count','>',0)]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter string="Ente" name="group_ente" context="{'group_by':'ente'}"/>
+                    <filter string="Stato" name="group_status" context="{'group_by':'status'}"/>
+                    <filter string="Tipo Agevolazione" name="group_tipo" context="{'group_by':'tipo_agevolazione'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action Window -->
+    <record id="action_erpv6_bando" model="ir.actions.act_window">
+        <field name="name">Bandi di Finanziamento</field>
+        <field name="res_model">erpv6.bando</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_erpv6_bando_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nessun bando presente
+            </p>
+            <p>
+                I bandi verranno importati automaticamente dalle fonti configurate.
+            </p>
+        </field>
+    </record>
+</odoo>
