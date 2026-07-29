@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         data.events.push(newEvent);
         saveData(data);
 
-        console.log(`✅ Evento Call AI creato nel calendario: ${newEvent.id}`);
+        console.debug(`✅ Evento Call AI creato nel calendario: ${newEvent.id}`);
 
         return NextResponse.json({
             success: true,

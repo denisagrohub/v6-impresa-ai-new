@@ -12,11 +12,6 @@ export default function Navbar() {
   useEffect(() => {
     const saved = localStorage.getItem("pi_session");
     setSession(saved ? JSON.parse(saved) : null);
-  }, [pathname]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("pi_session");
-    setSession(saved ? JSON.parse(saved) : null);
   }, []);
 
   const handleLogout = () => {
