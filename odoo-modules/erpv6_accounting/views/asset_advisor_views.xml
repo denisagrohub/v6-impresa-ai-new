@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_asset_advisor_form" model="ir.ui.view">
+        <field name="name">erpv6.asset.advisor.form</field>
+        <field name="model">erpv6.asset.advisor</field>
+        <field name="arch" type="xml">
+            <form string="Advisor Cespiti">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Nome Cespite"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Dati Cespite">
+                            <field name="name"/>
+                            <field name="category"/>
+                            <field name="priority"/>
+                            <field name="status"/>
+                        </group>
+                        <group string="Valori">
+                            <field name="purchase_value"/>
+                            <field name="current_value"/>
+                            <field name="accumulated_depreciation"/>
+                            <field name="net_value"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Ammortamento">
+                            <field name="purchase_date"/>
+                            <field name="depreciation_years"/>
+                            <field name="annual_depreciation"/>
+                        </group>
+                        <group string="Bandi">
+                            <field name="eligible_bandis"/>
+                            <field name="bandi_potential_credit"/>
+                            <button name="action_check_bandi_eligibility" string="Verifica Bandi" type="object" class="oe_highlight"/>
+                        </group>
+                    </group>
+                    <group string="Note">
+                        <field name="notes" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_asset_advisor_list" model="ir.ui.view">
+        <field name="name">erpv6.asset.advisor.list</field>
+        <field name="model">erpv6.asset.advisor</field>
+        <field name="arch" type="xml">
+            <list string="Cespiti">
+                <field name="name"/>
+                <field name="category"/>
+                <field name="purchase_value"/>
+                <field name="net_value"/>
+                <field name="bandi_potential_credit"/>
+                <field name="priority"/>
+                <field name="status"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_asset_advisor" model="ir.actions.act_window">
+        <field name="name">Advisor Cespiti</field>
+        <field name="res_model">erpv6.asset.advisor</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fiscal_prediction_form" model="ir.ui.view">
+        <field name="name">erpv6.fiscal.prediction.form</field>
+        <field name="model">erpv6.fiscal.prediction</field>
+        <field name="arch" type="xml">
+            <form string="Previsione Fiscale">
+                <header>
+                    <button name="action_calculate" string="Calcola Previsione" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_confirm" string="Conferma" type="object" invisible="state != 'calculated'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,calculated,confirmed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="fiscal_year" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Dati Base">
+                            <field name="company_id"/>
+                            <field name="partner_id"/>
+                            <field name="date"/>
+                        </group>
+                        <group string="Kairós Finanziario">
+                            <field name="kairos_score"/>
+                            <field name="kairos_level"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Fatturato">
+                            <field name="revenue_ytd"/>
+                            <field name="revenue_forecast"/>
+                        </group>
+                        <group string="Costi">
+                            <field name="costs_ytd"/>
+                            <field name="costs_forecast"/>
+                        </group>
+                    </group>
+                    <group string="Previsioni Tasse">
+                        <group>
+                            <field name="predicted_iva"/>
+                            <field name="predicted_ires"/>
+                            <field name="predicted_irap"/>
+                            <field name="predicted_regional"/>
+                            <field name="predicted_total"/>
+                        </group>
+                        <group>
+                            <field name="potential_savings"/>
+                            <field name="optimized_total"/>
+                            <field name="savings_percentage"/>
+                        </group>
+                    </group>
+                    <group string="Note">
+                        <field name="notes" nolabel="1"/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fiscal_prediction_list" model="ir.ui.view">
+        <field name="name">erpv6.fiscal.prediction.list</field>
+        <field name="model">erpv6.fiscal.prediction</field>
+        <field name="arch" type="xml">
+            <!-- FIX ODOO 18: Usare 'list' invece di 'tree' -->
+            <list string="Previsioni Fiscali">
+                <field name="date"/>
+                <field name="partner_id"/>
+                <field name="revenue_forecast"/>
+                <field name="predicted_total"/>
+                <field name="potential_savings"/>
+                <field name="kairos_level"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fiscal_prediction_search" model="ir.ui.view">
+        <field name="name">erpv6.fiscal.prediction.search</field>
+        <field name="model">erpv6.fiscal.prediction</field>
+        <field name="arch" type="xml">
+            <search string="Cerca Previsioni">
+                <field name="partner_id"/>
+                <field name="fiscal_year"/>
+                <filter string="Confermate" name="confirmed" domain="[('state', '=', 'confirmed')]"/>
+                <filter string="In Bozza" name="draft" domain="[('state', '=', 'draft')]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter string="Anno" name="group_year" context="{'group_by': 'fiscal_year'}"/>
+                    <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fiscal_prediction" model="ir.actions.act_window">
+        <field name="name">Previsioni Fiscali</field>
+        <field name="res_model">erpv6.fiscal.prediction</field>
+        <field name="view_mode">list,form</field>        <!-- FIX ODOO 18: list,form invece di tree,form -->
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea la prima previsione fiscale
+            </p>
+        </field>
+    </record>
+</odoo>

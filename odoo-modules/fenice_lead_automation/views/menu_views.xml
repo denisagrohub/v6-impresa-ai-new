@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_fenice_root" name="Fenice AI" sequence="50" web_icon="fenice_lead_automation,static/description/icon.svg"/>
+    <menuitem id="menu_fenice_leads" name="Lead Fenice" parent="menu_fenice_root" action="crm.crm_lead_action_my_activities" sequence="10"/>
+    <menuitem id="menu_fenice_config" name="Configurazione" parent="menu_fenice_root" action="action_funnel_config" sequence="20"/>
+</odoo>

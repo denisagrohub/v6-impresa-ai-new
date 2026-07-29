@@ -10,14 +10,11 @@ export default function UnifiedLoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    // ❌ RIMOSSO useEffect che causava il loop infinito
-
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         setLoading(true);
 
-        // Per demo, usa credenziali hardcoded (ma in produzione chiama API)
         setTimeout(() => {
             let sessionData = "";
             let redirectUrl = "/login";
@@ -38,7 +35,8 @@ export default function UnifiedLoginPage() {
             }
 
             localStorage.setItem("pi_session", sessionData);
-            document.cookie = `pi_session=${encodeURIComponent(sessionData)}; path=/; max-age=86400`;
+            // 🔥 Aggiungi 'domain' per assicurarti che il cookie sia valido su localhost
+            document.cookie = `pi_session=${encodeURIComponent(sessionData)}; path=/; max-age=86400; domain=localhost`;
 
             window.location.href = redirectUrl;
         }, 500);

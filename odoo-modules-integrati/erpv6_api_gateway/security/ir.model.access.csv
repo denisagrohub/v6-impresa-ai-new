@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_apikey_mgr,erpv6.api.key mgr,model_erpv6_api_key,base.group_system,1,1,1,1
+access_apilog_mgr,erpv6.api.log mgr,model_erpv6_api_log,base.group_system,1,0,0,0
+access_webhook_mgr,erpv6.webhook mgr,model_erpv6_webhook,base.group_system,1,1,1,1

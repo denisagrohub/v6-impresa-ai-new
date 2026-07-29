@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_fenice_intelligence" model="ir.module.category">
+        <field name="name">Fenice Market Intelligence</field>
+        <field name="description">Analisi dati di mercato e intelligence competitiva</field>
+        <field name="sequence">101</field>
+    </record>
+    
+    <record id="group_fenice_intelligence_user" model="res.groups">
+        <field name="name">Intelligence User</field>
+        <field name="category_id" ref="module_category_fenice_intelligence"/>
+    </record>
+    
+    <record id="group_fenice_intelligence_manager" model="res.groups">
+        <field name="name">Intelligence Manager</field>
+        <field name="category_id" ref="module_category_fenice_intelligence"/>
+        <field name="implied_ids" eval="[(4, ref('group_fenice_intelligence_user'))]"/>
+    </record>
+</odoo>

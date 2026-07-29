@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo><data noupdate="1">
+    <record id="cron_expire" model="ir.cron">
+        <field name="name">ERP V6: Scadenza Token</field>
+        <field name="model_id" ref="model_erpv6_booking_token"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_expire_tokens()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="cron_cleanup" model="ir.cron">
+        <field name="name">ERP V6: Pulizia Token</field>
+        <field name="model_id" ref="model_erpv6_booking_token"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_cleanup_tokens(30)</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+</data></odoo>

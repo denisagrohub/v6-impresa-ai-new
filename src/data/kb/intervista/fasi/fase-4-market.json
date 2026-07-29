@@ -1,0 +1,32 @@
+{
+  "id": "fase-4-market",
+  "name": "Mercato & Competitor",
+  "icon": "Gauge",
+  "description": "Il contesto in cui operi",
+  "questions": [
+    {
+      "id": "mercatoTarget",
+      "label": "Mercato target (clienti ideali)",
+      "type": "textarea",
+      "placeholder": "Descrivi il tuo mercato di riferimento...",
+      "required": false,
+      "order": 1
+    },
+    {
+      "id": "competitorPrincipali",
+      "label": "Principali competitor",
+      "type": "textarea",
+      "placeholder": "Chi sono i tuoi competitor diretti...",
+      "required": false,
+      "order": 2
+    },
+    {
+      "id": "vantaggioCompetitivo",
+      "label": "Vantaggio competitivo",
+      "type": "textarea",
+      "placeholder": "Cosa ti differenzia dalla concorrenza...",
+      "required": false,
+      "order": 3
+    }
+  ]
+}

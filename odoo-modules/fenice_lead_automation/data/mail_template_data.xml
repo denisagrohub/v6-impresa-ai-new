@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="email_template_funnel_step_1" model="mail.template">
+        <field name="name">[Fenice AI] Step 1 - Conferma e Report</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="subject">[Fenice AI] Il tuo Report Fenice Score è pronto, {{ object.contact_name }}</field>
+        <field name="email_from">{{ (object.user_id.email_formatted or 'noreply@fattorievenexiane.it') }}</field>
+        <field name="partner_to">{{ object.partner_id.id }}</field>
+        <field name="body_html"><![CDATA[<p>Gentile <strong>{{ object.contact_name }}</strong>,<br/><br/>Grazie per aver completato la valutazione. Il tuo <strong>Fenice Score preliminare è {{ object.x_fenice_score }} punti</strong> ({{ object.x_fenice_livello }}).<br/><br/>In allegato trovi il report dettagliato.<br/><br/>Il Gestore di Rete ti contatterà entro 24 ore.<br/><br/>Cordiali saluti,<br/><strong>Fattorie Venexiane</strong></p>]]></field>
+        <!-- report_template_ids rimosso: report non ancora definito -->
+        <field name="auto_delete" eval="True"/>
+    </record>
+    <record id="email_template_funnel_step_2" model="mail.template">
+        <field name="name">[Fenice AI] Step 2 - Approfondimento</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="subject">[Fenice AI] Come raggiungere il livello successivo, {{ object.contact_name }}</field>
+        <field name="email_from">{{ (object.user_id.email_formatted or 'noreply@fattorievenexiane.it') }}</field>
+        <field name="partner_to">{{ object.partner_id.id }}</field>
+        <field name="body_html"><![CDATA[<p>Gentile <strong>{{ object.contact_name }}</strong>,<br/><br/>Ti mancano pochi punti per raggiungere il livello <strong>Leone di San Marco</strong>.<br/><br/>Ecco 3 azioni concrete:<br/>1. Attiva il Modulo C (Fenice Market): +8 punti Comunicazione<br/>2. Partecipa al BioCircolo Veneto: +10 punti Sostenibilità<br/>3. Utilizza Fenice Procurement: +5 punti<br/><br/>Rispondi a questa email per saperne di più.<br/><br/>Cordiali saluti,<br/><strong>Il Gestore di Rete</strong></p>]]></field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+    <record id="email_template_funnel_step_3" model="mail.template">
+        <field name="name">[Fenice AI] Step 3 - Case Study</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="subject">[Fenice AI] La storia di Caseificio Altopiano: da 0 a 80k€ di bandi</field>
+        <field name="email_from">{{ (object.user_id.email_formatted or 'noreply@fattorievenexiane.it') }}</field>
+        <field name="partner_to">{{ object.partner_id.id }}</field>
+        <field name="body_html"><![CDATA[<p>Gentile <strong>{{ object.contact_name }}</strong>,<br/><br/>Vogliamo condividerti una storia reale.<br/><br/><strong>Caseificio Altopiano</strong> (Livello III):<br/>✓ Dopo 6 mesi in rete: ottenuto <strong>80.000€</strong> dal PSR Veneto<br/>✓ Risparmio packaging: <strong>4.800€/anno</strong><br/><br/>Anche la tua azienda può ottenere questi risultati.<br/><br/>Cordiali saluti,<br/><strong>Fattorie Venexiane</strong></p>]]></field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+    <record id="email_template_funnel_step_4" model="mail.template">
+        <field name="name">[Fenice AI] Step 4 - Invito Colloquio</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="subject">[Fenice AI] Colloquio conoscitivo gratuito: 30 minuti</field>
+        <field name="email_from">{{ (object.user_id.email_formatted or 'noreply@fattorievenexiane.it') }}</field>
+        <field name="partner_to">{{ object.partner_id.id }}</field>
+        <field name="body_html"><![CDATA[<p>Gentile <strong>{{ object.contact_name }}</strong>,<br/><br/>Il Gestore di Rete ti invita a un colloquio conoscitivo di 30 minuti (gratuito) per analizzare il tuo Fenice Score e calcolare il ROI.<br/><br/>📞 Chiama: +39 041 XXX XXXX<br/>✉️ Email: gestore@fattorievenexiane.it<br/><br/>Cordiali saluti,<br/><strong>Il Gestore di Rete</strong></p>]]></field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+    <record id="email_template_funnel_step_5" model="mail.template">
+        <field name="name">[Fenice AI] Step 5 - Ultimo Follow-up</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="subject">[Fenice AI] Ultima opportunità: iscrizioni bando PSR 2026</field>
+        <field name="email_from">{{ (object.user_id.email_formatted or 'noreply@fattorievenexiane.it') }}</field>
+        <field name="partner_to">{{ object.partner_id.id }}</field>
+        <field name="body_html"><![CDATA[<p>Gentile <strong>{{ object.contact_name }}</strong>,<br/><br/>Le iscrizioni per il <strong>bando PSR Veneto 2026</strong> chiudono il <strong>31 Dicembre 2025</strong>.<br/><br/>Se sei interessato ad accedere a contributi a fondo perduto del 40-70%, devi aderire entro il 31/12/2025.<br/><br/> +39 041 XXX XXXX<br/>✉️ gestore@fattorievenexiane.it<br/><br/>Cordiali saluti,<br/><strong>Fattorie Venexiane</strong></p>]]></field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+</odoo>

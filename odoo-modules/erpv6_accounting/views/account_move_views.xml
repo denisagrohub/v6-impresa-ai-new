@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_move_form_v6" model="ir.ui.view">
+        <field name="name">account.move.form.v6</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="V6 Impresa - Previsioni Fiscali">
+                    <group>
+                        <field name="v6_is_deductible"/>
+                        <field name="v6_deduction_rate" invisible="not v6_is_deductible"/>
+                        <field name="v6_sal_number"/>
+                        <field name="v6_project_id"/>
+                    </group>
+                    <group>
+                        <field name="v6_predicted_tax_impact"/>
+                        <field name="v6_net_after_tax"/>
+                        <field name="v6_tax_savings"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

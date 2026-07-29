@@ -1,0 +1,45 @@
+{
+  "package": "starter",
+  "additionalQuestions": [
+    {
+      "id": "annoFondazione",
+      "label": "Anno di fondazione dell'azienda",
+      "type": "number",
+      "placeholder": "2015",
+      "required": true,
+      "phase": "advanced"
+    },
+    {
+      "id": "formaGiuridica",
+      "label": "Forma giuridica",
+      "type": "select",
+      "options": ["S.r.l.", "S.p.A.", "S.a.s.", "Impresa individuale"],
+      "required": true,
+      "phase": "advanced"
+    },
+    {
+      "id": "fatturatoEsatto",
+      "label": "Fatturato esatto (ultimo anno)",
+      "type": "number",
+      "placeholder": "1500000",
+      "required": true,
+      "phase": "advanced"
+    },
+    {
+      "id": "ebitdaEsatto",
+      "label": "EBITDA esatto",
+      "type": "number",
+      "placeholder": "250000",
+      "required": true,
+      "phase": "advanced"
+    },
+    {
+      "id": "mercatoTargetDettaglio",
+      "label": "Descrizione dettagliata del mercato target",
+      "type": "textarea",
+      "placeholder": "Descrivi in dettaglio il tuo mercato target...",
+      "required": true,
+      "phase": "advanced"
+    }
+  ]
+}

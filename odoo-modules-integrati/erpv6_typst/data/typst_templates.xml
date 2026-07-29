@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Template NDA Base -->
+        <record id="template_nda_base" model="erpv6.typst.template">
+            <field name="name">NDA Base</field>
+            <field name="template_type">nda</field>
+            <field name="sequence">10</field>
+            <field name="description">Accordo di Non Divulgazione standard</field>
+            <field name="template_content">#set page(paper: "a4", margin: 2.5cm)
+#set text(font: "Arial", size: 11pt)
+
+= ACCORDO DI NON DIVULGAZIONE (NDA)
+
+*Data:* {{ document.date }}
+
+*Tra:*
+
+{{ company.name }}
+{{ company.address }}
+P.IVA: {{ company.vat }}
+
+*E:*
+
+{{ partner.name }}
+{{ partner.email }}
+
+---
+
+== 1. Oggetto
+
+Le parti si impegnano a mantenere strettamente riservate tutte le informazioni scambiate nel contesto della presente collaborazione.
+
+== 2. Durata
+
+L'obbligo di riservatezza ha durata di 5 (cinque) anni dalla data di sottoscrizione.
+
+== 3. Eccezioni
+
+Non sono considerate confidenziali le informazioni già di pubblico dominio.
+
+== 4. Utilizzo
+
+Le informazioni confidenziali potranno essere utilizzate esclusivamente per valutare e realizzare l'operazione oggetto della collaborazione.
+
+== 5. Legge applicabile
+
+Il presente accordo è regolato dalla legge italiana. Per qualsiasi controversia sarà competente il Foro di Milano.
+
+---
+
+#align(center)[
+_Firma per accettazione_
+
+_________________________
+{{ company.name }}
+
+_________________________
+{{ partner.name }}
+]</field>
+        </record>
+        
+        <!-- Template Business Plan Base -->
+        <record id="template_bp_base" model="erpv6.typst.template">
+            <field name="name">Business Plan Base</field>
+            <field name="template_type">business_plan</field>
+            <field name="sequence">20</field>
+            <field name="description">Business Plan standard per PMI</field>
+            <field name="template_content">#set page(paper: "a4", margin: 2.5cm)
+#set text(font: "Arial", size: 11pt)
+
+= BUSINESS PLAN
+
+*{{ company.name }}*
+
+_Data:_ {{ document.date }}
+
+---
+
+== Executive Summary
+
+{{ executive_summary }}
+
+== Descrizione dell'Azienda
+
+{{ company_description }}
+
+== Analisi di Mercato
+
+{{ market_analysis }}
+
+== Proiezioni Finanziarie
+
+{{ financial_projections }}
+
+== Analisi dei Rischi
+
+{{ risk_assessment }}
+
+---
+
+#align(center)[
+_Documento riservato_
+]</field>
+        </record>
+        
+        <!-- Template Contratto di Servizio -->
+        <record id="template_contract_service" model="erpv6.typst.template">
+            <field name="name">Contratto di Servizio</field>
+            <field name="template_type">contract</field>
+            <field name="sequence">30</field>
+            <field name="description">Contratto di servizio standard</field>
+            <field name="template_content">#set page(paper: "a4", margin: 2.5cm)
+#set text(font: "Arial", size: 11pt)
+
+= CONTRATTO DI SERVIZIO
+
+*Data:* {{ document.date }}
+
+*Tra:*
+
+{{ company.name }}
+{{ company.address }}
+P.IVA: {{ company.vat }}
+
+*E:*
+
+{{ partner.name }}
+{{ partner.email }}
+
+---
+
+== 1. Oggetto del Servizio
+
+{{ service_description }}
+
+== 2. Durata
+
+Il presente contratto ha durata di {{ contract_duration }} mesi dalla data di sottoscrizione.
+
+== 3. Corrispettivo
+
+Il corrispettivo per il servizio è di € {{ contract_amount }} + IVA.
+
+== 4. Modalità di Pagamento
+
+{{ payment_terms }}
+
+== 5. Obblighi delle Parti
+
+{{ obligations }}
+
+== 6. Risoluzione
+
+{{ termination_clause }}
+
+---
+
+#align(center)[
+_Firma per accettazione_
+
+_________________________
+{{ company.name }}
+
+_________________________
+{{ partner.name }}
+]</field>
+        </record>
+    </data>
+</odoo>

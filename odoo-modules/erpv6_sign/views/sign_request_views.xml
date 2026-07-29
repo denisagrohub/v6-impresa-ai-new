@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sign_request_form" model="ir.ui.view">
+        <field name="name">erpv6.sign.request.form</field>
+        <field name="model">erpv6.sign.request</field>
+        <field name="arch" type="xml">
+            <form string="Richiesta di Firma">
+                <header>
+                    <button name="action_send_to_sign" string="Invia per Firma" type="object" class="oe_highlight" invisible="status != 'draft'"/>
+                    <button name="action_check_status" string="Verifica Stato" type="object" invisible="status not in ['sent', 'viewed']"/>
+                    <field name="status" widget="statusbar" statusbar_visible="draft,sent,viewed,signed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="contract_id"/>
+                            <field name="document_id"/>
+                            <field name="partner_id"/>
+                        </group>
+                        <group>
+                            <field name="external_id"/>
+                            <field name="request_url" widget="url"/>
+                            <field name="sent_at"/>
+                            <field name="viewed_at"/>
+                            <field name="signed_at"/>
+                        </group>
+                    </group>
+                    <group string="Documento Firmato" invisible="status != 'signed'">
+                        <field name="signed_document" filename="name"/>
+                        <field name="signature_hash"/>
+                    </group>
+                    <group string="Note">
+                        <field name="notes" nolabel="1"/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+    
+    <record id="view_sign_request_list" model="ir.ui.view">
+        <field name="name">erpv6.sign.request.list</field>
+        <field name="model">erpv6.sign.request</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="status"/>
+                <field name="sent_at"/>
+                <field name="signed_at"/>
+            </list>
+        </field>
+    </record>
+    
+    <record id="action_sign_request" model="ir.actions.act_window">
+        <field name="name">Richieste di Firma</field>
+        <field name="res_model">erpv6.sign.request</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    
+    <menuitem id="menu_erpv6_sign_requests" name="Richieste" parent="menu_erpv6_sign_root" action="action_sign_request" sequence="10"/>
+</odoo>

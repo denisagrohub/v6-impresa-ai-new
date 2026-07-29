@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_contract_form" model="ir.ui.view">
+        <field name="name">erpv6.contract.form</field>
+        <field name="model">erpv6.contract</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="partner_id"/>
+                        <field name="status"/>
+                    </group>
+                    <group string="Documenti">
+                        <field name="document_ids" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <record id="action_contract" model="ir.actions.act_window">
+        <field name="name">Contratti</field>
+        <field name="res_model">erpv6.contract</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

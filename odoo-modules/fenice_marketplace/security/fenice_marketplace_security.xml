@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_fenice_marketplace" model="ir.module.category">
+        <field name="name">Fenice Marketplace</field>
+        <field name="description">Gestione marketplace multi-vendor Fattorie Venexiane</field>
+        <field name="sequence">100</field>
+    </record>
+    
+    <record id="group_fenice_vendor" model="res.groups">
+        <field name="name">Vendor</field>
+        <field name="category_id" ref="module_category_fenice_marketplace"/>
+        <field name="comment">Accesso limitato ai propri prodotti e ordini</field>
+    </record>
+    
+    <record id="group_fenice_manager" model="res.groups">
+        <field name="name">Manager Marketplace</field>
+        <field name="category_id" ref="module_category_fenice_marketplace"/>
+        <field name="implied_ids" eval="[(4, ref('group_fenice_vendor'))]"/>
+        <field name="comment">Accesso completo al marketplace</field>
+    </record>
+</odoo>

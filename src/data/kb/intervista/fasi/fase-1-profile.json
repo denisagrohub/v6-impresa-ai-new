@@ -1,0 +1,64 @@
+{
+  "id": "fase-1-profile",
+  "name": "Profilo Aziendale",
+  "icon": "Building2",
+  "description": "Parliamo della tua azienda",
+  "questions": [
+    {
+      "id": "nome",
+      "label": "Come ti chiami?",
+      "type": "text",
+      "placeholder": "Mario Rossi",
+      "required": true,
+      "order": 1
+    },
+    {
+      "id": "email",
+      "label": "La tua email",
+      "type": "email",
+      "placeholder": "mario@esempio.it",
+      "required": true,
+      "order": 2
+    },
+    {
+      "id": "telefono",
+      "label": "Il tuo telefono",
+      "type": "tel",
+      "placeholder": "+39 333 1234567",
+      "required": false,
+      "order": 3
+    },
+    {
+      "id": "azienda",
+      "label": "Nome della tua azienda",
+      "type": "text",
+      "placeholder": "Innovazione S.r.l.",
+      "required": true,
+      "order": 4
+    },
+    {
+      "id": "settore",
+      "label": "Settore di appartenenza",
+      "type": "text",
+      "placeholder": "Tech, Manifatturiero, Food...",
+      "required": true,
+      "order": 5
+    },
+    {
+      "id": "fatturato",
+      "label": "Fatturato annuo",
+      "type": "select",
+      "options": ["< 1M€", "1M€ - 5M€", "5M€ - 10M€", "> 10M€"],
+      "required": true,
+      "order": 6
+    },
+    {
+      "id": "dipendenti",
+      "label": "Numero di dipendenti",
+      "type": "select",
+      "options": ["< 5", "5 - 20", "20 - 50", "> 50"],
+      "required": true,
+      "order": 7
+    }
+  ]
+}

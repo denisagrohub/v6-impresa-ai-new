@@ -1,0 +1,40 @@
+{
+  "id": "fase-3-financial",
+  "name": "Dati Finanziari",
+  "icon": "TrendingUp",
+  "description": "Qualche numero per capire meglio",
+  "questions": [
+    {
+      "id": "fatturatoAttuale",
+      "label": "Fatturato attuale (ultimo anno)",
+      "type": "text",
+      "placeholder": "€1.500.000",
+      "required": false,
+      "order": 1
+    },
+    {
+      "id": "ebitda",
+      "label": "EBITDA (Margine operativo)",
+      "type": "text",
+      "placeholder": "€250.000 o 15%",
+      "required": false,
+      "order": 2
+    },
+    {
+      "id": "investimentiPrevisti",
+      "label": "Investimenti previsti (3 anni)",
+      "type": "text",
+      "placeholder": "€500.000",
+      "required": false,
+      "order": 3
+    },
+    {
+      "id": "fabbisognoFinanziario",
+      "label": "Fabbisogno finanziario richiesto",
+      "type": "text",
+      "placeholder": "€1.000.000",
+      "required": false,
+      "order": 4
+    }
+  ]
+}

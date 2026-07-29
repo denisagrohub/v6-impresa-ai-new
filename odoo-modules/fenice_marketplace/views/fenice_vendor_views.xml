@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fenice_vendor_tree" model="ir.ui.view">
+        <field name="name">fenice.vendor.tree</field>
+        <field name="model">fenice.vendor</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="company_id"/>
+                <field name="fenice_livello"/>
+                <field name="commission_rate"/>
+                <field name="product_count"/>
+                <field name="order_count"/>
+                <field name="total_sales"/>
+            </list>
+        </field>
+    </record>
+    
+    <record id="action_fenice_vendor" model="ir.actions.act_window">
+        <field name="name">Vendor</field>
+        <field name="res_model">fenice.vendor</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+    
+    <menuitem id="menu_fenice_marketplace" name="Fenice Marketplace" sequence="100"/>
+    <menuitem id="menu_fenice_vendor" name="Vendor" parent="menu_fenice_marketplace" action="action_fenice_vendor" sequence="10"/>
+</odoo>

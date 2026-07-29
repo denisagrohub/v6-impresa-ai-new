@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menu principale V6 Contabilità -->
+    <menuitem id="menu_erpv6_accounting_root" name="V6 Contabilità" sequence="120"/>
+
+    <!-- Menu Previsioni -->
+    <menuitem id="menu_erpv6_accounting_predictions" name="Previsioni" parent="menu_erpv6_accounting_root" sequence="10"/>
+    <menuitem id="menu_erpv6_accounting_fiscal_prediction" name="Previsioni Fiscali" parent="menu_erpv6_accounting_predictions" action="action_fiscal_prediction" sequence="10"/>
+
+    <!-- Menu Suggerimenti -->
+    <menuitem id="menu_erpv6_accounting_suggestions" name="Suggerimenti" parent="menu_erpv6_accounting_root" sequence="20"/>
+    <menuitem id="menu_erpv6_accounting_deduction_suggestion" name="Suggerimenti Deduzioni" parent="menu_erpv6_accounting_suggestions" action="action_deduction_suggestion" sequence="10"/>
+
+    <!-- Menu Cespiti -->
+    <menuitem id="menu_erpv6_accounting_assets" name="Cespiti" parent="menu_erpv6_accounting_root" sequence="30"/>
+    <menuitem id="menu_erpv6_accounting_asset_advisor" name="Advisor Cespiti" parent="menu_erpv6_accounting_assets" action="action_asset_advisor" sequence="10"/>
+</odoo>

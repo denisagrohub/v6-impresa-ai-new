@@ -1,0 +1,73 @@
+{
+  "business_plan": {
+    "sections": [
+      {
+        "id": "executive_summary",
+        "checks": [
+          "Chiarezza della proposta di valore",
+          "Dati finanziari realistici",
+          "Allineamento con obiettivi del cliente",
+          "Tono appropriato per il destinatario"
+        ]
+      },
+      {
+        "id": "company_description",
+        "checks": [
+          "Completezza delle informazioni aziendali",
+          "Coerenza con settore di appartenenza",
+          "Identità del brand ben definita"
+        ]
+      },
+      {
+        "id": "market_analysis",
+        "checks": [
+          "Dati di mercato verificabili",
+          "Competitor correttamente identificati",
+          "Analisi SWOT completa",
+          "Trend di settore attuali"
+        ]
+      },
+      {
+        "id": "financial_projections",
+        "checks": [
+          "Proiezioni realistiche",
+          "Scenari ben documentati",
+          "Driver di crescita giustificati",
+          "Coerenza tra i numeri"
+        ]
+      },
+      {
+        "id": "risk_assessment",
+        "checks": [
+          "Rischi identificati correttamente",
+          "Mitigazioni adeguate",
+          "Piano di contingenza presente"
+        ]
+      }
+    ],
+    "general_checks": [
+      "Formattazione professionale",
+      "Assenza di errori grammaticali",
+      "Coerenza del brand",
+      "Documento completo (nessuna sezione mancante)"
+    ]
+  },
+  "financial_model": {
+    "checks": [
+      "Formule corrette",
+      "Coerenza dei numeri tra fogli",
+      "Scenari realistici",
+      "Driver documentati",
+      "Visualizzazioni chiare"
+    ]
+  },
+  "pitch_deck": {
+    "checks": [
+      "Storytelling coinvolgente",
+      "Design professionale",
+      "Dati accurati",
+      "Call to action chiara",
+      "Durata appropriata (10-15 slide)"
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_crm_lead_form_fenice" model="ir.ui.view">
+        <field name="name">crm.lead.form.fenice</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='lead']" position="after">
+                <page string="Fenice AI" name="fenice_ai">
+                    <group>
+                        <group string="Dati Fenice">
+                            <field name="x_fenice_score"/>
+                            <field name="x_fenice_livello"/>
+                            <field name="x_fenice_moduli_interesse"/>
+                            <field name="x_fenice_fatturato"/>
+                            <field name="x_fenice_source"/>
+                        </group>
+                        <group string="Stato Funnel">
+                            <field name="x_funnel_stage"/>
+                            <field name="x_funnel_emails_sent"/>
+                            <field name="x_funnel_next_email_date"/>
+                        </group>
+                    </group>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_send_funnel_email_manual" type="object" class="oe_stat_button" icon="fa-envelope"><span>Invia Prossima Email</span></button>
+                        <button name="action_generate_fenice_report" type="object" class="oe_stat_button" icon="fa-file-pdf-o"><span>Genera Report PDF</span></button>
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

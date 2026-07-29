@@ -1,0 +1,39 @@
+{
+  "packages": [
+    {
+      "id": "CP-001",
+      "name": "Pacchetto Innovazione Tech",
+      "clientName": "Innovazione S.p.A.",
+      "clientEmail": "info@innovazione.it",
+      "modules": [
+        { "id": "bp-l2", "name": "Business Plan L2", "price": 20000 },
+        { "id": "brand-pro", "name": "Brand Pro", "price": 1500 },
+        { "id": "training", "name": "Formazione Team", "price": 2500 }
+      ],
+      "totalPrice": 24000,
+      "discount": 10,
+      "finalPrice": 21600,
+      "status": "configured",
+      "createdAt": "2026-07-25T10:00:00Z",
+      "consultantId": "PART-004",
+      "notes": "Pacchetto completo per startup tech con formazione"
+    },
+    {
+      "id": "CP-002",
+      "name": "Advisory Finanziario",
+      "clientName": "GreenEnergy S.r.l.",
+      "clientEmail": "info@greenenergy.it",
+      "modules": [
+        { "id": "bp-l3", "name": "Advisory L3", "price": 150000 },
+        { "id": "consulting", "name": "Consulenza Finanziaria", "price": 5000 }
+      ],
+      "totalPrice": 155000,
+      "discount": 5,
+      "finalPrice": 147250,
+      "status": "sent",
+      "createdAt": "2026-07-26T14:30:00Z",
+      "consultantId": "PART-004",
+      "notes": "Advisory per operazione di project finance"
+    }
+  ]
+}
