@@ -1,0 +1,260 @@
+================================================================================
+ERPv6 SUITE - NEXT.JS FRONTEND (VERCEL READY)
+Complete Source Code for Production
+================================================================================
+
+--------------------------------------------------------------------------------
+FILE: src/lib/omni-client.ts (OmniRoute Integration)
+--------------------------------------------------------------------------------
+/**
+ * Client per gestire le chiamate AI tramite OmniRoute
+ * Supporta fallback, caching e routing intelligente
+ */
+
+const OMNIROUTE_URL = process.env.NEXT_PUBLIC_OMNIROUTE_URL || 'http://localhost:8080';
+
+export async function callAI({
+  provider, // 'groq', 'anthropic', 'openai'
+  model,
+  messages,
+  contextData
+}: {
+  provider: string;
+  model: string;
+  messages: any[];
+  contextData?: any;
+}) {
+  try {
+    const response = await fetch(`${OMNIROUTE_URL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        model,
+        messages,
+        context: contextData,
+        cache: true // Abilita caching risposte
+      })
+    });
+
+    if (!response.ok) throw new Error('OmniRoute error');
+    return await response.json();
+  } catch (error) {
+    console.error('Fallback to direct call:', error);
+    // Fallback diretto se OmniRoute è down
+    return callDirect(provider, model, messages);
+  }
+}
+
+--------------------------------------------------------------------------------
+FILE: src/app/interview/[id]/page.tsx (Intervista Guidata)
+--------------------------------------------------------------------------------
+'use client';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { callAI } from '@/lib/omni-client';
+
+export default function InterviewPage() {
+  const { id } = useParams();
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Carica domande dinamiche basate sul tipo di progetto
+  useEffect(() => {
+    async function loadQuestions() {
+      const res = await fetch(`/api/projects/${id}/interview-questions`);
+      const data = await res.json();
+      setQuestions(data);
+    }
+    loadQuestions();
+  }, [id]);
+
+  const handleAnswer = async (qId: string, value: any) => {
+    setAnswers(prev => ({ ...prev, [qId]: value }));
+    
+    // Analisi in tempo reale con AI
+    if (questions[step].requiresAnalysis) {
+      setLoading(true);
+      const analysis = await callAI({
+        provider: 'groq',
+        model: 'llama3-70b',
+        messages: [{ role: 'user', content: `Analizza risposta: ${value}` }]
+      });
+      // Salva analisi nel progetto
+      await fetch(`/api/projects/${id}/analysis`, {
+        method: 'POST',
+        body: JSON.stringify({ analysis: analysis.choices[0].message.content })
+      });
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    // Invia tutti i dati al backend Odoo
+    await fetch(`/api/projects/${id}/complete-interview`, {
+      method: 'POST',
+      body: JSON.stringify({ answers })
+    });
+    alert('Intervista completata! Generazione documento in corso...');
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Intervista V6</h1>
+      
+      {questions.length > 0 && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="mb-4">
+            <span className="text-sm text-gray-500">Domanda {step + 1} di {questions.length}</span>
+            <div className="w-full bg-gray-200 h-2 mt-2">
+              <div 
+                className="bg-blue-600 h-2 transition-all" 
+                style={{ width: `${((step + 1) / questions.length) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          <h2 className="text-xl mb-4">{questions[step].text}</h2>
+          
+          {questions[step].type === 'text' && (
+            <textarea
+              className="w-full border p-3 rounded"
+              onChange={(e) => handleAnswer(questions[step].id, e.target.value)}
+              rows={4}
+            />
+          )}
+          
+          {questions[step].type === 'choice' && (
+            <div className="space-y-2">
+              {questions[step].options.map((opt: string) => (
+                <button
+                  key={opt}
+                  onClick={() => handleAnswer(questions[step].id, opt)}
+                  className="block w-full text-left p-3 border rounded hover:bg-blue-50"
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-between">
+            <button
+              disabled={step === 0}
+              onClick={() => setStep(s => s - 1)}
+              className="px-4 py-2 border rounded disabled:opacity-50"
+            >
+              Indietro
+            </button>
+            
+            {step < questions.length - 1 ? (
+              <button
+                onClick={() => setStep(s => s + 1)}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Avanti
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                className="px-4 py-2 bg-green-600 text-white rounded"
+              >
+                Concludi
+              </button>
+            )}
+          </div>
+          
+          {loading && <p className="text-sm text-gray-500 mt-2">AI sta analizzando...</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+--------------------------------------------------------------------------------
+FILE: src/app/api/projects/[id]/complete-interview/route.ts
+--------------------------------------------------------------------------------
+import { NextRequest, NextResponse } from 'next/server';
+import { odooClient } from '@/lib/odoo-adapter';
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const { answers } = await req.json();
+  
+  // 1. Salva dati intervista in Odoo
+  await odooClient.execute('erpv6.project', 'write', [parseInt(params.id), {
+    collected_data_json: JSON.stringify(answers),
+    state: 'analysis'
+  }]);
+
+  // 2. Trigger generazione documento
+  const docId = await odooClient.execute('erpv6.typst.document', 'create', [{
+    project_id: parseInt(params.id),
+    template_id: 1 // Template Business Plan
+  }]);
+
+  // 3. Avvia rendering asincrono
+  await odooClient.execute('erpv6.typst.document', 'action_generate', [docId]);
+
+  return NextResponse.json({ success: true, documentId: docId });
+}
+
+--------------------------------------------------------------------------------
+FILE: src/app/admin/documents/page.tsx (Dashboard Documenti)
+--------------------------------------------------------------------------------
+'use client';
+import useSWR from 'swr';
+
+export default function DocumentsDashboard() {
+  const { data: docs, mutate } = useSWR('/api/documents', fetcher);
+
+  const handleDownload = async (id: number) => {
+    const res = await fetch(`/api/documents/${id}/download`);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `documento-${id}.pdf`;
+    a.click();
+  };
+
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-6">Documenti Generati</h1>
+      
+      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul className="divide-y divide-gray-200">
+          {docs?.map((doc: any) => (
+            <li key={doc.id}>
+              <div className="px-4 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-indigo-600 truncate">{doc.name}</p>
+                  <p className="text-sm text-gray-500">Cliente: {doc.partner_name}</p>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    doc.state === 'ready' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {doc.state}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleDownload(doc.id)}
+                  disabled={doc.state !== 'ready'}
+                  className="ml-2 px-3 py-2 border rounded text-sm disabled:opacity-50"
+                >
+                  Download PDF
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+async function fetcher(url: string) {
+  const res = await fetch(url);
+  return res.json();
+}
+

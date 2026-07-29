@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Call Log Tree View -->
+    <record id="view_omni_call_log_tree" model="ir.ui.view">
+        <field name="name">erpv6.omni.call.log.tree</field>
+        <field name="model">erpv6.omni.call.log</field>
+        <field name="arch" type="xml">
+            <tree create="false" edit="false">
+                <field name="created_at"/>
+                <field name="task_type"/>
+                <field name="provider_id"/>
+                <field name="model_used"/>
+                <field name="status" widget="badge" 
+                       decoration-success="status == 'success'"
+                       decoration-danger="status == 'error'"
+                       decoration-warning="status == 'timeout'"/>
+                <field name="input_tokens"/>
+                <field name="output_tokens"/>
+                <field name="cost_usd" sum="Totale Costo"/>
+                <field name="duration_ms" avg="Durata Media"/>
+                <field name="partner_id"/>
+                <field name="consultant_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Call Log Form View -->
+    <record id="view_omni_call_log_form" model="ir.ui.view">
+        <field name="name">erpv6.omni.call.log.form</field>
+        <field name="model">erpv6.omni.call.log</field>
+        <field name="arch" type="xml">
+            <form string="Log Chiamata AI" create="false" edit="false">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="task_type"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="created_at"/>
+                            <field name="provider_id"/>
+                            <field name="model_used"/>
+                            <field name="session_id"/>
+                        </group>
+                        <group>
+                            <field name="status"/>
+                            <field name="retry_count"/>
+                            <field name="duration_ms"/>
+                            <field name="cost_usd"/>
+                        </group>
+                    </group>
+                    <group string="Token">
+                        <field name="input_tokens"/>
+                        <field name="output_tokens"/>
+                    </group>
+                    <group string="Contesto">
+                        <field name="partner_id"/>
+                        <field name="consultant_id"/>
+                        <field name="res_model"/>
+                        <field name="res_id"/>
+                    </group>
+                    <group string="Errore" v-if="status == 'error'">
+                        <field name="error_message"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Call Log Search View -->
+    <record id="view_omni_call_log_search" model="ir.ui.view">
+        <field name="name">erpv6.omni.call.log.search</field>
+        <field name="model">erpv6.omni.call.log</field>
+        <field name="arch" type="xml">
+            <search string="Cerca Log">
+                <field name="task_type"/>
+                <field name="provider_id"/>
+                <field name="partner_id"/>
+                <field name="consultant_id"/>
+                <field name="session_id"/>
+                <filter string="Oggi" name="today" domain="[('created_at','>=',context_today().strftime('%Y-%m-%d'))]"/>
+                <filter string="Questa Settimana" name="week" domain="[('created_at','>=',(context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                <filter string="Errori" name="errors" domain="[('status','=','error')]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter string="Task" name="group_task" context="{'group_by':'task_type'}"/>
+                    <filter string="Provider" name="group_provider" context="{'group_by':'provider_id'}"/>
+                    <filter string="Stato" name="group_status" context="{'group_by':'status'}"/>
+                    <filter string="Data" name="group_date" context="{'group_by':'created_at:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_omni_call_log" model="ir.actions.act_window">
+        <field name="name">Log Chiamate AI</field>
+        <field name="res_model">erpv6.omni.call.log</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_omni_call_log_search"/>
+        <field name="context">{'search_default_errors': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nessun log di chiamata presente
+            </p>
+            <p>
+                I log delle chiamate AI appariranno qui automaticamente.
+            </p>
+        </field>
+    </record>
+</odoo>

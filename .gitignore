@@ -8,8 +8,6 @@ __pycache__/
 env/
 venv/
 .venv/
-.ENV
-.python-version
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
@@ -21,73 +19,135 @@ coverage.xml
 *.cover
 *.log
 *.pot
-*.pyc
-*.pyo
-*.pyd
-*.so
-*.egg-info/
-.egg-info/
-.eggs/
-.eggs/
+*.mo
+Moe/
+tags
+TAGS
+!Makefile
+!makefile
+*.orig
+*.rej
+.DS_Store
+Thumbs.db
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Icon?
+Network Trash Folder
+Temporary Items
+.metadata
+.spyproject
+.spyproject.*
+.spydata
+.spyworkspace
+*.spyproject
+*.spydata
+*.spyworkspace
+.project
+.pydevproject
+.settings
+*.swp
+*.swo
+*~
+.#*
+.%*
+._*
+.bak
+.backup
+.old
+.original
+.save
+.swp
+.swn
+.swo
+~$
+*.tmp
+*.temp
+*.log
+*.out
+*.pid
+*.seed
+*.session
+*.dump
+*.core
+*.stackdump
+*.gid
+*.err
+*.retry
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+.#*
+.%*
+._*
+.bak
+.backup
+.old
+.original
+.save
+.swp
+.swn
+.swo
+~$
+*.tmp
+*.temp
+*.log
+*.out
+*.pid
+*.seed
+*.session
+*.dump
+*.core
+*.stackdump
+*.gid
+*.err
+*.retry
+*.bak
+*.backup
 
-# Odoo specific
+# Odoo
 *.xml
 *.csv
-*i18n/
-*static/
-*views/
-*controllers/
-*models/
-*security/
-*data/
-*demo/
-*migrations/
-addons/
-odoo-bin
-openerp-server.log
-*.pot
-*.po~
+*.py
+!odoo-modules/**/*
 
-# Dependencies
+# Next.js
+.next/
+out/
+build/
+
+# Node.js
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnp
+.pnp.js
+node_modules/
+dist/
+build/
 
 # IDE
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 *.swp
 *.swo
 *~
+.\#*
+#*
 .DS_Store
 Thumbs.db
 
-# Environment
+# Environment variables
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env.*
 !.env.example
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-.coverage.*
-
-# Build artifacts
-build/
-dist/
-*.egg
-*.egg-info/
-dist/
-build/
-*.so
-
-# Logs
-*.log
-
-# Temporary files
-*.tmp
-*.temp
 ```

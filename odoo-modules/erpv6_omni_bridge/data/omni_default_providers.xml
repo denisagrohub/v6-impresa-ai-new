@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Provider: OpenAI -->
+        <record id="omni_provider_openai" model="erpv6.omni.provider">
+            <field name="name">OpenAI</field>
+            <field name="code">openai</field>
+            <field name="provider_type">llm</field>
+            <field name="api_url">https://api.openai.com/v1</field>
+            <field name="api_key">sk-placeholder-key</field>
+            <field name="priority">10</field>
+            <field name="timeout_seconds">30</field>
+            <field name="max_rpm">60</field>
+            <field name="cost_per_1k_input">0.01</field>
+            <field name="cost_per_1k_output">0.03</field>
+            <field name="supported_models">gpt-4-turbo,gpt-4,gpt-3.5-turbo</field>
+            <field name="is_active" eval="False"/>
+        </record>
+
+        <!-- Provider: Anthropic -->
+        <record id="omni_provider_anthropic" model="erpv6.omni.provider">
+            <field name="name">Anthropic</field>
+            <field name="code">anthropic</field>
+            <field name="provider_type">llm</field>
+            <field name="api_url">https://api.anthropic.com</field>
+            <field name="api_key">sk-ant-placeholder</field>
+            <field name="priority">20</field>
+            <field name="timeout_seconds">30</field>
+            <field name="max_rpm">50</field>
+            <field name="cost_per_1k_input">0.008</field>
+            <field name="cost_per_1k_output">0.024</field>
+            <field name="supported_models">claude-3-opus,claude-3-sonnet,claude-3-haiku</field>
+            <field name="is_active" eval="False"/>
+        </record>
+
+        <!-- Provider: Groq (veloce) -->
+        <record id="omni_provider_groq" model="erpv6.omni.provider">
+            <field name="name">Groq</field>
+            <field name="code">groq</field>
+            <field name="provider_type">llm</field>
+            <field name="api_url">https://api.groq.com/openai/v1</field>
+            <field name="api_key">gsk-placeholder</field>
+            <field name="priority">5</field>
+            <field name="timeout_seconds">15</field>
+            <field name="max_rpm">100</field>
+            <field name="cost_per_1k_input">0.0001</field>
+            <field name="cost_per_1k_output">0.0001</field>
+            <field name="supported_models">llama-3-70b,llama-3-8b,mixtral-8x7b</field>
+            <field name="is_active" eval="False"/>
+        </record>
+
+        <!-- Provider: Deepgram (Trascrizione) -->
+        <record id="omni_provider_deepgram" model="erpv6.omni.provider">
+            <field name="name">Deepgram</field>
+            <field name="code">deepgram</field>
+            <field name="provider_type">transcription</field>
+            <field name="api_url">https://api.deepgram.com/v1</field>
+            <field name="api_key">dg-placeholder</field>
+            <field name="priority">1</field>
+            <field name="timeout_seconds">60</field>
+            <field name="max_rpm">30</field>
+            <field name="cost_per_1k_input">0.0</field>
+            <field name="cost_per_1k_output">0.0</field>
+            <field name="supported_models">nova,nova-general,enhanced</field>
+            <field name="is_active" eval="False"/>
+        </record>
+
+        <!-- Route: Chat Generale -->
+        <record id="omni_route_chat_general" model="erpv6.omni.route.config">
+            <field name="name">Chat Generale con Fallback</field>
+            <field name="task_type">chat_general</field>
+            <field name="primary_provider_id" ref="omni_provider_groq"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai'), ref('omni_provider_anthropic')])]"/>
+            <field name="routing_strategy">priority</field>
+            <field name="priority">10</field>
+            <field name="max_retries">3</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <!-- Route: Trascrizione -->
+        <record id="omni_route_transcription" model="erpv6.omni.route.config">
+            <field name="name">Trascrizione Audio/Video</field>
+            <field name="task_type">transcription</field>
+            <field name="primary_provider_id" ref="omni_provider_deepgram"/>
+            <field name="routing_strategy">priority</field>
+            <field name="priority">1</field>
+            <field name="max_retries">2</field>
+            <field name="timeout_override">120</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <!-- Route: RAG Query -->
+        <record id="omni_route_rag" model="erpv6.omni.route.config">
+            <field name="name">RAG Query con KB</field>
+            <field name="task_type">rag_query</field>
+            <field name="primary_provider_id" ref="omni_provider_anthropic"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai')])]"/>
+            <field name="routing_strategy">balanced</field>
+            <field name="priority">20</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+    </data>
+</odoo>
