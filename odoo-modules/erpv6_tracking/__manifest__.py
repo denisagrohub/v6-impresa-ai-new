@@ -5,8 +5,12 @@
     'summary': 'Tracciamento lotti',
     'author': 'V6 Impresa AI',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail', 'erpv6_core', 'erpv6_consulting'],
-    'data': ['security/ir.model.access.csv', 'views/tracking_views.xml'],
+    'depends': ['base', 'mail', 'erpv6_core', 'erpv6_consulting', 'erpv6_accounting'],
+    'data': [
+        'security/ir.model.access.csv', 
+        'views/tracking_views.xml',
+        'views/res_config_settings_views.xml',
+    ],
     'installable': True,
     'application': False,
 }
