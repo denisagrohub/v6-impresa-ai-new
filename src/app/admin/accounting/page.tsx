@@ -83,7 +83,7 @@ export default function AccountingDashboard() {
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
               <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} tickFormatter={(value) => `€${value/1000}k`} />
-              <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => [`€ ${value.toLocaleString()}`, '']} />
+              <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: any) => [`€ ${Number(value).toLocaleString()}`, '']} />
               <Legend />
               <Line type="monotone" dataKey="revenue" name="Fatturato" stroke="#2563eb" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
               <Line type="monotone" dataKey="taxStandard" name="Tasse Standard" stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" dot={false} />

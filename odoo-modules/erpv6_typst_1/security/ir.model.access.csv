@@ -1,6 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_typst_template_user,erpv6.typst.template user,model_erpv6_typst_template,base.group_user,1,0,0,0
-access_typst_template_manager,erpv6.typst.template manager,model_erpv6_typst_template,base.group_system,1,1,1,1
-access_typst_document_user,erpv6.typst.document user,model_erpv6_typst_document,base.group_user,1,1,1,0
-access_typst_document_manager,erpv6.typst.document manager,model_erpv6_typst_document,base.group_system,1,1,1,1
-access_typst_engine_manager,erpv6.typst.engine manager,model_erpv6_typst_engine,base.group_system,1,1,1,1

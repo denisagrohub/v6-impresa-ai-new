@@ -1,70 +1,136 @@
-# pylint: disable=import-error
-"""AI API Controller for ERP V6."""
-import json
+# -*- coding: utf-8 -*-
 import logging
 import time
-
-from odoo import fields, http
+from odoo import http
 from odoo.http import request
-
 from .main import APIBaseController
 
 _logger = logging.getLogger(__name__)
 
 
 class AIAPIController(APIBaseController):
-    """API endpoints specifici per AI agents."""
+    """
+    🔗 AI API Controller - Delega a erpv6_omni_bridge
+    
+    Questo controller espone endpoint AI tramite il gateway,
+    ma tutta la logica di routing, fallback e cifratura è gestita
+    dal modulo erpv6_omni_bridge.
+    
+    FLUSSO:
+    Next.js → /api/v1/ai/chat (api_gateway)
+            → erpv6_omni_bridge.execute_ai_task()
+            → Provider AI esterno (OpenAI, Anthropic, Groq)
+    """
 
-    @http.route('/api/v1/ai/context', type='http', auth='none', methods=['POST'], csrf=False)
-    def get_ai_context(self, **kwargs):  # pylint: disable=unused-argument
+    @http.route('/api/v1/ai/chat', type='json', auth='none', 
+                methods=['POST'], csrf=False)
+    def ai_chat(self, **kwargs):
+        """
+        Endpoint AI per chat/completion.
+        Delega completamente a erpv6_omni_bridge.
+        """
         start_time = time.time()
+        
+        # 1. Autenticazione (gestita da api_gateway)
         user, error = self._authenticate()
         if error:
             return error
-
+        
+        # 2. Rate limiting (gestito da api_gateway)
+        rate_limit_error = self._check_rate_limit(user)
+        if rate_limit_error:
+            return rate_limit_error
+        
+        # 3. Validazione input (gestita da api_gateway)
         try:
+            import json
             data = json.loads(request.httprequest.data)
+            messages = data.get('messages', [])
+            model = data.get('model', 'gpt-4')
+            
+            if not messages:
+                return self._json_response({'error': 'messages richiesto'}, 400)
         except json.JSONDecodeError:
-            self._log_api_call('/api/v1/ai/context', 'POST', user.id, 400, start_time)
-            return self._json_response({'error': 'Invalid JSON'}, 400)
-
-        query = data.get('query', '')
-        context_type = data.get('context_type', 'general')
-        max_articles = min(int(data.get('max_articles', 5)), 20)
-
-        domain = [('is_active', '=', True), ('access_level', 'in', ['public', 'consultant', 'ai_only'])]
-        if query:
-            domain.extend(['|', ('name', 'ilike', query), ('description', 'ilike', query)])
-
+            return self._json_response({'error': 'JSON non valido'}, 400)
+        
+        # 4. 🔗 DELEGA A OMNI_BRIDGE
         try:
-            articles = request.env['erpv6.kb'].sudo().search(domain, limit=max_articles, order='priority desc, use_count desc')
+            omni_result = request.env['erpv6.omni.bridge'].sudo().execute_ai_task(
+                task_type='chat_general',
+                payload={
+                    'messages': messages,
+                    'model': model,
+                    'temperature': data.get('temperature', 0.7),
+                },
+                context={
+                    'user_id': user.id,
+                    'partner_id': user.partner_id.id if user.partner_id else None,
+                    'session_id': data.get('session_id'),
+                }
+            )
+            
+            # 5. Logging (gestito da api_gateway)
+            self._log_api_call('/api/v1/ai/chat', 'POST', user.id, 200, start_time)
+            
+            # 6. Ritorna risposta
+            return self._json_response({
+                'success': omni_result.get('success', False),
+                'data': omni_result.get('data'),
+                'provider_used': omni_result.get('provider_used'),
+                'cost_usd': omni_result.get('cost_usd'),
+                'duration_ms': omni_result.get('duration_ms'),
+            })
+            
         except Exception as e:
-            _logger.error("KB search error: %s", e)
-            return self._json_response({'error': 'Internal error'}, 500)
-
-        ctx_articles = []
-        for a in articles:
-            try:
-                content = a.get_content_for_ai('ai_agent') if a.is_encrypted else a.content
-                ctx_articles.append({'id': a.id, 'name': a.name, 'kb_type': a.kb_type, 'content': content, 'priority': a.priority})
-            except Exception:
-                continue
-
-        prompt_domain = [('kb_type', '=', 'prompt'), ('is_active', '=', True)]
-        if context_type:
-            prompt_domain.append(('category_id.name', 'ilike', context_type))
-
-        ctx_prompts = []
+            _logger.error(f"Errore AI: {e}")
+            self._log_api_call('/api/v1/ai/chat', 'POST', user.id, 500, start_time)
+            return self._json_response({'error': str(e)}, 500)
+    
+    @http.route('/api/v1/ai/transcribe', type='json', auth='none',
+                methods=['POST'], csrf=False)
+    def ai_transcribe(self, **kwargs):
+        """
+        Endpoint AI per trascrizione audio/video.
+        Delega completamente a erpv6_omni_bridge.
+        """
+        start_time = time.time()
+        
+        # Autenticazione
+        user, error = self._authenticate()
+        if error:
+            return error
+        
         try:
-            for p in request.env['erpv6.kb'].sudo().search(prompt_domain, limit=3):
-                content = p.get_content_for_ai('ai_agent') if p.is_encrypted else p.content
-                ctx_prompts.append({'id': p.id, 'name': p.name, 'content': content})
-        except Exception:
-            pass
-
-        self._log_api_call('/api/v1/ai/context', 'POST', user.id, 200, start_time)
-        return self._json_response({
-            'query': query, 'context_type': context_type,
-            'articles': ctx_articles, 'prompts': ctx_prompts,
-            'timestamp': fields.Datetime.now().isoformat(),
-        })
+            import json
+            data = json.loads(request.httprequest.data)
+            audio_data = data.get('audio_data')
+            
+            if not audio_data:
+                return self._json_response({'error': 'audio_data richiesto'}, 400)
+            
+            # 🔗 DELEGA A OMNI_BRIDGE
+            omni_result = request.env['erpv6.omni.bridge'].sudo().execute_ai_task(
+                task_type='transcription',
+                payload={
+                    'audio': audio_data,
+                    'model': data.get('model', 'nova-2'),
+                },
+                context={
+                    'user_id': user.id,
+                    'partner_id': user.partner_id.id if user.partner_id else None,
+                }
+            )
+            
+            self._log_api_call('/api/v1/ai/transcribe', 'POST', user.id, 200, start_time)
+            
+            return self._json_response({
+                'success': omni_result.get('success', False),
+                'data': omni_result.get('data'),
+                'provider_used': omni_result.get('provider_used'),
+                'cost_usd': omni_result.get('cost_usd'),
+            })
+            
+        except Exception as e:
+            _logger.error(f"Errore trascrizione: {e}")
+            self._log_api_call('/api/v1/ai/transcribe', 'POST', user.id, 500, start_time)
+            return self._json_response({'error': str(e)}, 500)

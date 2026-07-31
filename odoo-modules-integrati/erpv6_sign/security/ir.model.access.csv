@@ -1,7 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_sign_request_user,erpv6.sign.request user,model_erpv6_sign_request,base.group_user,1,1,1,0
-access_sign_request_manager,erpv6.sign.request manager,model_erpv6_sign_request,base.group_system,1,1,1,1
-access_sign_log_user,erpv6.sign.log user,model_erpv6_sign_log,base.group_user,1,0,0,0
-access_sign_log_manager,erpv6.sign.log manager,model_erpv6_sign_log,base.group_system,1,1,1,1
-access_sign_config_manager,erpv6.sign.config manager,model_erpv6_sign_config,base.group_system,1,1,1,1
-access_install_wizard_manager,erpv6.sign.install.wizard manager,model_erpv6_sign_install_wizard,base.group_system,1,1,1,1

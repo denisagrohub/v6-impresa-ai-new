@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <!-- Menu principale -->
-    <menuitem id="menu_erpv6_sign_root" name="Firma Elettronica" parent="erpv6_core.menu_erpv6_root" sequence="70"/>
-    
-    <!-- Wizard installazione -->
-    <menuitem id="menu_erpv6_sign_install" name="Installa OpenSign" parent="menu_erpv6_sign_root" action="action_install_opensign" sequence="90" groups="base.group_system"/>
-</odoo>

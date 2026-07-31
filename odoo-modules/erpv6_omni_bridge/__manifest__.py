@@ -1,28 +1,27 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'ERPv6 OmniRoute Bridge',
-    'version': '18.0.1.0.0',
+    'version': '18.0.2.0.0',
     'category': 'Productivity',
-    'summary': 'Gestione centralizzata routing AI e provider esterni (OmniRoute)',
+    'summary': 'Gestione centralizzata routing AI, fallback e proxy sicuro (OmniRoute)',
     'description': """
 Modulo ponte per integrare il sistema OmniRoute con Odoo.
-Permette di gestire chiavi API, routing intelligente, fallback e bilanciamento del carico
-per tutte le chiamate AI verso provider esterni (OpenAI, Anthropic, Groq, Deepgram, ecc.).
-
-Funzionalità principali:
 - Configurazione centrale provider AI
 - Routing dinamico basato su costo/velocità/qualità
 - Fallback automatico in caso di errore
 - Logging e monitoraggio costi
-- Integrazione con erpv6_kb per contesto RAG
+- 🔐 API Key cifrate con erpv6_crypto
+- 🔐 Proxy di esecuzione: Next.js non vede mai le API Key
     """,
     'author': 'V6 Impresa AI Team',
     'website': 'https://v6-impresa.ai',
     'license': 'LGPL-3',
     'depends': [
         'base',
+        'web',
         'erpv6_core',
         'erpv6_kb',
+        'erpv6_crypto',  # 🔐 Aggiunto per cifratura API Key
     ],
     'data': [
         'security/ir.model.access.csv',

@@ -39,7 +39,7 @@ class BlockchainRecord(models.Model):
             if not w3.is_connected():
                 raise UserError('Impossibile connettersi alla blockchain.')
             
-            account = w3.eth.account.from_key(self.config_id.private_key)
+            account = w3.eth.account.from_key(self.config_id.get_decrypted_private_key())
             nonce = w3.eth.get_transaction_count(account.address)
             
             # Simulazione transazione (in produzione: chiama smart contract)

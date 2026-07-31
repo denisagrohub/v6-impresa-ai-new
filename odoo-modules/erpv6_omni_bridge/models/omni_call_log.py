@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+from datetime import timedelta
 from odoo import models, fields, api
 
 _logger = logging.getLogger(__name__)
@@ -14,7 +15,6 @@ class OmniCallLog(models.Model):
     provider_id = fields.Many2one('erpv6.omni.provider', string='Provider Usato', required=True, index=True)
     model_used = fields.Char(string='Modello Usato')
     
-    # Request/Response (solo metadati, non il contenuto completo per privacy/performance)
     input_tokens = fields.Integer(string='Token Input')
     output_tokens = fields.Integer(string='Token Output')
     cost_usd = fields.Float(string='Costo ($)', digits=(10, 6))
@@ -30,22 +30,18 @@ class OmniCallLog(models.Model):
     retry_count = fields.Integer(string='Tentativi', default=0)
     duration_ms = fields.Integer(string='Durata (ms)')
     
-    # Contesto opzionale
     res_model = fields.Char(string='Modello Odoo Collegato', index=True)
     res_id = fields.Integer(string='ID Record', index=True)
     session_id = fields.Char(string='Sessione ID', index=True)
     
     created_at = fields.Datetime(string='Data/Ora', default=fields.Datetime.now, required=True, index=True)
     
-    # Riferimenti business
     partner_id = fields.Many2one('res.partner', string='Cliente')
-    consultant_id = fields.Many2one('res.partner', string='Consulente', 
-                                    domain=[('is_consultant', '=', True)])
+    consultant_id = fields.Many2one('res.partner', string='Consulente', domain=[('is_consultant', '=', True)])
 
     @api.model
-    def create_log(self, task_type, provider, model, input_tokens, output_tokens, 
+    def create_log(self, task_type, provider, model, input_tokens, output_tokens,
                    cost, status, duration, error_msg=None, **kwargs):
-        """Crea un log di chiamata in modo efficiente"""
         return self.create({
             'task_type': task_type,
             'provider_id': provider.id if hasattr(provider, 'id') else provider,
@@ -65,53 +61,56 @@ class OmniCallLog(models.Model):
 
     @api.model
     def get_stats_by_provider(self, days=30):
-        """Restituisce statistiche per provider negli ultimi N giorni"""
-        from datetime import timedelta
+        """Ottimizzato con read_group per evitare loop N+1 in Python"""
         cutoff = fields.Datetime.now() - timedelta(days=days)
-        
         domain = [('created_at', '>=', cutoff)]
-        logs = self.search(domain)
+        
+        stats_raw = self.read_group(
+            domain=domain,
+            fields=['provider_id', 'cost_usd', 'duration_ms', 'status'],
+            groupby=['provider_id', 'status'],
+            lazy=False
+        )
         
         stats = {}
-        for log in logs:
-            pid = log.provider_id.id
+        for s in stats_raw:
+            pid = s['provider_id'][0] if s['provider_id'] else 0
+            pname = s['provider_id'][1] if s['provider_id'] else 'Unknown'
+            
             if pid not in stats:
                 stats[pid] = {
-                    'name': log.provider_id.name,
-                    'calls': 0,
-                    'success': 0,
-                    'error': 0,
-                    'cost': 0.0,
-                    'avg_duration': 0,
+                    'name': pname, 'calls': 0, 'success': 0, 'error': 0, 
+                    'cost': 0.0, 'total_duration': 0
                 }
-            stats[pid]['calls'] += 1
-            if log.status == 'success':
-                stats[pid]['success'] += 1
+            
+            stats[pid]['calls'] += s['__count']
+            stats[pid]['cost'] += s['cost_usd'] or 0.0
+            stats[pid]['total_duration'] += s['duration_ms'] or 0
+            
+            if s['status'] == 'success':
+                stats[pid]['success'] += s['__count']
             else:
-                stats[pid]['error'] += 1
-            stats[pid]['cost'] += log.cost_usd
-        
-        # Calcola medie
+                stats[pid]['error'] += s['__count']
+                
+        result = []
         for pid, s in stats.items():
-            if s['calls'] > 0:
-                total_duration = sum(l.duration_ms for l in logs if l.provider_id.id == pid)
-                s['avg_duration'] = total_duration / s['calls']
-        
-        return list(stats.values())
+            s['avg_duration'] = s['total_duration'] / s['calls'] if s['calls'] > 0 else 0
+            del s['total_duration']
+            result.append(s)
+            
+        return result
 
     @api.model
     def get_daily_cost_trend(self, days=30):
-        """Restituisce trend costi giornalieri"""
-        from datetime import timedelta
-        from collections import defaultdict
-        
+        """Ottimizzato con read_group per aggregazione giornaliera"""
         cutoff = fields.Datetime.now() - timedelta(days=days)
         domain = [('created_at', '>=', cutoff), ('status', '=', 'success')]
-        logs = self.search(domain)
         
-        daily_costs = defaultdict(float)
-        for log in logs:
-            date_str = log.created_at.date().isoformat()
-            daily_costs[date_str] += log.cost_usd
+        trend_raw = self.read_group(
+            domain=domain,
+            fields=['cost_usd', 'created_at'],
+            groupby=['created_at:day'],
+            lazy=False
+        )
         
-        return [{'date': k, 'cost': v} for k, v in sorted(daily_costs.items())]
+        return [{'date': t['created_at'], 'cost': t['cost_usd'] or 0.0} for t in trend_raw]

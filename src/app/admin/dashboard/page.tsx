@@ -86,7 +86,6 @@ export default function AdminDashboard() {
     { icon: TrendingUp, label: "Marketing Plans", href: "/admin/marketing" },
     { icon: Shield, label: "Sicurezza", href: "/admin/security" },
     { icon: DollarSign, label: "Pagamenti", href: "/admin/payments" },
-main
     { icon: Users, label: "Partner", href: "/admin/partners" },
     { icon: Settings, label: "Impostazioni", href: "/admin/settings/system" },
     { icon: AlertTriangle, label: "Richieste", href: "/admin/requests" },
