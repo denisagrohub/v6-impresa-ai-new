@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Menu per lanciare il wizard manualmente -->
+    <menuitem id="menu_erpv6_setup_wizard"
+              name="Setup Iniziale Child"
+              parent="erpv6_core.menu_erpv6_root"
+              action="action_erpv6_setup_wizard"
+              sequence="100"/>
+</odoo>

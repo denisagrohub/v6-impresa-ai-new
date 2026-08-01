@@ -16,6 +16,10 @@ class Erpv6KbCategory(models.Model):
     color = fields.Integer(default=1)
     active = fields.Boolean(default=True)
     article_count = fields.Integer(compute='_compute_article_count')
+    
+    # Campo per TTL cache su istanze child SaaS
+    default_ttl_hours = fields.Integer(string='TTL Cache Default (ore)', default=24, 
+                                       help='Per categorie consumate da child SaaS: quante ore un dato resta valido in cache prima di richiedere un refresh dal parent')
 
     @api.depends('name')
     def _compute_article_count(self):

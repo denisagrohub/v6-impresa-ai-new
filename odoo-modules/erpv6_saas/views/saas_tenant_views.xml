@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View -->
+    <record id="view_erpv6_saas_tenant_form" model="ir.ui.view">
+        <field name="name">erpv6.saas.tenant.form</field>
+        <field name="model">erpv6.saas.tenant</field>
+        <field name="arch" type="xml">
+            <form string="Tenant SaaS">
+                <header>
+                    <field name="subscription_status" widget="statusbar" statusbar_visible="trial,active,expired,cancelled"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Informazioni Cliente">
+                            <field name="partner_id"/>
+                            <field name="verticale"/>
+                            <field name="api_key_id"/>
+                        </group>
+                        <group string="Stato Sottoscrizione">
+                            <field name="subscription_status"/>
+                            <field name="subscription_expires_at"/>
+                            <field name="trial_ends_at"/>
+                            <field name="setup_fee_paid"/>
+                        </group>
+                    </group>
+                    <group string="Note">
+                        <field name="notes" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View -->
+    <record id="view_erpv6_saas_tenant_tree" model="ir.ui.view">
+        <field name="name">erpv6.saas.tenant.tree</field>
+        <field name="model">erpv6.saas.tenant</field>
+        <field name="arch" type="xml">
+            <tree string="Tenant SaaS">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="verticale"/>
+                <field name="api_key_id"/>
+                <field name="subscription_status"/>
+                <field name="subscription_expires_at"/>
+                <field name="trial_ends_at"/>
+                <field name="setup_fee_paid"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_erpv6_saas_tenant" model="ir.actions.act_window">
+        <field name="name">SaaS - Tenant V6 Performance</field>
+        <field name="res_model">erpv6.saas.tenant</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="base.view_res_partner_filter"/>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea il primo tenant SaaS
+            </p>
+            <p>
+                Gestisci i tenant e le loro sottoscrizioni.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu sotto erpv6_core.menu_erpv6_root -->
+    <menuitem id="menu_erpv6_saas_tenant"
+              name="SaaS - Tenant V6 Performance"
+              parent="erpv6_core.menu_erpv6_root"
+              action="action_erpv6_saas_tenant"
+              sequence="10"/>
+</odoo>
