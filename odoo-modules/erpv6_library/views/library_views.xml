@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View -->
+    <record id="view_library_document_form" model="ir.ui.view">
+        <field name="name">erpv6.library.document.form</field>
+        <field name="model">erpv6.library.document</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_certify_blockchain" 
+                            type="object" 
+                            string="Certifica Blockchain" 
+                            class="oe_highlight"
+                            invisible="not is_final_client_facing or blockchain_record_id"/>
+                    <field name="blockchain_record_id" readonly="1" force_save="1"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                    </div>
+                    <group>
+                        <group>
+                            <field name="project_id"/>
+                            <field name="name"/>
+                            <field name="category"/>
+                            <field name="origin"/>
+                        </group>
+                        <group>
+                            <field name="is_final_client_facing"/>
+                            <field name="source_model" invisible="origin != 'generated'"/>
+                            <field name="source_res_id" invisible="origin != 'generated'"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="file" invisible="origin == 'generated'"/>
+                        <field name="file_name" invisible="origin == 'generated'"/>
+                    </group>
+                    <!-- Tracking mixin fields -->
+                    <group string="Tracciabilità" name="tracking_info">
+                        <field name="tracking_enabled"/>
+                        <field name="batch_lot_id"/>
+                        <field name="definitive_lot_id"/>
+                        <field name="tracking_lot_ids" widget="many2many_tags"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View -->
+    <record id="view_library_document_tree" model="ir.ui.view">
+        <field name="name">erpv6.library.document.tree</field>
+        <field name="model">erpv6.library.document</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="category"/>
+                <field name="origin"/>
+                <field name="is_final_client_facing" widget="boolean_toggle"/>
+                <field name="blockchain_record_id"/>
+                <field name="create_date"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Kanban View grouped by category -->
+    <record id="view_library_document_kanban" model="ir.ui.view">
+        <field name="name">erpv6.library.document.kanban</field>
+        <field name="model">erpv6.library.document</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="category">
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="category"/>
+                <field name="origin"/>
+                <field name="is_final_client_facing"/>
+                <field name="blockchain_record_id"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_card oe_kanban_global_click">
+                            <div class="o_kanban_record_top">
+                                <div class="o_kanban_record_headings">
+                                    <strong class="o_kanban_record_title">
+                                        <field name="name"/>
+                                    </strong>
+                                </div>
+                            </div>
+                            <div class="o_kanban_record_body">
+                                <div>Progetto: <field name="project_id"/></div>
+                                <div>Categoria: <field name="category"/></div>
+                                <div>Origine: <field name="origin"/></div>
+                                <div t-if="record.is_final_client_facing.raw_value" class="text-success">
+                                    <i class="fa fa-check"/> Finale per Cliente
+                                </div>
+                                <div t-if="record.blockchain_record_id.raw_value" class="text-primary">
+                                    <i class="fa fa-lock"/> Certificato Blockchain
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_library_document" model="ir.actions.act_window">
+        <field name="name">Documenti Libreria</field>
+        <field name="res_model">erpv6.library.document</field>
+        <field name="view_mode">kanban,tree,form</field>
+        <field name="context">{'search_default_group_by_category': 1}</field>
+    </record>
+
+    <!-- Menu sotto erpv6_core.menu_erpv6_root -->
+    <menuitem id="menu_library_root"
+              name="Library"
+              parent="erpv6_core.menu_erpv6_root"
+              sequence="50"/>
+
+    <menuitem id="menu_library_documents"
+              name="Documenti"
+              parent="menu_library_root"
+              action="action_library_document"
+              sequence="10"/>
+</odoo>

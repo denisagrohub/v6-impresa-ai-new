@@ -61,6 +61,16 @@ class TrackingConfig(models.Model):
         ('custom', 'Custom'),
     ], string='Tipologia Principale', required=True)
 
+    # ATECO suggeriti per questa configurazione
+    ateco_suggested_ids = fields.Many2many(
+        'erpv6.ateco.regime',
+        'erpv6_tracking_config_ateco_rel',
+        'config_id',
+        'ateco_id',
+        string='ATECO Suggeriti',
+        help='Codici ATECO per i quali applicare questa configurazione'
+    )
+
     # Descrizione
     description = fields.Text('Descrizione')
 
@@ -76,3 +86,26 @@ class TrackingConfig(models.Model):
         if not config:
             config = self.search([('active', '=', True)], limit=1)
         return config
+
+    @api.model
+    def get_config_for_ateco(self, ateco_code):
+        """Ottiene la configurazione per un codice ATECO specifico
+        
+        Cerca una config con match su ateco_suggested_ids, 
+        fallback su get_default_config
+        """
+        # Cerca config che hanno questo ATECO tra i suggeriti
+        ateco_regime = self.env['erpv6.ateco.regime'].search(
+            [('code', '=', ateco_code)], limit=1)
+        
+        if ateco_regime:
+            config = self.search(
+                [('ateco_suggested_ids', 'in', ateco_regime.id),
+                 ('active', '=', True)], 
+                limit=1
+            )
+            if config:
+                return config
+        
+        # Fallback sulla config default
+        return self.get_default_config()
