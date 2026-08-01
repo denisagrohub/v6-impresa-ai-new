@@ -8,6 +8,7 @@
         'erpv6_core', 'erpv6_kb', 'erpv6_booking',
         'erpv6_consulting', 'erpv6_tracking',
         'erpv6_omni_bridge',  # 🔗 Aggiunto per integrazione AI
+        'erpv6_saas',  # Per endpoint SaaS
     ],
     'data': [
         'security/ir.model.access.csv',

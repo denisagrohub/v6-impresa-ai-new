@@ -1,9 +1,47 @@
 ```
+
+# Python
+__pycache__/
 # Odoo specific ignores
+
 *.pyc
 __pycache__/
 *.pyo
 *.pyd
+.Python
+env/
+venv/
+.venv/
+.ENV
+.ENV.*
+.venv/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/modules/
+*.sublime-workspace
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# Odoo specific
+*.pot
+*.po
+.settings/
+.idea/
+*.bak
+*~
+.DS_Store
+Thumbs.db
+=======
 *.pot
 *.pot~
 *.mo
