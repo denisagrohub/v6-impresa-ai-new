@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <!-- Menu principale -->
-    <menuitem id="menu_erpv6_typst_root" name="Typst Documents" parent="erpv6_core.menu_erpv6_root" sequence="60"/>
-</odoo>

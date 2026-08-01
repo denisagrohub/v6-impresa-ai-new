@@ -1,9 +1,9 @@
 {
     'name': 'ERP V6 - Blockchain Certification',
-    'version': '18.0.1.0.0',
+    'version': '18.0.2.0.0',
     'category': 'Tools',
     'summary': 'Certificazione documenti su blockchain (Polygon)',
-    'depends': ['base', 'mail', 'erpv6_core'],
+    'depends': ['base', 'mail', 'erpv6_core', 'erpv6_crypto'],  # 🔐 Aggiunto crypto
     'data': [
         'security/ir.model.access.csv',
         'views/blockchain_views.xml',

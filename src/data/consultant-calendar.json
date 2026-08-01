@@ -1,57 +1,14 @@
 {
-
-    "events": [],
-    "settings": {
-        "maxDailyPublicSlots": 3,
-        "defaultDuration": 60,
-        "workingHours": {
-            "start": "09:00",
-            "end": "18:00",
-            "days": [1, 2, 3, 4, 5]
-        },
-        "googleCalendarSync": false,
-        "googleCalendarId": null
-    }
-}
-
-  "events": [
-    {
-      "id": "CAL-AI-1784902036573",
-      "title": "🎙️ Call AI - Business Plan Startup Tech",
-      "description": "Call AI con Innovazione S.p.A.\nProgetto: Business Plan Startup Tech\nTipo: Call AI con trascrizione e analisi pattern",
-      "date": "2026-07-24",
-      "time": "16:07",
-      "duration": 60,
-      "type": "call-ai",
-      "projectId": "PI-2026-0024",
-      "projectName": "Business Plan Startup Tech",
-      "clientName": "Innovazione S.p.A.",
-      "consultantId": "PART-004",
-      "consultantName": "Christian Rossi",
-      "brand": "progetto-impresa",
-      "status": "scheduled",
-      "isPublic": false,
-      "createdAt": "2026-07-24T14:07:16.573Z"
+  "events": [],
+  "settings": {
+    "maxDailyPublicSlots": 3,
+    "defaultDuration": 60,
+    "workingHours": {
+      "start": "09:00",
+      "end": "18:00",
+      "days": [1, 2, 3, 4, 5]
     },
-    {
-      "id": "CAL-AI-1784902046113",
-      "title": "🎙️ Call AI - Business Plan Startup Tech",
-      "description": "Call AI con Innovazione S.p.A.\nProgetto: Business Plan Startup Tech\nTipo: Call AI con trascrizione e analisi pattern",
-      "date": "2026-07-24",
-      "time": "16:07",
-      "duration": 60,
-      "type": "call-ai",
-      "projectId": "PI-2026-0024",
-      "projectName": "Business Plan Startup Tech",
-      "clientName": "Innovazione S.p.A.",
-      "consultantId": "PART-004",
-      "consultantName": "Christian Rossi",
-      "brand": "progetto-impresa",
-      "status": "scheduled",
-      "isPublic": false,
-      "createdAt": "2026-07-24T14:07:26.113Z"
-    }
-  ],
-  "settings": {}
+    "googleCalendarSync": false,
+    "googleCalendarId": null
+  }
 }
-

@@ -1,3 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_brand_user,User,model_erpv6_base,base.group_user,1,0,0,0
-access_brand_manager,Manager,model_erpv6_base,base.group_system,1,1,1,1

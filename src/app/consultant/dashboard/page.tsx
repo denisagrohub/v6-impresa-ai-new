@@ -15,6 +15,7 @@ export default function ConsultantDashboard() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("progetti");
     const [data, setData] = useState<any>(null);
+    const [myRequests, setMyRequests] = useState<any>(null);    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());    const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
 
     // Dati mock
     const mockData = {

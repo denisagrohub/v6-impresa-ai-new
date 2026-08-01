@@ -1,7 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_kb_user,erpv6.kb user,model_erpv6_kb,base.group_user,1,1,1,0
-access_kb_admin,erpv6.kb admin,model_erpv6_kb,base.group_system,1,1,1,1
-access_cat_user,erpv6.kb.category user,model_erpv6_kb_category,base.group_user,1,0,0,0
-access_cat_mgr,erpv6.kb.category mgr,model_erpv6_kb_category,base.group_system,1,1,1,1
-access_tag_user,erpv6.kb.tag user,model_erpv6_kb_tag,base.group_user,1,0,0,0
-access_tag_mgr,erpv6.kb.tag mgr,model_erpv6_kb_tag,base.group_system,1,1,1,1

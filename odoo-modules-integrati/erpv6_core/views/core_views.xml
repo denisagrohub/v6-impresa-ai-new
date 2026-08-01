@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <menuitem id="menu_erpv6_root"
-              name="V6 Impresa AI"
-              sequence="10"
-              web_icon="erpv6_core,static/description/icon.png"/>
-</odoo>
