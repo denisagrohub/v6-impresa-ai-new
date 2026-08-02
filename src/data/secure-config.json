@@ -1,0 +1,25 @@
+{
+  "useOdoo": false,
+  "odooUrl": "",
+  "odooDb": "",
+  "odooApiKey": "",
+  "activeBrand": "progetto-impresa",
+  "whitelabelEnabled": false,
+  "deploy": {
+    "vpsHost": "",
+    "vpsUser": "root",
+    "vpsSshPort": 22,
+    "vpsSshKeyPath": "~/.ssh/id_rsa",
+    "odooAddonsPath": "/opt/odoo/custom_addons",
+    "odooService": "odoo",
+    "odooUser": "odoo"
+  },
+  "callAI": {
+    "dailyApiKey": "",
+    "deepgramApiKey": "",
+    "anthropicApiKey": "",
+    "groqApiKey": "",
+    "aiProvider": "groq",
+    "enabled": false
+  }
+}
