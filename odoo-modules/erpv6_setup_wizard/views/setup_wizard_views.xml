@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View del Wizard -->
+    <record id="view_erpv6_setup_wizard_form" model="ir.ui.view">
+        <field name="name">erpv6.setup.wizard.form</field>
+        <field name="model">erpv6.setup.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Setup Wizard">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Configurazione Iniziale Child</h1>
+                    </div>
+                    
+                    <!-- Step 1: Choose Vertical -->
+                    <group string="Configurazione Parent" invisible="state != 'choose_vertical'">
+                        <group>
+                            <field name="parent_url"/>
+                            <field name="api_key"/>
+                        </group>
+                    </group>
+                    
+                    <group string="Fetch Verticali" invisible="state != 'choose_vertical'">
+                        <field name="available_verticals" nolabel="1" colspan="2"/>
+                    </group>
+                    
+                    <group string="Selezione Verticale" invisible="state != 'choose_vertical'">
+                        <field name="verticale_selezionato" placeholder="Inserisci il codice verticale (es. vitivinicolo)"/>
+                    </group>
+                    
+                    <!-- Step 2: Installing -->
+                    <group string="Installazione in corso..." invisible="state != 'installing'">
+                        <field name="log" nolabel="1" colspan="2" readonly="1"/>
+                    </group>
+                    
+                    <!-- Step 3: Done -->
+                    <group string="Installazione Completata" invisible="state != 'done'">
+                        <field name="log" nolabel="1" colspan="2" readonly="1"/>
+                    </group>
+                    
+                    <footer>
+                        <button name="action_fetch_verticals" string="Carica Verticali" type="object" 
+                                class="btn-primary" invisible="state != 'choose_vertical'"/>
+                        <button name="action_install_verticale" string="Installa Verticale" type="object" 
+                                class="btn-primary" invisible="state != 'choose_vertical'"/>
+                        <button string="Chiudi" class="btn-secondary" special="cancel" 
+                                invisible="state not in ('done', 'installing')"/>
+                        <button string="Annulla" class="btn-secondary" special="cancel" 
+                                invisible="state != 'choose_vertical'"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_erpv6_setup_wizard" model="ir.actions.act_window">
+        <field name="name">Setup Wizard Child</field>
+        <field name="res_model">erpv6.setup.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{}</field>
+    </record>
+</odoo>

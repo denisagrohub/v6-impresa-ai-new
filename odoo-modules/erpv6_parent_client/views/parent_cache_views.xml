@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tree View per ispezione cache (solo admin) -->
+    <record id="view_erpv6_parent_cache_tree" model="ir.ui.view">
+        <field name="name">erpv6.parent.cache.tree</field>
+        <field name="model">erpv6.parent.cache</field>
+        <field name="arch" type="xml">
+            <tree string="Cache Parent">
+                <field name="cache_key"/>
+                <field name="category"/>
+                <field name="fetched_at"/>
+                <field name="ttl_hours"/>
+                <field name="content" widget="text" optional="hide"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_erpv6_parent_cache" model="ir.actions.act_window">
+        <field name="name">Cache Parent</field>
+        <field name="res_model">erpv6.parent.cache</field>
+        <field name="view_mode">tree</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nessuna cache presente
+            </p>
+            <p>
+                Cache delle risposte dal parent SaaS per ottimizzare le prestazioni.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu sotto erpv6_core.menu_erpv6_root (solo per debug) -->
+    <menuitem id="menu_erpv6_parent_cache"
+              name="Cache Parent (Debug)"
+              parent="erpv6_core.menu_erpv6_root"
+              action="action_erpv6_parent_cache"
+              sequence="90"
+              groups="base.group_system"/>
+</odoo>
