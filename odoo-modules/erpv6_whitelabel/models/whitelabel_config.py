@@ -15,7 +15,19 @@ class WhiteLabelConfig(models.Model):
     name = fields.Char(string='Nome Configurazione', required=True, default='Default')
     sequence = fields.Integer(string='Sequenza', default=10)
     company_id = fields.Many2one('res.company', string='Azienda', default=lambda self: self.env.company)
-    
+
+    # Identificativo brand/dominio (V6 Impresa, Bando Rapido, V6 Manuali Rapidi, V6 Performance...)
+    code = fields.Char(
+        string='Codice Brand',
+        required=True,
+        index=True,
+        help="Identificativo univoco del brand/dominio, es: 'v6-impresa', 'v6-bandi', 'v6-manuali', 'v6-performance'"
+    )
+    domain = fields.Char(
+        string='Dominio',
+        help="Dominio pubblico associato a questo brand, es: 'v6impresa.it'"
+    )
+
     # Branding
     company_name = fields.Char(string='Nome Azienda Visualizzato')
     logo = fields.Binary(string='Logo Aziendale', attachment=True)
@@ -47,31 +59,45 @@ class WhiteLabelConfig(models.Model):
     active = fields.Boolean(string='Attivo', default=True)
     
     _sql_constraints = [
-        ('unique_company_config', 
-         'unique(company_id)', 
-         'Può esistere una sola configurazione white label per azienda!')
+        ('unique_brand_code',
+         'unique(code)',
+         'Il codice brand deve essere univoco! Una company puo avere piu configurazioni brand (una per dominio).')
     ]
 
     @api.model
-    def get_active_config(self, company_id=None):
-        """Ottiene la configurazione attiva per l'azienda specificata"""
-        if not company_id:
-            company_id = self.env.company.id
-        
-        config = self.search([
-            ('company_id', '=', company_id),
-            ('active', '=', True)
-        ], limit=1, order='sequence ASC')
-        
+    def get_active_config(self, code=None, domain=None, company_id=None):
+        """Ottiene la configurazione attiva per brand (code), dominio, o fallback su company_id.
+
+        Ordine di ricerca: code -> domain -> company_id (legacy) -> crea default.
+        """
+        domain_filters = [('active', '=', True)]
+
+        if code:
+            domain_filters.append(('code', '=', code))
+        elif domain:
+            domain_filters.append(('domain', '=', domain))
+        else:
+            if not company_id:
+                company_id = self.env.company.id
+            domain_filters.append(('company_id', '=', company_id))
+
+        config = self.search(domain_filters, limit=1, order='sequence ASC')
+
+        if not config and (code or domain):
+            # Nessuna config trovata per questo brand specifico: NON creare un default silenzioso,
+            # meglio segnalare esplicitamente che il brand non è configurato.
+            return self.browse()
+
         if not config:
-            # Crea configurazione default se non esiste
+            # Solo il fallback legacy per company_id crea una config default
             config = self.create({
                 'name': 'Default Configuration',
-                'company_id': company_id,
+                'code': 'default',
+                'company_id': company_id or self.env.company.id,
                 'primary_color': '#1a2744',
                 'secondary_color': '#f97316',
             })
-        
+
         return config
 
     @api.model

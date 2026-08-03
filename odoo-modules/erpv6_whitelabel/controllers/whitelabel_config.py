@@ -7,22 +7,23 @@ import json
 class WhiteLabelController(http.Controller):
     """Controller per API White Label"""
 
-    @http.route('/api/whitelabel/config', type='json', auth='user', methods=['POST'])
-    def get_config(self, company_id=None):
+    @http.route('/api/whitelabel/config', type='json', auth='public', methods=['POST'])
+    def get_config(self, code=None, domain=None, company_id=None):
         """
-        Ottiene la configurazione white label attiva
-        
-        :param company_id: ID azienda (opzionale, default azienda corrente)
+        Ottiene la configurazione white label attiva per brand/dominio.
+
+        :param code: codice brand (es. 'v6-bandi') - PRIORITARIO, usato dal frontend via header X-Brand-Code
+        :param domain: dominio pubblico (es. 'v6bandi.it') - fallback se code non fornito
+        :param company_id: ID azienda (legacy fallback)
         :return: Dizionario con configurazione
         """
         try:
             config_model = request.env['erpv6.whitelabel.config'].sudo()
-            
-            if company_id:
-                config = config_model.get_active_config(company_id=company_id)
-            else:
-                config = config_model.get_active_config()
-            
+            config = config_model.get_active_config(code=code, domain=domain, company_id=company_id)
+
+            if not config:
+                return {'success': False, 'error': f"Nessuna configurazione trovata per brand '{code or domain}'"}
+
             return {
                 'success': True,
                 'data': config.get_white_label_data(),
