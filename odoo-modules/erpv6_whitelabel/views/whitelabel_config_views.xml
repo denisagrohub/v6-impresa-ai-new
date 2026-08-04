@@ -83,19 +83,19 @@
         </field>
     </record>
 
-    <!-- Tree View per configurazione White Label -->
-    <record id="view_whitelabel_config_tree" model="ir.ui.view">
-        <field name="name">erpv6.whitelabel.config.tree</field>
+    <!-- List View per configurazione White Label -->
+    <record id="view_whitelabel_config_list" model="ir.ui.view">
+        <field name="name">erpv6.whitelabel.config.list</field>
         <field name="model">erpv6.whitelabel.config</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="company_id"/>
                 <field name="company_name"/>
                 <field name="primary_color" widget="color_picker"/>
                 <field name="active" widget="boolean_toggle"/>
-            </tree>
+            </list>
         </field>
     </record>
 

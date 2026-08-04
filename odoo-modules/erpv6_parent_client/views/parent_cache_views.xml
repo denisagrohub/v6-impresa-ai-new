@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Tree View per ispezione cache (solo admin) -->
-    <record id="view_erpv6_parent_cache_tree" model="ir.ui.view">
-        <field name="name">erpv6.parent.cache.tree</field>
+    <!-- List View per ispezione cache (solo admin) -->
+    <record id="view_erpv6_parent_cache_list" model="ir.ui.view">
+        <field name="name">erpv6.parent.cache.list</field>
         <field name="model">erpv6.parent.cache</field>
         <field name="arch" type="xml">
-            <tree string="Cache Parent">
+            <list string="Cache Parent">
                 <field name="cache_key"/>
                 <field name="category"/>
                 <field name="fetched_at"/>
                 <field name="ttl_hours"/>
                 <field name="content" widget="text" optional="hide"/>
-            </tree>
+            </list>
         </field>
     </record>
 

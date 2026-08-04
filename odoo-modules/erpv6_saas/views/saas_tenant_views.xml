@@ -38,12 +38,12 @@
         </field>
     </record>
 
-    <!-- Tree View -->
-    <record id="view_erpv6_saas_tenant_tree" model="ir.ui.view">
-        <field name="name">erpv6.saas.tenant.tree</field>
+    <!-- List View -->
+    <record id="view_erpv6_saas_tenant_list" model="ir.ui.view">
+        <field name="name">erpv6.saas.tenant.list</field>
         <field name="model">erpv6.saas.tenant</field>
         <field name="arch" type="xml">
-            <tree string="Tenant SaaS">
+            <list string="Tenant SaaS">
                 <field name="name"/>
                 <field name="partner_id"/>
                 <field name="verticale"/>
@@ -52,7 +52,7 @@
                 <field name="subscription_expires_at"/>
                 <field name="trial_ends_at"/>
                 <field name="setup_fee_paid"/>
-            </tree>
+            </list>
         </field>
     </record>
 

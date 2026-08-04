@@ -56,6 +56,9 @@ class LibraryDocument(models.Model):
         help='ID del record nel modello sorgente'
     )
 
+    # Campi candidati per il recupero del file dal documento sorgente
+    FILE_FIELD_CANDIDATES = ('pdf_file', 'file', 'signed_document', 'content')
+
     # File binary (usato solo se origin != 'generated')
     file = fields.Binary(
         string='File',
@@ -82,6 +85,19 @@ class LibraryDocument(models.Model):
         help='Record blockchain associato al documento certificato'
     )
 
+    def _get_source_file_content(self, source_doc):
+        """Recupera il contenuto del file da un documento sorgente
+        
+        Itera su FILE_FIELD_CANDIDATES e ritorna il primo campo valorizzato trovato.
+        
+        :param source_doc: record del documento sorgente
+        :return: contenuto binario del file o None se nessun campo trovato
+        """
+        for field_name in self.FILE_FIELD_CANDIDATES:
+            if hasattr(source_doc, field_name) and getattr(source_doc, field_name):
+                return getattr(source_doc, field_name)
+        return None
+
     def action_certify_blockchain(self):
         """Certifica il documento su blockchain
         
@@ -101,8 +117,9 @@ class LibraryDocument(models.Model):
         if self.origin == 'generated' and self.source_model and self.source_res_id:
             # Documento generato: usa hash del record sorgente
             source_doc = self.env[self.source_model].browse(self.source_res_id)
-            if hasattr(source_doc, 'file') and source_doc.file:
-                doc_hash = hashlib.sha256(source_doc.file).hexdigest()
+            file_content = self._get_source_file_content(source_doc)
+            if file_content:
+                doc_hash = hashlib.sha256(file_content).hexdigest()
             else:
                 doc_hash = hashlib.sha256(f'{self.source_model}:{self.source_res_id}'.encode()).hexdigest()
         elif self.file:

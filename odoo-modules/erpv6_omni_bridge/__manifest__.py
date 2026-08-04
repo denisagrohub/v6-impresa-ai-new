@@ -30,6 +30,7 @@ Modulo ponte per integrare il sistema OmniRoute con Odoo.
         'views/omni_call_log_views.xml',
         'views/menu_views.xml',
         'data/omni_default_providers.xml',
+        'data/omni_validation_routes.xml',
     ],
     'installable': True,
     'application': False,

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View -->
+    <record id="view_erpv6_validation_session_form" model="ir.ui.view">
+        <field name="name">erpv6.validation.session.form</field>
+        <field name="model">erpv6.validation.session</field>
+        <field name="arch" type="xml">
+            <form string="Sessione di Validazione">
+                <header>
+                    <button name="action_start_validation" type="object" string="Avvia Validazione" 
+                            class="oe_highlight" invisible="status != 'draft'"/>
+                    <button name="action_human_approve" type="object" string="Approva" 
+                            class="oe_highlight" invisible="status not in ('converged', 'escalated_to_human')"/>
+                    <button name="action_human_reject" type="object" string="Rifiuta" 
+                            invisible="status not in ('converged', 'escalated_to_human', 'in_validation')"/>
+                    <field name="status" widget="statusbar" statusbar_visible="draft,in_validation,converged,approved"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="res_model" readonly="1"/> - <field name="res_id" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="destinatario" readonly="status not in ('draft', 'rejected')"/>
+                            <field name="scopo" readonly="status not in ('draft', 'rejected')"/>
+                        </group>
+                        <group>
+                            <field name="validation_mode" readonly="status != 'draft'"/>
+                            <field name="max_rounds" readonly="status != 'draft'"/>
+                            <field name="current_round_number"/>
+                        </group>
+                    </group>
+                    <field name="context_data" readonly="status not in ('draft', 'rejected')"/>
+                    <notebook>
+                        <page string="Round" name="rounds">
+                            <field name="round_ids" readonly="1">
+                                <list string="Round di Validazione">
+                                    <field name="round_number"/>
+                                    <field name="issues_found"/>
+                                    <field name="sesto_uomo_notes"/>
+                                </list>
+                                <form string="Round">
+                                    <group>
+                                        <field name="round_number"/>
+                                        <field name="issues_found"/>
+                                        <field name="sesto_uomo_notes"/>
+                                        <field name="corrected_material"/>
+                                    </group>
+                                    <field name="analysis_ids">
+                                        <list string="Analisi">
+                                            <field name="analyst_index"/>
+                                            <field name="findings"/>
+                                            <field name="flagged_missing_data"/>
+                                        </list>
+                                        <form string="Analisi">
+                                            <group>
+                                                <field name="analyst_index"/>
+                                                <field name="omni_call_log_id"/>
+                                                <field name="findings"/>
+                                                <field name="claims_checked"/>
+                                                <field name="flagged_missing_data"/>
+                                            </group>
+                                        </form>
+                                    </field>
+                                </form>
+                            </field>
+                        </page>
+                        <page string="Revisione Umana" name="human_review" invisible="status not in ('human_reviewed', 'approved', 'rejected', 'escalated_to_human')">
+                            <group>
+                                <field name="human_reviewer_id"/>
+                                <field name="human_reviewed_at"/>
+                                <field name="human_notes"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View -->
+    <record id="view_erpv6_validation_session_tree" model="ir.ui.view">
+        <field name="name">erpv6.validation.session.tree</field>
+        <field name="model">erpv6.validation.session</field>
+        <field name="arch" type="xml">
+            <list string="Sessioni di Validazione">
+                <field name="res_model"/>
+                <field name="res_id"/>
+                <field name="destinatario"/>
+                <field name="scopo"/>
+                <field name="validation_mode"/>
+                <field name="status"/>
+                <field name="current_round_number"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_erpv6_validation_session_search" model="ir.ui.view">
+        <field name="name">erpv6.validation.session.search</field>
+        <field name="model">erpv6.validation.session</field>
+        <field name="arch" type="xml">
+            <search string="Cerca Sessioni">
+                <field name="res_model"/>
+                <field name="destinatario"/>
+                <filter string="Bozza" name="draft" domain="[('status', '=', 'draft')]"/>
+                <filter string="In Validazione" name="in_validation" domain="[('status', '=', 'in_validation')]"/>
+                <filter string="Convergenza Raggiunta" name="converged" domain="[('status', '=', 'converged')]"/>
+                <filter string="Escalation Umana" name="escalated" domain="[('status', '=', 'escalated_to_human')]"/>
+                <filter string="Approvato" name="approved" domain="[('status', '=', 'approved')]"/>
+                <filter string="Rifiutato" name="rejected" domain="[('status', '=', 'rejected')]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter string="Stato" name="group_status" context="{'group_by': 'status'}"/>
+                    <filter string="Modalità" name="group_mode" context="{'group_by': 'validation_mode'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_erpv6_validation_session" model="ir.actions.act_window">
+        <field name="name">Validazione (6 Giudici)</field>
+        <field name="res_model">erpv6.validation.session</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_erpv6_validation_session_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nessuna sessione di validazione creata
+            </p>
+            <p>
+                Crea una nuova sessione per avviare il processo di validazione "6 Giudici"
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu -->
+    <menuitem id="menu_erpv6_validation_root"
+              name="Validazione (6 Giudici)"
+              parent="erpv6_core.menu_erpv6_root"
+              sequence="50"/>
+    
+    <menuitem id="menu_erpv6_validation_sessions"
+              name="Sessioni"
+              parent="menu_erpv6_validation_root"
+              action="action_erpv6_validation_session"
+              sequence="10"/>
+</odoo>

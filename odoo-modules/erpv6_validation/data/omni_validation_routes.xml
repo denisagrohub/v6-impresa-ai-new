@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Route config per validation_analyst - usa strategia cost per preferire provider più economico -->
+    <record id="omni_route_validation_analyst" model="erpv6.omni.route.config">
+        <field name="name">Validation Analyst Route</field>
+        <field name="task_type">validation_analyst</field>
+        <field name="routing_strategy">cost</field>
+        <field name="description">Route per analisi dei 5 analisti nel processo di validazione 6 Giudici. Preferisce il provider più economico disponibile.</field>
+    </record>
+
+    <!-- Route config per validation_sesto_uomo - usa strategia priority per preferire provider più capace -->
+    <record id="omni_route_validation_sesto_uomo" model="erpv6.omni.route.config">
+        <field name="name">Validation Sesto Uomo Route</field>
+        <field name="task_type">validation_sesto_uomo</field>
+        <field name="routing_strategy">priority</field>
+        <field name="description">Route per il Sesto Uomo nel processo di validazione 6 Giudici. Preferisce il provider con priorità più alta (più capace) per il confronto critico delle analisi.</field>
+    </record>
+</odoo>

@@ -53,12 +53,12 @@
         </field>
     </record>
 
-    <!-- Provider Tree View -->
-    <record id="view_omni_provider_tree" model="ir.ui.view">
-        <field name="name">erpv6.omni.provider.tree</field>
+    <!-- Provider List View -->
+    <record id="view_omni_provider_list" model="ir.ui.view">
+        <field name="name">erpv6.omni.provider.list</field>
         <field name="model">erpv6.omni.provider</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="name"/>
                 <field name="code"/>
                 <field name="provider_type"/>
@@ -67,7 +67,7 @@
                 <field name="success_rate" widget="progressbar"/>
                 <field name="total_cost" sum="Totale"/>
                 <field name="total_calls" sum="Totale"/>
-            </tree>
+            </list>
         </field>
     </record>
 

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Tree View Bandi -->
-    <record id="view_erpv6_bando_tree" model="ir.ui.view">
-        <field name="name">erpv6.bando.tree</field>
+    <!-- List View Bandi -->
+    <record id="view_erpv6_bando_list" model="ir.ui.view">
+        <field name="name">erpv6.bando.list</field>
         <field name="model">erpv6.bando</field>
         <field name="arch" type="xml">
-            <tree decoration-warning="status=='expired'" decoration-muted="status=='closed'">
+            <list decoration-warning="status=='expired'" decoration-muted="status=='closed'">
                 <field name="code"/>
                 <field name="name"/>
                 <field name="ente"/>
@@ -13,7 +13,7 @@
                 <field name="scadenza_domanda"/>
                 <field name="status"/>
                 <field name="match_count"/>
-            </tree>
+            </list>
         </field>
     </record>
 

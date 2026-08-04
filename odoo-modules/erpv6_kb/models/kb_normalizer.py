@@ -8,7 +8,7 @@ class Erpv6KbNormalizer(models.Model):
     def normalize(self, kb_id, raw_input=None):
         kb = self.env['erpv6.kb'].browse(kb_id)
         if not kb: return {'error': 'KB non trovata'}
-        content = raw_input or kb._get_content()
+        content = raw_input or kb.get_content_for_ai(ai_name='kb_normalizer')
         if not content: return {'error': 'Contenuto vuoto'}
         concepts = self._extract_concepts(content, kb)
         normalized = {
