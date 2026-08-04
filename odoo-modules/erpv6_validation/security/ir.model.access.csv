@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_erpv6_validation_session_user,erpv6.validation.session user,model_erpv6_validation_session,,1,1,1,0
+access_erpv6_validation_session_system,erpv6.validation.session system,model_erpv6_validation_session,base.group_system,1,1,1,1
+access_erpv6_validation_round_user,erpv6.validation.round user,model_erpv6_validation_round,,1,1,1,0
+access_erpv6_validation_round_system,erpv6.validation.round system,model_erpv6_validation_round,base.group_system,1,1,1,1
+access_erpv6_validation_analysis_user,erpv6.validation.analysis user,model_erpv6_validation_analysis,,1,1,1,0
+access_erpv6_validation_analysis_system,erpv6.validation.analysis system,model_erpv6_validation_analysis,base.group_system,1,1,1,1

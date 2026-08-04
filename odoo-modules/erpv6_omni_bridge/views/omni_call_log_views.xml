@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Call Log Tree View -->
-    <record id="view_omni_call_log_tree" model="ir.ui.view">
-        <field name="name">erpv6.omni.call.log.tree</field>
+    <!-- Call Log List View -->
+    <record id="view_omni_call_log_list" model="ir.ui.view">
+        <field name="name">erpv6.omni.call.log.list</field>
         <field name="model">erpv6.omni.call.log</field>
         <field name="arch" type="xml">
-            <tree create="false" edit="false">
+            <list create="false" edit="false">
                 <field name="created_at"/>
                 <field name="task_type"/>
                 <field name="provider_id"/>
@@ -20,7 +20,7 @@
                 <field name="duration_ms" avg="Durata Media"/>
                 <field name="partner_id"/>
                 <field name="consultant_id"/>
-            </tree>
+            </list>
         </field>
     </record>
 

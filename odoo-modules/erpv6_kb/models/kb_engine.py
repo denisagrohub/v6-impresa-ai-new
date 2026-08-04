@@ -15,7 +15,7 @@ class Erpv6KbEngine(models.Model):
         kb.action_use()
         return self._process_kb(kb, input_data)
     def _process_kb(self, kb, input_data):
-        content = kb._get_content()
+        content = kb.get_content_for_ai(ai_name='kb_engine')
         try: data = json.loads(content) if content else {}
         except: data = {}
         processors = {'psicologia': self._process_psychology, 'colori': self._process_colors,

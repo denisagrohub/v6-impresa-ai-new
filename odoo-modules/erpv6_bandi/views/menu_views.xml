@@ -42,18 +42,18 @@
     </record>
 
     <!-- Vista per le fonti -->
-    <record id="view_erpv6_bando_source_tree" model="ir.ui.view">
-        <field name="name">erpv6.bando.source.tree</field>
+    <record id="view_erpv6_bando_source_list" model="ir.ui.view">
+        <field name="name">erpv6.bando.source.list</field>
         <field name="model">erpv6.bando.source</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="name"/>
                 <field name="url"/>
                 <field name="source_type"/>
                 <field name="active"/>
                 <field name="last_scrape"/>
                 <field name="scrape_interval_hours"/>
-            </tree>
+            </list>
         </field>
     </record>
 

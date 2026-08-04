@@ -41,6 +41,11 @@ class Erpv6KnowledgeBase(models.Model):
     embedding = fields.Text('Embedding')
     use_context = fields.Text('Contesto Utilizzo')
     related_article_ids = fields.Many2many('erpv6.kb', 'kb_rel', 'article_id', 'related_id')
+    
+    # Gerarchia KB (separata da related_article_ids)
+    parent_id = fields.Many2one('erpv6.kb', string='KB Padre', index=True, tracking=True)
+    child_ids = fields.One2many('erpv6.kb', 'parent_id', string='KB Figlie')
+    normalized_data = fields.Text(string='Dati Normalizzati (JSON)')
 
     use_count = fields.Integer(default=0, readonly=True)
     last_used = fields.Datetime(readonly=True)

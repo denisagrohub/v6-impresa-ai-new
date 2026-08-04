@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Vista Tree per Template -->
-    <record id="view_erpv6_typst_template_tree" model="ir.ui.view">
-        <field name="name">erpv6.typst.template.tree</field>
+    <!-- Vista List per Template -->
+    <record id="view_erpv6_typst_template_list" model="ir.ui.view">
+        <field name="name">erpv6.typst.template.list</field>
         <field name="model">erpv6.typst.template</field>
         <field name="arch" type="xml">
-            <tree string="Template Tipst">
+            <list string="Template Tipst">
                 <field name="code"/>
                 <field name="name"/>
                 <field name="category"/>
@@ -14,7 +14,7 @@
                 <field name="usage_count"/>
                 <field name="last_used"/>
                 <field name="active"/>
-            </tree>
+            </list>
         </field>
     </record>
 

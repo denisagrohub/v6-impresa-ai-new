@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Tree View Match -->
-    <record id="view_erpv6_bando_match_tree" model="ir.ui.view">
-        <field name="name">erpv6.bando.match.tree</field>
+    <!-- List View Match -->
+    <record id="view_erpv6_bando_match_list" model="ir.ui.view">
+        <field name="name">erpv6.bando.match.list</field>
         <field name="model">erpv6.bando.match</field>
         <field name="arch" type="xml">
-            <tree decoration-success="eligibility_level=='high'" decoration-warning="eligibility_level=='medium'" decoration-danger="eligibility_level=='low'">
+            <list decoration-success="eligibility_level=='high'" decoration-warning="eligibility_level=='medium'" decoration-danger="eligibility_level=='low'">
                 <field name="bando_id"/>
                 <field name="partner_id"/>
                 <field name="eligibility_score" widget="progressbar"/>
@@ -13,7 +13,7 @@
                 <field name="importo_stimato" sum="Totale"/>
                 <field name="status"/>
                 <field name="consultant_id"/>
-            </tree>
+            </list>
         </field>
     </record>
 

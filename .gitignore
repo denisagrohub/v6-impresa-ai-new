@@ -1,3 +1,4 @@
+
 # Python
 __pycache__/
 *.pyc
@@ -43,12 +44,29 @@ Thumbs.db
 
 # Logs
 *.log
+*.log.*
 
 # Coverage
 htmlcov/
-coverage/
+.coverage.*
 
-# Editors
+# Temporary files
+*.tmp
+*.temp
+*~
+.swp
+.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
 .vscode/
 .idea/
 *.swp
@@ -60,41 +78,15 @@ build/
 dist/
 *.egg-info/
 target/
-.gradle/
+out/
+bin/
+obj/
 
-# Temp files
-*.tmp
-*.temp
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-
-# Node.js
-node_modules/
-.next/
-*.sql
-*.dump
-
-# Git
-.git/modules/
+# Cache
+.cache/
+.mypy_cache/
+.pytest_cache/
+.tox/
+.nox/
+.hypothesis/
+```

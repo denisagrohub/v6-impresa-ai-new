@@ -29,17 +29,17 @@
         </field>
     </record>
 
-    <!-- Tree View -->
-    <record id="view_erpv6_vertical_catalog_tree" model="ir.ui.view">
-        <field name="name">erpv6.vertical.catalog.tree</field>
+    <!-- List View -->
+    <record id="view_erpv6_vertical_catalog_list" model="ir.ui.view">
+        <field name="name">erpv6.vertical.catalog.list</field>
         <field name="model">erpv6.vertical.catalog</field>
         <field name="arch" type="xml">
-            <tree string="Catalogo Verticali">
+            <list string="Catalogo Verticali">
                 <field name="verticale"/>
                 <field name="name"/>
                 <field name="module_names"/>
                 <field name="is_active"/>
-            </tree>
+            </list>
         </field>
     </record>
 

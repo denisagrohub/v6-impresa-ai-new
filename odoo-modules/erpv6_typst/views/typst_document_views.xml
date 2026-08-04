@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Vista Tree per Documenti -->
-    <record id="view_erpv6_typst_document_tree" model="ir.ui.view">
-        <field name="name">erpv6.typst.document.tree</field>
+    <!-- Vista List per Documenti -->
+    <record id="view_erpv6_typst_document_list" model="ir.ui.view">
+        <field name="name">erpv6.typst.document.list</field>
         <field name="model">erpv6.typst.document</field>
         <field name="arch" type="xml">
-            <tree string="Documenti Generati" decoration-info="status=='draft'" decoration-warning="status=='rendering'" decoration-success="status=='ready'" decoration-danger="status=='failed'">
+            <list string="Documenti Generati" decoration-info="status=='draft'" decoration-warning="status=='rendering'" decoration-success="status=='ready'" decoration-danger="status=='failed'">
                 <field name="name"/>
                 <field name="template_id"/>
                 <field name="partner_id"/>
@@ -13,7 +13,7 @@
                 <field name="status"/>
                 <field name="created_at"/>
                 <field name="rendered_at"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -65,13 +65,13 @@
                         </page>
                         <page string="Log">
                             <field name="log_ids">
-                                <tree>
+                                <list>
                                     <field name="created_at"/>
                                     <field name="operation"/>
                                     <field name="duration_ms"/>
                                     <field name="success"/>
                                     <field name="error"/>
-                                </tree>
+                                </list>
                             </field>
                         </page>
                     </notebook>
