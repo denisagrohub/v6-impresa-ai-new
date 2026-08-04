@@ -1,4 +1,4 @@
-```
+
 # Python
 __pycache__/
 *.pyc
@@ -9,41 +9,44 @@ env/
 venv/
 .venv/
 .ENV
-.ENV.local
-.env
-.env.local
-.env.*
-.env.local.*
+.ENV.*
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
 
 # Odoo specific
 *.pot
-*.po
+*.pot~
 *.mo
-*.pyc
-*.pyo
-*.pyd
-__pycache__/
-.coverage
-htmlcov/
-.eggs/
-eggs/
-parts/
-develop-eggs/
-.installed.cfg
-lib/
-lib64/
-pip-delete-this-directory.txt
-share/
-.venv/
-venv/
-env/
+*.mo~
+*.po
+.settings/
+*.bak
+*~
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+.env
+.env.local
+.env.*
 
 # Logs
 *.log
 *.log.*
 
 # Coverage
-.coverage
 htmlcov/
 .coverage.*
 
@@ -68,6 +71,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+*.sublime-workspace
 
 # Build artifacts
 build/
