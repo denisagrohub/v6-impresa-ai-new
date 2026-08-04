@@ -1,0 +1,13 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_pareto_analysis_user,erpv6.pareto.analysis user,model_erpv6_pareto_analysis,base.group_user,1,1,1,0
+access_pareto_analysis_admin,erpv6.pareto.analysis admin,model_erpv6_pareto_analysis,base.group_system,1,1,1,1
+access_pareto_item_user,erpv6.pareto.item user,model_erpv6_pareto_item,base.group_user,1,1,1,0
+access_pareto_item_admin,erpv6.pareto.item admin,model_erpv6_pareto_item,base.group_system,1,1,1,1
+access_kairos_matrix_user,erpv6.kairos.matrix user,model_erpv6_kairos_matrix,base.group_user,1,1,1,0
+access_kairos_matrix_admin,erpv6.kairos.matrix admin,model_erpv6_kairos_matrix,base.group_system,1,1,1,1
+access_matrix5s_assessment_user,erpv6.matrix5s.assessment user,model_erpv6_matrix5s_assessment,base.group_user,1,1,1,0
+access_matrix5s_assessment_admin,erpv6.matrix5s.assessment admin,model_erpv6_matrix5s_assessment,base.group_system,1,1,1,1
+access_matrix5s_line_user,erpv6.matrix5s.line user,model_erpv6_matrix5s_line,base.group_user,1,1,1,0
+access_matrix5s_line_admin,erpv6.matrix5s.line admin,model_erpv6_matrix5s_line,base.group_system,1,1,1,1
+access_heinrich_indicator_user,erpv6.heinrich.indicator user,model_erpv6_heinrich_indicator,base.group_user,1,1,1,0
+access_heinrich_indicator_admin,erpv6.heinrich.indicator admin,model_erpv6_heinrich_indicator,base.group_system,1,1,1,1

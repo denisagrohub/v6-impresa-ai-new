@@ -46,6 +46,13 @@
                 <filter string="Fiscale" name="fiscale" domain="[('kb_type','=','fiscale')]"/>
                 <filter string="Prompt" name="prompt" domain="[('kb_type','=','prompt')]"/>
                 <filter string="Metodo V6" name="metodo" domain="[('kb_type','=','metodo_v6')]"/>
+                <!-- TASK 1: filtri per trasversale/verticale -->
+                <separator/>
+                <filter string="Trasversale" name="trasversale" domain="[('category_id.is_transversal', '=', True)]"/>
+                <filter string="Verticale" name="verticale" domain="[('category_id.is_transversal', '=', False)]"/>
+                <group expand="0" string="Raggruppa per Verticale">
+                    <filter string="Verticale" name="gverticale" context="{'group_by':'category_id:verticale'}"/>
+                </group>
                 <group expand="0" string="Raggruppa">
                     <filter string="Tipo" name="gtype" context="{'group_by':'kb_type'}"/>
                     <filter string="Categoria" name="gcat" context="{'group_by':'category_id'}"/>
@@ -58,8 +65,40 @@
         <field name="view_mode">list,form</field><field name="search_view_id" ref="view_kb_search"/>
         <field name="context">{'search_default_gtype': 1}</field>
     </record>
+    <record id="view_kb_cat_list" model="ir.ui.view">
+        <field name="name">erpv6.kb.category.list</field><field name="model">erpv6.kb.category</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/><field name="kb_type"/><field name="is_transversal" widget="boolean_toggle"/>
+                <field name="verticale"/><field name="parent_id"/><field name="sequence"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_kb_cat_form" model="ir.ui.view">
+        <field name="name">erpv6.kb.category.form</field><field name="model">erpv6.kb.category</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="Nome categoria..."/></h1></div>
+                    <group>
+                        <group string="Classificazione">
+                            <field name="kb_type"/><field name="parent_id"/><field name="sequence"/>
+                            <field name="color"/>
+                        </group>
+                        <group string="Trasversalità/Verticale">
+                            <field name="is_transversal" widget="boolean_toggle"/>
+                            <field name="verticale" attrs="{'invisible': [('is_transversal', '=', True)], 'required': [('is_transversal', '=', False)]}"/>
+                        </group>
+                    </group>
+                    <group string="Descrizione"><field name="description"/></group>
+                    <group string="Cache TTL (SaaS child)"><field name="default_ttl_hours"/></group>
+                </sheet>
+            </form>
+        </field>
+    </record>
     <record id="action_kb_cat" model="ir.actions.act_window">
-        <field name="name">Categorie</field><field name="res_model">erpv6.kb.category</field><field name="view_mode">list,form</field>
+        <field name="name">Categorie</field><field name="res_model">erpv6.kb.category</field>
+        <field name="view_mode">list,form</field>
     </record>
     <record id="action_kb_tag" model="ir.actions.act_window">
         <field name="name">Tag</field><field name="res_model">erpv6.kb.tag</field><field name="view_mode">list</field>
