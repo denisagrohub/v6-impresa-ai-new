@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Database PostgreSQL
+  postgres:
+    image: postgres:16
+    container_name: erpv6_postgres
+    environment:
+      POSTGRES_DB: odoo
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - erpv6_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Odoo ERP
+  odoo:
+    image: odoo:18.0
+    container_name: erpv6_odoo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HOST: postgres
+      USER: odoo
+      PASSWORD: odoo
+    volumes:
+      - odoo_webdata:/var/lib/odoo
+      - ./odoo-modules:/mnt/extra-modules:ro
+      - odoo_logs:/var/log/odoo
+    ports:
+      - "8069:8069"
+    networks:
+      - erpv6_network
+    restart: unless-stopped
+
+  # Scraper Service (microservizio per rendering headless)
+  scraper:
+    build:
+      context: ./scraper-service
+      dockerfile: Dockerfile
+    container_name: erpv6_scraper
+    expose:
+      - "8090"
+    # NON esporre porte su host - solo rete interna Docker
+    networks:
+      - erpv6_network
+    environment:
+      MAX_CONCURRENT_RENDERS: "3"
+    mem_limit: 1g
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # TODO: Omniroute service (API routing/gateway) - da configurare
+  # omniroute:
+  #   build:
+  #     context: ./omniroute-service
+  #     dockerfile: Dockerfile
+  #   container_name: erpv6_omniroute
+  #   networks:
+  #     - erpv6_network
+  #   restart: unless-stopped
+
+  # TODO: Nginx reverse proxy - da configurare
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: erpv6_nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/conf.d:/etc/nginx/conf.d
+  #   networks:
+  #     - erpv6_network
+  #   depends_on:
+  #     - odoo
+  #   restart: unless-stopped
+
+networks:
+  erpv6_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  odoo_webdata:
+  odoo_logs:
