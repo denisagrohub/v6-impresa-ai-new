@@ -9,6 +9,7 @@
     'depends': ['base', 'mail'],
     'data': [
         'views/core_views.xml',
+        'security/ir.model.access.csv',
     ],
     'installable': True,
     'application': True,
