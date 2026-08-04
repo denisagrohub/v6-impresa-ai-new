@@ -40,10 +40,9 @@ class OmniRouteConfig(models.Model):
     max_cost_per_call = fields.Float(string='Costo Max per Chiamata ($)')
     
     # Contesto KB opzionale
-    kb_module_ids = fields.Many2many('erpv6.kb.module', 
-                                     'omni_route_kb_rel',
-                                     'route_id', 'module_id',
-                                     string='Moduli KB per Contesto')
+    kb_id = fields.Many2one('erpv6.kb', 
+                                     string='KB Reference',
+                                     help='Knowledge Base di riferimento per il contesto del task')
     
     is_active = fields.Boolean(string='Attiva', default=True)
 
