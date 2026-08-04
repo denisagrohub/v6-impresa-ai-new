@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- PARETO ANALYSIS -->
+    <record id="view_pareto_analysis_list" model="ir.ui.view">
+        <field name="name">erpv6.pareto.analysis.list</field>
+        <field name="model">erpv6.pareto.analysis</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/><field name="res_model"/><field name="res_id"/>
+                <field name="total_score"/><field name="priority_count"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_pareto_analysis_form" model="ir.ui.view">
+        <field name="name">erpv6.pareto.analysis.form</field>
+        <field name="model">erpv6.pareto.analysis</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="compute_pareto" type="object" string="Calcola Pareto" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="Nome analisi..."/></h1></div>
+                    <group>
+                        <group string="Collegamento">
+                            <field name="res_model"/><field name="res_id"/>
+                        </group>
+                        <group string="Statistiche">
+                            <field name="total_score"/><field name="priority_count"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Elementi">
+                            <field name="item_ids">
+                                <list editable="bottom">
+                                    <field name="name"/><field name="frequenza"/><field name="impatto"/>
+                                    <field name="punteggio"/><field name="cumulata_pct"/><field name="is_priority" widget="boolean_toggle"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Note">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_pareto_analysis" model="ir.actions.act_window">
+        <field name="name">Analisi Pareto</field>
+        <field name="res_model">erpv6.pareto.analysis</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- KAIROS MATRIX -->
+    <record id="view_kairos_matrix_list" model="ir.ui.view">
+        <field name="name">erpv6.kairos.matrix.list</field>
+        <field name="model">erpv6.kairos.matrix</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/><field name="matrix_type"/><field name="assessment_date"/>
+                <field name="impatto_level"/><field name="prontezza_level"/><field name="quadrante"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_kairos_matrix_form" model="ir.ui.view">
+        <field name="name">erpv6.kairos.matrix.form</field>
+        <field name="model">erpv6.kairos.matrix</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="Nome valutazione..."/></h1></div>
+                    <group>
+                        <group string="Tipo e Collegamento">
+                            <field name="matrix_type"/><field name="res_model"/><field name="res_id"/>
+                            <field name="assessment_date"/><field name="previous_matrix_id"/>
+                        </group>
+                        <group string="Risultato">
+                            <field name="impatto_score"/><field name="impatto_level"/>
+                            <field name="prontezza_totale"/><field name="prontezza_level"/>
+                            <field name="quadrante" widget="badge" decoration-info="quadrante=='prepara_condizioni'" decoration-success="quadrante=='kairos_autentico'" decoration-warning="quadrante=='parcheggio'" decoration-danger="quadrante=='quick_win'"/>
+                        </group>
+                    </group>
+                    <group string="Indicatori Prontezza (scala 1-3)">
+                        <group>
+                            <field name="indicatore_1"/><field name="indicatore_2"/><field name="indicatore_3"/>
+                        </group>
+                        <group>
+                            <field name="indicatore_4"/><field name="indicatore_5"/>
+                        </group>
+                    </group>
+                    <group string="Note">
+                        <field name="notes" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_kairos_matrix" model="ir.actions.act_window">
+        <field name="name">Matrice Kairós</field>
+        <field name="res_model">erpv6.kairos.matrix</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- MATRIX 5S -->
+    <record id="view_matrix5s_assessment_list" model="ir.ui.view">
+        <field name="name">erpv6.matrix5s.assessment.list</field>
+        <field name="model">erpv6.matrix5s.assessment</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/><field name="area"/><field name="res_model"/><field name="res_id"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_matrix5s_assessment_form" model="ir.ui.view">
+        <field name="name">erpv6.matrix5s.assessment.form</field>
+        <field name="model">erpv6.matrix5s.assessment</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="Nome valutazione..."/></h1></div>
+                    <group>
+                        <group string="Collegamento">
+                            <field name="res_model"/><field name="res_id"/>
+                        </group>
+                        <group string="Area">
+                            <field name="area"/>
+                        </group>
+                    </group>
+                    <group string="Valutazione 5S">
+                        <field name="line_ids">
+                            <list editable="bottom">
+                                <field name="fase"/><field name="azione_tipica"/><field name="spreco_identificato"/><field name="guadagno_potenziale"/>
+                            </list>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_matrix5s_assessment" model="ir.actions.act_window">
+        <field name="name">Matrix 5S</field>
+        <field name="res_model">erpv6.matrix5s.assessment</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- HEINRICH INDICATOR -->
+    <record id="view_heinrich_indicator_list" model="ir.ui.view">
+        <field name="name">erpv6.heinrich.indicator.list</field>
+        <field name="model">erpv6.heinrich.indicator</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="res_model"/><field name="res_id"/>
+                <field name="near_miss_segnalati"/><field name="problemi_lievi"/><field name="eventi_gravi"/>
+                <field name="cultura_organizzativa"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_heinrich_indicator_form" model="ir.ui.view">
+        <field name="name">erpv6.heinrich.indicator.form</field>
+        <field name="model">erpv6.heinrich.indicator</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group string="Collegamento">
+                            <field name="res_model"/><field name="res_id"/>
+                        </group>
+                        <group string="Cultura Organizzativa">
+                            <field name="cultura_organizzativa" widget="badge" decoration-success="cultura_organizzativa=='toyota'" decoration-danger="cultura_organizzativa=='ford_silenziosa'" decoration-warning="cultura_organizzativa=='non_determinabile'"/>
+                        </group>
+                    </group>
+                    <group string="Dati Heinrich">
+                        <group>
+                            <field name="near_miss_segnalati"/><field name="problemi_lievi"/><field name="eventi_gravi"/>
+                        </group>
+                    </group>
+                    <group string="Note">
+                        <field name="note" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_heinrich_indicator" model="ir.actions.act_window">
+        <field name="name">Indicatore Heinrich</field>
+        <field name="res_model">erpv6.heinrich.indicator</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- MENU -->
+    <menuitem id="menu_methodology_root" name="Metodo V6 - Motori" parent="erpv6_core.menu_erpv6_root" sequence="25"/>
+    <menuitem id="menu_pareto" name="Analisi Pareto" parent="menu_methodology_root" action="action_pareto_analysis" sequence="10"/>
+    <menuitem id="menu_kairos" name="Matrice Kairós" parent="menu_methodology_root" action="action_kairos_matrix" sequence="20"/>
+    <menuitem id="menu_matrix5s" name="Matrix 5S" parent="menu_methodology_root" action="action_matrix5s_assessment" sequence="30"/>
+    <menuitem id="menu_heinrich" name="Indicatore Heinrich" parent="menu_methodology_root" action="action_heinrich_indicator" sequence="40"/>
+</odoo>

@@ -1,69 +1,41 @@
-
+```
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
 venv/
 .venv/
-.ENV
-.ENV.*
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
-
-# Odoo specific
-*.pot
-*.pot~
-*.mo
-*.mo~
-*.po
-.settings/
-*.bak
-*~
-
-# System files
-.DS_Store
-Thumbs.db
-
-# Dependencies
 .env
 .env.local
 .env.*
 
-# Logs
-*.log
-*.log.*
+# Odoo specific
+*.pot
+*.po
+*.mo
+*i18n*
+*static/src/css*
+*static/src/js*
+*static/src/xml*
+
+# Dependencies
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Coverage
+.coverage
+coverage/
 htmlcov/
-.coverage.*
+
+# Logs
+*.log
 
 # Temporary files
 *.tmp
-*.temp
 *~
-.swp
-.swo
-
-# OS generated files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
 # IDE
@@ -71,22 +43,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
-*.sublime-workspace
 
-# Build artifacts
-build/
+# Build and distribution
 dist/
+build/
 *.egg-info/
-target/
-out/
-bin/
-obj/
-
-# Cache
-.cache/
-.mypy_cache/
-.pytest_cache/
-.tox/
-.nox/
-.hypothesis/
 ```

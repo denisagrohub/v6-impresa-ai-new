@@ -1,4 +1,5 @@
-from odoo import api, fields, models
+from odoo import api, fields, models, _
+from odoo.exceptions import ValidationError
 from .kb_knowledge import KB_TYPE_SELECTION
 
 
@@ -20,6 +21,26 @@ class Erpv6KbCategory(models.Model):
     # Campo per TTL cache su istanze child SaaS
     default_ttl_hours = fields.Integer(string='TTL Cache Default (ore)', default=24, 
                                        help='Per categorie consumate da child SaaS: quante ore un dato resta valido in cache prima di richiedere un refresh dal parent')
+    
+    # TASK 1 - Distinzione trasversale/verticale
+    is_transversal = fields.Boolean(
+        string='Trasversale a tutti i verticali',
+        default=False,
+        help='True per conoscenza applicabile a qualsiasi settore (es. psicologia, DISC, pattern comunicativi). False per conoscenza specifica di un verticale.'
+    )
+    verticale = fields.Char(
+        string='Verticale di Riferimento',
+        help="Solo se is_transversal=False. Es: 'agricolo', 'vitivinicolo', 'falegnameria', 'illuminazione'"
+    )
+
+    @api.constrains('is_transversal', 'verticale')
+    def _check_transversal_verticale_exclusive(self):
+        for rec in self:
+            if rec.is_transversal and rec.verticale:
+                raise ValidationError(
+                    _("Una categoria trasversale non può avere un verticale di riferimento specificato. "
+                      "Se is_transversal=True, il campo verticale deve essere vuoto.")
+                )
 
     @api.depends('name')
     def _compute_article_count(self):
