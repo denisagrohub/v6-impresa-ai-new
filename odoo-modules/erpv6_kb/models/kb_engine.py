@@ -12,7 +12,7 @@ class Erpv6KbEngine(models.Model):
         if not kb: return self._handle_missing_kb(input_data)
         specificity = self._calculate_specificity(kb, input_data)
         if specificity < 0.3: return self._handle_generic_kb(kb, input_data, specificity)
-        kb.action_use()
+        kb.action_log_usage('kb_engine')
         return self._process_kb(kb, input_data)
     def _process_kb(self, kb, input_data):
         content = kb.get_content_for_ai(ai_name='kb_engine')

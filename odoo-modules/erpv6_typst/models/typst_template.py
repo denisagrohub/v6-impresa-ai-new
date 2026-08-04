@@ -33,7 +33,7 @@ class TypstTemplate(models.Model):
     description = fields.Text(string='Descrizione')
     
     # Riferimento al modulo KB dove è salvato il contenuto .typ criptato
-    kb_module_id = fields.Many2one('erpv6.kb.module', string='KB Module Reference')
+    kb_id = fields.Many2one('erpv6.kb', string='KB Reference')
     
     # Metadati del template
     version = fields.Char(string='Versione', default='1.0')
@@ -70,7 +70,7 @@ class TypstTemplate(models.Model):
         ('code_unique', 'UNIQUE(code)', 'Il codice del template deve essere univoco!'),
     ]
 
-    @api.depends('kb_module_id')
+    @api.depends('kb_id')
     def _compute_usage_count(self):
         Document = self.env['erpv6.typst.document']
         for template in self:
@@ -81,11 +81,11 @@ class TypstTemplate(models.Model):
     def action_preview_source(self):
         """Restituisce il sorgente .typ decifrato dalla KB (solo per admin)"""
         self.ensure_one()
-        if not self.kb_module_id:
+        if not self.kb_id:
             raise UserError(_("Nessun modulo KB associato a questo template."))
         
         # Decifra il contenuto dalla KB
-        content = self.kb_module_id.get_decrypted_content()
+        content = self.kb_id.get_content_for_ai('typst_preview')
         return {
             'type': 'ir.actions.client',
             'tag': 'display_text',
@@ -114,9 +114,9 @@ class TypstTemplate(models.Model):
             'updated_at': datetime.now().isoformat(),
         }
         
-        if self.kb_module_id:
+        if self.kb_id:
             # Aggiorna esistente
-            self.kb_module_id.write({
+            self.kb_id.write({
                 'content': json.dumps(kb_content),
                 'version': self.version,
             })
@@ -131,7 +131,7 @@ class TypstTemplate(models.Model):
                 'version': self.version,
                 'description': f"Template Tipst: {self.name}",
             })
-            self.kb_module_id = kb_module.id
+            self.kb_id = kb_module.id
             _logger.info(f"Template {self.code} creato in KB con ID {kb_module.id}")
         
         return True
@@ -139,10 +139,10 @@ class TypstTemplate(models.Model):
     def get_typst_source(self):
         """Ottiene il sorgente .typ decifrato (usato dalle API di rendering)"""
         self.ensure_one()
-        if not self.kb_module_id:
+        if not self.kb_id:
             raise UserError(_("Template non sincronizzato con KB."))
         
-        decrypted = self.kb_module_id.get_decrypted_content()
+        decrypted = self.kb_id.get_content_for_ai('typst_preview')
         data = json.loads(decrypted)
         return data.get('source', '')
 
