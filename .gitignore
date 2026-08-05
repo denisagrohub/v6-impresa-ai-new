@@ -1,61 +1,46 @@
 ```
-# Python
-__pycache__/
+# Odoo specific ignores
 *.pyc
+__pycache__/
 *.pyo
 *.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Odoo specific
-*.pot
-*.po
-*.mo
-*i18n-cache*
 
 # Dependencies
-node_modules/
+.venv/
+venv/
+env/
+lib/
+bin/
 
 # Logs
 *.log
+*.pot
 
-# OS generated files
+# Temp files
+*.tmp
+*.swp
+*~
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Editor files
+# Environment files
+.env
+.env.local
+.env.*
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage/
+
+# IDE specific
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Environment variables
-.env
-.env.local
-*.env.*
-
-# Coverage
-.coverage
-htmlcov/
-coverage/
-
 # Build artifacts
 build/
 dist/
 *.egg-info/
-target/
-.gradle/
-
-# Temp files
-*.tmp
-*~
 ```

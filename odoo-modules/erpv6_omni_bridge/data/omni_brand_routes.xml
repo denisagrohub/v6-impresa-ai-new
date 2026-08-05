@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Route: Naming Generation -->
+        <record id="omni_route_naming_generation" model="erpv6.omni.route.config">
+            <field name="name">Generazione Naming Brand</field>
+            <field name="task_type">naming_generation</field>
+            <field name="primary_provider_id" ref="omni_provider_groq"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai'), ref('omni_provider_anthropic')])]"/>
+            <field name="routing_strategy">balanced</field>
+            <field name="priority">30</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <!-- Route: Logo Generation AI -->
+        <!-- NOTA: Questa route richiede un provider con provider_type='image' configurato.
+             Se non esiste alcun provider image attivo, questa route non funzionerà.
+             Vedere omni_brand_routes_image.xml per la configurazione del provider image (opzionale). -->
+        <record id="omni_route_logo_generation_ai" model="erpv6.omni.route.config">
+            <field name="name">Generazione Logo AI (Image Generation)</field>
+            <field name="task_type">logo_generation_ai</field>
+            <!-- Il primary_provider deve essere un provider di tipo 'image' -->
+            <!-- Lasciamo vuoto il primary_provider; dovrà essere configurato manualmente dall'admin -->
+            <field name="routing_strategy">priority</field>
+            <field name="priority">40</field>
+            <field name="max_retries">1</field>
+            <field name="is_active" eval="False"/>
+        </record>
+    </data>
+</odoo>
