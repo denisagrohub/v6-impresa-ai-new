@@ -8,7 +8,7 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 
 app = FastAPI(title="ERP V6 Scraper Service", description="Headless browser rendering service for ERP V6")
 
-# Semaforo per limitare la concorrenza dei rendering
+# Semaforo per limitare la concorrenza dei rendering (parametrizzabile via env var)
 MAX_CONCURRENT_RENDERS = int(os.getenv("MAX_CONCURRENT_RENDERS", "3"))
 render_semaphore = asyncio.Semaphore(MAX_CONCURRENT_RENDERS)
 

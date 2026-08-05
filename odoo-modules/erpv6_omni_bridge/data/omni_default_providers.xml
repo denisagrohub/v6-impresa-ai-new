@@ -100,5 +100,17 @@
             <field name="max_retries">2</field>
             <field name="is_active" eval="True"/>
         </record>
+
+        <!-- Route: Deep Source Extraction -->
+        <record id="omni_route_deep_source_extraction" model="erpv6.omni.route.config">
+            <field name="name">Estrazione Dati Deep Source</field>
+            <field name="task_type">deep_source_extraction</field>
+            <field name="primary_provider_id" ref="omni_provider_anthropic"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai')])]"/>
+            <field name="routing_strategy">balanced</field>
+            <field name="priority">30</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
     </data>
 </odoo>

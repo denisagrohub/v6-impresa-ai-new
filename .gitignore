@@ -1,46 +1,65 @@
 ```
-# Compiled and build artifacts
+# Python
 *.pyc
 __pycache__/
-*.o
-*.obj
-
-# Dependencies
-.venv/
+*.pyo
+*.pyd
+.Python
+env/
 venv/
-node_modules/
+.venv/
+.ENV
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Logs and temp files
+# Odoo specific
+*.pot
+*.po
+.i18n/
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
-*.tmp
+
+# Coverage
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE
+.vscode/
+.idea/
 *.swp
+*.swo
 
 # Environment
 .env
 .env.local
 *.env.*
 
-# Editors
-.vscode/
-.idea/
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.so
+*.dylib
 
-# Odoo specific
-*.pot
-*.po
-*i18n/
-*static/
-*assets/
-*.pyo
-.coverage
-coverage/
-htmlcov/
+# Temporary files
+*.tmp
+*~
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# OS generated files
-.DS_Store
-Thumbs.db
+# Compressed files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.gz
+*.bz2
+*.xz
+*.7z
+*.rar
 ```
