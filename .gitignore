@@ -1,53 +1,46 @@
 ```
-# Python
-__pycache__/
+# Compiled and build artifacts
 *.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
+__pycache__/
+*.o
+*.obj
+
+# Dependencies
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
+venv/
+node_modules/
 
-# Odoo specific
-*.pot
-*.po
-*.mo
-*i18n-cache*
-
-# Logs
+# Logs and temp files
 *.log
 *.tmp
+*.swp
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Environment variables
+# Environment
 .env
 .env.local
 *.env.*
 
-# IDE
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# Coverage
+# Odoo specific
+*.pot
+*.po
+*i18n/
+*static/
+*assets/
+*.pyo
 .coverage
-htmlcov/
 coverage/
+htmlcov/
 
-# Build artifacts
-dist/
-build/
-*.egg-info/
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS generated files
+.DS_Store
+Thumbs.db
 ```
