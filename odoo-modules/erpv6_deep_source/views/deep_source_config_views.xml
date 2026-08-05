@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View -->
+    <record id="view_deep_source_config_form" model="ir.ui.view">
+        <field name="name">erpv6.deep.source.config.form</field>
+        <field name="model">erpv6.deep.source.config</field>
+        <field name="arch" type="xml">
+            <form string="Configurazione Fonte Esterna">
+                <header>
+                    <button name="action_execute_now" type="object" string="Esegui Ora" class="btn-primary"/>
+                    <field name="last_run_status" widget="badge" decoration-success="last_run_status == 'success'" decoration-danger="last_run_status == 'error'"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box"/>
+                    <div class="oe_title mb24">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="source_type"/>
+                            <field name="fetch_type"/>
+                            <field name="is_active"/>
+                        </group>
+                        <group>
+                            <field name="kb_category_id"/>
+                            <field name="target_url_pattern" attrs="{'invisible': [('source_type', '!=', 'scraper')], 'required': [('source_type', '=', 'scraper')]}"/>
+                            <field name="api_credentials" attrs="{'invisible': [('source_type', '!=', 'api')], 'required': [('source_type', '=', 'api')]}"/>
+                        </group>
+                    </group>
+                    <group string="Schema di Estrazione Default">
+                        <field name="default_extraction_schema" nolabel="1"/>
+                    </group>
+                    <group string="Stato Ultima Esecuzione">
+                        <group>
+                            <field name="last_run"/>
+                            <field name="last_run_status"/>
+                        </group>
+                        <group>
+                            <field name="last_run_error"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View -->
+    <record id="view_deep_source_config_tree" model="ir.ui.view">
+        <field name="name">erpv6.deep.source.config.tree</field>
+        <field name="model">erpv6.deep.source.config</field>
+        <field name="arch" type="xml">
+            <list string="Configurazioni Fonti Esterne">
+                <field name="name"/>
+                <field name="source_type"/>
+                <field name="fetch_type"/>
+                <field name="kb_category_id"/>
+                <field name="is_active"/>
+                <field name="last_run"/>
+                <field name="last_run_status"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_deep_source_config" model="ir.actions.act_window">
+        <field name="name">Configurazioni Fonti Esterne</field>
+        <field name="res_model">erpv6.deep.source.config</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea una nuova configurazione per estrarre dati da fonti esterne
+            </p>
+            <p>
+                Configura API ufficiali o scraping via browser headless per estrarre dati strutturati.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu sotto erpv6_core.menu_erpv6_root -->
+    <menuitem id="menu_deep_source_root"
+              name="Deep Source"
+              parent="erpv6_core.menu_erpv6_root"
+              sequence="50"/>
+
+    <menuitem id="menu_deep_source_config"
+              name="Configurazioni Fonti"
+              parent="menu_deep_source_root"
+              action="action_deep_source_config"
+              sequence="10"/>
+</odoo>
