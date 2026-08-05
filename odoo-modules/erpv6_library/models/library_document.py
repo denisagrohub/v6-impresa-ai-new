@@ -35,7 +35,16 @@ class LibraryDocument(models.Model):
         ('final', 'Documento Finale'),
         ('client_upload', 'Caricato dal Cliente'),
         ('other', 'Altro'),
+        ('brand_logo', 'Logo Brand'),
+        ('brand_asset', 'Altro Asset Brand'),
     ], string='Categoria', required=True)
+
+    # Progetto brand collegato (opzionale, per documenti di categoria brand_logo/brand_asset)
+    brand_project_id = fields.Many2one(
+        'erpv6.brand.project',
+        string='Progetto Brand Collegato',
+        help='Riferimento al progetto brand (solo per documenti di categoria Logo Brand o Altro Asset Brand)'
+    )
 
     # Origine del documento
     origin = fields.Selection([
