@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vista Form per erpv6.brand.project -->
+    <record id="view_brand_project_form" model="ir.ui.view">
+        <field name="name">erpv6.brand.project.form</field>
+        <field name="model">erpv6.brand.project</field>
+        <field name="arch" type="xml">
+            <form string="Progetto di Branding">
+                <header>
+                    <button name="action_generate_naming_candidates" 
+                            string="Genera Naming" 
+                            type="object" 
+                            class="btn-secondary"
+                            attrs="{'invisible': [('status', 'in', ['selected', 'finalized'])]}"/>
+                    <button name="action_generate_palette" 
+                            string="Genera Palette" 
+                            type="object" 
+                            class="btn-secondary"
+                            attrs="{'invisible': [('status', 'in', ['selected', 'finalized'])]}"/>
+                    <button name="action_generate_logo_draft" 
+                            string="Bozza Logo (SVG)" 
+                            type="object" 
+                            class="btn-secondary"
+                            attrs="{'invisible': [('selected_name', '=', False)]}"/>
+                    <button name="action_generate_logo_ai" 
+                            string="Logo AI" 
+                            type="object" 
+                            class="btn-secondary"
+                            attrs="{'invisible': [('selected_name', '=', False)]}"/>
+                    <button name="action_finalize" 
+                            string="Finalizza" 
+                            type="object" 
+                            class="btn-primary"
+                            attrs="{'invisible': [('status', '!=', 'selected')]}"/>
+                    <field name="status" widget="statusbar" statusbar_visible="draft,candidates_generated,selected,finalized"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="lead_id"/>
+                        </group>
+                        <group>
+                            <field name="selected_name"/>
+                            <field name="selected_logo_asset_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Palette Colori">
+                            <field name="selected_palette" widget="json"/>
+                        </page>
+                        <page string="Candidati Naming">
+                            <field name="naming_candidate_ids">
+                                <tree>
+                                    <field name="name"/>
+                                    <field name="memorability_score"/>
+                                    <field name="domain_available"/>
+                                    <field name="is_selected"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vista Tree per erpv6.brand.project -->
+    <record id="view_brand_project_tree" model="ir.ui.view">
+        <field name="name">erpv6.brand.project.tree</field>
+        <field name="model">erpv6.brand.project</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="status"/>
+                <field name="selected_name"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action per erpv6.brand.project -->
+    <record id="action_brand_project" model="ir.actions.act_window">
+        <field name="name">Progetti di Branding</field>
+        <field name="res_model">erpv6.brand.project</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Menu -->
+    <menuitem id="menu_brand_root" 
+              name="Branding" 
+              parent="erpv6_core.menu_erpv6_root"
+              sequence="50"/>
+    
+    <menuitem id="menu_brand_project" 
+              name="Progetti Brand" 
+              parent="menu_brand_root"
+              action="action_brand_project"
+              sequence="10"/>
+</odoo>

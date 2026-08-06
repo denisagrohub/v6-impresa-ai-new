@@ -5,7 +5,7 @@
     'summary': 'Gestione documentale per progetti',
     'author': 'V6 Impresa AI',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail', 'erpv6_core', 'erpv6_tracking', 'erpv6_blockchain'],
+    'depends': ['base', 'mail', 'erpv6_core', 'erpv6_tracking', 'erpv6_blockchain', 'erpv6_brand'],
     'data': [
         'security/ir.model.access.csv',
         'views/library_views.xml',

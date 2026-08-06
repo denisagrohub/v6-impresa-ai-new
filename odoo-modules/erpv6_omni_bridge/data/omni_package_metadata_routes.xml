@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Route: Package Metadata Generation -->
+        <record id="omni_route_package_metadata_generation" model="erpv6.omni.route.config">
+            <field name="name">Generazione Metadata Pacchetto da Template Typst</field>
+            <field name="task_type">package_metadata_generation</field>
+            <field name="primary_provider_id" ref="omni_provider_anthropic"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai')])]"/>
+            <field name="routing_strategy">balanced</field>
+            <field name="priority">40</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+            <field name="description">Route per generare metadata (required_fields, interview_questions, generation_prompt) per un modulo pacchetto analizzando un template Typst con AI.</field>
+        </record>
+    </data>
+</odoo>
