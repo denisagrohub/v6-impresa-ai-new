@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requirePermission } from '@/lib/auth';
 
 const PRODUCTS_PATH = path.join(process.cwd(), 'src/data/custom-products.json');
 
@@ -12,8 +13,13 @@ function ensureFile() {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const permissionCheck = requirePermission(request, ['admin', 'chief']);
+    if (permissionCheck instanceof NextResponse) {
+      return permissionCheck;
+    }
+
     ensureFile();
     const data = JSON.parse(fs.readFileSync(PRODUCTS_PATH, 'utf-8'));
     return NextResponse.json(data);
@@ -27,6 +33,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const permissionCheck = requirePermission(request, ['admin', 'chief']);
+    if (permissionCheck instanceof NextResponse) {
+      return permissionCheck;
+    }
+
     const body = await request.json();
     ensureFile();
     

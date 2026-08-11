@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { requirePermission } from '@/lib/auth';
 
 const PARTNERS_PATH = path.join(process.cwd(), 'src/data/partners.json');
 
 export async function POST(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const body = await request.json();
 
         // Leggi i partner esistenti

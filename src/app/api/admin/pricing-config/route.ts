@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requirePermission } from '@/lib/auth';
 
 const CONFIG_PATH = path.join(process.cwd(), 'src/data/pricing-config.json');
 
@@ -17,8 +18,13 @@ function ensureConfigFile() {
     }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         ensureConfigFile();
         const fileContent = fs.readFileSync(CONFIG_PATH, 'utf-8');
         const config = JSON.parse(fileContent);
@@ -30,6 +36,11 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const body = await request.json();
         ensureConfigFile();
         fs.writeFileSync(CONFIG_PATH, JSON.stringify(body, null, 2));

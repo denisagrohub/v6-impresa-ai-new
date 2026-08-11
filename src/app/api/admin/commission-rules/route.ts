@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requirePermission } from '@/lib/auth';
 
 const RULES_PATH = path.join(process.cwd(), 'src/data/commission-rules.json');
 
@@ -17,8 +18,13 @@ function ensureFile() {
     }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         ensureFile();
         const data = JSON.parse(fs.readFileSync(RULES_PATH, 'utf-8'));
         return NextResponse.json(data);
@@ -29,6 +35,11 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const body = await request.json();
         ensureFile();
         fs.writeFileSync(RULES_PATH, JSON.stringify(body, null, 2));
