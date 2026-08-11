@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requirePermission } from '@/lib/auth';
 
 const INVOICES_PATH = path.join(process.cwd(), 'src/data/invoices.json');
 
 export async function GET(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const { searchParams } = new URL(request.url);
         const clientId = searchParams.get('clientId');
         const status = searchParams.get('status');
@@ -45,6 +51,11 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const { invoiceId, status, paymentMethod, notes } = await request.json();
 
         if (!invoiceId) {

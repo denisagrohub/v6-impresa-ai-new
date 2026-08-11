@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { gatewayGet, gatewayPost, gatewayPut } from '@/lib/gateway-client';
+import { requirePermission } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const { searchParams } = new URL(request.url);
         const partnerId = searchParams.get('partnerId');
         const status = searchParams.get('status');
@@ -29,6 +35,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const body = await request.json();
         const result = await gatewayPost('partner-payments', body);
         return NextResponse.json(result);
@@ -39,6 +50,11 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const body = await request.json();
         const result = await gatewayPut('partner-payments', body, { id: body.id });
         return NextResponse.json(result);

@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getDemoStats, clearDemoData } from '@/lib/payment-adapter';
+import { requirePermission } from '@/lib/auth';
 
 const CONFIG_PATH = path.join(process.cwd(), 'src/data/secure-config.json');
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
         const stats = getDemoStats();
 
@@ -21,6 +27,11 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const { demoMode, adminPassword } = await request.json();
 
         // Verifica password admin (semplice per ora, in produzione: bcrypt)
