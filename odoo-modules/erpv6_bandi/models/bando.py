@@ -47,7 +47,7 @@ class Erpv6Bando(models.Model):
         ('expired', 'Scaduto'),
         ('closed', 'Chiuso'),
     ], string='Stato', default='draft', tracking=True)
-    match_count = fields.Integer(string='Numero Match', compute='_compute_match_count')
+    match_count = fields.Integer(string='Numero Match', compute='_compute_match_count', store=True)
     application_count = fields.Integer(string='Numero Candidature', compute='_compute_application_count')
     kb_module_id = fields.Char(string='ID Modulo KB')
     last_sync = fields.Datetime(string='Ultima Sincronizzazione')

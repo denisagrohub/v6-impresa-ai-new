@@ -24,9 +24,9 @@
         <field name="arch" type="xml">
             <form string="Match Bando-Cliente">
                 <header>
-                    <button name="action_notify_consultant" string="Notifica Consulente" type="object" class="btn-primary" states="new"/>
-                    <button name="action_mark_interested" string="Segna Interessato" type="object" states="notified"/>
-                    <button name="action_create_application" string="Crea Candidatura" type="object" class="btn-success" states="interested"/>
+                    <button name="action_notify_consultant" string="Notifica Consulente" type="object" class="btn-primary" invisible="status != 'new'"/>
+                    <button name="action_mark_interested" string="Segna Interessato" type="object" invisible="status != 'notified'"/>
+                    <button name="action_create_application" string="Crea Candidatura" type="object" class="btn-success" invisible="status != 'interested'"/>
                     <field name="status" widget="statusbar" statusbar_visible="new,notified,interested,applied,won"/>
                 </header>
                 <sheet>
