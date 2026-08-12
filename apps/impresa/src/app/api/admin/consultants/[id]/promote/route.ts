@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { requirePermission } from '@erpv6/auth';
 
 const PARTNERS_PATH = path.join(process.cwd(), 'src/data/partners.json');
 
@@ -9,6 +10,11 @@ export async function POST(
     { params }: { params: { id: string } }
 ) {
     try {
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+
         const { id } = await params;
         const { action } = await request.json(); // 'promote' o 'demote'
 

@@ -11,7 +11,10 @@ const MODULES_DIR = path.join(process.cwd(), '..', '..', 'odoo-modules');
 
 export async function GET(request: NextRequest) {
     try {
-        requirePermission(request, ['settings.configure_deploy']);
+        const permissionCheck = requirePermission(request, ['admin']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
 
         if (!fs.existsSync(MODULES_DIR)) {
             return NextResponse.json({ modules: [] });
@@ -38,7 +41,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        requirePermission(request, ['admin.deploy_odoo']);
+        const permissionCheck = requirePermission(request, ['admin']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
 
         const { action, config, modules } = await request.json();
 

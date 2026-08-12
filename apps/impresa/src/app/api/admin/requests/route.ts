@@ -28,10 +28,11 @@ function saveData(data: any) {
 export async function GET(request: NextRequest) {
     try {
         // Admin/Chief vedono tutto, consultant vede solo le proprie
-        const user = requireAnyPermission(request, [
-            'requests.view_all',
-            'consultant.manage_own_requests'
-        ]);
+        const authResult = requireAnyPermission(request, ['admin', 'chief', 'consultant']);
+        if (authResult instanceof NextResponse) {
+            return authResult;
+        }
+        const user = authResult;
 
         const { searchParams } = new URL(request.url);
         const type = searchParams.get('type');
@@ -90,7 +91,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        requireAnyPermission(request, ['requests.create', 'consultant.manage_own_requests']);
+        const permissionCheck = requireAnyPermission(request, ['admin', 'chief', 'consultant']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
 
         const body = await request.json();
         const data = loadData();
@@ -123,7 +127,10 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
-        requirePermission(request, ['requests.approve']);
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
 
         const body = await request.json();
         const data = loadData();

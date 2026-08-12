@@ -5,7 +5,10 @@ import { requirePermission, handleAuthError } from '@erpv6/auth';
 
 export async function GET(request: NextRequest) {
     try {
-        requirePermission(request, ['admin.view_stats']);
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
 
         const projectsPath = path.join(process.cwd(), 'src/data/projects.json');
         const leadsPath = path.join(process.cwd(), 'src/data/leads.json');
