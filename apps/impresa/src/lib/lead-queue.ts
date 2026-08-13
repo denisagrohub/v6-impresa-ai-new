@@ -11,6 +11,19 @@ function ensureQueueFile(): void {
     }
 }
 
+// L'intervista produce campi in italiano (nome, telefono, azienda, obiettivi);
+// /api/v1/leads (lead_api.py) richiede name/email obbligatori e accetta
+// phone/company_name/description opzionali, tutti in inglese.
+function mapLeadDataForOdoo(data: Record<string, any>): Record<string, any> {
+    return {
+        name: data.nome || '',
+        email: data.email || '',
+        phone: data.telefono || '',
+        company_name: data.azienda || '',
+        description: data.obiettivi || '',
+    };
+}
+
 // Struttura di un lead
 export interface Lead {
     id: string;
@@ -39,7 +52,7 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
             // Prova a inviare a Odoo
             await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
-                body: JSON.stringify(leadData),
+                body: JSON.stringify(mapLeadDataForOdoo(leadData)),
             });
 
             lead.synced = true;
@@ -104,7 +117,7 @@ export async function syncPendingLeads(): Promise<{ synced: number; failed: numb
         try {
             await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
-                body: JSON.stringify(lead.data),
+                body: JSON.stringify(mapLeadDataForOdoo(lead.data)),
             });
 
             lead.synced = true;
