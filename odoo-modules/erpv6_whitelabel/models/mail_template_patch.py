@@ -62,7 +62,7 @@ class MailTemplatePatch(models.AbstractModel):
                         Your sign in email is: <b><a t-attf-href="/web/login?login={{ object.email }}" target="_blank" t-out="object.email or ''">mark.brown23@example.com</a></b><br /><br />
                         Never heard of ERPV6? It's an all-in-one business platform built on proven open-source technology. It will considerably improve your experience at work and increase your productivity.
                         <br /><br />
-                        Have a look at the <a href="https://www.odoo.com/page/tour?utm_source=db&amp;utm_medium=auth" style="color: #875A7B;">Odoo Tour</a> to discover the tool.
+                        Have a look at the <a href="https://erp.v6sviluppoimpresa.it/" style="color: #875A7B;">ERPV6 Tour</a> to discover the tool.
                         <br /><br />
                         Enjoy ERPV6!<br />
                         --<br/>The <t t-out="object.company_id.name or ''">YourCompany</t> Team
