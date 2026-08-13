@@ -11,7 +11,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 1. [x] `accounting_api.py` — bug hasattr (nessuna dipendenza mancante)
 2. [x] `bandi_api.py` — bug hasattr + `erpv6_bandi` non in depends
 3. [x] `methodology_api.py` — bug hasattr + `erpv6_methodology` non in depends
-4. [ ] `saas_tenant_api.py` — bug hasattr (dipendenza già ok)
+4. [x] `saas_tenant_api.py` — bug hasattr + dipendenza circolare `erpv6_saas`↔`erpv6_api_gateway` (non "già ok" come diceva l'audit precedente)
 5. [ ] `saas_vertical_api.py` — bug hasattr + rotta duplicata con `saas_api.py`
 6. [ ] `validation_api.py` — bug hasattr + `erpv6_validation` non in depends
 7. [ ] `library_api.py` — bug hasattr + `erpv6_library` non in depends + campo `file_id` inesistente
@@ -160,5 +160,33 @@ Verificato con `grep -rl "erpv6_methodology" odoo-modules/*/__manifest__.py`: **
 ```
 
 **Nota per chi promuoverà**: come per `erpv6_bandi`, verificare `SELECT state FROM ir_module_module WHERE name='erpv6_methodology';` sul DB target prima di aggiornare il gateway.
+
+---
+
+## 4. `saas_tenant_api.py`
+
+**Verdetto**: l'audit del 13/08 lo classificava "CODICE MORTO IN DEV, ma erpv6_saas già in depends dev, solo bug hasattr da correggere". **Verifica indipendente**: la seconda metà di questa affermazione è sbagliata. `erpv6_saas` è sì elencato nei `depends` del manifest dev di `erpv6_api_gateway`, ma `odoo-modules/erpv6_saas/__manifest__.py` dichiara a sua volta `'depends': [..., 'erpv6_api_gateway', ...]` — è **esattamente la stessa dipendenza circolare** già individuata per `saas_api.py` (voce #10 di questo documento), solo che l'audit precedente non l'ha collegata anche a questo controller perché si è fermato a "la dependency è elencata" senza controllare se il grafo fosse risolvibile.
+
+**Verifica indipendente sui campi** (comunque completata, indipendentemente dal blocco di dipendenza): confrontati contro `odoo-modules/erpv6_saas/models/saas_tenant.py` e `vertical_catalog.py` — `name`, `partner_id`, `verticale`, `subscription_status`, `subscription_expires_at`, `trial_ends_at`, `setup_fee_paid`, `notes`, `active`, `module_names`, `is_active` — tutti esistono con lo stesso nome. Nessun mismatch di campo.
+
+### Problema 1 — bug hasattr (2 occorrenze: righe 23, 79)
+
+```python
+if not hasattr(request.env, 'erpv6.saas.tenant'):  # riga 23, get_tenant_dashboard
+if not hasattr(request.env, 'erpv6.saas.tenant'):  # riga 79, get_subscription_details
+```
+
+**Fix proposto**:
+
+```python
+if 'erpv6.saas.tenant' not in request.env:
+if 'erpv6.saas.tenant' not in request.env:
+```
+
+### Problema 2 — dipendenza circolare `erpv6_saas` ↔ `erpv6_api_gateway` (condiviso con `saas_api.py` e `saas_vertical_api.py`)
+
+Non risolvibile aggiungendo/rimuovendo una singola riga in un manifest: è una **decisione di design condivisa dai 3 controller SaaS** (`saas_api.py`, `saas_tenant_api.py`, `saas_vertical_api.py` — tutti e 3 usano modelli di `erpv6_saas`). Vedi la voce #10 (`saas_api.py`) per l'analisi completa delle opzioni e la proposta. Qualunque soluzione scelta lì (nuovo modulo ponte, o inversione della direzione della dipendenza) va applicata una sola volta e risolve automaticamente il blocco anche per questo controller e per `saas_vertical_api.py` — non vanno decise 3 volte separatamente.
+
+**Nota**: questo controller resta comunque "codice morto in dev" (non importato in `__init__.py`) indipendentemente dal fix hasattr, finché il problema di dipendenza circolare non è risolto — agganciarlo oggi senza risolvere prima la #10 lo lascerebbe con lo stesso rischio di `saas_api.py` (grafo non risolvibile da Odoo al momento dell'installazione/aggiornamento).
 
 ---
