@@ -152,7 +152,7 @@ class MethodologyAPIController(APIBaseController):
                 self._log_api_call('/api/v1/methodology/pareto', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             
             vals = {
                 'name': data.get('name', 'Nuova Analisi Pareto'),
@@ -317,7 +317,7 @@ class MethodologyAPIController(APIBaseController):
                 self._log_api_call('/api/v1/methodology/kairos', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             
             vals = {
                 'matrix_type': data.get('matrix_type', 'organizzativo'),
@@ -457,7 +457,7 @@ class MethodologyAPIController(APIBaseController):
                 self._log_api_call('/api/v1/methodology/5s', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             
             vals = {
                 'res_model': data.get('res_model', ''),
@@ -534,7 +534,7 @@ class MethodologyAPIController(APIBaseController):
                 self._log_api_call('/api/v1/methodology/heinrich', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             
             vals = {
                 'res_model': data.get('res_model', ''),
