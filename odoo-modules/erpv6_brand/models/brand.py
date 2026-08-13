@@ -22,7 +22,6 @@ class BrandProject(models.Model):
     selected_logo_asset_id = fields.Many2one(
         'erpv6.library.document',
         string='Logo Finale',
-        comodel_name='erpv6.library.document',
         help='Riferimento all\'asset logo finale in library'
     )
     selected_palette = fields.Json(
