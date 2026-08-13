@@ -12,7 +12,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 2. [x] `bandi_api.py` — bug hasattr + `erpv6_bandi` non in depends
 3. [x] `methodology_api.py` — bug hasattr + `erpv6_methodology` non in depends
 4. [x] `saas_tenant_api.py` — bug hasattr + dipendenza circolare `erpv6_saas`↔`erpv6_api_gateway` (non "già ok" come diceva l'audit precedente)
-5. [ ] `saas_vertical_api.py` — bug hasattr + rotta duplicata con `saas_api.py`
+5. [x] `saas_vertical_api.py` — rotte duplicate di `saas_api.py`: proposta di rimozione, non di fix
 6. [ ] `validation_api.py` — bug hasattr + `erpv6_validation` non in depends
 7. [ ] `library_api.py` — bug hasattr + `erpv6_library` non in depends + campo `file_id` inesistente
 8. [ ] `partner_api.py` — modello `ateco.at` inesistente + campi `ateco_code`/`fiscal_regime` inesistenti
@@ -188,5 +188,24 @@ if 'erpv6.saas.tenant' not in request.env:
 Non risolvibile aggiungendo/rimuovendo una singola riga in un manifest: è una **decisione di design condivisa dai 3 controller SaaS** (`saas_api.py`, `saas_tenant_api.py`, `saas_vertical_api.py` — tutti e 3 usano modelli di `erpv6_saas`). Vedi la voce #10 (`saas_api.py`) per l'analisi completa delle opzioni e la proposta. Qualunque soluzione scelta lì (nuovo modulo ponte, o inversione della direzione della dipendenza) va applicata una sola volta e risolve automaticamente il blocco anche per questo controller e per `saas_vertical_api.py` — non vanno decise 3 volte separatamente.
 
 **Nota**: questo controller resta comunque "codice morto in dev" (non importato in `__init__.py`) indipendentemente dal fix hasattr, finché il problema di dipendenza circolare non è risolto — agganciarlo oggi senza risolvere prima la #10 lo lascerebbe con lo stesso rischio di `saas_api.py` (grafo non risolvibile da Odoo al momento dell'installazione/aggiornamento).
+
+---
+
+## 5. `saas_vertical_api.py`
+
+**Verdetto — diverso dagli altri**: qui la proposta non è "correggere e agganciare", ma **non agganciare affatto e valutare la rimozione del file**. Motivo: `saas_vertical_api.py` registra le stesse identiche 2 rotte di `saas_api.py` (`GET /api/v1/saas/verticals`, `GET /api/v1/saas/verticals/<string:verticale>/modules`) — confermato confrontando riga per riga i due file. `saas_api.py` è **già agganciato in `__init__.py`** (dev) da prima di questa sessione; se si agganciasse anche `saas_vertical_api.py`, Odoo registrerebbe due `@http.route` sullo stesso path, con esito che dipende dall'ordine di import in `__init__.py` (l'ultimo importato sovrascrive silenziosamente il precedente nella url map di werkzeug) — un comportamento fragile e non intenzionale, non una vera scelta.
+
+**Confronto qualità del codice tra i due file** (rilevante per decidere quale tenere, non solo quale è già agganciato):
+
+- `saas_api.py.get_vertical_modules` delega alla logica già presente sul modello: `request.env['erpv6.vertical.catalog'].sudo().get_modules_for_verticale(verticale)` (metodo verificato in `odoo-modules/erpv6_saas/models/vertical_catalog.py:19-32` — search + filtro `is_active` + split/trim del CSV, con log di warning se il verticale non è trovato).
+- `saas_vertical_api.py.get_verticale_modules` **duplica manualmente** la stessa logica (search + filtro `is_active` + split/trim) direttamente nel controller, invece di riusare il metodo del modello.
+
+`saas_api.py` è quindi anche la versione architetturalmente migliore (logica nel modello, non nel controller — coerente con la convenzione Odoo), oltre a essere quella già viva. Questo conferma l'ipotesi già avanzata nell'audit del 12/08 ("uno dei due file è probabilmente residuo di un refactor mai completato").
+
+**Verifica indipendente sui campi** (comunque completata): `verticale`, `name`, `description`, `module_names`, `is_active` — tutti esistono su `erpv6.vertical.catalog`, nessun mismatch. Il bug hasattr (2 occorrenze, righe 23 e 64) sarebbe comunque presente se si decidesse di tenere il file, ma è un fix discutibile su codice da eliminare.
+
+**Fix proposto**: eliminare `odoo-modules/erpv6_api_gateway/controllers/saas_vertical_api.py` e non aggiungerlo mai a `__init__.py`. Nessuna funzionalità persa: le stesse 2 rotte restano coperte da `saas_api.py`, che resta comunque bloccato dalla dipendenza circolare #10/#4 finché quella non si risolve — a quel punto basterà sbloccare `saas_api.py` una volta sola.
+
+**Alternativa se si preferisce non cancellare file** (meno pulita, sconsigliata): lasciare il file nel repo ma commentarne l'eventuale futuro import con una nota esplicita del motivo, per non perdere la cronologia — la rimozione diretta resta comunque la scelta consigliata, il repo ha già git per la cronologia.
 
 ---
