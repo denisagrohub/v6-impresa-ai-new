@@ -120,7 +120,7 @@ function InterviewContent() {
       const result = interviewEngine.calculateScore(fullAnswers);
       setResult(result);
 
-      await fetch('/api/leads', {
+      const response = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -136,6 +136,11 @@ function InterviewContent() {
           },
         }),
       });
+      const responseBody = await response.json().catch(() => null);
+
+      if (!response.ok || !responseBody?.success) {
+        throw new Error(responseBody?.error || `Invio lead fallito (${response.status})`);
+      }
 
       setSubmitted(true);
     } catch (error) {
