@@ -58,7 +58,7 @@ class PartnerAPIController(APIBaseController):
             return error_response
         
         try:
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             partner = user.partner_id.commercial_partner_id or user.partner_id
             
             vals = {}
