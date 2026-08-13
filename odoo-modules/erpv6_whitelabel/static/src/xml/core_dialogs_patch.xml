@@ -20,4 +20,20 @@
         </xpath>
     </t>
 
+    <!-- iap.InsufficientCreditDialog (addons/iap/static/src/js/insufficient_credit_error_handler.js):
+         il titolo del Dialog non e' mai impostato dal componente, quindi resta il default
+         Dialog.defaultProps.title = "Odoo" (web/static/src/core/dialog/dialog.js). Il bottone
+         usa t-esc="buttonMessage", calcolato in JS come _t("Start a Trial at Odoo") quando
+         errorData.trial && isEnterprise, altrimenti _t("Buy credits"). La classe
+         InsufficientCreditDialog non e' esportata dal modulo iap, quindi non e' patchabile con
+         patch() come in error_dialogs_patch.js (B1): l'unica via e' il template QWeb. -->
+    <t t-inherit="iap.InsufficientCreditDialog" t-inherit-mode="extension">
+        <xpath expr="//Dialog" position="attributes">
+            <attribute name="title.translate">ERPV6 Credits</attribute>
+        </xpath>
+        <xpath expr="//button[@t-on-click='buyCredits']" position="replace">
+            <button class="btn btn-primary" t-on-click="buyCredits">Buy credits</button>
+        </xpath>
+    </t>
+
 </templates>

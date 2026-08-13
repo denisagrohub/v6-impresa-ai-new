@@ -24,6 +24,7 @@
         'base_setup',
         'portal',
         'auth_signup',
+        'iap',
     ],
     'data': [
         'security/ir.model.access.csv',
