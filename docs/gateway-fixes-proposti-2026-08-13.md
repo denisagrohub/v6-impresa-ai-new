@@ -15,7 +15,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 5. [x] `saas_vertical_api.py` — rotte duplicate di `saas_api.py`: proposta di rimozione, non di fix
 6. [x] `validation_api.py` — bug hasattr + `erpv6_validation` non in depends
 7. [x] `library_api.py` — bug hasattr + `erpv6_library` non in depends + campo `file_id` inesistente (fix architetturale, non solo rename)
-8. [ ] `partner_api.py` — modello `ateco.at` inesistente + campi `ateco_code`/`fiscal_regime` inesistenti
+8. [x] `partner_api.py` — modello `ateco.at` inesistente + campi `ateco_code`/`fiscal_regime` inesistenti
 9. [ ] `project_api.py` — `crm.lead.contact_email` inesistente (crash 500) + bug hasattr parziale
 10. [ ] `saas_api.py` — dipendenza circolare di manifest (decisione di design, non solo fix meccanico)
 11. [ ] `sign_api.py` — bug hasattr + `erpv6_sign` non in depends + 6 mismatch di campo/comodel
@@ -370,5 +370,58 @@ Nota: ho anche tolto l'`hasattr(doc, 'blockchain_record_id')` di guardia (riga 4
 **Osservazione**: `category` sul modello reale è `Selection` con valori fissi (`nda`, `proposal`, `sal`, `contract`, `business_plan`, `final`, `client_upload`, `other`, `brand_logo`, `brand_asset`) e `required=True` — il controller usa `data.get('category', 'general')` come default, ma `'general'` **non è un valore valido** della Selection. Se il chiamante non passa `category`, la create() fallirebbe con un errore di validazione Selection (comportamento corretto, ma il default `'general'` scelto dal controller è comunque sbagliato e andrebbe cambiato in `'other'`, l'unico valore generico esistente).
 
 **Fix proposto per il default**: `'category': data.get('category', 'other'),` al posto di `'category': data.get('category', 'general'),`.
+
+---
+
+## 8. `partner_api.py`
+
+**Verdetto**: nessun bug hasattr qui (questo controller non usa il pattern `hasattr(request.env, ...)`), nessuna dependency mancante (`erpv6_accounting`, che estende `res.partner`, è raggiungibile via `erpv6_tracking` come già verificato per `accounting_api.py`). Il problema è di naming: due campi inventati che non esistono, più un modello inventato — e un uso scorretto di `hasattr()` sull'**oggetto record** (diverso da `hasattr(request.env, ...)`, ma qui comunque fuorviante perché nasconde il vero problema).
+
+**Verifica indipendente eseguita**: letto `odoo-modules/erpv6_accounting/models/res_partner.py` per intero. `res.partner` **non ha** campi `ateco_code`/`fiscal_regime`. Ha invece:
+- `v6_ateco_code` — `Char`, non un Many2one (contrariamente a quanto il controller assume trattandolo come un id da risolvere)
+- `v6_fiscal_regime` — `Selection(['ordinario', 'semplificato', 'forfettario', 'agricolo_speciale'])`
+- Il modello `ateco.at` usato in `update_partner_profile` **non esiste**; il modello reale per la ricerca/validazione codici ATECO è `erpv6.ateco.regime` (`code` Char, `regime_default` Selection — stessi valori di `v6_fiscal_regime`), verificato in `odoo-modules/erpv6_accounting/models/ateco_regime.py`.
+
+**Perché `hasattr(partner, 'ateco_code')` non esplode ma restituisce comunque dati falsi**: qui `hasattr` è chiamato su un **record ORM** (`partner`), non su `request.env` — su un record, `hasattr` funziona correttamente in Python (verifica un attributo reale dell'istanza). Il problema non è il meccanismo `hasattr` in sé (diverso dal bug sistemico degli altri 9 controller), ma il **nome sbagliato**: `hasattr(partner, 'ateco_code')` è sempre `False` perché il campo si chiama `v6_ateco_code`, non perché il meccanismo di controllo sia rotto. Effetto pratico: la GET risponde sempre con `ateco_code`/`fiscal_regime` vuoti (mai un errore), e la PUT risponde `200` "salvato" senza scrivere mai né l'ateco né il regime — un contratto API silenziosamente falso, dello stesso tipo del bug originale in `odoo-adapter.ts` risolto in una fase precedente di questa sessione.
+
+**Fix proposto — GET `get_partner_profile`** (sostituisce le righe 20-27):
+
+```python
+            ateco_code = partner.v6_ateco_code or ''
+            fiscal_regime = partner.v6_fiscal_regime or ''
+```
+
+(elimina del tutto la necessità di `hasattr`: i campi esistono sempre su ogni `res.partner`, essendo estensioni dirette del modello via `_inherit`, non funzionalità di un modulo opzionale — la wrapping `hasattr` non serviva a nulla anche se i nomi fossero stati giusti.)
+
+**Fix proposto — PUT `update_partner_profile`** (sostituisce le righe 90-98):
+
+```python
+            ateco_updated = False
+            if 'ateco_code' in data:
+                ateco_regime = request.env['erpv6.ateco.regime'].sudo().search([
+                    ('code', '=', data['ateco_code'])
+                ], limit=1)
+                if ateco_regime:
+                    update_vals = {'v6_ateco_code': ateco_regime.code}
+                    # Se il chiamante non specifica esplicitamente il regime fiscale,
+                    # usa il default associato al codice ATECO (stessa logica di
+                    # res_partner.py:_onchange_ateco_code, riusata qui lato server).
+                    if 'fiscal_regime' not in data and ateco_regime.regime_default:
+                        update_vals['v6_fiscal_regime'] = ateco_regime.regime_default
+                    partner.write(update_vals)
+                    ateco_updated = True
+
+            if 'fiscal_regime' in data:
+                partner.write({'v6_fiscal_regime': data['fiscal_regime']})
+```
+
+E aggiornare la risposta finale (righe 117-118) per riflettere i valori realmente scritti invece di rieccheggiare l'input grezzo del chiamante:
+
+```python
+                'ateco_code': updated_partner.v6_ateco_code or '',
+                'fiscal_regime': updated_partner.v6_fiscal_regime or '',
+```
+
+**Nota**: `ateco_updated` è calcolato ma non usato nella risposta — nel controller originale nemmeno lo era (già dead code prima di questo fix); lasciato per non allargare la superficie della modifica oltre il necessario, ma segnalato qui come piccola pulizia rimandabile.
 
 ---
