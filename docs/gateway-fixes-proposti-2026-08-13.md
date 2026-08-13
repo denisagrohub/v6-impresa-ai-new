@@ -13,7 +13,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 3. [x] `methodology_api.py` — bug hasattr + `erpv6_methodology` non in depends
 4. [x] `saas_tenant_api.py` — bug hasattr + dipendenza circolare `erpv6_saas`↔`erpv6_api_gateway` (non "già ok" come diceva l'audit precedente)
 5. [x] `saas_vertical_api.py` — rotte duplicate di `saas_api.py`: proposta di rimozione, non di fix
-6. [ ] `validation_api.py` — bug hasattr + `erpv6_validation` non in depends
+6. [x] `validation_api.py` — bug hasattr + `erpv6_validation` non in depends
 7. [ ] `library_api.py` — bug hasattr + `erpv6_library` non in depends + campo `file_id` inesistente
 8. [ ] `partner_api.py` — modello `ateco.at` inesistente + campi `ateco_code`/`fiscal_regime` inesistenti
 9. [ ] `project_api.py` — `crm.lead.contact_email` inesistente (crash 500) + bug hasattr parziale
@@ -207,5 +207,54 @@ Non risolvibile aggiungendo/rimuovendo una singola riga in un manifest: è una *
 **Fix proposto**: eliminare `odoo-modules/erpv6_api_gateway/controllers/saas_vertical_api.py` e non aggiungerlo mai a `__init__.py`. Nessuna funzionalità persa: le stesse 2 rotte restano coperte da `saas_api.py`, che resta comunque bloccato dalla dipendenza circolare #10/#4 finché quella non si risolve — a quel punto basterà sbloccare `saas_api.py` una volta sola.
 
 **Alternativa se si preferisce non cancellare file** (meno pulita, sconsigliata): lasciare il file nel repo ma commentarne l'eventuale futuro import con una nota esplicita del motivo, per non perdere la cronologia — la rimozione diretta resta comunque la scelta consigliata, il repo ha già git per la cronologia.
+
+---
+
+## 6. `validation_api.py`
+
+**Verdetto**: stesso schema di `bandi_api.py`/`methodology_api.py` — bug hasattr + dependency mancante, ma qui **nessuna dipendenza circolare** (a differenza dei controller SaaS): `erpv6_validation` non dipende da `erpv6_api_gateway`.
+
+**Verifica indipendente eseguita**: campi confrontati contro `odoo-modules/erpv6_validation/models/validation_session.py`, `validation_round.py`, `validation_analysis.py` — `res_model`, `res_id`, `destinatario`, `scopo`, `context_data`, `validation_mode`, `status`, `max_rounds`, `current_round_number`, `human_reviewer_id`, `human_reviewed_at`, `human_notes`, `round_ids`, `round_number`, `analysis_ids`, `issues_found`, `sesto_uomo_notes`, `corrected_material`, `analyst_index`, `findings`, `claims_checked`, `flagged_missing_data` — tutti esistono con lo stesso nome. Metodi `action_start_validation()`, `action_human_approve()`, `action_human_reject(reason=None)` confermati con la stessa firma usata dal controller. Questo controller espone anche `erpv6.validation.round` ed `erpv6.validation.analysis` (i singoli giudici) tramite `rounds_data` nel dettaglio sessione — colma quindi il gap segnalato in FASE B dell'audit del 12/08 ("il frontend può vedere lo stato della sessione ma non il dettaglio dei round"), una volta promosso.
+
+**Osservazione minore, non bloccante**: `destinatario`, `scopo`, `context_data` sono `required=True` su `erpv6.validation.session`, ma `create_validation_session` li legge con default silenziosi (`data.get('destinatario', '')` ecc.) — stesso pattern già segnalato per `methodology_api.py`. Non blocca la promozione, ma andrebbe validato esplicitamente in un secondo passaggio.
+
+### Problema 1 — bug hasattr (6 occorrenze: righe 23, 63, 128, 170, 205, 240)
+
+```python
+if not hasattr(request.env, 'erpv6.validation.session'):  # ripetuto identico in tutti e 6 gli endpoint
+```
+
+**Fix proposto** — stessa sostituzione in tutte e 6 le occorrenze:
+
+```python
+if 'erpv6.validation.session' not in request.env:
+```
+
+### Problema 2 — `erpv6_validation` non è dependency di nessun modulo raggiungibile
+
+`grep -rl "erpv6_validation" odoo-modules/*/__manifest__.py` → nessun risultato, né diretta né transitiva, in nessun manifest del repo.
+
+**Fix proposto**:
+
+`odoo-modules/erpv6_api_gateway/__manifest__.py`:
+```python
+    'depends': [
+        'base', 'web', 'mail', 'crm',
+        'erpv6_core', 'erpv6_kb', 'erpv6_booking',
+        'erpv6_consulting', 'erpv6_tracking',
+        'erpv6_omni_bridge',
+        'erpv6_saas',
+        'erpv6_bandi',        # da fix bandi_api.py
+        'erpv6_methodology',  # da fix methodology_api.py
+        'erpv6_validation',   # nuovo — richiesto da validation_api.py
+    ],
+```
+
+`/opt/erpv6/custom-addons/erpv6_api_gateway/__manifest__.py` (prod):
+```python
+    'depends': ['base', 'web', 'mail', 'crm', 'erpv6_core', 'erpv6_kb', 'erpv6_booking', 'erpv6_consulting', 'erpv6_tracking', 'erpv6_bandi', 'erpv6_methodology', 'erpv6_validation'],
+```
+
+**Nota per chi promuoverà**: verificare `SELECT state FROM ir_module_module WHERE name='erpv6_validation';` sul DB target prima di aggiornare il gateway.
 
 ---
