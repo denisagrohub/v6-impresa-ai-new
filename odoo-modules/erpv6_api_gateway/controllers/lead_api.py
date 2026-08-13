@@ -30,8 +30,16 @@ class LeadAPIController(APIBaseController):
         if not name or not email:
             return self._json_response({'error': 'name and email required'}, 400)
 
+        # auth='none': la richiesta non ha una sessione/uid valido, quindi
+        # env.user e' un recordset vuoto. .sudo() bypassa solo gli ACL, non
+        # imposta un uid: qualunque write su un campo tracked (message_post
+        # -> _is_public()) crasha con "Expected singleton: res.users()".
+        # Leghiamo l'env all'utente pubblico, la stessa convenzione usata dai
+        # controller website/portal nativi di Odoo per scritture anonime.
+        env = request.env(user=request.env.ref('base.public_user'))
+
         # Duplicati
-        existing = request.env['crm.lead'].sudo().search([('email_from', '=', email), ('active', '=', True)], limit=1)
+        existing = env['crm.lead'].sudo().search([('email_from', '=', email), ('active', '=', True)], limit=1)
         if existing:
             return self._json_response({'error': 'Lead already exists', 'lead_id': existing.id}, 409)
 
@@ -54,14 +62,14 @@ class LeadAPIController(APIBaseController):
         for field, key in [('fenice_score', 'fenice_score'), ('fenice_livello', 'fenice_livello'),
                            ('fenice_moduli_interesse', 'moduli_interesse'),
                            ('fenice_fatturato', 'fatturato_stimato'), ('fenice_source', 'source')]:
-            if key in data and hasattr(request.env['crm.lead'], field):
+            if key in data and hasattr(env['crm.lead'], field):
                 vals[field] = data[key]
 
-        if 'fenice_source' not in vals and hasattr(request.env['crm.lead'], 'fenice_source'):
+        if 'fenice_source' not in vals and hasattr(env['crm.lead'], 'fenice_source'):
             vals['fenice_source'] = 'sito_web'
 
         try:
-            lead = request.env['crm.lead'].sudo().create(vals)
+            lead = env['crm.lead'].sudo().create(vals)
         except Exception as e:
             _logger.error("Lead creation error: %s", e)
             return self._json_response({'error': 'Creation failed'}, 500)
@@ -76,7 +84,7 @@ class LeadAPIController(APIBaseController):
                 _logger.warning("Funnel start error: %s", e)
 
         # Webhook
-        for wh in request.env['erpv6.webhook'].sudo().search([('events', '=', 'lead.created'), ('is_active', '=', True)]):
+        for wh in env['erpv6.webhook'].sudo().search([('events', '=', 'lead.created'), ('is_active', '=', True)]):
             wh.trigger({'event': 'lead.created', 'lead_id': lead.id, 'email': email})
 
         self._log_api_call('/api/v1/leads', 'POST', None, 201, start_time)
