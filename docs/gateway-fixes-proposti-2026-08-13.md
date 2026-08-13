@@ -16,7 +16,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 6. [x] `validation_api.py` — bug hasattr + `erpv6_validation` non in depends
 7. [x] `library_api.py` — bug hasattr + `erpv6_library` non in depends + campo `file_id` inesistente (fix architetturale, non solo rename)
 8. [x] `partner_api.py` — modello `ateco.at` inesistente + campi `ateco_code`/`fiscal_regime` inesistenti
-9. [ ] `project_api.py` — `crm.lead.contact_email` inesistente (crash 500) + bug hasattr parziale
+9. [x] `project_api.py` — `crm.lead.contact_email` inesistente (crash 500) + bug hasattr parziale
 10. [ ] `saas_api.py` — dipendenza circolare di manifest (decisione di design, non solo fix meccanico)
 11. [ ] `sign_api.py` — bug hasattr + `erpv6_sign` non in depends + 6 mismatch di campo/comodel
 
@@ -423,5 +423,84 @@ E aggiornare la risposta finale (righe 117-118) per riflettere i valori realment
 ```
 
 **Nota**: `ateco_updated` è calcolato ma non usato nella risposta — nel controller originale nemmeno lo era (già dead code prima di questo fix); lasciato per non allargare la superficie della modifica oltre il necessario, ma segnalato qui come piccola pulizia rimandabile.
+
+---
+
+## 9. `project_api.py`
+
+**Verdetto**: crash garantito su ogni chiamata a `GET /api/v1/projects/<id>`, più bug hasattr solo sul conteggio documenti (`GET /api/v1/projects` senza id non è affetto).
+
+**Verifica indipendente eseguita contro lo schema reale del database di produzione** (non solo contro il codice sorgente, come per gli altri controller — qui replico lo stesso controllo che l'audit del 13/08 dichiara di aver fatto, per confermarlo davvero): `\d crm_lead` sul DB `erpv6` conferma che esistono le colonne `contact_name`, `email_from`, `phone` — **`contact_email` non esiste**.
+
+```
+ contact_name  | character varying
+ email_from    | character varying
+ phone         | character varying
+```
+
+### Problema 1 — `project.contact_email` inesistente → crash 500 garantito (riga 73)
+
+```python
+'customer_email': project.contact_email or '',
+```
+
+Ogni chiamata a `GET /api/v1/projects/<id>` solleva `AttributeError` non appena valuta questa riga — non è un caso limite, è sistematico su ogni singola richiesta a questo endpoint.
+
+**Fix proposto**:
+```python
+'customer_email': project.email_from or '',
+```
+
+### Problema 2 — `contact_name` usato per il telefono (riga 74) — bug di qualità dati, non crash
+
+```python
+'customer_phone': project.contact_name or '',
+```
+
+`contact_name` esiste (non crasha), ma è il **nome** della persona di contatto, non il telefono — il campo telefono reale è `phone`. Il valore restituito in `customer_phone` è quindi sempre semanticamente sbagliato (es. "Mario Rossi" al posto di "+39 333 1234567"), un bug silenzioso di qualità dati verificabile solo leggendo l'output, mai un errore.
+
+**Fix proposto**:
+```python
+'customer_phone': project.phone or '',
+```
+
+### Problema 3 — bug hasattr, solo sul conteggio documenti (riga 60)
+
+```python
+if hasattr(request.env, 'erpv6.library.document'):
+    document_count = request.env['erpv6.library.document'].sudo().search_count([...])
+```
+
+Qui l'effetto è diverso dagli altri 9 controller: non essendoci un branch 501 esplicito, l'hasattr sempre-`False` non blocca la risposta — semplicemente `document_count` resta sempre `0`, silenziosamente, anche quando ci sono documenti reali collegati al progetto. Si somma al problema, già coperto alla voce #7, che `erpv6_library` non è comunque dependency del gateway.
+
+**Fix proposto**:
+```python
+document_count = 0
+if 'erpv6.library.document' in request.env:
+    document_count = request.env['erpv6.library.document'].sudo().search_count([
+        ('project_id', '=', project.id)
+    ])
+```
+
+(diventa effettivamente funzionante solo dopo aver applicato anche il fix #2 di `library_api.py` — aggiunta di `erpv6_library` ai `depends` del gateway; senza quello, `'erpv6.library.document' in request.env` resterebbe comunque `False` su un'installazione dove `erpv6_library` non fosse già presente per altra via.)
+
+**Riepilogo blocco fix da applicare insieme a riga 65-78**:
+
+```python
+            data = {
+                'id': project.id,
+                'name': project.name or '',
+                'stage': project.stage_id.name if project.stage_id else '',
+                'expected_revenue': project.expected_revenue or 0.0,
+                'probability': project.probability or 0,
+                'create_date': project.create_date.isoformat() if project.create_date else None,
+                'description': project.description or '',
+                'customer_email': project.email_from or '',
+                'customer_phone': project.phone or '',
+                'user_id': project.user_id.name if project.user_id else '',
+                'date_deadline': project.date_deadline.isoformat() if project.date_deadline else None,
+                'document_count': document_count,
+            }
+```
 
 ---
