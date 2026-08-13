@@ -17,7 +17,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 7. [x] `library_api.py` — bug hasattr + `erpv6_library` non in depends + campo `file_id` inesistente (fix architetturale, non solo rename)
 8. [x] `partner_api.py` — modello `ateco.at` inesistente + campi `ateco_code`/`fiscal_regime` inesistenti
 9. [x] `project_api.py` — `crm.lead.contact_email` inesistente (crash 500) + bug hasattr parziale
-10. [ ] `saas_api.py` — dipendenza circolare di manifest (decisione di design, non solo fix meccanico)
+10. [x] `saas_api.py` — dipendenza circolare di manifest (decisione di design, non solo fix meccanico)
 11. [ ] `sign_api.py` — bug hasattr + `erpv6_sign` non in depends + 6 mismatch di campo/comodel
 
 Ogni voce sopra viene marcata `[x]` e la sezione corrispondente viene aggiunta in append qui sotto, subito dopo aver completato l'analisi di quel controller — mai tutte insieme alla fine.
@@ -502,5 +502,67 @@ if 'erpv6.library.document' in request.env:
                 'document_count': document_count,
             }
 ```
+
+---
+
+## 10. `saas_api.py`
+
+**Verdetto**: l'unico dei 14 controller che non si risolve con un fix meccanico su singolo file — richiede una decisione architetturale che ricade anche su `saas_tenant_api.py` (#4) e `saas_vertical_api.py` (#5, comunque proposto per rimozione indipendentemente da questa decisione).
+
+**Causa radice, verificata leggendo entrambi i manifest e il codice, non solo assunta**:
+
+```python
+# odoo-modules/erpv6_saas/__manifest__.py
+"depends": ["base", "mail", "erpv6_core", "erpv6_api_gateway", "erpv6_kb"],
+```
+```python
+# odoo-modules/erpv6_api_gateway/__manifest__.py (dev)
+'depends': [..., 'erpv6_saas'],
+```
+
+`erpv6_saas` → `erpv6_api_gateway` → `erpv6_saas`: ciclo. Non è un incidente arbitrario: ho verificato **perché** `erpv6_saas` dipende dal gateway, e non è un errore di battitura — `odoo-modules/erpv6_saas/models/saas_tenant.py:17` ha:
+
+```python
+api_key_id = fields.Many2one('erpv6.api.key', string='API Key', required=True, tracking=True)
+```
+
+`erpv6.api.key` è il modello di autenticazione definito in `erpv6_api_gateway/models/api_key.py` e usato da `_authenticate()` in tutti i controller (incluso `main.py`, verificato all'inizio di questa sessione). Quindi il legame è reale in entrambe le direzioni: `erpv6_saas` ha davvero bisogno del modello `erpv6.api.key` del gateway; il gateway (tramite `saas_api.py`/`saas_tenant_api.py`/`saas_vertical_api.py`) ha davvero bisogno dei modelli `erpv6.saas.tenant`/`erpv6.vertical.catalog` di `erpv6_saas`. Il ciclo nasce da un'unica scelta strutturale: **i controller SaaS vivono nel modulo sbagliato.**
+
+### Opzione A (consigliata) — spostare i 3 controller SaaS dentro `erpv6_saas`
+
+`erpv6_saas` già dipende da `erpv6_api_gateway` (per `erpv6.api.key`), quindi può tranquillamente importare `APIBaseController` da lì — la dipendenza resta a **senso unico**. Il gateway non avrebbe più bisogno di dichiarare `erpv6_saas` nei suoi `depends`, il ciclo sparisce del tutto. Precedente già esistente nel repo per questo pattern: `erpv6_typst` e `erpv6_whitelabel` hanno già propri controller (`/api/v6/typst/*`, `/api/whitelabel/*`) fuori da `erpv6_api_gateway`.
+
+**Passi concreti (non eseguiti qui)**:
+
+1. Spostare fisicamente i file (rotte HTTP invariate, restano `/api/v1/saas/*` — Odoo registra le rotte in base al modulo installato, non alla sua posizione nel repo):
+   - `odoo-modules/erpv6_api_gateway/controllers/saas_api.py` → `odoo-modules/erpv6_saas/controllers/saas_api.py`
+   - `odoo-modules/erpv6_api_gateway/controllers/saas_tenant_api.py` → `odoo-modules/erpv6_saas/controllers/saas_tenant_api.py` (con il fix hasattr della voce #4 già applicato)
+   - `saas_vertical_api.py` **non va spostato**: resta la proposta di rimozione della voce #5 (rotte duplicate di `saas_api.py`), indipendentemente da dove vive `saas_api.py`.
+
+2. Correggere l'import in entrambi i file spostati (oggi `from .main import APIBaseController`, relativo a `erpv6_api_gateway/controllers/`, non più valido da un modulo diverso):
+   ```python
+   from odoo.addons.erpv6_api_gateway.controllers.main import APIBaseController
+   ```
+
+3. Creare `odoo-modules/erpv6_saas/controllers/__init__.py`:
+   ```python
+   from . import saas_api
+   from . import saas_tenant_api
+   ```
+   e aggiungere `from . import controllers` in `odoo-modules/erpv6_saas/__init__.py` (verificare se già presente — il modulo oggi ha solo `models/`, verosimilmente manca l'import del package controllers).
+
+4. Rimuovere `'erpv6_saas'` dai `depends` di `odoo-modules/erpv6_api_gateway/__manifest__.py` (dev) — non serve più, il gateway non referenzia più modelli di `erpv6_saas` direttamente.
+
+5. `erpv6_saas/__manifest__.py` non cambia (dipende già da `erpv6_api_gateway`, correttamente, per `erpv6.api.key`).
+
+**Effetto sui fix già proposti**: il fix hasattr di `saas_tenant_api.py` (voce #4) resta identico — si applica al file, indipendentemente da quale modulo lo ospita. Il codice di `saas_api.py` non ha bug hasattr né mismatch di campo (verificato alla voce #5): può essere spostato così com'è.
+
+### Opzione B (scartata) — rimuovere `erpv6_saas` dai depends del gateway senza spostare i controller
+
+Farebbe sparire il ciclo dal manifest, ma i controller `saas_*.py` continuerebbero a fare `request.env['erpv6.saas.tenant']` senza che `erpv6_api_gateway` dichiari quella dipendenza — esattamente l'antipattern "il modulo funziona solo per incidente di stato del DB" già descritto per lo stato attuale di `saas_api.py` in `docs/gateway-promotion-readiness-2026-08-13.md`. Scartata perché sposterebbe il problema invece di risolverlo, e sarebbe incoerente con il fix applicato a `erpv6_bandi`/`erpv6_methodology`/`erpv6_validation` in questo stesso documento (dove la dependency mancante viene sempre dichiarata esplicitamente, mai bypassata).
+
+### Opzione C (alternativa più invasiva, non consigliata ora) — estrarre `erpv6.api.key` in un modulo di autenticazione condiviso
+
+Coerente con il principio "motore vs conoscenza" di CLAUDE.md (un primitivo di autenticazione è infrastruttura generica, non dovrebbe vivere dentro "l'orchestratore" se altri moduli ne hanno bisogno indipendentemente) ma blast radius molto più ampio: toccherebbe ogni controller del gateway (tutti passano da `_authenticate()` in `main.py`), richiederebbe un nuovo modulo, e un aggiornamento dei manifest di `erpv6_api_gateway` e `erpv6_saas` insieme. Non proposta come fix di oggi — segnalata come possibile evoluzione futura se altri moduli oltre a `erpv6_saas` iniziassero a dipendere da `erpv6.api.key`.
 
 ---
