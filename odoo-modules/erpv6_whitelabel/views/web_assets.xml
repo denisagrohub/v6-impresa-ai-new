@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Template per override assets backend -->
-    <template id="assets_backend_white_label" inherit_id="web.assets_backend">
-        <xpath expr="." position="inside">
-            <link rel="stylesheet" href="/erpv6_whitelabel/static/src/css/white_label.css"/>
-        </xpath>
-    </template>
+    <!-- CSS backend e frontend: in Odoo 16+ i bundle si estendono con ir.asset,
+         non con inherit_id su un template "web.assets_backend"/"web.assets_frontend"
+         (quegli xmlid non esistono più come template statici). -->
+    <record id="assets_backend_white_label" model="ir.asset">
+        <field name="name">erpv6_whitelabel backend css</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/css/white_label.css</field>
+    </record>
 
-    <!-- Template per override assets frontend (website) -->
-    <template id="assets_frontend_white_label" inherit_id="web.assets_frontend">
-        <xpath expr="." position="inside">
-            <link rel="stylesheet" href="/erpv6_whitelabel/static/src/css/white_label.css"/>
-        </xpath>
-    </template>
+    <record id="assets_frontend_white_label" model="ir.asset">
+        <field name="name">erpv6_whitelabel frontend css</field>
+        <field name="bundle">web.assets_frontend</field>
+        <field name="path">erpv6_whitelabel/static/src/css/white_label.css</field>
+    </record>
 
     <!-- Override del layout principale per inserire variabili CSS -->
     <template id="white_label_layout" inherit_id="web.layout">
@@ -59,12 +60,11 @@
         </xpath>
     </template>
 
-    <!-- Override del logo nel navbar -->
-    <template id="white_label_logo" inherit_id="web.navbar">
-        <xpath expr="//img[@alt='Company Logo']" position="attributes">
-            <attribute name="t-att-src">request.env['erpv6.whitelabel.config'].sudo().get_active_config().logo_small or '/web/binary/company_logo'</attribute>
-        </xpath>
-    </template>
+    <!-- Override del logo nel navbar: RIMOSSO. "web.navbar" non esiste in Odoo 18 —
+         la topbar del backend è un componente OWL lato client (@web/webclient/navbar),
+         non più un template QWeb server-side estendibile via xpath. Serve un patch
+         OWL/JS dedicato per personalizzare il logo in navbar: da valutare come task
+         separato, non è una correzione di xmlid. -->
 
     <!-- Override della favicon -->
     <template id="white_label_favicon" inherit_id="web.layout">
@@ -73,9 +73,13 @@
         </xpath>
     </template>
 
-    <!-- Template per nascondere branding Odoo se richiesto -->
+    <!-- Template per nascondere branding Odoo se richiesto.
+         In Odoo 18 il form di login non è più un <div class="oe_login_form">
+         ma <form role="form" t-attf-class="oe_login_form ...">: l'xpath sul div
+         con class statica non trovava nulla. "role='form'" è l'unico attributo
+         statico e univoco su quell'elemento nel template web.login. -->
     <template id="white_label_hide_odoo" inherit_id="web.login">
-        <xpath expr="//div[@class='oe_login_form']" position="after">
+        <xpath expr="//form[@role='form']" position="after">
             <t t-if="request.env['erpv6.whitelabel.config'].sudo().get_active_config().hide_odoo_branding">
                 <style>
                     .o_login_branding {

@@ -3,6 +3,7 @@
     <!-- Dati iniziali per configurazione default -->
     <record id="default_whitelabel_config" model="erpv6.whitelabel.config">
         <field name="name">Configurazione Default</field>
+        <field name="code">default</field>
         <field name="sequence">1</field>
         <field name="company_id" ref="base.main_company"/>
         <field name="primary_color">#1a2744</field>
