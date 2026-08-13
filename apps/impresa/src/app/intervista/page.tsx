@@ -125,13 +125,15 @@ function InterviewContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source: 'intervista',
-          package: packageName || result.recommendedLevel,
-          packageId: packageId || result.recommendedLevel,
-          ...fullAnswers,
-          score: result.score,
-          recommendedLevel: result.recommendedLevel,
-          estimatedPrice: result.estimatedPrice,
-          timestamp: new Date().toISOString(),
+          data: {
+            ...fullAnswers,
+            package: packageName || result.recommendedLevel,
+            packageId: packageId || result.recommendedLevel,
+            score: result.score,
+            recommendedLevel: result.recommendedLevel,
+            estimatedPrice: result.estimatedPrice,
+            timestamp: new Date().toISOString(),
+          },
         }),
       });
 
