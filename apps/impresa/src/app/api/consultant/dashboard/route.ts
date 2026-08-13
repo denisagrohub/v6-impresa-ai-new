@@ -8,7 +8,11 @@ const PARTNERS_PATH = path.join(process.cwd(), 'src/data/partners.json');
 
 export async function GET(request: NextRequest) {
     try {
-        const user = requirePermission(request, ['consultant.view_own_dashboard']);
+        const permissionCheck = requirePermission(request, ['consultant', 'admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+        const user = permissionCheck;
 
         if (!fs.existsSync(MOCK_PATH)) {
             return NextResponse.json({ error: 'Dati consulente non trovati' }, { status: 404 });
