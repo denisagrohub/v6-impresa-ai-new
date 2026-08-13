@@ -37,7 +37,7 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
     if (isOdooEnabled()) {
         try {
             // Prova a inviare a Odoo
-            await callOdooAPI('/api/leads', {
+            await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
                 body: JSON.stringify(leadData),
             });
@@ -102,7 +102,7 @@ export async function syncPendingLeads(): Promise<{ synced: number; failed: numb
 
     for (const lead of pendingLeads) {
         try {
-            await callOdooAPI('/api/leads', {
+            await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
                 body: JSON.stringify(lead.data),
             });
