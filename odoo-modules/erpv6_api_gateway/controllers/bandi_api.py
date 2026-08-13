@@ -156,7 +156,7 @@ class BandiAPIController(APIBaseController):
                 self._log_api_call('/api/v1/bandi/applications', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Bandi module not installed'}, status=501)
 
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             
             match_id = data.get('match_id')
             if not match_id:
