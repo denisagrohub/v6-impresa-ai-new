@@ -59,6 +59,15 @@
         <field name="path">erpv6_whitelabel/static/src/js/notification_permission_patch.js</field>
     </record>
 
+    <!-- Patch QWeb: "OdooBot" come nome autore nella chat AI (Ask AI), in
+         due template per due motori editor diversi (vedi
+         static/src/xml/chatgpt_dialog_patch.xml per il motivo). -->
+    <record id="assets_backend_white_label_chatgpt_dialog" model="ir.asset">
+        <field name="name">erpv6_whitelabel chatgpt dialog patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/xml/chatgpt_dialog_patch.xml</field>
+    </record>
+
     <!-- Override del layout principale per inserire variabili CSS -->
     <template id="white_label_layout" inherit_id="web.layout">
         <xpath expr="//title" position="after">
