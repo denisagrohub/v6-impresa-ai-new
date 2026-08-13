@@ -31,6 +31,25 @@
         <field name="path">erpv6_whitelabel/static/src/xml/core_dialogs_patch.xml</field>
     </record>
 
+    <!-- Patch JS: titoli dei dialog di errore ("Odoo Error"/"Odoo Client/Network/Server
+         Error"/"Odoo Warning" in @web/core/errors/error_dialogs.js). Sono stringhe
+         hardcoded in JS (static class prop o assegnate in inferTitle()/setup()), non
+         in un template QWeb: un t-inherit XML come core_dialogs_patch.xml non le
+         raggiunge, serve patch() su classe/prototype. -->
+    <record id="assets_backend_white_label_error_dialogs" model="ir.asset">
+        <field name="name">erpv6_whitelabel error dialogs patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/error_dialogs_patch.js</field>
+    </record>
+
+    <!-- Patch JS: rimuove la voce "My Odoo.com account" dal menu utente (vedi
+         static/src/js/user_menu_patch.js per il motivo). -->
+    <record id="assets_backend_white_label_user_menu" model="ir.asset">
+        <field name="name">erpv6_whitelabel user menu patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/user_menu_patch.js</field>
+    </record>
+
     <!-- Override del layout principale per inserire variabili CSS -->
     <template id="white_label_layout" inherit_id="web.layout">
         <xpath expr="//title" position="after">
