@@ -10,7 +10,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 
 1. [x] `accounting_api.py` — bug hasattr (nessuna dipendenza mancante)
 2. [x] `bandi_api.py` — bug hasattr + `erpv6_bandi` non in depends
-3. [ ] `methodology_api.py` — bug hasattr + `erpv6_methodology` non in depends
+3. [x] `methodology_api.py` — bug hasattr + `erpv6_methodology` non in depends
 4. [ ] `saas_tenant_api.py` — bug hasattr (dipendenza già ok)
 5. [ ] `saas_vertical_api.py` — bug hasattr + rotta duplicata con `saas_api.py`
 6. [ ] `validation_api.py` — bug hasattr + `erpv6_validation` non in depends
@@ -102,5 +102,63 @@ Verificato che nessun modulo nella catena di dipendenze di `erpv6_api_gateway` (
 ```
 
 **Nota per chi promuoverà**: `erpv6_bandi` deve già essere installato sul DB target (staging `erpv6`) prima di aggiungere questa dependency e aggiornare `erpv6_api_gateway`, altrimenti Odoo tenterebbe di installarlo insieme — verificare lo stato con `SELECT state FROM ir_module_module WHERE name='erpv6_bandi';` prima di procedere.
+
+---
+
+## 3. `methodology_api.py`
+
+**Verdetto**: 2 problemi, stesso schema di `bandi_api.py`. È il controller più esteso dei 14 (12 occorrenze del bug hasattr su 4 modelli — Pareto, Kairós, 5S, Heinrich).
+
+**Verifica indipendente eseguita**: tutti i campi confrontati contro `odoo-modules/erpv6_methodology/models/pareto_analysis.py`, `pareto_item.py`, `kairos_matrix.py`, `matrix5s_assessment.py`, `matrix5s_line.py`, `heinrich_indicator.py` — `name`, `res_model`, `res_id`, `total_score`, `priority_count`, `notes`, `item_ids`, `frequenza`, `impatto`, `punteggio`, `cumulata_pct`, `is_priority`, `matrix_type`, `impatto_score`, `impatto_level`, `indicatore_1..5`, `prontezza_totale`, `prontezza_level`, `quadrante`, `assessment_date`, `area`, `line_ids`, `fase`, `azione_tipica`, `spreco_identificato`, `guadagno_potenziale`, `near_miss_segnalati`, `problemi_lievi`, `eventi_gravi`, `cultura_organizzativa`, `note` — tutti esistono con lo stesso nome. Metodo `compute_pareto()` confermato su `pareto_analysis.py:23`.
+
+**Osservazione minore, non bloccante**: `res_model` e `res_id` sono `required=True` su tutti e 4 i modelli, ma `create_pareto_analysis`, `create_kairos_matrix`, `create_5s_assessment` e `create_heinrich_indicator` li leggono con `data.get('res_model', '')` / `data.get('res_id', 0)` — se il chiamante li omette, il record viene creato con `res_model=''`/`res_id=0` invece che fallire con un errore chiaro (dipende dalla versione del vincolo NOT NULL se questo passa silenziosamente o solleva `IntegrityError`; non verificato a runtime in questa fase, segnalato solo come rischio di qualità dati). Non è un blocco per la promozione, ma andrebbe validato esplicitamente (`if not res_model or not res_id: return 400`) in un secondo passaggio.
+
+### Problema 1 — bug hasattr (12 occorrenze)
+
+```python
+# Pareto (righe 25, 100, 151, 191)
+if not hasattr(request.env, 'erpv6.pareto.analysis'):
+# Kairós (righe 229, 269, 316)
+if not hasattr(request.env, 'erpv6.kairos.matrix'):
+# 5S (righe 364, 410, 456)
+if not hasattr(request.env, 'erpv6.matrix5s.assessment'):
+# Heinrich (righe 496, 533)
+if not hasattr(request.env, 'erpv6.heinrich.indicator'):
+```
+
+**Fix proposto** — sostituire ciascuna occorrenza con la forma `in request.env`, stesso modello per tutte e 4:
+
+```python
+if 'erpv6.pareto.analysis' not in request.env:
+if 'erpv6.kairos.matrix' not in request.env:
+if 'erpv6.matrix5s.assessment' not in request.env:
+if 'erpv6.heinrich.indicator' not in request.env:
+```
+
+### Problema 2 — `erpv6_methodology` non è dependency di nessun modulo raggiungibile
+
+Verificato con `grep -rl "erpv6_methodology" odoo-modules/*/__manifest__.py`: **nessun risultato**. A differenza di `erpv6_bandi` (almeno referenziato da `erpv6_package`/`erpv6_typst`), `erpv6_methodology` non è depends di nessun modulo nel repo — è un motore generico (CLAUDE.md: "Pareto/Kairós/5S sono motori generici e a-settoriali, riusabili da qualsiasi verticale") pensato per essere usato via gateway, ma il gateway stesso non lo dichiara.
+
+**Fix proposto**:
+
+`odoo-modules/erpv6_api_gateway/__manifest__.py`:
+```python
+    'depends': [
+        'base', 'web', 'mail', 'crm',
+        'erpv6_core', 'erpv6_kb', 'erpv6_booking',
+        'erpv6_consulting', 'erpv6_tracking',
+        'erpv6_omni_bridge',
+        'erpv6_saas',
+        'erpv6_bandi',        # da fix bandi_api.py
+        'erpv6_methodology',  # nuovo — richiesto da methodology_api.py
+    ],
+```
+
+`/opt/erpv6/custom-addons/erpv6_api_gateway/__manifest__.py` (prod):
+```python
+    'depends': ['base', 'web', 'mail', 'crm', 'erpv6_core', 'erpv6_kb', 'erpv6_booking', 'erpv6_consulting', 'erpv6_tracking', 'erpv6_bandi', 'erpv6_methodology'],
+```
+
+**Nota per chi promuoverà**: come per `erpv6_bandi`, verificare `SELECT state FROM ir_module_module WHERE name='erpv6_methodology';` sul DB target prima di aggiornare il gateway.
 
 ---
