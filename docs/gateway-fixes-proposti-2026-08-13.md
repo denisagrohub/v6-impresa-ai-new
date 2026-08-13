@@ -14,7 +14,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 4. [x] `saas_tenant_api.py` — bug hasattr + dipendenza circolare `erpv6_saas`↔`erpv6_api_gateway` (non "già ok" come diceva l'audit precedente)
 5. [x] `saas_vertical_api.py` — rotte duplicate di `saas_api.py`: proposta di rimozione, non di fix
 6. [x] `validation_api.py` — bug hasattr + `erpv6_validation` non in depends
-7. [ ] `library_api.py` — bug hasattr + `erpv6_library` non in depends + campo `file_id` inesistente
+7. [x] `library_api.py` — bug hasattr + `erpv6_library` non in depends + campo `file_id` inesistente (fix architetturale, non solo rename)
 8. [ ] `partner_api.py` — modello `ateco.at` inesistente + campi `ateco_code`/`fiscal_regime` inesistenti
 9. [ ] `project_api.py` — `crm.lead.contact_email` inesistente (crash 500) + bug hasattr parziale
 10. [ ] `saas_api.py` — dipendenza circolare di manifest (decisione di design, non solo fix meccanico)
@@ -256,5 +256,119 @@ if 'erpv6.validation.session' not in request.env:
 ```
 
 **Nota per chi promuoverà**: verificare `SELECT state FROM ir_module_module WHERE name='erpv6_validation';` sul DB target prima di aggiornare il gateway.
+
+---
+
+## 7. `library_api.py`
+
+**Verdetto**: 3 problemi. Il più interessante è il terzo — non è un semplice refuso di nome campo, è un errore di modellazione dei dati che richiede riscrivere la logica, non solo rinominare `file_id` in `file`.
+
+**Verifica indipendente eseguita**: letto `odoo-modules/erpv6_library/models/library_document.py` per intero. Campi `project_id`, `name`, `category`, `origin`, `is_final_client_facing`, `blockchain_record_id`, `create_date` esistono tutti come atteso. **Ma il campo file è modellato diversamente da come il controller lo usa.**
+
+### Problema 1 — bug hasattr (2 occorrenze: righe 19, 75)
+
+```python
+if not hasattr(request.env, 'erpv6.library.document'):
+```
+**Fix**: `if 'erpv6.library.document' not in request.env:`
+
+### Problema 2 — `erpv6_library` non è dependency di `erpv6_api_gateway`
+
+`grep -rl "erpv6_library" odoo-modules/*/__manifest__.py` → nessun risultato. Va aggiunto ai `depends` di entrambi i manifest, stesso pattern delle voci precedenti (`erpv6_bandi`, `erpv6_methodology`, `erpv6_validation`).
+
+### Problema 3 — `doc.file_id` non esiste; `file` è un `Binary(attachment=True)`, non un `Many2one('ir.attachment')`
+
+Verificato in `library_document.py:72-76`:
+```python
+file = fields.Binary(string='File', attachment=True, help='...')
+file_name = fields.Char(string='Nome File')
+```
+
+`attachment=True` fa sì che Odoo, dietro le quinte, salvi il contenuto in un `ir.attachment` — ma il campo sul modello resta un Binary (contenuto base64), **non** una relazione Many2one navigabile. Il controller invece tratta `file` come se fosse una relazione:
+
+- **GET** (riga 40): `doc.file_id` → `AttributeError`, il campo non esiste — non un `None`/falsy, proprio un crash.
+- **POST** (righe 104-114): crea un `ir.attachment` a parte con `res_model: 'erpv6.library.document'` ma **senza `res_id`** (il documento non esiste ancora quando l'attachment viene creato) — un allegato orfano, mai davvero collegato al documento — poi tenta `vals['file_id'] = file_id` in `create()`, che fallisce con `ValueError: Invalid field 'file_id'` perché il campo non esiste sul modello.
+
+Il fix corretto non è rinominare `file_id` in `file` nei punti dove si assegna un id — bisogna passare il contenuto binario direttamente e recuperare l'`ir.attachment` sottostante quando serve l'id per il link di download (che `file_api.py`'s `/api/v1/files/<id>/download` si aspetta essere un id di `ir.attachment`, verificato in `file_api.py:64-65`).
+
+**Fix proposto — GET `get_project_documents`** (sostituisce le righe 37-59):
+
+```python
+            result = []
+            for doc in documents:
+                file_url = None
+                attachment = request.env['ir.attachment'].sudo().search([
+                    ('res_model', '=', 'erpv6.library.document'),
+                    ('res_id', '=', doc.id),
+                    ('res_field', '=', 'file'),
+                ], limit=1)
+                if attachment:
+                    file_url = f'/api/v1/files/{attachment.id}/download'
+
+                blockchain_record = None
+                if doc.blockchain_record_id:
+                    blockchain_record = {
+                        'id': doc.blockchain_record_id.id,
+                        'tx_hash': doc.blockchain_record_id.tx_hash if hasattr(doc.blockchain_record_id, 'tx_hash') else '',
+                    }
+
+                result.append({
+                    'id': doc.id,
+                    'name': doc.name or '',
+                    'category': doc.category or '',
+                    'origin': doc.origin or '',
+                    'is_final_client_facing': doc.is_final_client_facing or False,
+                    'blockchain_record': blockchain_record,
+                    'create_date': doc.create_date.isoformat() if doc.create_date else None,
+                    'file_url': file_url,
+                })
+```
+
+Nota: ho anche tolto l'`hasattr(doc, 'blockchain_record_id')` di guardia (riga 44 originale) — `blockchain_record_id` è un campo del modello stesso (non di un modulo terzo opzionale), quindi `hasattr` sull'oggetto record ORM funziona diversamente da `hasattr(request.env, ...)` (qui è legittimo, i campi sono attributi veri sull'istanza), ma è comunque ridondante: il campo esiste sempre su ogni record di questo modello, il controllo utile è solo `doc.blockchain_record_id` (falsy se non popolato), già presente. Stesso discorso per `hasattr(doc.blockchain_record_id, 'tx_hash')`: `blockchain_record_id` punta sempre a `erpv6.blockchain.record`, che ha sempre il campo `tx_hash` — l'`hasattr` qui non protegge da nulla di reale.
+
+**Fix proposto — POST `create_document`** (sostituisce le righe 89-127):
+
+```python
+            data = request.get_json(force=True, silent=True) or {}
+
+            vals = {
+                'name': data.get('name', 'Untitled Document'),
+                'category': data.get('category', 'general'),
+                'origin': data.get('origin', 'manual'),
+                'project_id': project_id,
+            }
+
+            content_b64 = data.get('file_content', '')
+            if content_b64:
+                vals['file'] = content_b64
+                vals['file_name'] = data.get('filename', 'document.pdf')
+
+            doc = request.env['erpv6.library.document'].sudo().create(vals)
+
+            file_url = None
+            if content_b64:
+                attachment = request.env['ir.attachment'].sudo().search([
+                    ('res_model', '=', 'erpv6.library.document'),
+                    ('res_id', '=', doc.id),
+                    ('res_field', '=', 'file'),
+                ], limit=1)
+                if attachment:
+                    file_url = f'/api/v1/files/{attachment.id}/download'
+
+            result = {
+                'id': doc.id,
+                'name': doc.name,
+                'category': doc.category,
+                'origin': doc.origin,
+                'file_url': file_url,
+            }
+
+            self._log_api_call(f'/api/v1/library/project/{project_id}/documents', 'POST', user.id, 200, start_time)
+            return self._json_response(result, status=201)
+```
+
+**Osservazione**: `category` sul modello reale è `Selection` con valori fissi (`nda`, `proposal`, `sal`, `contract`, `business_plan`, `final`, `client_upload`, `other`, `brand_logo`, `brand_asset`) e `required=True` — il controller usa `data.get('category', 'general')` come default, ma `'general'` **non è un valore valido** della Selection. Se il chiamante non passa `category`, la create() fallirebbe con un errore di validazione Selection (comportamento corretto, ma il default `'general'` scelto dal controller è comunque sbagliato e andrebbe cambiato in `'other'`, l'unico valore generico esistente).
+
+**Fix proposto per il default**: `'category': data.get('category', 'other'),` al posto di `'category': data.get('category', 'general'),`.
 
 ---
