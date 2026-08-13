@@ -18,7 +18,7 @@ Contesto: prosegue l'audit di `docs/gateway-promotion-readiness-2026-08-13.md` (
 8. [x] `partner_api.py` — modello `ateco.at` inesistente + campi `ateco_code`/`fiscal_regime` inesistenti
 9. [x] `project_api.py` — `crm.lead.contact_email` inesistente (crash 500) + bug hasattr parziale
 10. [x] `saas_api.py` — dipendenza circolare di manifest (decisione di design, non solo fix meccanico)
-11. [ ] `sign_api.py` — bug hasattr + `erpv6_sign` non in depends + 6 mismatch di campo/comodel
+11. [x] `sign_api.py` — bug hasattr + `erpv6_sign` non in depends + 6 mismatch di campo/comodel
 
 Ogni voce sopra viene marcata `[x]` e la sezione corrispondente viene aggiunta in append qui sotto, subito dopo aver completato l'analisi di quel controller — mai tutte insieme alla fine.
 
@@ -566,3 +566,182 @@ Farebbe sparire il ciclo dal manifest, ma i controller `saas_*.py` continuerebbe
 Coerente con il principio "motore vs conoscenza" di CLAUDE.md (un primitivo di autenticazione è infrastruttura generica, non dovrebbe vivere dentro "l'orchestratore" se altri moduli ne hanno bisogno indipendentemente) ma blast radius molto più ampio: toccherebbe ogni controller del gateway (tutti passano da `_authenticate()` in `main.py`), richiederebbe un nuovo modulo, e un aggiornamento dei manifest di `erpv6_api_gateway` e `erpv6_saas` insieme. Non proposta come fix di oggi — segnalata come possibile evoluzione futura se altri moduli oltre a `erpv6_saas` iniziassero a dipendere da `erpv6.api.key`.
 
 ---
+
+## 11. `sign_api.py`
+
+**Verdetto**: il più danneggiato dei 14 (confermato) — 6 problemi reali di campo/comodel, tutti verificati leggendo per intero `odoo-modules/erpv6_sign/models/sign_request.py`, più bug hasattr (2 occorrenze) e dependency mancante.
+
+**Verifica indipendente completata**: letto `sign_request.py` per intero, non solo i campi citati dal controller. Il modello reale:
+
+```python
+name = fields.Char(string='Nome Richiesta', required=True, tracking=True)
+contract_id = fields.Many2one('erpv6.contract', string='Contratto')
+document_id = fields.Many2one('erpv6.typst.document', string='Documento')
+partner_id = fields.Many2one('res.partner', string='Firmatario', required=True, tracking=True)
+status = fields.Selection([('draft', ...), ('sent', ...), ('viewed', ...), ('signed', ...), ('expired', ...), ('declined', ...)], default='draft', ...)
+external_id = fields.Char(string='ID OpenSign', readonly=True)
+request_url = fields.Char(string='URL Firma', readonly=True)
+signed_at = fields.Datetime(...)
+signed_document = fields.Binary(string='Documento Firmato', attachment=True, readonly=True)
+```
+
+Conferma puntuale dei 6 problemi elencati nell'audit del 13/08, verificati uno per uno:
+
+1. **`name` obbligatorio omesso** — `create_sign_request` non lo passa mai in `create()`. `required=True` su un Char → l'ORM solleva errore di validazione su ogni chiamata.
+2. **`document_id` punta al comodel sbagliato** — il campo reale è `Many2one('erpv6.typst.document')`, ma il controller risolve `document_id` come id di `ir.attachment` (riga 27: `request.env['ir.attachment'].sudo().browse(document_id)`) e lo scrive così com'è. Essendo `Many2one` un vincolo FK reale a livello DB, o solleva `ForeignKeyViolation` (se quell'id non esiste in `erpv6_typst_document`) o, peggio, **collega silenziosamente il documento sbagliato** se l'id coincide per caso con un `erpv6.typst.document` esistente.
+3. **`requested_by` inesistente** — nessun campo con questo nome sul modello (verificato, lista completa sopra). `create()` fallirebbe con `ValueError: Invalid field 'requested_by'`.
+4. **`'pending'` non è un valore valido** — i valori reali della `Selection` sono `draft/sent/viewed/signed/expired/declined`. `'pending'` non c'è: violazione del vincolo Selection in `create()`.
+5. **`res.partner.access_token` inesistente** — verificato anche contro lo schema reale del DB (`\d res_partner` su `erpv6`, nessuna colonna `access_token`). Non è un campo standard di `res.partner` in Odoo.
+6. **`sign_request.signed_document_id` inesistente** — il campo reale è `signed_document`, un `Binary(attachment=True)`, **non** una relazione — stesso identico pattern architetturale già corretto alla voce #7 per `erpv6.library.document.file`: serve una ricerca su `ir.attachment` per ottenere un id scaricabile, non un accesso diretto `.id`.
+
+**Scoperta aggiuntiva, fuori scope per questo controller** (segnalata per trasparenza, non corretta qui): `sign_request.action_send_to_sign()` — il metodo del modello pensato apposta per inviare la richiesta a OpenSign e popolare `request_url` — a sua volta referenzia `self.document_id.file_content` e `self.document_id.file_name`, campi che **non esistono** su `erpv6.typst.document` (il modello reale ha `pdf_file`/`pdf_filename`, verificato in `odoo-modules/erpv6_typst/models/typst_template.py:170-171`). Questo è un bug interno a `erpv6_sign`, non al gateway — fuori dal perimetro di questo documento (che copre solo i controller di `erpv6_api_gateway`), ma **blocca comunque la soluzione corretta qui sotto** (che chiama `action_send_to_sign()`) finché non viene sistemato separatamente. Segnalato esplicitamente per non nasconderlo.
+
+### Fix proposto — `create_sign_request` (sostituisce le righe 17-77)
+
+Cambio di contratto necessario: `document_id` nel payload della richiesta deve ora riferirsi a un `erpv6.typst.document` (coerente col modello reale), non più a un `ir.attachment` generico — non è possibile "correggere" mantenendo la vecchia semantica, perché il campo target è quello.
+
+```python
+        try:
+            data = request.get_json(force=True, silent=True) or {}
+
+            document_id = data.get('document_id')
+            partner_id = data.get('partner_id')
+
+            if not document_id:
+                self._log_api_call('/api/v1/sign/request', 'POST', user.id, 400, start_time)
+                return self._json_response({'error': 'document_id is required'}, status=400)
+
+            document = request.env['erpv6.typst.document'].sudo().browse(document_id)
+            if not document.exists():
+                self._log_api_call('/api/v1/sign/request', 'POST', user.id, 404, start_time)
+                return self._json_response({'error': 'Document not found'}, status=404)
+
+            if partner_id:
+                sign_partner = request.env['res.partner'].sudo().browse(partner_id)
+                if not sign_partner.exists():
+                    self._log_api_call('/api/v1/sign/request', 'POST', user.id, 404, start_time)
+                    return self._json_response({'error': 'Partner not found'}, status=404)
+            else:
+                sign_partner = user.partner_id
+
+            sign_request = request.env['erpv6.sign.request'].sudo().create({
+                'name': f'Firma {document.name}',
+                'document_id': document.id,
+                'partner_id': sign_partner.id,
+                'status': 'draft',
+            })
+
+            try:
+                sign_request.action_send_to_sign()
+            except Exception as send_error:
+                # action_send_to_sign() può fallire (es. config OpenSign assente,
+                # o il bug distinto già segnalato su document_id.file_content/file_name
+                # in erpv6_sign — non nasconderlo dietro un fallback silenzioso).
+                self._log_api_call('/api/v1/sign/request', 'POST', user.id, 502, start_time)
+                return self._json_response(
+                    {'error': f'Sign request created (id={sign_request.id}) but sending to OpenSign failed: {send_error}'},
+                    status=502
+                )
+
+            result = {
+                'request_id': sign_request.id,
+                'request_url': sign_request.request_url or '',
+                'status': sign_request.status,
+            }
+
+            self._log_api_call('/api/v1/sign/request', 'POST', user.id, 200, start_time)
+            return self._json_response(result, status=201)
+        except Exception as e:
+            self._log_api_call('/api/v1/sign/request', 'POST', user.id if user else None, 500, start_time)
+            return self._json_response({'error': str(e)}, status=500)
+```
+
+Note sul cambio rispetto all'originale:
+- Rimosso interamente il ramo "modulo non installato" (fallback con `request_id` fabbricato da timestamp e `access_token` finto) — con `erpv6_sign` dichiarato come dependency (fix #2 sotto), quel ramo non è mai più raggiungibile: tenerlo sarebbe stato codice morto che nasconde lo stesso pattern di "successo finto" già trovato e corretto in `odoo-adapter.ts`.
+- Usa `sign_request.request_url` (campo reale, popolato da `action_send_to_sign()` con la risposta di OpenSign) invece di fabbricare un URL con `sign_partner.access_token` inesistente.
+- Se `action_send_to_sign()` fallisce, la risposta lo dice esplicitamente con `502` invece di far propagare un'eccezione generica 500 indistinguibile da un bug del controller stesso.
+
+### Fix proposto — `get_sign_status` (sostituisce le righe 86-117)
+
+```python
+        try:
+            if 'erpv6.sign.request' not in request.env:
+                self._log_api_call(f'/api/v1/sign/{request_id}/status', 'GET', user.id, 501, start_time)
+                return self._json_response({'error': 'Sign module not installed'}, status=501)
+
+            sign_request = request.env['erpv6.sign.request'].sudo().browse(request_id)
+            if not sign_request.exists():
+                self._log_api_call(f'/api/v1/sign/{request_id}/status', 'GET', user.id, 404, start_time)
+                return self._json_response({'error': 'Sign request not found'}, status=404)
+
+            signed_document_url = None
+            if sign_request.signed_document:
+                attachment = request.env['ir.attachment'].sudo().search([
+                    ('res_model', '=', 'erpv6.sign.request'),
+                    ('res_id', '=', sign_request.id),
+                    ('res_field', '=', 'signed_document'),
+                ], limit=1)
+                if attachment:
+                    signed_document_url = f"/api/v1/files/{attachment.id}/download"
+
+            result = {
+                'request_id': sign_request.id,
+                'status': sign_request.status or 'draft',
+                'signed_at': sign_request.signed_at.isoformat() if sign_request.signed_at else None,
+                'signed_document_url': signed_document_url,
+                'signer_name': sign_request.partner_id.name if sign_request.partner_id else '',
+            }
+
+            self._log_api_call(f'/api/v1/sign/{request_id}/status', 'GET', user.id, 200, start_time)
+            return self._json_response(result, status=200)
+        except Exception as e:
+            self._log_api_call(f'/api/v1/sign/{request_id}/status', 'GET', user.id if user else None, 500, start_time)
+            return self._json_response({'error': str(e)}, status=500)
+```
+
+Cambi: `hasattr(request.env, ...)` → `in request.env` (voce standard); rimosso il ramo "demo response" per lo stesso motivo di `create_sign_request` (dead code garantito una volta dichiarata la dependency); `signed_document_id` → ricerca su `ir.attachment` con `res_field='signed_document'`, stesso pattern già proposto per `erpv6.library.document.file` alla voce #7; default di `status` corretto da `'pending'` (mai valido) a `'draft'` (il vero default del modello).
+
+### Fix proposto — dependency mancante
+
+`grep -rl "erpv6_sign\b" odoo-modules/*/__manifest__.py` (esclusa `erpv6_sign/__manifest__.py` stessa) → nessun risultato.
+
+`odoo-modules/erpv6_api_gateway/__manifest__.py` (dev):
+```python
+    'depends': [
+        'base', 'web', 'mail', 'crm',
+        'erpv6_core', 'erpv6_kb', 'erpv6_booking',
+        'erpv6_consulting', 'erpv6_tracking',
+        'erpv6_omni_bridge',
+        'erpv6_saas',          # o rimosso, se si applica l'Opzione A della voce #10
+        'erpv6_bandi',
+        'erpv6_methodology',
+        'erpv6_validation',
+        'erpv6_library',
+        'erpv6_sign',          # nuovo — richiesto da sign_api.py
+    ],
+```
+
+`/opt/erpv6/custom-addons/erpv6_api_gateway/__manifest__.py` (prod):
+```python
+    'depends': ['base', 'web', 'mail', 'crm', 'erpv6_core', 'erpv6_kb', 'erpv6_booking', 'erpv6_consulting', 'erpv6_tracking', 'erpv6_bandi', 'erpv6_methodology', 'erpv6_validation', 'erpv6_library', 'erpv6_sign'],
+```
+
+**Nota per chi promuoverà**: come per le altre dependency mancanti, verificare `SELECT state FROM ir_module_module WHERE name='erpv6_sign';` sul DB target prima di aggiornare il gateway. E **non promuovere questo controller prima di aver sistemato** `action_send_to_sign()` in `erpv6_sign` (il bug `file_content`/`file_name` segnalato sopra) — altrimenti ogni `POST /api/v1/sign/request` risponderebbe sempre `502`.
+
+---
+
+## Riepilogo finale
+
+**11 controller analizzati, tutti con proposta di fix completa** (codice pronto da applicare, non applicato):
+
+- **8 fix meccanici puri** (hasattr + eventuale dependency mancante, nessun mismatch di campo): `accounting_api.py`, `bandi_api.py`, `methodology_api.py`, `saas_tenant_api.py`, `validation_api.py`
+- **1 rimozione proposta invece di fix** (rotte duplicate): `saas_vertical_api.py`
+- **3 fix con mismatch di campo/comodel reali, oltre al meccanico**: `library_api.py` (campo `file` mal modellato come relazione), `partner_api.py` (campi/modello ATECO inventati), `project_api.py` (`contact_email` inesistente, crash 500 garantito)
+- **1 decisione di design, non un fix a riga singola**: `saas_api.py` (dipendenza circolare `erpv6_saas`↔`erpv6_api_gateway`, causa reale identificata: `erpv6.api.key`)
+- **1 caso più complesso degli altri**: `sign_api.py` (6 mismatch + una scoperta aggiuntiva fuori scope in `erpv6_sign/models/sign_request.py` che va risolta prima di poter promuovere)
+
+**Errori dell'audit precedente (13/08) corretti in questo passaggio**, verificando ogni claim invece di fidarsi:
+- `tracking_api.py` (già corretto e promosso oggi, commit `5daea8a`): dichiarato "nessun bug hasattr", in realtà ne aveva 5.
+- `saas_tenant_api.py`: dichiarato "erpv6_saas già in depends, quindi ok", in realtà quella dependency è parte di un ciclo non risolvibile.
+
+Nessuna di queste correzioni è stata applicata ai controller reali né promossa in `/opt/erpv6/custom-addons` — questo documento resta solo una proposta, come richiesto.
