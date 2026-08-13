@@ -16,7 +16,7 @@ class FileAPIController(APIBaseController):
             return error_response
         
         try:
-            file_data = request.get_json(force=True, silent=True) or {}
+            file_data = request.get_json_data() or {}
             
             filename = file_data.get('filename', 'unknown')
             mimetype = file_data.get('mimetype', 'application/octet-stream')
