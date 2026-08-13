@@ -22,7 +22,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.pareto.analysis'):
+            if 'erpv6.pareto.analysis' not in request.env:
                 self._log_api_call('/api/v1/methodology/pareto', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -97,7 +97,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.pareto.analysis'):
+            if 'erpv6.pareto.analysis' not in request.env:
                 self._log_api_call(f'/api/v1/methodology/pareto/{pareto_id}', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -148,7 +148,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.pareto.analysis'):
+            if 'erpv6.pareto.analysis' not in request.env:
                 self._log_api_call('/api/v1/methodology/pareto', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -188,7 +188,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.pareto.analysis'):
+            if 'erpv6.pareto.analysis' not in request.env:
                 self._log_api_call(f'/api/v1/methodology/pareto/{pareto_id}/compute', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -226,7 +226,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.kairos.matrix'):
+            if 'erpv6.kairos.matrix' not in request.env:
                 self._log_api_call('/api/v1/methodology/kairos', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -266,7 +266,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.kairos.matrix'):
+            if 'erpv6.kairos.matrix' not in request.env:
                 self._log_api_call(f'/api/v1/methodology/kairos/{kairos_id}', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -313,7 +313,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.kairos.matrix'):
+            if 'erpv6.kairos.matrix' not in request.env:
                 self._log_api_call('/api/v1/methodology/kairos', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -361,7 +361,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.matrix5s.assessment'):
+            if 'erpv6.matrix5s.assessment' not in request.env:
                 self._log_api_call('/api/v1/methodology/5s', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -407,7 +407,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.matrix5s.assessment'):
+            if 'erpv6.matrix5s.assessment' not in request.env:
                 self._log_api_call(f'/api/v1/methodology/5s/{assessment_id}', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -453,7 +453,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.matrix5s.assessment'):
+            if 'erpv6.matrix5s.assessment' not in request.env:
                 self._log_api_call('/api/v1/methodology/5s', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -493,7 +493,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.heinrich.indicator'):
+            if 'erpv6.heinrich.indicator' not in request.env:
                 self._log_api_call('/api/v1/methodology/heinrich', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 
@@ -530,7 +530,7 @@ class MethodologyAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.heinrich.indicator'):
+            if 'erpv6.heinrich.indicator' not in request.env:
                 self._log_api_call('/api/v1/methodology/heinrich', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Methodology module not installed'}, status=501)
 

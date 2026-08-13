@@ -20,7 +20,7 @@ class AccountingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.fiscal.prediction'):
+            if 'erpv6.fiscal.prediction' not in request.env:
                 self._log_api_call('/api/v1/accounting/prediction', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Accounting module not installed'}, status=501)
 
@@ -78,7 +78,7 @@ class AccountingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.deduction.suggestion'):
+            if 'erpv6.deduction.suggestion' not in request.env:
                 self._log_api_call('/api/v1/accounting/suggestions', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Accounting module not installed'}, status=501)
 
@@ -122,7 +122,7 @@ class AccountingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.asset.advisor'):
+            if 'erpv6.asset.advisor' not in request.env:
                 self._log_api_call('/api/v1/accounting/assets', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Accounting module not installed'}, status=501)
 
@@ -169,7 +169,7 @@ class AccountingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.fiscal.prediction'):
+            if 'erpv6.fiscal.prediction' not in request.env:
                 self._log_api_call('/api/v1/accounting/dashboard', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Accounting module not installed'}, status=501)
 

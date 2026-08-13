@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Aggiunge il bottone "Genera Palette" alla vista form di erpv6.brand.project.
+         Vive qui (non in erpv6_brand) perché action_generate_palette è definito in
+         questo modulo (color.py), che carica dopo erpv6_brand. -->
+    <record id="view_brand_project_form_palette" model="ir.ui.view">
+        <field name="name">erpv6.brand.project.form.palette</field>
+        <field name="model">erpv6.brand.project</field>
+        <field name="inherit_id" ref="erpv6_brand.view_brand_project_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='status']" position="before">
+                <button name="action_generate_palette"
+                        string="Genera Palette"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="status in ('selected', 'finalized')"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

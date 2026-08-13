@@ -15,6 +15,22 @@
         <field name="path">erpv6_whitelabel/static/src/css/white_label.css</field>
     </record>
 
+    <!-- Patch OWL: rebranding del pannello "Odoo 18.0 (Community Edition)"
+         in Impostazioni > Informazioni. Mantiene lì l'unica dicitura
+         "Powered by Odoo Community Edition" richiesta come attribuzione. -->
+    <record id="assets_backend_white_label_res_config_edition" model="ir.asset">
+        <field name="name">erpv6_whitelabel res_config_edition patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/xml/res_config_edition_patch.xml</field>
+    </record>
+
+    <!-- Patch OWL: dialogo "Odoo Session Expired" e notifica push bloccate -->
+    <record id="assets_backend_white_label_core_dialogs" model="ir.asset">
+        <field name="name">erpv6_whitelabel core dialogs patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/xml/core_dialogs_patch.xml</field>
+    </record>
+
     <!-- Override del layout principale per inserire variabili CSS -->
     <template id="white_label_layout" inherit_id="web.layout">
         <xpath expr="//title" position="after">

@@ -20,7 +20,7 @@ class ValidationAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.validation.session'):
+            if 'erpv6.validation.session' not in request.env:
                 self._log_api_call('/api/v1/validation/sessions', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Validation module not installed'}, status=501)
 
@@ -60,7 +60,7 @@ class ValidationAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.validation.session'):
+            if 'erpv6.validation.session' not in request.env:
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Validation module not installed'}, status=501)
 
@@ -125,7 +125,7 @@ class ValidationAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.validation.session'):
+            if 'erpv6.validation.session' not in request.env:
                 self._log_api_call('/api/v1/validation/sessions', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Validation module not installed'}, status=501)
 
@@ -167,7 +167,7 @@ class ValidationAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.validation.session'):
+            if 'erpv6.validation.session' not in request.env:
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}/start', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Validation module not installed'}, status=501)
 
@@ -202,7 +202,7 @@ class ValidationAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.validation.session'):
+            if 'erpv6.validation.session' not in request.env:
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}/approve', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Validation module not installed'}, status=501)
 
@@ -237,7 +237,7 @@ class ValidationAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.validation.session'):
+            if 'erpv6.validation.session' not in request.env:
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}/reject', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Validation module not installed'}, status=501)
 

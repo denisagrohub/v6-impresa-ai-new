@@ -20,7 +20,7 @@ class BandiAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.bando'):
+            if 'erpv6.bando' not in request.env:
                 self._log_api_call('/api/v1/bandi/active', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Bandi module not installed'}, status=501)
 
@@ -64,7 +64,7 @@ class BandiAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.bando.match'):
+            if 'erpv6.bando.match' not in request.env:
                 self._log_api_call('/api/v1/bandi/match', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Bandi module not installed'}, status=501)
 
@@ -113,7 +113,7 @@ class BandiAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.bando.application'):
+            if 'erpv6.bando.application' not in request.env:
                 self._log_api_call('/api/v1/bandi/applications', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Bandi module not installed'}, status=501)
 
@@ -152,7 +152,7 @@ class BandiAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.bando.application'):
+            if 'erpv6.bando.application' not in request.env:
                 self._log_api_call('/api/v1/bandi/applications', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Bandi module not installed'}, status=501)
 
@@ -197,7 +197,7 @@ class BandiAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.bando'):
+            if 'erpv6.bando' not in request.env:
                 self._log_api_call('/api/v1/bandi/dashboard', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Bandi module not installed'}, status=501)
 

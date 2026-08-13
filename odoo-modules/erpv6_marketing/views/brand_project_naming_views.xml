@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Aggiunge tab e bottoni alla vista form di erpv6.brand.project per le azioni
+         definite in questo modulo (marketing.py, logo_generator.py), che carica
+         dopo erpv6_brand — non possono vivere nella vista base di erpv6_brand. -->
+    <record id="view_brand_project_form_naming" model="ir.ui.view">
+        <field name="name">erpv6.brand.project.form.naming</field>
+        <field name="model">erpv6.brand.project</field>
+        <field name="inherit_id" ref="erpv6_brand.view_brand_project_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='status']" position="before">
+                <button name="action_generate_naming_candidates"
+                        string="Genera Naming"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="status in ('selected', 'finalized')"/>
+                <button name="action_generate_logo_draft"
+                        string="Bozza Logo (SVG)"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="not selected_name"/>
+                <button name="action_generate_logo_ai"
+                        string="Logo AI"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="not selected_name"/>
+            </xpath>
+            <xpath expr="//page[@name='palette_colori']" position="after">
+                <page string="Candidati Naming">
+                    <field name="naming_candidate_ids">
+                        <list>
+                            <field name="name"/>
+                            <field name="memorability_score"/>
+                            <field name="domain_available"/>
+                            <field name="is_selected"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

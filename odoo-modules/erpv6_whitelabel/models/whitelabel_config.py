@@ -54,7 +54,7 @@ class WhiteLabelConfig(models.Model):
     support_phone = fields.Char(string='Telefono Supporto')
     
     # Impostazioni avanzate
-    hide_odoo_branding = fields.Boolean(string='Nascondi branding Odoo', default=False)
+    hide_odoo_branding = fields.Boolean(string='Nascondi branding ERPV6', default=False)
     custom_css = fields.Text(string='CSS Personalizzato')
     active = fields.Boolean(string='Attivo', default=True)
     

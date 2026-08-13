@@ -30,7 +30,7 @@ class OmniCallLog(models.Model):
     retry_count = fields.Integer(string='Tentativi', default=0)
     duration_ms = fields.Integer(string='Durata (ms)')
     
-    res_model = fields.Char(string='Modello Odoo Collegato', index=True)
+    res_model = fields.Char(string='Modello ERPV6 Collegato', index=True)
     res_id = fields.Integer(string='ID Record', index=True)
     session_id = fields.Char(string='Sessione ID', index=True)
     

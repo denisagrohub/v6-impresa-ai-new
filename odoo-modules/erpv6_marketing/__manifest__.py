@@ -4,6 +4,7 @@
     'depends': ['base', 'mail', 'erpv6_core', 'erpv6_brand', 'erpv6_omni_bridge'],
     'data': [
         'security/ir.model.access.csv',
+        'views/brand_project_naming_views.xml',
     ],
     'installable': True,
     'application': False,

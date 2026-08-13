@@ -29,12 +29,6 @@ class BrandProject(models.Model):
         help='Palette colori scelta (hex codes con ruolo: primary/secondary/accent...)'
     )
     
-    naming_candidate_ids = fields.One2many(
-        'erpv6.naming.candidate',
-        'brand_project_id',
-        string='Candidati Naming'
-    )
-
     def action_finalize(self):
         """Imposta lo stato a finalized se status='selected'"""
         self.ensure_one()
