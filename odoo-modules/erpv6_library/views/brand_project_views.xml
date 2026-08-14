@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Aggiunge il campo selected_logo_asset_id al form di erpv6.brand.project
+         definito in erpv6_brand. Vive qui (non in erpv6_brand) perché il campo
+         referenzia erpv6.library.document, e solo erpv6_library dipende da brand,
+         non il contrario: evita un ciclo di dipendenza tra i due moduli. -->
+    <record id="view_brand_project_form_inherit_library" model="ir.ui.view">
+        <field name="name">erpv6.brand.project.form.inherit.library</field>
+        <field name="model">erpv6.brand.project</field>
+        <field name="inherit_id" ref="erpv6_brand.view_brand_project_form"/>
+        <field name="arch" type="xml">
+            <field name="selected_name" position="after">
+                <field name="selected_logo_asset_id"/>
+            </field>
+        </field>
+    </record>
+</odoo>

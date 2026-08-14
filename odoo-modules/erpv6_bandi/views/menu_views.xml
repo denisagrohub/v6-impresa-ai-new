@@ -4,7 +4,7 @@
     <menuitem id="menu_erpv6_bandi_root"
               name="Bandi &amp; Finanziamenti"
               sequence="50"
-              web_icon="erpv6_bandi,static/description/icon.png"/>
+              web_icon="erpv6_bandi,static/description/icon.svg"/>
 
     <!-- Sottomenu Bandi -->
     <menuitem id="menu_erpv6_bandi_bandi"

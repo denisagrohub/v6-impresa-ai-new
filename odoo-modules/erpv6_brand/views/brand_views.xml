@@ -26,7 +26,6 @@
                         </group>
                         <group>
                             <field name="selected_name"/>
-                            <field name="selected_logo_asset_id"/>
                         </group>
                     </group>
                     <notebook>

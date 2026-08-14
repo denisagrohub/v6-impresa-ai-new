@@ -9,6 +9,7 @@
     'data': [
         'security/ir.model.access.csv',
         'views/library_views.xml',
+        'views/brand_project_views.xml',
     ],
     'installable': True,
     'application': True,
