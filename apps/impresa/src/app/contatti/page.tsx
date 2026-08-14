@@ -6,6 +6,8 @@ export default function ContattiPage() {
     const [formData, setFormData] = useState({ nome: "", email: "", telefono: "", messaggio: "", motivo: "" });
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState("");
 
     const update = (f: string, v: string) => {
         setFormData({ ...formData, [f]: v });
@@ -22,9 +24,39 @@ export default function ContattiPage() {
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (validate()) setSubmitted(true);
+        if (!validate()) return;
+
+        setSubmitting(true);
+        setSubmitError("");
+        try {
+            const response = await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    source: 'contatti',
+                    data: {
+                        nome: formData.nome,
+                        email: formData.email,
+                        telefono: formData.telefono,
+                        obiettivi: formData.motivo
+                            ? `[${formData.motivo}] ${formData.messaggio}`
+                            : formData.messaggio,
+                    },
+                }),
+            });
+            const responseBody = await response.json().catch(() => null);
+            if (!response.ok || !responseBody?.success) {
+                throw new Error(responseBody?.error || `Invio fallito (${response.status})`);
+            }
+            setSubmitted(true);
+        } catch (error) {
+            console.error('Errore invio contatto:', error);
+            setSubmitError("Errore durante l'invio. Riprova più tardi o scrivici direttamente via email.");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -151,12 +183,17 @@ export default function ContattiPage() {
                                             {errors.messaggio && <p className="mt-1 text-sm text-red-600 flex items-center gap-1"><AlertCircle size={14} />{errors.messaggio}</p>}
                                         </div>
 
+                                        {submitError && (
+                                            <p className="text-sm text-red-600 flex items-center gap-1"><AlertCircle size={14} />{submitError}</p>
+                                        )}
+
                                         <button
                                             type="submit"
-                                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-4 rounded-xl hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                                            disabled={submitting}
+                                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-4 rounded-xl hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                         >
                                             <Send size={18} />
-                                            <span>Invia messaggio</span>
+                                            <span>{submitting ? "Invio in corso..." : "Invia messaggio"}</span>
                                         </button>
                                     </form>
                                 </>
