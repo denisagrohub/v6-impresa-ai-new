@@ -20,7 +20,7 @@ class TrackingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.tracking.lot'):
+            if 'erpv6.tracking.lot' not in request.env:
                 self._log_api_call('/api/v1/tracking/lots', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Tracking module not installed'}, status=501)
 
@@ -65,7 +65,7 @@ class TrackingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.tracking.lot'):
+            if 'erpv6.tracking.lot' not in request.env:
                 self._log_api_call(f'/api/v1/tracking/lots/{lot_id}', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Tracking module not installed'}, status=501)
 
@@ -120,11 +120,11 @@ class TrackingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.tracking.lot'):
+            if 'erpv6.tracking.lot' not in request.env:
                 self._log_api_call('/api/v1/tracking/lots/batch', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Tracking module not installed'}, status=501)
 
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             
             config_id = data.get('config_id')
             quantity = data.get('quantity', 1.0)
@@ -165,11 +165,11 @@ class TrackingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.tracking.lot'):
+            if 'erpv6.tracking.lot' not in request.env:
                 self._log_api_call('/api/v1/tracking/lots/definitive', 'POST', user.id, 501, start_time)
                 return self._json_response({'error': 'Tracking module not installed'}, status=501)
 
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             
             config_id = data.get('config_id')
             batch_lot_id = data.get('batch_lot_id')
@@ -213,7 +213,7 @@ class TrackingAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.tracking.config'):
+            if 'erpv6.tracking.config' not in request.env:
                 self._log_api_call('/api/v1/tracking/configs', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'Tracking module not installed'}, status=501)
 

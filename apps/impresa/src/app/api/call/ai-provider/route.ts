@@ -8,7 +8,11 @@ const CONFIG_PATH = path.join(process.cwd(), 'src/data/secure-config.json');
 export async function GET(request: NextRequest) {
     try {
         // Admin può vedere tutti i provider, consultant solo quello attivo
-        const user = requirePermission(request, ['consultant.use_call_ai']);
+        const permissionCheck = requirePermission(request, ['admin', 'chief', 'consultant']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
+        const user = permissionCheck;
 
         if (!fs.existsSync(CONFIG_PATH)) {
             return NextResponse.json({ provider: 'claude' });
@@ -36,7 +40,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         // Solo admin/chief possono cambiare provider
-        requirePermission(request, ['settings.configure_call_ai']);
+        const permissionCheck = requirePermission(request, ['admin', 'chief']);
+        if (permissionCheck instanceof NextResponse) {
+            return permissionCheck;
+        }
 
         const { provider } = await request.json();
 

@@ -23,10 +23,10 @@
         <field name="arch" type="xml">
             <form string="Candidatura Bando">
                 <header>
-                    <button name="action_submit" string="Invia Candidatura" type="object" class="btn-primary" states="draft"/>
-                    <button name="action_approve" string="Approva" type="object" states="under_review"/>
-                    <button name="action_reject" string="Respingi" type="object" states="under_review"/>
-                    <button name="action_fund" string="Segna Erogata" type="object" class="btn-success" states="approved"/>
+                    <button name="action_submit" string="Invia Candidatura" type="object" class="btn-primary" invisible="status != 'draft'"/>
+                    <button name="action_approve" string="Approva" type="object" invisible="status != 'under_review'"/>
+                    <button name="action_reject" string="Respingi" type="object" invisible="status != 'under_review'"/>
+                    <button name="action_fund" string="Segna Erogata" type="object" class="btn-success" invisible="status != 'approved'"/>
                     <field name="status" widget="statusbar" statusbar_visible="draft,submitted,under_review,approved,funded"/>
                 </header>
                 <sheet>

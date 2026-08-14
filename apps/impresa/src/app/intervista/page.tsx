@@ -120,20 +120,27 @@ function InterviewContent() {
       const result = interviewEngine.calculateScore(fullAnswers);
       setResult(result);
 
-      await fetch('/api/leads', {
+      const response = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source: 'intervista',
-          package: packageName || result.recommendedLevel,
-          packageId: packageId || result.recommendedLevel,
-          ...fullAnswers,
-          score: result.score,
-          recommendedLevel: result.recommendedLevel,
-          estimatedPrice: result.estimatedPrice,
-          timestamp: new Date().toISOString(),
+          data: {
+            ...fullAnswers,
+            package: packageName || result.recommendedLevel,
+            packageId: packageId || result.recommendedLevel,
+            score: result.score,
+            recommendedLevel: result.recommendedLevel,
+            estimatedPrice: result.estimatedPrice,
+            timestamp: new Date().toISOString(),
+          },
         }),
       });
+      const responseBody = await response.json().catch(() => null);
+
+      if (!response.ok || !responseBody?.success) {
+        throw new Error(responseBody?.error || `Invio lead fallito (${response.status})`);
+      }
 
       setSubmitted(true);
     } catch (error) {

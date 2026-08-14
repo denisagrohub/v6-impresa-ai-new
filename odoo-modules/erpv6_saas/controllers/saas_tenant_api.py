@@ -2,7 +2,7 @@
 import time
 from odoo import http
 from odoo.http import request
-from .main import APIBaseController
+from odoo.addons.erpv6_api_gateway.controllers.main import APIBaseController
 
 
 class SaasTenantAPIController(APIBaseController):
@@ -20,7 +20,7 @@ class SaasTenantAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.saas.tenant'):
+            if 'erpv6.saas.tenant' not in request.env:
                 self._log_api_call('/api/v1/saas/tenant/dashboard', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'SaaS module not installed'}, status=501)
 
@@ -76,7 +76,7 @@ class SaasTenantAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.saas.tenant'):
+            if 'erpv6.saas.tenant' not in request.env:
                 self._log_api_call('/api/v1/saas/subscription', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'SaaS module not installed'}, status=501)
 

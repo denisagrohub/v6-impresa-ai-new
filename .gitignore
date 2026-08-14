@@ -68,3 +68,9 @@ node_modules
 
 # Next.js
 .next/
+
+# Turborepo cache
+.turbo/
+
+# Claude Code worktrees (admin/local data, mai da tracciare)
+.claude/worktrees/

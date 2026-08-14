@@ -24,8 +24,8 @@
         <field name="arch" type="xml">
             <form string="Bando di Finanziamento">
                 <header>
-                    <button name="action_validate" string="Valida e Pubblica in KB" type="object" class="btn-primary" states="draft"/>
-                    <button name="action_expire" string="Segna come Scaduto" type="object" states="active"/>
+                    <button name="action_validate" string="Valida e Pubblica in KB" type="object" class="btn-primary" invisible="status != 'draft'"/>
+                    <button name="action_expire" string="Segna come Scaduto" type="object" invisible="status != 'active'"/>
                     <field name="status" widget="statusbar" statusbar_visible="draft,active,expired,closed"/>
                 </header>
                 <sheet>
@@ -53,7 +53,7 @@
                         </group>
                         <group>
                             <field name="area_geografica"/>
-                            <field name="regione" attrs="{'invisible': [('area_geografica', '!=', 'regionale')]}"/>
+                            <field name="regione" invisible="area_geografica != 'regionale'"/>
                             <field name="scadenza_domanda"/>
                             <field name="scadenza_erogazione"/>
                             <field name="last_sync"/>

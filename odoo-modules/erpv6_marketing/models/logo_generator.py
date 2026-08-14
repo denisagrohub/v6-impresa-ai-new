@@ -10,6 +10,12 @@ _logger = logging.getLogger(__name__)
 class BrandProjectLogo(models.Model):
     _inherit = 'erpv6.brand.project'
 
+    naming_candidate_ids = fields.One2many(
+        'erpv6.naming.candidate',
+        'brand_project_id',
+        string='Candidati Naming'
+    )
+
     def _get_deterministic_shape(self, name):
         """
         Restituisce una forma geometrica deterministica basata sul nome.

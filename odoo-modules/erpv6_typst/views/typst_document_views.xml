@@ -24,9 +24,9 @@
         <field name="arch" type="xml">
             <form string="Documento Tipst">
                 <header>
-                    <button name="action_render" type="object" string="Genera PDF" class="btn-primary" icon="fa-cog" states="draft"/>
-                    <button name="action_send_to_partner" type="object" string="Invia al Cliente" class="btn-primary" icon="fa-envelope" states="ready"/>
-                    <button name="action_download" type="object" string="Scarica" class="btn-secondary" icon="fa-download" states="ready"/>
+                    <button name="action_render" type="object" string="Genera PDF" class="btn-primary" icon="fa-cog" invisible="status != 'draft'"/>
+                    <button name="action_send_to_partner" type="object" string="Invia al Cliente" class="btn-primary" icon="fa-envelope" invisible="status != 'ready'"/>
+                    <button name="action_download" type="object" string="Scarica" class="btn-secondary" icon="fa-download" invisible="status != 'ready'"/>
                     <field name="status" widget="statusbar" statusbar_visible="draft,rendering,ready,sent"/>
                 </header>
                 <sheet>

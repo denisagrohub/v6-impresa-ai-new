@@ -27,19 +27,19 @@
               action="action_erpv6_bando_application"
               sequence="30"/>
 
+    <!-- Action per le fonti (deve precedere il menuitem che la referenzia) -->
+    <record id="action_erpv6_bando_source" model="ir.actions.act_window">
+        <field name="name">Fonti Scraping</field>
+        <field name="res_model">erpv6.bando.source</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
     <!-- Sottomenu Fonti -->
     <menuitem id="menu_erpv6_bandi_sources"
               name="Fonti Scraping"
               parent="menu_erpv6_bandi_root"
               action="action_erpv6_bando_source"
               sequence="40"/>
-
-    <!-- Action per le fonti (mancante) -->
-    <record id="action_erpv6_bando_source" model="ir.actions.act_window">
-        <field name="name">Fonti Scraping</field>
-        <field name="res_model">erpv6.bando.source</field>
-        <field name="view_mode">tree,form</field>
-    </record>
 
     <!-- Vista per le fonti -->
     <record id="view_erpv6_bando_source_list" model="ir.ui.view">

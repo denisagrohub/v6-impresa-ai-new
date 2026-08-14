@@ -4,7 +4,7 @@
     'category': 'Accounting/Accounting',
     'summary': 'Contabilità predittiva con motore fiscale italiano, match inventario e bandi',
     'description': """
-        Estende il modulo contabilità nativo di Odoo con:
+        Estende il modulo contabilità nativo di ERPV6 con:
         - Motore previsionale tasse in tempo reale (IVA, IRES, IRAP)
         - Match inventario ↔ quote deducibili (suggerimenti acquisti)
         - Gestione cespiti con bandi 4.0/5.0 e Transizione 5.0

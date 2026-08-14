@@ -24,8 +24,8 @@
                         </group>
                         <group>
                             <field name="kb_category_id"/>
-                            <field name="target_url_pattern" attrs="{'invisible': [('source_type', '!=', 'scraper')], 'required': [('source_type', '=', 'scraper')]}"/>
-                            <field name="api_credentials" attrs="{'invisible': [('source_type', '!=', 'api')], 'required': [('source_type', '=', 'api')]}"/>
+                            <field name="target_url_pattern" invisible="source_type != 'scraper'" required="source_type == 'scraper'"/>
+                            <field name="api_credentials" invisible="source_type != 'api'" required="source_type == 'api'"/>
                         </group>
                     </group>
                     <group string="Schema di Estrazione Default">

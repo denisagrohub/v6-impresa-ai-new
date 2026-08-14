@@ -10,10 +10,11 @@ class OmniRouteConfig(models.Model):
     _description = 'Configurazione Routing OmniRoute per Task AI'
     _order = 'task_type, priority'
 
-    task_type = fields.Char(string='Tipo Task', required=True, 
+    task_type = fields.Char(string='Tipo Task', required=True,
                             help="Es: chat_general, transcription, rag_query, summarization")
     name = fields.Char(string='Nome Regola', required=True)
-    
+    description = fields.Text(string='Descrizione')
+
     # Provider configurati per questo task
     primary_provider_id = fields.Many2one('erpv6.omni.provider', 
                                           string='Provider Primario', 
@@ -40,8 +41,10 @@ class OmniRouteConfig(models.Model):
     max_cost_per_call = fields.Float(string='Costo Max per Chiamata ($)')
     
     # Contesto KB opzionale
-    kb_id = fields.Many2one('erpv6.kb', 
-                                     string='KB Reference',
+    kb_module_ids = fields.Many2many('erpv6.kb',
+                                     'omni_route_kb_rel',
+                                     'route_id', 'kb_id',
+                                     string='Moduli KB di Riferimento',
                                      help='Knowledge Base di riferimento per il contesto del task')
     
     is_active = fields.Boolean(string='Attiva', default=True)

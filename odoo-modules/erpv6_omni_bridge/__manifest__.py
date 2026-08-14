@@ -5,7 +5,7 @@
     'category': 'Productivity',
     'summary': 'Gestione centralizzata routing AI, fallback e proxy sicuro (OmniRoute)',
     'description': """
-Modulo ponte per integrare il sistema OmniRoute con Odoo.
+Modulo ponte per integrare il sistema OmniRoute con ERPV6.
 - Configurazione centrale provider AI
 - Routing dinamico basato su costo/velocità/qualità
 - Fallback automatico in caso di errore
@@ -25,9 +25,9 @@ Modulo ponte per integrare il sistema OmniRoute con Odoo.
     ],
     'data': [
         'security/ir.model.access.csv',
-        'views/omni_provider_views.xml',
         'views/omni_route_config_views.xml',
         'views/omni_call_log_views.xml',
+        'views/omni_provider_views.xml',
         'views/menu_views.xml',
         'data/omni_default_providers.xml',
         'data/omni_package_metadata_routes.xml',

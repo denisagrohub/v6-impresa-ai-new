@@ -29,6 +29,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // POST /api/leads è l'endpoint di invio lead da /intervista (pagina pubblica),
+  // usato da visitatori anonimi: deve restare accessibile senza sessione.
+  // GET/PUT restano protetti: espongono/agiscono sulla coda lead pendenti.
+  if (pathname === '/api/leads' && request.method === 'POST') {
+    return NextResponse.next();
+  }
+
   if (pathname.match(/\.(ico|png|jpg|svg|webp|css|js|json)$/)) {
     return NextResponse.next();
   }

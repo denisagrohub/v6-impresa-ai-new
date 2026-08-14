@@ -9,7 +9,6 @@
             <field name="code">model._cron_scrape_all()</field>
             <field name="interval_number">6</field>
             <field name="interval_type">hours</field>
-            <field name="numbercall">-1</field>
             <field name="active">True</field>
         </record>
 
@@ -18,16 +17,13 @@
             <field name="name">Check Scadenze Bandi - Giornaliero</field>
             <field name="model_id" ref="model_erpv6_bando"/>
             <field name="state">code</field>
-            <field name="code">
-                import datetime
-                today = fields.Date.today()
-                bandi = model.search([('scadenza_domanda', '&lt;', today), ('status', '=', 'active')])
-                for bando in bandi:
-                    bando.action_expire()
+            <field name="code">today = fields.Date.today()
+bandi = model.search([('scadenza_domanda', '&lt;', today), ('status', '=', 'active')])
+for bando in bandi:
+    bando.action_expire()
             </field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
             <field name="active">True</field>
         </record>
 
@@ -36,13 +32,11 @@
             <field name="name">Match Automatico Bandi - Ogni 12 ore</field>
             <field name="model_id" ref="model_erpv6_bando"/>
             <field name="state">code</field>
-            <field name="code">
-                # Logica di match automatico da implementare
-                _logger.info("Cron match automatico eseguito")
+            <field name="code"># Logica di match automatico da implementare
+_logger.info("Cron match automatico eseguito")
             </field>
             <field name="interval_number">12</field>
             <field name="interval_type">hours</field>
-            <field name="numbercall">-1</field>
             <field name="active">True</field>
         </record>
     </data>

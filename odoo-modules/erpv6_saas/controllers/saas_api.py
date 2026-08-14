@@ -3,7 +3,7 @@ import json
 import logging
 from odoo import http
 from odoo.http import request, Response
-from .main import APIBaseController
+from odoo.addons.erpv6_api_gateway.controllers.main import APIBaseController
 
 _logger = logging.getLogger(__name__)
 

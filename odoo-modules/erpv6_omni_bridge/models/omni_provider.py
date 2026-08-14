@@ -31,8 +31,10 @@ class OmniProvider(models.Model):
         ('speech', 'Text-to-Speech'),
     ], string='Tipo', required=True, default='llm')
     
-    # 🔐 CAMPO CIFRATO: Viene cifrato automaticamente in create/write
-    api_key = fields.Char(string='API Key (Cifrata)', required=True)
+    # 🔐 CAMPO CIFRATO: Viene cifrato automaticamente in create/write.
+    # Non required a livello di campo: un provider stub può esistere senza
+    # chiave finché resta inattivo (vedi vincolo _check_api_key_if_active).
+    api_key = fields.Char(string='API Key (Cifrata)')
     
     api_url = fields.Char(string='API URL Base', required=True)
     api_version = fields.Char(string='Versione API')
@@ -67,10 +69,19 @@ class OmniProvider(models.Model):
         ('code_unique', 'unique(code)', 'Il codice del provider deve essere univoco!')
     ]
 
+    @api.constrains('api_key', 'is_active')
+    def _check_api_key_if_active(self):
+        for provider in self:
+            if provider.is_active and not provider.api_key:
+                raise ValidationError(_(
+                    "Il provider '%s' non può essere attivo senza una API Key. "
+                    "Configura la chiave oppure lascialo disattivato."
+                ) % provider.name)
+
     # ========================================================================
     # 🔐 CRITTOGRAFIA AUTOMATICA
     # ========================================================================
-    
+
     @api.model
     def create(self, vals):
         """Cifra la API Key automaticamente alla creazione"""

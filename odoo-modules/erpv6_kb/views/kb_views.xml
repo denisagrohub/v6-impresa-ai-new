@@ -87,7 +87,7 @@
                         </group>
                         <group string="Trasversalità/Verticale">
                             <field name="is_transversal" widget="boolean_toggle"/>
-                            <field name="verticale" attrs="{'invisible': [('is_transversal', '=', True)], 'required': [('is_transversal', '=', False)]}"/>
+                            <field name="verticale" invisible="is_transversal" required="not is_transversal"/>
                         </group>
                     </group>
                     <group string="Descrizione"><field name="description"/></group>

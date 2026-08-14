@@ -119,13 +119,11 @@ class DeductionSuggestion(models.Model):
         for rec in self:
             search_terms = category_map.get(rec.category, [])
             if search_terms:
-                # Costruisce un dominio OR: [('categ_id.complete_name', 'ilike', 'Ufficio'), '|', ('categ_id.complete_name', 'ilike', 'Cancelleria'), ...]
-                domain = []
-                for i, term in enumerate(search_terms):
-                    if i > 0:
-                        domain.append('|')
-                    domain.append(('categ_id.complete_name', 'ilike', term))
-                
+                # Costruisce un dominio OR in notazione prefissa Odoo:
+                # ['|', '|', leaf1, leaf2, leaf3] per 3 termini, ecc.
+                leaves = [('categ_id.complete_name', 'ilike', term) for term in search_terms]
+                domain = ['|'] * (len(leaves) - 1) + leaves
+
                 products = self.env['product.product'].search(domain, limit=50)
                 # Filtra solo prodotti con stock > 0
                 products = products.filtered(lambda p: p.qty_available > 0)

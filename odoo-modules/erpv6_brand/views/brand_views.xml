@@ -7,31 +7,11 @@
         <field name="arch" type="xml">
             <form string="Progetto di Branding">
                 <header>
-                    <button name="action_generate_naming_candidates" 
-                            string="Genera Naming" 
-                            type="object" 
-                            class="btn-secondary"
-                            attrs="{'invisible': [('status', 'in', ['selected', 'finalized'])]}"/>
-                    <button name="action_generate_palette" 
-                            string="Genera Palette" 
-                            type="object" 
-                            class="btn-secondary"
-                            attrs="{'invisible': [('status', 'in', ['selected', 'finalized'])]}"/>
-                    <button name="action_generate_logo_draft" 
-                            string="Bozza Logo (SVG)" 
-                            type="object" 
-                            class="btn-secondary"
-                            attrs="{'invisible': [('selected_name', '=', False)]}"/>
-                    <button name="action_generate_logo_ai" 
-                            string="Logo AI" 
-                            type="object" 
-                            class="btn-secondary"
-                            attrs="{'invisible': [('selected_name', '=', False)]}"/>
-                    <button name="action_finalize" 
-                            string="Finalizza" 
-                            type="object" 
+                    <button name="action_finalize"
+                            string="Finalizza"
+                            type="object"
                             class="btn-primary"
-                            attrs="{'invisible': [('status', '!=', 'selected')]}"/>
+                            invisible="status != 'selected'"/>
                     <field name="status" widget="statusbar" statusbar_visible="draft,candidates_generated,selected,finalized"/>
                 </header>
                 <sheet>
@@ -50,18 +30,8 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Palette Colori">
+                        <page name="palette_colori" string="Palette Colori">
                             <field name="selected_palette" widget="json"/>
-                        </page>
-                        <page string="Candidati Naming">
-                            <field name="naming_candidate_ids">
-                                <tree>
-                                    <field name="name"/>
-                                    <field name="memorability_score"/>
-                                    <field name="domain_available"/>
-                                    <field name="is_selected"/>
-                                </tree>
-                            </field>
                         </page>
                     </notebook>
                 </sheet>
@@ -79,12 +49,12 @@
         <field name="name">erpv6.brand.project.tree</field>
         <field name="model">erpv6.brand.project</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="name"/>
                 <field name="partner_id"/>
                 <field name="status"/>
                 <field name="selected_name"/>
-            </tree>
+            </list>
         </field>
     </record>
 

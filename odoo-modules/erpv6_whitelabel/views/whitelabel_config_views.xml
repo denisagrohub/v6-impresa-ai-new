@@ -128,7 +128,7 @@
                 Crea la tua prima configurazione White Label
             </p>
             <p>
-                Personalizza logo, colori e testi del tuo sistema Odoo.
+                Personalizza logo, colori e testi del tuo sistema ERPV6.
             </p>
         </field>
     </record>
@@ -136,7 +136,7 @@
     <!-- Menu principale sotto Impostazioni -->
     <menuitem id="menu_whitelabel_root" 
               name="White Label" 
-              parent="base.menu_settings" 
+              parent="base.menu_administration"
               sequence="50"/>
     
     <menuitem id="menu_whitelabel_config" 

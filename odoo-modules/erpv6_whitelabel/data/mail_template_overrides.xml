@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- I template email di auth_signup/portal sono noupdate="1": un <record>
+             con lo stesso xmlid verrebbe ignorato da Odoo durante un -u su un
+             modulo già installato. Il write() è fatto via ORM in Python
+             (models/mail_template_patch.py) per funzionare sempre, sia
+             all'installazione che ad ogni aggiornamento successivo. -->
+        <function model="erpv6.whitelabel.mail_template_patch" name="apply_erpv6_branding"/>
+    </data>
+</odoo>

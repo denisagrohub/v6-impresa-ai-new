@@ -1,5 +1,28 @@
+import fs from 'fs';
+import path from 'path';
 import { isOdooEnabled } from '@/config/system';
 import { callOdooAPI } from './odoo-adapter';
+
+const QUEUE_PATH = path.join(process.cwd(), 'src/data/pending-leads.json');
+
+function ensureQueueFile(): void {
+    if (!fs.existsSync(QUEUE_PATH)) {
+        fs.writeFileSync(QUEUE_PATH, JSON.stringify({ leads: [] }, null, 2));
+    }
+}
+
+// L'intervista produce campi in italiano (nome, telefono, azienda, obiettivi);
+// /api/v1/leads (lead_api.py) richiede name/email obbligatori e accetta
+// phone/company_name/description opzionali, tutti in inglese.
+function mapLeadDataForOdoo(data: Record<string, any>): Record<string, any> {
+    return {
+        name: data.nome || '',
+        email: data.email || '',
+        phone: data.telefono || '',
+        company_name: data.azienda || '',
+        description: data.obiettivi || '',
+    };
+}
 
 // Struttura di un lead
 export interface Lead {
@@ -27,9 +50,9 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
     if (isOdooEnabled()) {
         try {
             // Prova a inviare a Odoo
-            await callOdooAPI('/api/leads', {
+            await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
-                body: JSON.stringify(leadData),
+                body: JSON.stringify(mapLeadDataForOdoo(leadData)),
             });
 
             lead.synced = true;
@@ -52,15 +75,13 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
 async function saveLeadToQueue(lead: Lead): Promise<void> {
     // In produzione, questo scriverebbe su un database
     // Per ora, usiamo un file JSON (da migliorare con un DB vero)
-    const fs = require('fs');
-    const path = require('path');
-    const filePath = path.join(process.cwd(), 'src/data/pending-leads.json');
+    ensureQueueFile();
 
     try {
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const fileContent = fs.readFileSync(QUEUE_PATH, 'utf-8');
         const queue = JSON.parse(fileContent);
         queue.leads.push(lead);
-        fs.writeFileSync(filePath, JSON.stringify(queue, null, 2));
+        fs.writeFileSync(QUEUE_PATH, JSON.stringify(queue, null, 2));
         console.debug(` Lead ${lead.id} aggiunto alla coda locale`);
     } catch (error) {
         console.error('❌ Errore nel salvataggio in coda:', error);
@@ -70,12 +91,10 @@ async function saveLeadToQueue(lead: Lead): Promise<void> {
 
 // Ottieni tutti i lead pendenti
 export async function getPendingLeads(): Promise<Lead[]> {
-    const fs = require('fs');
-    const path = require('path');
-    const filePath = path.join(process.cwd(), 'src/data/pending-leads.json');
+    ensureQueueFile();
 
     try {
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const fileContent = fs.readFileSync(QUEUE_PATH, 'utf-8');
         const queue = JSON.parse(fileContent);
         return queue.leads.filter((l: Lead) => !l.synced);
     } catch (error) {
@@ -96,9 +115,9 @@ export async function syncPendingLeads(): Promise<{ synced: number; failed: numb
 
     for (const lead of pendingLeads) {
         try {
-            await callOdooAPI('/api/leads', {
+            await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
-                body: JSON.stringify(lead.data),
+                body: JSON.stringify(mapLeadDataForOdoo(lead.data)),
             });
 
             lead.synced = true;
@@ -116,16 +135,13 @@ export async function syncPendingLeads(): Promise<{ synced: number; failed: numb
     }
 
     // Aggiorna il file con lo stato dei lead
-    const fs = require('fs');
-    const path = require('path');
-    const filePath = path.join(process.cwd(), 'src/data/pending-leads.json');
-
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    ensureQueueFile();
+    const fileContent = fs.readFileSync(QUEUE_PATH, 'utf-8');
     const queue = JSON.parse(fileContent);
     queue.leads = pendingLeads;
     queue.lastSync = new Date().toISOString();
     queue.syncStatus = failed > 0 ? 'partial' : 'complete';
-    fs.writeFileSync(filePath, JSON.stringify(queue, null, 2));
+    fs.writeFileSync(QUEUE_PATH, JSON.stringify(queue, null, 2));
 
     return { synced, failed };
 }

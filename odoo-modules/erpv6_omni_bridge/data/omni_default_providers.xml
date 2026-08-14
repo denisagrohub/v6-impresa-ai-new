@@ -7,7 +7,6 @@
             <field name="code">openai</field>
             <field name="provider_type">llm</field>
             <field name="api_url">https://api.openai.com/v1</field>
-            <field name="api_key">sk-placeholder-key</field>
             <field name="priority">10</field>
             <field name="timeout_seconds">30</field>
             <field name="max_rpm">60</field>
@@ -23,7 +22,6 @@
             <field name="code">anthropic</field>
             <field name="provider_type">llm</field>
             <field name="api_url">https://api.anthropic.com</field>
-            <field name="api_key">sk-ant-placeholder</field>
             <field name="priority">20</field>
             <field name="timeout_seconds">30</field>
             <field name="max_rpm">50</field>
@@ -39,7 +37,6 @@
             <field name="code">groq</field>
             <field name="provider_type">llm</field>
             <field name="api_url">https://api.groq.com/openai/v1</field>
-            <field name="api_key">gsk-placeholder</field>
             <field name="priority">5</field>
             <field name="timeout_seconds">15</field>
             <field name="max_rpm">100</field>
@@ -55,7 +52,6 @@
             <field name="code">deepgram</field>
             <field name="provider_type">transcription</field>
             <field name="api_url">https://api.deepgram.com/v1</field>
-            <field name="api_key">dg-placeholder</field>
             <field name="priority">1</field>
             <field name="timeout_seconds">60</field>
             <field name="max_rpm">30</field>

@@ -38,7 +38,7 @@ class UserAPIController(APIBaseController):
             return error_response
         
         try:
-            data = request.get_json(force=True, silent=True) or {}
+            data = request.get_json_data() or {}
             vals = {}
             
             if 'name' in data:

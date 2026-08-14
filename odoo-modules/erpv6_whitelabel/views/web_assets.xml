@@ -1,18 +1,99 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Template per override assets backend -->
-    <template id="assets_backend_white_label" inherit_id="web.assets_backend">
-        <xpath expr="." position="inside">
-            <link rel="stylesheet" href="/erpv6_whitelabel/static/src/css/white_label.css"/>
-        </xpath>
-    </template>
+    <!-- CSS backend e frontend: in Odoo 16+ i bundle si estendono con ir.asset,
+         non con inherit_id su un template "web.assets_backend"/"web.assets_frontend"
+         (quegli xmlid non esistono più come template statici). -->
+    <record id="assets_backend_white_label" model="ir.asset">
+        <field name="name">erpv6_whitelabel backend css</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/css/white_label.css</field>
+    </record>
 
-    <!-- Template per override assets frontend (website) -->
-    <template id="assets_frontend_white_label" inherit_id="web.assets_frontend">
-        <xpath expr="." position="inside">
-            <link rel="stylesheet" href="/erpv6_whitelabel/static/src/css/white_label.css"/>
-        </xpath>
-    </template>
+    <record id="assets_frontend_white_label" model="ir.asset">
+        <field name="name">erpv6_whitelabel frontend css</field>
+        <field name="bundle">web.assets_frontend</field>
+        <field name="path">erpv6_whitelabel/static/src/css/white_label.css</field>
+    </record>
+
+    <!-- Patch OWL: rebranding del pannello "Odoo 18.0 (Community Edition)"
+         in Impostazioni > Informazioni. Mantiene lì l'unica dicitura
+         "Powered by Odoo Community Edition" richiesta come attribuzione. -->
+    <record id="assets_backend_white_label_res_config_edition" model="ir.asset">
+        <field name="name">erpv6_whitelabel res_config_edition patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/xml/res_config_edition_patch.xml</field>
+    </record>
+
+    <!-- Patch OWL: dialogo "Odoo Session Expired" e notifica push bloccate -->
+    <record id="assets_backend_white_label_core_dialogs" model="ir.asset">
+        <field name="name">erpv6_whitelabel core dialogs patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/xml/core_dialogs_patch.xml</field>
+    </record>
+
+    <!-- Patch JS: titoli dei dialog di errore ("Odoo Error"/"Odoo Client/Network/Server
+         Error"/"Odoo Warning" in @web/core/errors/error_dialogs.js). Sono stringhe
+         hardcoded in JS (static class prop o assegnate in inferTitle()/setup()), non
+         in un template QWeb: un t-inherit XML come core_dialogs_patch.xml non le
+         raggiunge, serve patch() su classe/prototype. -->
+    <record id="assets_backend_white_label_error_dialogs" model="ir.asset">
+        <field name="name">erpv6_whitelabel error dialogs patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/error_dialogs_patch.js</field>
+    </record>
+
+    <!-- Patch JS: rimuove la voce "My Odoo.com account" dal menu utente (vedi
+         static/src/js/user_menu_patch.js per il motivo). -->
+    <record id="assets_backend_white_label_user_menu" model="ir.asset">
+        <field name="name">erpv6_whitelabel user menu patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/user_menu_patch.js</field>
+    </record>
+
+    <!-- Patch JS: toast "Odoo will (not) send notifications on this device"
+         in @mail/core/common/notification_permission_service.js (vedi
+         static/src/js/notification_permission_patch.js per il motivo). -->
+    <record id="assets_backend_white_label_notification_permission" model="ir.asset">
+        <field name="name">erpv6_whitelabel notification permission patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/notification_permission_patch.js</field>
+    </record>
+
+    <!-- Patch JS: "Odoo needs your authorization first." (permesso fotocamera
+         negato) in @web/core/barcode/barcode_video_scanner.js (vedi
+         static/src/js/barcode_video_scanner_patch.js per il motivo). -->
+    <record id="assets_backend_white_label_barcode_video_scanner" model="ir.asset">
+        <field name="name">erpv6_whitelabel barcode video scanner patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/barcode_video_scanner_patch.js</field>
+    </record>
+
+    <!-- Patch QWeb: "OdooBot" come nome autore nella chat AI (Ask AI), in
+         due template per due motori editor diversi (vedi
+         static/src/xml/chatgpt_dialog_patch.xml per il motivo). -->
+    <record id="assets_backend_white_label_chatgpt_dialog" model="ir.asset">
+        <field name="name">erpv6_whitelabel chatgpt dialog patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/xml/chatgpt_dialog_patch.xml</field>
+    </record>
+
+    <!-- Patch JS: help text formato data/ora nell'importazione CSV ("...let
+         Odoo guess the format") in @base_import/import_model.js (vedi
+         static/src/js/import_format_help_patch.js per il motivo). -->
+    <record id="assets_backend_white_label_import_format_help" model="ir.asset">
+        <field name="name">erpv6_whitelabel import format help patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/import_format_help_patch.js</field>
+    </record>
+
+    <!-- Patch JS: testi tour onboarding CRM/Project ("Odoo will save/
+         automatically save...") (vedi static/src/js/tour_texts_patch.js
+         per il motivo). -->
+    <record id="assets_backend_white_label_tour_texts" model="ir.asset">
+        <field name="name">erpv6_whitelabel tour texts patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/tour_texts_patch.js</field>
+    </record>
 
     <!-- Override del layout principale per inserire variabili CSS -->
     <template id="white_label_layout" inherit_id="web.layout">
@@ -59,12 +140,11 @@
         </xpath>
     </template>
 
-    <!-- Override del logo nel navbar -->
-    <template id="white_label_logo" inherit_id="web.navbar">
-        <xpath expr="//img[@alt='Company Logo']" position="attributes">
-            <attribute name="t-att-src">request.env['erpv6.whitelabel.config'].sudo().get_active_config().logo_small or '/web/binary/company_logo'</attribute>
-        </xpath>
-    </template>
+    <!-- Override del logo nel navbar: RIMOSSO. "web.navbar" non esiste in Odoo 18 —
+         la topbar del backend è un componente OWL lato client (@web/webclient/navbar),
+         non più un template QWeb server-side estendibile via xpath. Serve un patch
+         OWL/JS dedicato per personalizzare il logo in navbar: da valutare come task
+         separato, non è una correzione di xmlid. -->
 
     <!-- Override della favicon -->
     <template id="white_label_favicon" inherit_id="web.layout">
@@ -73,9 +153,13 @@
         </xpath>
     </template>
 
-    <!-- Template per nascondere branding Odoo se richiesto -->
+    <!-- Template per nascondere branding Odoo se richiesto.
+         In Odoo 18 il form di login non è più un <div class="oe_login_form">
+         ma <form role="form" t-attf-class="oe_login_form ...">: l'xpath sul div
+         con class statica non trovava nulla. "role='form'" è l'unico attributo
+         statico e univoco su quell'elemento nel template web.login. -->
     <template id="white_label_hide_odoo" inherit_id="web.login">
-        <xpath expr="//div[@class='oe_login_form']" position="after">
+        <xpath expr="//form[@role='form']" position="after">
             <t t-if="request.env['erpv6.whitelabel.config'].sudo().get_active_config().hide_odoo_branding">
                 <style>
                     .o_login_branding {
