@@ -19,11 +19,6 @@ class BrandProject(models.Model):
     ], string='Stato', default='draft', tracking=True)
     
     selected_name = fields.Char(string='Nome Brand Selezionato')
-    selected_logo_asset_id = fields.Many2one(
-        'erpv6.library.document',
-        string='Logo Finale',
-        help='Riferimento all\'asset logo finale in library'
-    )
     selected_palette = fields.Json(
         string='Palette Colori Scelta',
         help='Palette colori scelta (hex codes con ruolo: primary/secondary/accent...)'
