@@ -21,6 +21,14 @@ body, .o_web_client, .o_form_view, .o_list_view {
     border-color: var(--wl-primary-color) !important;
 }
 
+/* La regola globale "a { color: var(--wl-primary-color) }" qui sotto rende
+   invisibili i link dentro la navbar (testo blu scuro su sfondo blu scuro
+   identico) — serve una regola piu' specifica che la sovrascriva. */
+.o_main_navbar a,
+.o_main_navbar .dropdown-toggle {
+    color: #ffffff !important;
+}
+
 /* Bottoni primari */
 .btn-primary,
 .o_btn_primary,
