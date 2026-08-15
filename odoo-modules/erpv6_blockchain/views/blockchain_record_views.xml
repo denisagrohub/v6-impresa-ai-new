@@ -54,6 +54,6 @@
     <record id="action_blockchain_record" model="ir.actions.act_window">
         <field name="name">Record Certificati</field>
         <field name="res_model">erpv6.blockchain.record</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 </odoo>

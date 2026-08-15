@@ -60,8 +60,8 @@
     <record id="action_erpv6_saas_tenant" model="ir.actions.act_window">
         <field name="name">SaaS - Tenant V6 Performance</field>
         <field name="res_model">erpv6.saas.tenant</field>
-        <field name="view_mode">tree,form</field>
-        <field name="search_view_id" ref="base.view_res_partner_filter"/>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" eval="False"/>
         <field name="context">{}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">

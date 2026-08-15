@@ -3,7 +3,7 @@
     <record id="action_erpv6" model="ir.actions.act_window">
         <field name="name">ERP V6</field>
         <field name="res_model">erpv6.base</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <menuitem id="menu_erpv6_root" name="ERP V6" sequence="100"/>

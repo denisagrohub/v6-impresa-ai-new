@@ -68,6 +68,6 @@
     <record id="action_erpv6_bando_application" model="ir.actions.act_window">
         <field name="name">Candidature</field>
         <field name="res_model">erpv6.bando.application</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 </odoo>
