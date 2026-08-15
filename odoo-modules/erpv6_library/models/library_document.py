@@ -94,6 +94,16 @@ class LibraryDocument(models.Model):
         help='Record blockchain associato al documento certificato'
     )
 
+    # Stato reale della certificazione: la sola presenza di blockchain_record_id
+    # non implica una certificazione confermata (può essere 'pending',
+    # 'non_disponibile', 'failed'). Esposto per evitare di mostrare in UI/API
+    # un documento come "certificato" quando non lo è.
+    blockchain_status = fields.Selection(
+        related='blockchain_record_id.status',
+        string='Stato Certificazione Blockchain',
+        readonly=True,
+    )
+
     def _get_source_file_content(self, source_doc):
         """Recupera il contenuto del file da un documento sorgente
         
