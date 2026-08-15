@@ -15,6 +15,16 @@ export async function POST(request: NextRequest) {
 
         const result = await saveLead(data, source);
 
+        if (!result.success) {
+            // saveLead non lancia mai: se arriva qui, né Odoo né il fallback
+            // locale hanno funzionato. Il lead completo è comunque nei log
+            // (console.error in saveLead), quindi non è un 500 muto.
+            return NextResponse.json(
+                { error: 'Impossibile salvare la richiesta al momento. Riprova più tardi o contattaci direttamente.' },
+                { status: 502 }
+            );
+        }
+
         return NextResponse.json({
             success: true,
             queued: result.queued || false,
