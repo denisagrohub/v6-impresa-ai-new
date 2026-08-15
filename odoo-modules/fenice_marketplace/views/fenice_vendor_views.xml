@@ -19,7 +19,7 @@
     <record id="action_fenice_vendor" model="ir.actions.act_window">
         <field name="name">Vendor</field>
         <field name="res_model">fenice.vendor</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
     
     <menuitem id="menu_fenice_marketplace" name="Fenice Marketplace" sequence="100"/>

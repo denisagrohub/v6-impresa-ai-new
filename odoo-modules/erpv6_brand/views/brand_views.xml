@@ -61,7 +61,7 @@
     <record id="action_brand_project" model="ir.actions.act_window">
         <field name="name">Progetti di Branding</field>
         <field name="res_model">erpv6.brand.project</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <!-- Menu -->

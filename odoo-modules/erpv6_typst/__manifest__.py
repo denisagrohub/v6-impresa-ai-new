@@ -29,8 +29,8 @@
     ],
     'data': [
         'security/ir.model.access.csv',
-        'views/typst_template_views.xml',
         'views/typst_document_views.xml',
+        'views/typst_template_views.xml',
         'views/menu_views.xml',
         'data/typst_templates_data.xml',
     ],

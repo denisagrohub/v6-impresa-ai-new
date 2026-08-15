@@ -68,6 +68,15 @@
         <field name="path">erpv6_whitelabel/static/src/js/barcode_video_scanner_patch.js</field>
     </record>
 
+    <!-- Patch JS: scheda "Install Odoo" nel pannello notifiche Discuss/PWA
+         in @mail/core/web/messaging_menu_patch.js (vedi
+         static/src/js/messaging_menu_patch.js per il motivo). -->
+    <record id="assets_backend_white_label_messaging_menu" model="ir.asset">
+        <field name="name">erpv6_whitelabel messaging menu patch</field>
+        <field name="bundle">web.assets_backend</field>
+        <field name="path">erpv6_whitelabel/static/src/js/messaging_menu_patch.js</field>
+    </record>
+
     <!-- Patch QWeb: "OdooBot" come nome autore nella chat AI (Ask AI), in
          due template per due motori editor diversi (vedi
          static/src/xml/chatgpt_dialog_patch.xml per il motivo). -->
