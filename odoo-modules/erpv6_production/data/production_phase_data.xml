@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="phase_diagnostica" model="erpv6.production.phase">
+        <field name="name">Diagnostica</field>
+        <field name="sequence">10</field>
+        <field name="phase_kind">diagnostica</field>
+        <field name="requires_output">False</field>
+    </record>
+    <record id="phase_relazione_generata" model="erpv6.production.phase">
+        <field name="name">Relazione generata</field>
+        <field name="sequence">20</field>
+        <field name="phase_kind">documento</field>
+        <field name="requires_output">True</field>
+        <field name="output_category">proposal</field>
+        <field name="requires_validation">True</field>
+    </record>
+    <record id="phase_consegnato" model="erpv6.production.phase">
+        <field name="name">Consegnato</field>
+        <field name="sequence">30</field>
+        <field name="phase_kind">documento</field>
+        <field name="requires_output">True</field>
+        <field name="output_category">final</field>
+        <field name="requires_validation">True</field>
+    </record>
+</odoo>

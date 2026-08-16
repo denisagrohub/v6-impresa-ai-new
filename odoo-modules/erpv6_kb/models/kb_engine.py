@@ -56,14 +56,16 @@ class Erpv6KbEngine(models.Model):
             sector, input_data.get('category', 'general'), input_data.get('tags', []),
             input_data, f"Nessuna KB per '{sector}'"
         )
-        return {'fallback': True, 'message': 'Nessuna KB specifica', 'sector': sector}
+        return {'fallback': True, 'message': 'Nessuna KB specifica', 'sector': sector, 'kb_request_id': request.id}
     def _handle_generic_kb(self, kb, input_data, specificity):
         sector = input_data.get('sector', 'generico')
         request = self.env['erpv6.kb.request'].create_from_gap(
             sector, kb.category_id.name, [], input_data,
             f"KB '{kb.name}' troppo generica per '{sector}'"
         )
-        return self._process_kb(kb, input_data)
+        result = self._process_kb(kb, input_data)
+        result['kb_request_id'] = request.id
+        return result
     def _calculate_specificity(self, kb, input_data):
         sector = input_data.get('sector', '').lower()
         if not sector: return 0.5

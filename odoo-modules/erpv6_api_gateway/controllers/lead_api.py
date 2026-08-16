@@ -58,15 +58,17 @@ class LeadAPIController(APIBaseController):
             'type': 'opportunity',
         }
 
-        # Campi Fenice (se il modulo e' installato)
-        for field, key in [('fenice_score', 'fenice_score'), ('fenice_livello', 'fenice_livello'),
-                           ('fenice_moduli_interesse', 'moduli_interesse'),
-                           ('fenice_fatturato', 'fatturato_stimato'), ('fenice_source', 'source')]:
+        # Campi Fenice (se il modulo e' installato). I campi reali hanno
+        # prefisso x_ (convenzione custom-field Odoo): senza, hasattr()
+        # falliva sempre e questo mapping non scriveva mai nulla.
+        for field, key in [('x_fenice_score', 'fenice_score'), ('x_fenice_livello', 'fenice_livello'),
+                           ('x_fenice_moduli_interesse', 'moduli_interesse'),
+                           ('x_fenice_fatturato', 'fatturato_stimato'), ('x_fenice_source', 'source')]:
             if key in data and hasattr(env['crm.lead'], field):
                 vals[field] = data[key]
 
-        if 'fenice_source' not in vals and hasattr(env['crm.lead'], 'fenice_source'):
-            vals['fenice_source'] = 'sito_web'
+        if 'x_fenice_source' not in vals and hasattr(env['crm.lead'], 'x_fenice_source'):
+            vals['x_fenice_source'] = 'sito_web'
 
         try:
             lead = env['crm.lead'].sudo().create(vals)
@@ -82,6 +84,18 @@ class LeadAPIController(APIBaseController):
                 funnel_started = True
             except Exception as e:
                 _logger.warning("Funnel start error: %s", e)
+
+        # Avvia produzione (erpv6_production, se installato). Stesso pattern
+        # hasattr di _start_funnel: erpv6_api_gateway resta agnostico, non
+        # dichiara erpv6_production come dipendenza.
+        if hasattr(lead, '_start_production'):
+            try:
+                lead._start_production(
+                    score=data.get('score'),
+                    package_hint=data.get('package_hint') or data.get('packageId') or data.get('livello'),
+                )
+            except Exception as e:
+                _logger.warning("Production start error: %s", e)
 
         # Webhook
         for wh in env['erpv6.webhook'].sudo().search([('events', '=', 'lead.created'), ('is_active', '=', True)]):

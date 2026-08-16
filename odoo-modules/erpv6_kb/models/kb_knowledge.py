@@ -70,11 +70,11 @@ class Erpv6KnowledgeBase(models.Model):
             rec.checksum = hashlib.sha256((rec.content or '').encode()).hexdigest()
 
     @api.model
-    def search(self, args, offset=0, limit=None, order=None, count=False):
+    def search(self, args, offset=0, limit=None, order=None):
         has_valid_to = any(isinstance(a, (list, tuple)) and len(a) >= 1 and a[0] == 'valid_to' for a in args)
         if not has_valid_to:
-            args += ['|', ('valid_to', '=', False), ('valid_to', '>=', fields.Date.today())]
-        return super().search(args, offset=offset, limit=limit, order=order, count=count)
+            args = args + ['|', ('valid_to', '=', False), ('valid_to', '>=', fields.Date.today())]
+        return super().search(args, offset=offset, limit=limit, order=order)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -126,3 +126,33 @@ class Erpv6KnowledgeBase(models.Model):
     def action_log_usage(self, ai_name='manual'):
         for rec in self:
             rec.write({'use_count': rec.use_count + 1, 'last_used': fields.Datetime.now(), 'last_used_by': ai_name})
+
+    @api.model
+    def find_best_for(self, kb_type, verticale=None, category_hint=None, tags=None):
+        """Trova la KB piu' specifica per kb_type/verticale. Ritorna un id o False."""
+        base_domain = [('kb_type', '=', kb_type), ('is_active', '=', True)]
+        candidates = self.search(base_domain)
+        if not candidates:
+            return False
+        if verticale:
+            specific = candidates.filtered(lambda kb: kb.category_id.verticale == verticale)
+            if specific:
+                candidates = specific
+            else:
+                candidates = candidates.filtered(lambda kb: kb.category_id.is_transversal)
+        else:
+            transversal = candidates.filtered(lambda kb: kb.category_id.is_transversal)
+            if transversal:
+                candidates = transversal
+        if not candidates:
+            return False
+        if category_hint and len(candidates) > 1:
+            hint = category_hint.lower()
+            hinted = candidates.filtered(lambda kb: hint in (kb.category_id.name or '').lower())
+            if hinted:
+                candidates = hinted
+        if tags and len(candidates) > 1:
+            tagged = candidates.filtered(lambda kb: set(kb.tag_ids.mapped('name')) & set(tags))
+            if tagged:
+                candidates = tagged
+        return candidates[0].id
