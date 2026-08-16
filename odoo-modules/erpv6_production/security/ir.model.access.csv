@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_production_phase_user,erpv6.production.phase user,model_erpv6_production_phase,base.group_user,1,0,0,0
+access_production_phase_admin,erpv6.production.phase admin,model_erpv6_production_phase,base.group_system,1,1,1,1
+access_production_order_user,erpv6.production.order user,model_erpv6_production_order,base.group_user,1,1,1,0
+access_production_order_admin,erpv6.production.order admin,model_erpv6_production_order,base.group_system,1,1,1,1
+access_production_event_user,erpv6.production.event user,model_erpv6_production_event,base.group_user,1,1,1,0
+access_production_event_admin,erpv6.production.event admin,model_erpv6_production_event,base.group_system,1,1,1,1
