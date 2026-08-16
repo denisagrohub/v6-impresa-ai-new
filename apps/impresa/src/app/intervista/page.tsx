@@ -95,8 +95,17 @@ function InterviewContent() {
     setAnswers({ ...answers, [q.id]: value });
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
-    } else if (currentPhase < phases.length - 1) {
-      setCurrentPhase(currentPhase + 1);
+      return;
+    }
+    // Salta eventuali fasi senza domande (es. 'results', usata solo come
+    // marker finale) invece di navigarci dentro e restare bloccati su un
+    // rendering vuoto (q undefined -> return null -> pagina bianca).
+    let nextPhase = currentPhase + 1;
+    while (nextPhase < phases.length && phases[nextPhase].questions.length === 0) {
+      nextPhase++;
+    }
+    if (nextPhase < phases.length) {
+      setCurrentPhase(nextPhase);
       setCurrentQuestion(0);
     } else {
       submitAnswers();

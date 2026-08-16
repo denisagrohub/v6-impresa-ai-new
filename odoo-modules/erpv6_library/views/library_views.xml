@@ -75,6 +75,7 @@
                 <field name="origin"/>
                 <field name="is_final_client_facing"/>
                 <field name="blockchain_record_id"/>
+                <field name="blockchain_status"/>
                 <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_card oe_kanban_global_click">
@@ -92,8 +93,11 @@
                                 <div t-if="record.is_final_client_facing.raw_value" class="text-success">
                                     <i class="fa fa-check"/> Finale per Cliente
                                 </div>
-                                <div t-if="record.blockchain_record_id.raw_value" class="text-primary">
+                                <div t-if="record.blockchain_status.raw_value == 'confirmed'" class="text-primary">
                                     <i class="fa fa-lock"/> Certificato Blockchain
+                                </div>
+                                <div t-if="record.blockchain_status.raw_value and record.blockchain_status.raw_value != 'confirmed'" class="text-muted">
+                                    <i class="fa fa-clock-o"/> Blockchain: <field name="blockchain_status"/>
                                 </div>
                             </div>
                         </div>

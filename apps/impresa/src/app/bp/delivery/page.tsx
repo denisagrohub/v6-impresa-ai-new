@@ -35,6 +35,9 @@ function DeliveryContent() {
         setLoading(false);
       })
       .catch(() => {
+        // Endpoint di consegna non ancora collegato: mostriamo i dati del
+        // documento senza inventare una certificazione blockchain che non
+        // è mai avvenuta. Niente hash fittizio, niente "verificato" finto.
         setBpData({
           id: bpId,
           title: 'Innovazione S.r.l. - Business Plan V6',
@@ -42,7 +45,7 @@ function DeliveryContent() {
           audience: 'bank',
           price: 5500,
           deliveryDate: '2026-07-25',
-          blockchainHash: '0x7f8e9d3c...a1b2c3d4e5f6',
+          blockchainHash: null,
           documents: [
             { name: 'Business Plan V6.pdf', size: '4.2 MB', type: 'pdf' },
             { name: 'Financial Model.xlsx', size: '1.8 MB', type: 'xlsx' },
@@ -54,7 +57,7 @@ function DeliveryContent() {
             'Aggiornamento trimestrale del financial model',
           ],
         });
-        setBlockchainVerified(true);
+        setBlockchainVerified(false);
         setLoading(false);
       });
   }, [bpId, router]);
@@ -89,7 +92,9 @@ function DeliveryContent() {
           </div>
           <h1 className="text-3xl font-bold text-gray-900">🎉 Business Plan Consegnato!</h1>
           <p className="text-gray-600 mt-2">
-            Il tuo Business Plan è stato completato e certificato su blockchain.
+            {blockchainVerified
+              ? 'Il tuo Business Plan è stato completato e certificato su blockchain.'
+              : 'Il tuo Business Plan è stato completato. La certificazione blockchain è in corso di verifica.'}
           </p>
         </div>
 

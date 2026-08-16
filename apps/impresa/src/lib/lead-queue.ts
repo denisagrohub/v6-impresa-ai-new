@@ -1,9 +1,18 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { isOdooEnabled } from '@/config/system';
 import { callOdooAPI } from './odoo-adapter';
 
-const QUEUE_PATH = path.join(process.cwd(), 'src/data/pending-leads.json');
+// process.cwd() punta al bundle deployato: su Vercel il filesystem della
+// funzione serverless è read-only ovunque tranne /tmp. Scrivere lì
+// (process.cwd()) fa fallire fs.writeFileSync con EROFS e, prima di questo
+// fix, l'eccezione risaliva non gestita fino a /api/leads facendola
+// rispondere 500 senza salvare il lead da nessuna parte. /tmp è scrivibile
+// ma effimero (sopravvive solo finché l'istanza lambda resta warm) — è un
+// tappabuchi per non perdere il lead in caso di crash improvviso, non una
+// coda persistente: il canale affidabile resta l'invio diretto a Odoo.
+const QUEUE_PATH = path.join(os.tmpdir(), 'pending-leads.json');
 
 function ensureQueueFile(): void {
     if (!fs.existsSync(QUEUE_PATH)) {
@@ -36,7 +45,9 @@ export interface Lead {
     error?: string;
 }
 
-// Salva un lead (su Odoo o in coda locale)
+// Salva un lead (su Odoo o in coda locale). Non lancia mai: se anche il
+// fallback locale fallisce, il lead completo finisce comunque nei log
+// (console.error, recuperabili da Vercel) invece di sparire in un 500 muto.
 export async function saveLead(leadData: Record<string, any>, source: string): Promise<{ success: boolean; queued?: boolean }> {
     const lead: Lead = {
         id: `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -60,32 +71,38 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
             return { success: true, queued: false };
         } catch (error) {
             console.error('⚠️ Odoo non disponibile, salvataggio in coda locale:', error);
-            // Odoo è down, salva in coda locale
-            await saveLeadToQueue(lead);
-            return { success: true, queued: true };
+            return await fallbackToQueue(lead);
         }
     } else {
         // Odoo non è abilitato, salva sempre in coda locale
-        await saveLeadToQueue(lead);
-        return { success: true, queued: true };
+        return await fallbackToQueue(lead);
     }
 }
 
-// Salva un lead nella coda locale
-async function saveLeadToQueue(lead: Lead): Promise<void> {
-    // In produzione, questo scriverebbe su un database
-    // Per ora, usiamo un file JSON (da migliorare con un DB vero)
-    ensureQueueFile();
+async function fallbackToQueue(lead: Lead): Promise<{ success: boolean; queued: boolean }> {
+    const queued = await saveLeadToQueue(lead);
+    if (!queued) {
+        // Nessun canale ha funzionato: il lead non è recuperabile automaticamente.
+        // Lo logghiamo per intero così resta almeno recuperabile a mano dai log.
+        console.error(`🔥 Lead ${lead.id} PERSO (Odoo e coda locale entrambi falliti). Dati completi:`, JSON.stringify(lead));
+    }
+    return { success: queued, queued };
+}
 
+// Salva un lead nella coda locale (best-effort, vedi commento su QUEUE_PATH).
+// Non lancia mai: ritorna false se anche /tmp non è scrivibile.
+async function saveLeadToQueue(lead: Lead): Promise<boolean> {
     try {
+        ensureQueueFile();
         const fileContent = fs.readFileSync(QUEUE_PATH, 'utf-8');
         const queue = JSON.parse(fileContent);
         queue.leads.push(lead);
         fs.writeFileSync(QUEUE_PATH, JSON.stringify(queue, null, 2));
         console.debug(` Lead ${lead.id} aggiunto alla coda locale`);
+        return true;
     } catch (error) {
-        console.error('❌ Errore nel salvataggio in coda:', error);
-        throw error;
+        console.error('❌ Errore nel salvataggio in coda locale:', error);
+        return false;
     }
 }
 

@@ -89,14 +89,25 @@ class WhiteLabelConfig(models.Model):
             return self.browse()
 
         if not config:
-            # Solo il fallback legacy per company_id crea una config default
-            config = self.create({
-                'name': 'Default Configuration',
-                'code': 'default',
-                'company_id': company_id or self.env.company.id,
-                'primary_color': '#1a2744',
-                'secondary_color': '#f97316',
-            })
+            # Solo il fallback legacy per company_id crea una config default.
+            # Prima riusa/riattiva un record esistente con lo stesso code, per non
+            # violare il vincolo unique_brand_code se era stato archiviato.
+            target_company_id = company_id or self.env.company.id
+            existing = self.with_context(active_test=False).search([
+                ('company_id', '=', target_company_id),
+                ('code', '=', 'default'),
+            ], limit=1)
+            if existing:
+                existing.write({'active': True})
+                config = existing
+            else:
+                config = self.create({
+                    'name': 'Default Configuration',
+                    'code': 'default',
+                    'company_id': target_company_id,
+                    'primary_color': '#1a2744',
+                    'secondary_color': '#f97316',
+                })
 
         return config
 
