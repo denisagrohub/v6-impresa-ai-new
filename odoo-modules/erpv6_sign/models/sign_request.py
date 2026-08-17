@@ -47,19 +47,19 @@ class SignRequest(models.Model):
         """Invia la richiesta di firma a OpenSign"""
         self.ensure_one()
         
-        if not self.document_id or not self.document_id.file_content:
+        if not self.document_id or not self.document_id.pdf_file:
             raise UserError(_('Documento non disponibile'))
-        
+
         # Config OpenSign
         config = self.env['erpv6.sign.config'].search([('active', '=', True)], limit=1)
         if not config:
             raise UserError(_('Configurazione OpenSign non trovata'))
-        
+
         # Prepara payload per OpenSign
         import base64
         payload = {
-            'document': base64.b64decode(self.document_id.file_content).decode('latin-1'),
-            'document_name': self.document_id.file_name,
+            'document': base64.b64decode(self.document_id.pdf_file).decode('latin-1'),
+            'document_name': self.document_id.pdf_filename,
             'signers': [
                 {
                     'name': self.partner_id.name,

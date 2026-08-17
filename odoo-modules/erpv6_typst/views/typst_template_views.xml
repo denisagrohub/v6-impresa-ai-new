@@ -48,7 +48,6 @@
                             <field name="sequence"/>
                         </group>
                         <group>
-                            <field name="kb_module_id"/>
                             <field name="page_size"/>
                             <field name="orientation"/>
                         </group>
@@ -56,6 +55,9 @@
                     <notebook>
                         <page string="Descrizione">
                             <field name="description" placeholder="Descrizione del template..."/>
+                        </page>
+                        <page string="Sorgente Typst">
+                            <field name="typst_source" placeholder="#let data = json(&quot;data.json&quot;)..." options='{"font": "monospace"}'/>
                         </page>
                         <page string="Campi Richiesti">
                             <field name="required_fields" widget="json" options='{"mode": "editor"}'/>
