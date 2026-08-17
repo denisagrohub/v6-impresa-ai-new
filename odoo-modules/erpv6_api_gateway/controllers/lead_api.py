@@ -138,6 +138,11 @@ class LeadAPIController(APIBaseController):
                     score=data.get('score'),
                     package_hint=data.get('package_hint') or data.get('packageId') or data.get('livello'),
                     verticale=data.get('verticale') or data.get('settore'),
+                    budget=data.get('budget'),
+                    tempistiche=data.get('tempistiche'),
+                    tipo_progetto=data.get('tipo_progetto') or data.get('tipoProgetto'),
+                    destinatario=data.get('destinatario'),
+                    fatturato=data.get('fatturato'),
                 )
             except Exception as e:
                 _logger.warning("Production start error: %s", e)
@@ -184,6 +189,11 @@ class LeadAPIController(APIBaseController):
                     score=data.get('score'),
                     package_hint=data.get('package_hint') or data.get('packageId') or data.get('livello'),
                     verticale=data.get('verticale') or data.get('settore'),
+                    budget=data.get('budget'),
+                    tempistiche=data.get('tempistiche'),
+                    tipo_progetto=data.get('tipo_progetto') or data.get('tipoProgetto'),
+                    destinatario=data.get('destinatario'),
+                    fatturato=data.get('fatturato'),
                 )
             except Exception as e:
                 _logger.warning("Production update error per lead #%s: %s", lead.id, e)

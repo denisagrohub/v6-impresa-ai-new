@@ -44,6 +44,15 @@ class Erpv6ProductionOrder(models.Model):
         help='Settore usato per risolvere la KB corretta (erpv6.kb.find_best_for). '
              'Dato di produzione, non scritto su crm.lead. Se vuoto, trattato come "generico".'
     )
+    # Valori grezzi (stessa scelta di design di interview_package_hint: la
+    # tassonomia delle opzioni vive nel frontend, non qui - un Selection
+    # andrebbe fuori sync ad ogni cambio delle opzioni in intervista/page.tsx).
+    # Usati da _compute_kairos_matrix() per derivare impatto/prontezza.
+    interview_budget = fields.Char(string='Budget (intervista)')
+    interview_tempistiche = fields.Char(string='Tempistiche (intervista)')
+    interview_tipo_progetto = fields.Char(string='Tipo Progetto (intervista)')
+    interview_destinatario = fields.Char(string='Destinatario BP (intervista)')
+    interview_fatturato = fields.Char(string='Fatturato Azienda (intervista)')
 
     event_ids = fields.One2many('erpv6.production.event', 'order_id', string='Eventi')
     schedule_ids = fields.One2many('erpv6.production.schedule', 'order_id', string='Pianificazione Risorse')
@@ -118,6 +127,72 @@ class Erpv6ProductionOrder(models.Model):
             'interview_package_hint': self.interview_package_hint or '',
             'verticale': self.verticale or '',
         }
+
+    # Mapping da risposte grezze dell'intervista (stringhe esatte delle
+    # opzioni in apps/impresa/src/app/intervista/page.tsx) a punteggi
+    # erpv6.kairos.matrix. Solo budget/tempistiche hanno un segnale diretto
+    # nell'intervista attuale; gli altri 3 indicatori (apertura, risorse
+    # interne diverse dal budget, storico) restano al valore neutro 2 -
+    # deciso esplicitamente con l'utente, mai inventato un segnale che
+    # l'intervista non raccoglie davvero.
+    _KAIROS_BUDGET_TO_IMPATTO = {
+        '< €5.000': 2, '€5.000 - €10.000': 3, '€10.000 - €25.000': 4, '> €25.000': 5,
+    }
+    _KAIROS_BUDGET_TO_LIQUIDITA = {
+        '< €5.000': 1, '€5.000 - €10.000': 2, '€10.000 - €25.000': 2, '> €25.000': 3,
+    }
+    _KAIROS_TEMPISTICHE_TO_URGENZA = {
+        'Immediata (< 1 mese)': 3, 'Breve (1-3 mesi)': 3, 'Media (3-6 mesi)': 2, 'Lunga (> 6 mesi)': 1,
+    }
+    _KAIROS_NEUTRO = 2
+
+    def _compute_kairos_matrix(self):
+        """Crea/aggiorna una erpv6.kairos.matrix (matrix_type='finanziario',
+        motore generico di erpv6_methodology, non reimplementato qui) per
+        capire se vale la pena chiamare subito questo lead o nutrirlo prima.
+        Richiede budget+tempistiche dall'intervista: se mancano (es. lead da
+        form contatti, non dall'intervista) non crea nulla - mai una matrice
+        fabbricata su dati che non ci sono."""
+        self.ensure_one()
+        budget = (self.interview_budget or '').strip()
+        tempistiche = (self.interview_tempistiche or '').strip()
+        if not budget or not tempistiche:
+            return False
+
+        impatto = self._KAIROS_BUDGET_TO_IMPATTO.get(budget)
+        liquidita = self._KAIROS_BUDGET_TO_LIQUIDITA.get(budget)
+        urgenza = self._KAIROS_TEMPISTICHE_TO_URGENZA.get(tempistiche)
+        if impatto is None or urgenza is None:
+            _logger.warning(
+                "Kairos: budget '%s' o tempistiche '%s' non riconosciuti (opzioni intervista cambiate?) "
+                "per produzione #%s - matrice non calcolata.", budget, tempistiche, self.id,
+            )
+            return False
+
+        Matrix = self.env['erpv6.kairos.matrix'].sudo()
+        vals = {
+            'res_model': self._name,
+            'res_id': self.id,
+            'matrix_type': 'finanziario',
+            'impatto_score': impatto,
+            'indicatore_1': self._KAIROS_NEUTRO,
+            'indicatore_2': liquidita,
+            'indicatore_3': self._KAIROS_NEUTRO,
+            'indicatore_4': urgenza,
+            'indicatore_5': self._KAIROS_NEUTRO,
+            'notes': (
+                "Calcolato automaticamente da budget/tempistiche dell'intervista "
+                "(_compute_kairos_matrix). Indicatori 1/3/5 = valore neutro: "
+                "l'intervista non raccoglie apertura del titolare o storico bancario."
+            ),
+        }
+        existing = Matrix.search([
+            ('res_model', '=', self._name), ('res_id', '=', self.id), ('matrix_type', '=', 'finanziario'),
+        ], limit=1)
+        if existing:
+            existing.write(vals)
+            return existing
+        return Matrix.create(vals)
 
     def _notify_stall(self, summary):
         """Crea un'activity Odoo (visibile in Attivita'/Discuss, non solo

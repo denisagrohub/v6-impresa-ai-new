@@ -30,6 +30,7 @@ function ensureQueueFile(): void {
 const CORE_FIELDS = new Set([
     'nome', 'email', 'telefono', 'azienda', 'obiettivi',
     'settore', 'score', 'packageId', 'package', 'recommendedLevel', 'estimatedPrice', 'timestamp',
+    'budget', 'tempistiche', 'tipoProgetto', 'destinatario', 'fatturato',
 ]);
 
 function formatExtraAnswers(data: Record<string, any>): string {
@@ -56,6 +57,16 @@ function mapLeadDataForOdoo(data: Record<string, any>): Record<string, any> {
         score: data.score,
         package_hint: data.packageId || data.recommendedLevel,
         settore: data.settore || '',
+        // Prima finivano solo come testo libero in description (vedi
+        // formatExtraAnswers) - erpv6.production.order li legge ora come
+        // campi strutturati (_start_production) per Kairos e per non perdere
+        // il tipo di progetto scelto. Restano comunque assenti da
+        // description grazie a CORE_FIELDS sopra, niente duplicazione.
+        budget: data.budget || '',
+        tempistiche: data.tempistiche || '',
+        tipo_progetto: data.tipoProgetto || '',
+        destinatario: data.destinatario || '',
+        fatturato: data.fatturato || '',
     };
 }
 

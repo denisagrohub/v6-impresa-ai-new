@@ -35,6 +35,11 @@
                             <field name="interview_package_hint"/>
                             <field name="interview_score"/>
                             <field name="verticale"/>
+                            <field name="interview_tipo_progetto"/>
+                            <field name="interview_destinatario"/>
+                            <field name="interview_budget"/>
+                            <field name="interview_tempistiche"/>
+                            <field name="interview_fatturato"/>
                         </group>
                     </group>
                     <notebook>
