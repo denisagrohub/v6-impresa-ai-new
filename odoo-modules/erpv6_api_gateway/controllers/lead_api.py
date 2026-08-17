@@ -14,6 +14,28 @@ _logger = logging.getLogger(__name__)
 
 class LeadAPIController(APIBaseController):
 
+    def _assign_real_salesperson(self, lead):
+        """Fallback minimo se erpv6_production (che ha _promote_to_opportunity)
+        non e' installato: assegna comunque un venditore reale invece di
+        lasciare il lead sull'utente pubblico con cui e' stato creato."""
+        try:
+            team = lead.sudo().team_id
+            members = team.crm_team_member_ids.mapped('user_id') if team else lead.env['res.users']
+            if members:
+                lead.sudo()._handle_salesmen_assignment(user_ids=members.ids)
+                lead.sudo().activity_schedule(
+                    'mail.mail_activity_data_todo',
+                    summary=f"Nuovo lead da gestire: {lead.name}",
+                    user_id=lead.sudo().user_id.id,
+                )
+            else:
+                _logger.warning(
+                    "Nessun membro reale nel team '%s' - lead #%s senza venditore assegnato.",
+                    team.name if team else '(nessun team)', lead.id,
+                )
+        except Exception as e:
+            _logger.warning("Assegnazione venditore fallita per lead #%s: %s", lead.id, e)
+
     @http.route('/api/v1/leads', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def create_lead(self, **kwargs):  # pylint: disable=unused-argument
         if request.httprequest.method == 'OPTIONS':
@@ -48,6 +70,15 @@ class LeadAPIController(APIBaseController):
         if company:
             lead_name += f" - {company}"
 
+        # 'qualified' default True per non cambiare il comportamento dei
+        # chiamanti esistenti (es. form contatti, gia' un invio "pieno" e
+        # intenzionale). Chi fa salvataggio progressivo (es. intervista
+        # dopo la sola prima fase) passa qualified=False esplicitamente:
+        # il lead nasce type='lead' grezzo, senza venditore/notifica/
+        # progetto - quelli arrivano solo alla qualificazione vera (vedi
+        # update_lead sotto).
+        qualified = data.get('qualified', True)
+
         vals = {
             'name': lead_name,
             'contact_name': name,
@@ -55,7 +86,7 @@ class LeadAPIController(APIBaseController):
             'email_from': email,
             'phone': data.get('phone', ''),
             'description': data.get('description', ''),
-            'type': 'opportunity',
+            'type': 'opportunity' if qualified else 'lead',
         }
 
         # Campi Fenice (se il modulo e' installato). I campi reali hanno
@@ -76,6 +107,19 @@ class LeadAPIController(APIBaseController):
             _logger.error("Lead creation error: %s", e)
             return self._json_response({'error': 'Creation failed'}, 500)
 
+        # Promozione a opportunita' qualificata (venditore reale, notifica,
+        # project.project) SOLO se qualified: un lead grezzo non qualificato
+        # (es. salvataggio progressivo dopo la prima fase dell'intervista)
+        # non deve disturbare nessuno finche' non lo e' davvero.
+        if qualified:
+            if hasattr(lead, '_promote_to_opportunity'):
+                try:
+                    lead._promote_to_opportunity()
+                except Exception as e:
+                    _logger.warning("Promozione a opportunity fallita per lead #%s: %s", lead.id, e)
+            else:
+                self._assign_real_salesperson(lead)
+
         # Avvia funnel se disponibile
         funnel_started = False
         if data.get('start_funnel', True) and hasattr(lead, '_start_funnel'):
@@ -93,6 +137,7 @@ class LeadAPIController(APIBaseController):
                 lead._start_production(
                     score=data.get('score'),
                     package_hint=data.get('package_hint') or data.get('packageId') or data.get('livello'),
+                    verticale=data.get('verticale') or data.get('settore'),
                 )
             except Exception as e:
                 _logger.warning("Production start error: %s", e)
@@ -103,6 +148,58 @@ class LeadAPIController(APIBaseController):
 
         self._log_api_call('/api/v1/leads', 'POST', None, 201, start_time)
         return self._json_response({'id': lead.id, 'name': lead.name, 'funnel_started': funnel_started}, 201)
+
+    @http.route('/api/v1/leads/<int:lead_id>', type='http', auth='none', methods=['PUT', 'OPTIONS'], csrf=False)
+    def update_lead(self, lead_id, **kwargs):  # pylint: disable=unused-argument
+        """Arricchisce un lead gia' creato (tipicamente in modo non
+        qualificato, vedi create_lead) con i dati raccolti nelle fasi
+        successive di un form progressivo, e opzionalmente lo qualifica
+        (qualified=True) - e' il punto in cui, alla fine dell'intervista,
+        un lead grezzo diventa un'opportunita' vera."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+
+        try:
+            data = json.loads(request.httprequest.data)
+        except json.JSONDecodeError:
+            return self._json_response({'error': 'Invalid JSON'}, 400)
+
+        env = request.env(user=request.env.ref('base.public_user'))
+        lead = env['crm.lead'].sudo().browse(lead_id)
+        if not lead.exists():
+            self._log_api_call(f'/api/v1/leads/{lead_id}', 'PUT', None, 404, start_time)
+            return self._json_response({'error': 'Lead not found'}, 404)
+
+        update_vals = {}
+        for field, key in [('phone', 'phone'), ('description', 'description'), ('partner_name', 'company_name')]:
+            if data.get(key):
+                update_vals[field] = data[key]
+        if update_vals:
+            lead.sudo().write(update_vals)
+
+        if hasattr(lead, '_start_production'):
+            try:
+                lead._start_production(
+                    score=data.get('score'),
+                    package_hint=data.get('package_hint') or data.get('packageId') or data.get('livello'),
+                    verticale=data.get('verticale') or data.get('settore'),
+                )
+            except Exception as e:
+                _logger.warning("Production update error per lead #%s: %s", lead.id, e)
+
+        qualified = bool(data.get('qualified'))
+        if qualified:
+            if hasattr(lead, '_promote_to_opportunity'):
+                try:
+                    lead._promote_to_opportunity()
+                except Exception as e:
+                    _logger.warning("Promozione a opportunity fallita per lead #%s: %s", lead.id, e)
+            else:
+                self._assign_real_salesperson(lead)
+
+        self._log_api_call(f'/api/v1/leads/{lead_id}', 'PUT', None, 200, start_time)
+        return self._json_response({'id': lead.id, 'name': lead.name, 'qualified': lead.sudo().type == 'opportunity'}, 200)
 
     @http.route('/api/v1/leads/evaluate', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def evaluate_lead(self, **kwargs):  # pylint: disable=unused-argument

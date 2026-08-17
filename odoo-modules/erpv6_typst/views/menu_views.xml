@@ -2,7 +2,7 @@
 <odoo>
     <!-- Menu Principale -->
     <menuitem id="menu_erpv6_typst_root" 
-              name="Documenti & Report" 
+              name="Documenti &amp; Report"
               parent="base.menu_custom" 
               sequence="10"/>
 

@@ -70,6 +70,22 @@ const phases = [
   }
 ];
 
+// Wrapper client-side per /api/leads?partial=true - non puo' importare
+// lib/lead-queue.ts direttamente (usa fs/os, solo lato server).
+async function createPartialLead(data: Record<string, any>): Promise<{ success: boolean; leadId?: number }> {
+  try {
+    const response = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'intervista', data, partial: true }),
+    });
+    const body = await response.json().catch(() => null);
+    return response.ok && body?.success ? { success: true, leadId: body.leadId } : { success: false };
+  } catch {
+    return { success: false };
+  }
+}
+
 function InterviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,6 +99,26 @@ function InterviewContent() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<InterviewResult | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  // Cattura anticipata (non bloccante): valorizzato appena la prima fase
+  // (nome/email/azienda) e' completa, cosi' un abbandono a meta' intervista
+  // non perde comunque il contatto. Se resta null (rete/Odoo non
+  // raggiungibile), submitAnswers ricade sul POST pieno di sempre.
+  const [leadId, setLeadId] = useState<number | null>(null);
+  // Verticali reali (erpv6.vertical.catalog via /api/verticals) per la
+  // domanda 'settore': finche' il catalogo non e' popolato resta vuoto e la
+  // domanda degrada al campo testo originale, non blocca l'intervista.
+  const [verticalOptions, setVerticalOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch('/api/verticals')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => {
+        if (Array.isArray(list)) {
+          setVerticalOptions(list.map((v: { name?: string }) => v.name).filter((n): n is string => !!n));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const phase = phases[currentPhase];
   const questions = phase.questions;
@@ -92,10 +128,19 @@ function InterviewContent() {
 
   const handleAnswer = (value: string) => {
     const q = questions[currentQuestion];
-    setAnswers({ ...answers, [q.id]: value });
+    const updatedAnswers = { ...answers, [q.id]: value };
+    setAnswers(updatedAnswers);
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       return;
+    }
+    // Cattura anticipata non bloccante appena la prima fase (profilo:
+    // nome/email/azienda) e' completa - non aspetta la risposta, non
+    // blocca la navigazione alla fase successiva.
+    if (currentPhase === 0 && !leadId) {
+      createPartialLead({ ...updatedAnswers, package: packageName, packageId }).then((r) => {
+        if (r.success && r.leadId) setLeadId(r.leadId);
+      });
     }
     // Salta eventuali fasi senza domande (es. 'results', usata solo come
     // marker finale) invece di navigarci dentro e restare bloccati su un
@@ -129,22 +174,30 @@ function InterviewContent() {
       const result = interviewEngine.calculateScore(fullAnswers);
       setResult(result);
 
-      const response = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source: 'intervista',
-          data: {
-            ...fullAnswers,
-            package: packageName || result.recommendedLevel,
-            packageId: packageId || result.recommendedLevel,
-            score: result.score,
-            recommendedLevel: result.recommendedLevel,
-            estimatedPrice: result.estimatedPrice,
-            timestamp: new Date().toISOString(),
-          },
-        }),
-      });
+      const fullData = {
+        ...fullAnswers,
+        package: packageName || result.recommendedLevel,
+        packageId: packageId || result.recommendedLevel,
+        score: result.score,
+        recommendedLevel: result.recommendedLevel,
+        estimatedPrice: result.estimatedPrice,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Se la cattura anticipata (fine prima fase) e' andata a buon fine,
+      // arricchiamo/qualifichiamo quel lead invece di crearne uno nuovo;
+      // altrimenti stesso POST pieno di sempre (safety net invariata).
+      const response = leadId
+        ? await fetch(`/api/leads/${leadId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fullData),
+          })
+        : await fetch('/api/leads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'intervista', data: fullData }),
+          });
       const responseBody = await response.json().catch(() => null);
 
       if (!response.ok || !responseBody?.success) {
@@ -257,9 +310,9 @@ function InterviewContent() {
           <p className="text-sm text-gray-500 mb-2">{phase.description}</p>
           <h3 className="text-2xl font-bold text-gray-900 mb-6">{q.label}</h3>
 
-          {q.type === 'select' ? (
+          {(q.type === 'select' || (q.id === 'settore' && verticalOptions.length > 0)) ? (
             <div className="space-y-3">
-              {q.options?.map((opt: string) => (
+              {(q.id === 'settore' ? verticalOptions : q.options)?.map((opt: string) => (
                 <button
                   key={opt}
                   onClick={() => handleAnswer(opt)}

@@ -1,6 +1,161 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data noupdate="1">
+        <!-- Template Report Intervista (interno) -->
+        <record id="typst_template_interview_report" model="erpv6.typst.template">
+            <field name="name">Report Intervista (interno)</field>
+            <field name="code">INTERVISTA-REPORT-001</field>
+            <field name="category">custom</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Report interno (non per il cliente finale) che rende i dati raccolti dall'intervista sul sito. Legge render_data.basic (le risposte base) e render_data.assessment (punteggio/livello consigliato/punti di forza e debolezza), se presenti. Qualunque chiave extra non prevista - sia dentro basic sia al primo livello di render_data - viene comunque mostrata automaticamente in una sezione "Altri Dati": il template non richiede modifiche quando l'intervista viene ampliata con nuovi campi.</field>
+            <field name="sequence">5</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields">{
+                "basic": {"type": "object", "description": "Risposte base intervista (nome, email, azienda, settore, fatturato, dipendenti, tipoProgetto, destinatario, tempistiche, budget, obiettivi...)"},
+                "assessment": {"type": "object", "description": "Opzionale: score, recommendedLevel, estimatedPrice, summary, strengths[], weaknesses[], nextSteps[]"}
+            }</field>
+            <field name="typst_source"><![CDATA[#let data = json("data.json")
+
+#set page(paper: "a4", margin: 2.5cm)
+#set text(size: 10pt, lang: "it")
+
+#let label-map = (
+  nome: "Nome",
+  email: "Email",
+  telefono: "Telefono",
+  azienda: "Azienda",
+  settore: "Settore",
+  fatturato: "Fatturato",
+  dipendenti: "Dipendenti",
+  tipoProgetto: "Tipo Progetto",
+  destinatario: "Destinatario",
+  tempistiche: "Tempistiche",
+  budget: "Budget",
+  obiettivi: "Obiettivi",
+  score: "Punteggio",
+  recommendedLevel: "Livello Consigliato",
+  estimatedPrice: "Prezzo Stimato",
+)
+
+#let field-label(key) = {
+  if key in label-map { label-map.at(key) } else { key }
+}
+
+#let format-thousands(n) = {
+  if type(n) != int and type(n) != float { return str(n) }
+  let neg = n < 0
+  let digits = str(int(calc.abs(n)))
+  let grouped = ()
+  let count = 0
+  for i in range(digits.len() - 1, -1, step: -1) {
+    grouped.push(digits.at(i))
+    count += 1
+    if calc.rem(count, 3) == 0 and i != 0 {
+      grouped.push(".")
+    }
+  }
+  let result = grouped.rev().join("")
+  if neg { "-" + result } else { result }
+}
+
+#let format-field-value(key, value) = {
+  if key == "estimatedPrice" [€ #format-thousands(value)]
+  else if key == "score" [#value / 100]
+  else [#value]
+}
+
+#let kv-table(dict) = {
+  table(
+    columns: (auto, 1fr),
+    stroke: none,
+    row-gutter: 0.6em,
+    ..dict.pairs().map(p => (strong(field-label(p.at(0))), [#p.at(1)])).flatten()
+  )
+}
+
+#align(center)[
+  #text(size: 20pt, weight: "bold")[Report Intervista]
+  #v(0.3em)
+  #text(size: 11pt, fill: gray)[Generato il #data.at("generated_at", default: "-")]
+]
+
+#v(1.5em)
+#line(length: 100%, stroke: 0.5pt + gray)
+#v(1em)
+
+#if "basic" in data [
+  = Dati Raccolti
+  #kv-table(data.basic)
+  #v(1em)
+]
+
+#if "assessment" in data [
+  = Valutazione
+
+  #let a = data.assessment
+
+  #if "score" in a or "recommendedLevel" in a or "estimatedPrice" in a [
+    #let summary-fields = (
+      "score", "recommendedLevel", "estimatedPrice"
+    ).filter(k => k in a)
+    #table(
+      columns: (auto, 1fr),
+      stroke: none,
+      row-gutter: 0.6em,
+      ..summary-fields.map(k => (strong(field-label(k)), format-field-value(k, a.at(k)))).flatten()
+    )
+    #v(0.8em)
+  ]
+
+  #if "summary" in a [
+    #a.summary
+    #v(0.8em)
+  ]
+
+  #if "strengths" in a and a.strengths.len() > 0 [
+    == Punti di forza
+    #for s in a.strengths [
+      - #s
+    ]
+  ]
+
+  #if "weaknesses" in a and a.weaknesses.len() > 0 [
+    == Punti di debolezza
+    #for w in a.weaknesses [
+      - #w
+    ]
+  ]
+
+  #if "nextSteps" in a and a.nextSteps.len() > 0 [
+    == Prossimi passi
+    #for n in a.nextSteps [
+      + #n
+    ]
+  ]
+]
+
+#let known-keys = ("basic", "assessment", "generated_at")
+#let extra-keys = data.keys().filter(k => k not in known-keys)
+#if extra-keys.len() > 0 [
+  = Altri Dati
+
+  #for key in extra-keys [
+    == #field-label(key)
+    #let v = data.at(key)
+    #if type(v) == dictionary [
+      #kv-table(v)
+    ] else if type(v) == array [
+      #for item in v [ - #item ]
+    ] else [
+      #v
+    ]
+  ]
+]
+]]></field>
+        </record>
+
         <!-- Template Business Plan Standard -->
         <record id="typst_template_business_plan_standard" model="erpv6.typst.template">
             <field name="name">Business Plan Standard</field>

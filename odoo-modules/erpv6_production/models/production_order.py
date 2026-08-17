@@ -1,6 +1,7 @@
 import logging
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -20,6 +21,15 @@ class Erpv6ProductionOrder(models.Model):
         help='Bundle di sezioni/documento assegnato a questa produzione (deciso in fase successiva)'
     )
     phase_id = fields.Many2one('erpv6.production.phase', string='Fase Corrente', tracking=True)
+    project_id = fields.Many2one(
+        'project.project', string='Progetto', ondelete='set null',
+        help='Creato automaticamente alla ricezione del lead (vedi _start_production)'
+    )
+    contract_id = fields.Many2one(
+        'erpv6.contract', string='Contratto', ondelete='set null',
+        help='Valorizzato solo se un consulente ha deciso manualmente di formalizzare '
+             'questa produzione con NDA/contratto (action_create_contract)'
+    )
 
     # Dati grezzi dell'intervista, non scritti su crm.lead (vedi CLAUDE.md:
     # motore vs conoscenza - non vanno confusi con x_fenice_score/x_fenice_livello,
@@ -36,6 +46,7 @@ class Erpv6ProductionOrder(models.Model):
     )
 
     event_ids = fields.One2many('erpv6.production.event', 'order_id', string='Eventi')
+    schedule_ids = fields.One2many('erpv6.production.schedule', 'order_id', string='Pianificazione Risorse')
 
     # Non un vero One2many: erpv6_library non dipende da erpv6_production
     # (e' vero il contrario), quindi niente Many2one production_order_id su
@@ -73,7 +84,27 @@ class Erpv6ProductionOrder(models.Model):
         })
         self.env['erpv6.production.event'].create(vals)
         self.phase_id = new_phase_id
+        new_phase = self.env['erpv6.production.phase'].browse(new_phase_id)
+        self.env['erpv6.production.schedule'].sudo().create_for_phase(self, new_phase)
         return True
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = super().create(vals_list)
+        for order in orders:
+            if not order.phase_id:
+                continue
+            try:
+                self.env['erpv6.production.schedule'].sudo().create_for_phase(order, order.phase_id)
+            except Exception:
+                # Fuori dal savepoint di evaluate_and_advance: questo path e'
+                # chiamato in diretta da erpv6_api_gateway su ogni lead reale
+                # in ingresso - un errore di pianificazione non deve mai far
+                # fallire l'intake di un lead.
+                _logger.exception(
+                    "create_for_phase fallito alla creazione di produzione #%s, intake non impattato.", order.id
+                )
+        return orders
 
     def _build_typst_data(self):
         """Dati reali disponibili sull'ordine, usati sia per generare il
@@ -300,6 +331,43 @@ class Erpv6ProductionOrder(models.Model):
     def action_consultant_advance(self):
         self.ensure_one()
         return self.evaluate_and_advance(trigger='consultant')
+
+    def action_create_contract(self):
+        """Escalation manuale: il consulente, dopo aver visto il report,
+        decide di formalizzare questa produzione con NDA/contratto invece di
+        proseguire sul percorso standard a pacchetto. Mai automatico: e'
+        una scelta umana (vedi discussione con l'utente su acquisizione vs
+        vendita standard L1/L2)."""
+        self.ensure_one()
+        if self.contract_id:
+            raise UserError(_("Questa produzione ha gia' un contratto collegato (#%s).") % self.contract_id.id)
+
+        self.lead_id.sudo()._handle_partner_assignment(create_missing=True)
+        partner = self.lead_id.partner_id
+        if not partner:
+            raise UserError(_("Impossibile determinare un cliente per questo lead - contatto non risolvibile."))
+
+        contract = self.env['erpv6.contract'].sudo().create({
+            'name': f"Contratto - {self.name}",
+            'partner_id': partner.id,
+            'project_id': self.project_id.id if self.project_id else False,
+        })
+        self.contract_id = contract.id
+        self.env['erpv6.production.event'].create({
+            'order_id': self.id,
+            'event_type': 'interazione_consulente',
+            'decision_method': 'deterministico',
+            'description': f"Contratto #{contract.id} creato manualmente da {self.env.user.name}.",
+            'phase_before_id': self.phase_id.id,
+            'phase_after_id': self.phase_id.id,
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'erpv6.contract',
+            'res_id': contract.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
 
     @api.model
     def _cron_evaluate_all(self):

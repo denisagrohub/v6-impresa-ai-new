@@ -47,10 +47,10 @@ class TypstEngine(models.Model):
             'template_id': template_id,
             'res_model': res_model,
             'res_id': res_id,
-            'data': data or '{}',
+            'render_data': data or {},
         })
-        
+
         # Genera il PDF
-        document.action_generate()
-        
+        document.action_render()
+
         return document

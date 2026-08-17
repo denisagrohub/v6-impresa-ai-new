@@ -20,16 +20,42 @@ function ensureQueueFile(): void {
     }
 }
 
-// L'intervista produce campi in italiano (nome, telefono, azienda, obiettivi);
-// /api/v1/leads (lead_api.py) richiede name/email obbligatori e accetta
-// phone/company_name/description opzionali, tutti in inglese.
+// L'intervista produce campi in italiano (nome, telefono, azienda, obiettivi,
+// settore, score, packageId, ...); /api/v1/leads (lead_api.py) richiede
+// name/email obbligatori, accetta phone/company_name/description/score/
+// package_hint/verticale opzionali, tutti in inglese. Le risposte che non
+// hanno un campo Odoo dedicato (fatturato, dipendenti, budget, ecc.) vengono
+// comunque accodate in coda a description invece di essere scartate in
+// silenzio - erano dati raccolti dall'utente e mai arrivati a Odoo.
+const CORE_FIELDS = new Set([
+    'nome', 'email', 'telefono', 'azienda', 'obiettivi',
+    'settore', 'score', 'packageId', 'package', 'recommendedLevel', 'estimatedPrice', 'timestamp',
+]);
+
+function formatExtraAnswers(data: Record<string, any>): string {
+    return Object.entries(data)
+        .filter(([key, value]) => !CORE_FIELDS.has(key) && value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n');
+}
+
 function mapLeadDataForOdoo(data: Record<string, any>): Record<string, any> {
+    const extra = formatExtraAnswers(data);
     return {
         name: data.nome || '',
         email: data.email || '',
         phone: data.telefono || '',
         company_name: data.azienda || '',
-        description: data.obiettivi || '',
+        description: extra ? `${data.obiettivi || ''}\n\n${extra}`.trim() : (data.obiettivi || ''),
+        // NON scrivere qui su fenice_score/fenice_livello: sono campi
+        // specifici della verticale Fenice (Selection 'I'/'II'/'III'/'IV',
+        // dominio incompatibile con 'L1'/'L2'/'L3' di questa intervista) e
+        // scriverli causerebbe un ValueError su lead di un'altra verticale.
+        // score/package_hint finiscono invece su production_order via
+        // _start_production, che e' lo scoring generico corretto per questo sito.
+        score: data.score,
+        package_hint: data.packageId || data.recommendedLevel,
+        settore: data.settore || '',
     };
 }
 
@@ -76,6 +102,46 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
     } else {
         // Odoo non è abilitato, salva sempre in coda locale
         return await fallbackToQueue(lead);
+    }
+}
+
+// Cattura anticipata (best-effort) per form lunghi a più fasi: crea un lead
+// grezzo non qualificato (qualified:false, vedi lead_api.py) appena i primi
+// dati minimi sono disponibili, così un abbandono a metà form non perde
+// tutto. Nessun fallback su coda locale qui - se fallisce (rete, Odoo giù),
+// la submitAnswers finale ricade comunque su saveLead() come sempre.
+export async function createPartialLead(leadData: Record<string, any>): Promise<{ success: boolean; leadId?: number }> {
+    if (!isOdooEnabled()) {
+        return { success: false };
+    }
+    try {
+        const result = await callOdooAPI('/api/v1/leads', {
+            method: 'POST',
+            body: JSON.stringify({ ...mapLeadDataForOdoo(leadData), qualified: false }),
+        });
+        return { success: true, leadId: result?.data?.id ?? result?.id };
+    } catch (error) {
+        console.debug('Cattura anticipata non riuscita (non bloccante):', error);
+        return { success: false };
+    }
+}
+
+// Arricchisce e qualifica un lead gia' catturato da createPartialLead,
+// portandolo da 'lead' grezzo a 'opportunity' (venditore reale, notifica,
+// project.project - vedi crm_lead.py::_promote_to_opportunity).
+export async function updateLead(leadId: number, leadData: Record<string, any>): Promise<{ success: boolean }> {
+    if (!isOdooEnabled()) {
+        return { success: false };
+    }
+    try {
+        await callOdooAPI(`/api/v1/leads/${leadId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ ...mapLeadDataForOdoo(leadData), qualified: true }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Aggiornamento/qualificazione lead fallito:', error);
+        return { success: false };
     }
 }
 

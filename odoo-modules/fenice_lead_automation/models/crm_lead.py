@@ -70,9 +70,14 @@ class CrmLead(models.Model):
 
     def _send_funnel_email(self, step_number):
         self.ensure_one()
+        # Il numero di step vive nel campo "name" dei template ("[Fenice AI]
+        # Step N - ..."), non in "subject" (che e' il testo reale dell'oggetto
+        # email, es. "Il tuo Report Fenice Score e' pronto...") - cercarlo su
+        # subject non trovava mai nulla, quindi nessuna email veniva mai
+        # inviata pur segnando lo stage come avanzato.
         template = self.env['mail.template'].search([
             ('model_id.model', '=', 'crm.lead'),
-            ('subject', 'ilike', f'[Fenice AI] Step {step_number}'),
+            ('name', 'ilike', f'Step {step_number}'),
         ], limit=1)
         if not template: return
         try:

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tassonomia di partenza per PMI italiane: usata dalla domanda
+         "settore" dell'intervista pubblica (V6 Impresa) e come vincolo di
+         coerenza per erpv6.kb.category.verticale (vedi erpv6_saas/models/kb_category.py).
+         noupdate="1": dati di seed, editabili liberamente da Impostazioni
+         SaaS > Verticali dopo la prima installazione, senza essere
+         sovrascritti a un successivo aggiornamento del modulo.
+         module_names lasciato vuoto: nessuno di questi è (ancora) un
+         verticale provisionato come tenant SaaS V6 Performance — quel
+         campo si valorizza solo quando/se serve davvero il provisioning. -->
+    <data noupdate="1">
+        <record id="vertical_manifatturiero" model="erpv6.vertical.catalog">
+            <field name="verticale">manifatturiero</field>
+            <field name="name">Manifatturiero e Produzione</field>
+            <field name="description">Piccola e media industria manifatturiera, produzione conto terzi, lavorazioni meccaniche generiche.</field>
+        </record>
+        <record id="vertical_edilizia" model="erpv6.vertical.catalog">
+            <field name="verticale">edilizia</field>
+            <field name="name">Edilizia e Costruzioni</field>
+            <field name="description">Imprese edili, ristrutturazioni, impiantistica, general contractor.</field>
+        </record>
+        <record id="vertical_commercio" model="erpv6.vertical.catalog">
+            <field name="verticale">commercio</field>
+            <field name="name">Commercio e Retail</field>
+            <field name="description">Vendita al dettaglio e all'ingrosso, negozi fisici e e-commerce.</field>
+        </record>
+        <record id="vertical_ristorazione_turismo" model="erpv6.vertical.catalog">
+            <field name="verticale">ristorazione_turismo</field>
+            <field name="name">Ristorazione e Turismo</field>
+            <field name="description">Ristoranti, bar, alberghi, agriturismi, servizi turistici.</field>
+        </record>
+        <record id="vertical_servizi_professionali" model="erpv6.vertical.catalog">
+            <field name="verticale">servizi_professionali</field>
+            <field name="name">Servizi Professionali e Consulenza</field>
+            <field name="description">Studi professionali, consulenza aziendale, agenzie, servizi B2B.</field>
+        </record>
+        <record id="vertical_artigianato" model="erpv6.vertical.catalog">
+            <field name="verticale">artigianato</field>
+            <field name="name">Artigianato</field>
+            <field name="description">Botteghe e imprese artigiane: falegnameria, ceramica, oreficeria, lavorazioni su misura.</field>
+        </record>
+        <record id="vertical_tecnologia_digitale" model="erpv6.vertical.catalog">
+            <field name="verticale">tecnologia_digitale</field>
+            <field name="name">Tecnologia e Digitale</field>
+            <field name="description">Software house, agenzie digitali, IT services, startup tech.</field>
+        </record>
+        <record id="vertical_agroalimentare" model="erpv6.vertical.catalog">
+            <field name="verticale">agroalimentare</field>
+            <field name="name">Agricoltura e Agroalimentare</field>
+            <field name="description">Aziende agricole, trasformazione alimentare, filiera vitivinicola.</field>
+        </record>
+        <record id="vertical_sanita_benessere" model="erpv6.vertical.catalog">
+            <field name="verticale">sanita_benessere</field>
+            <field name="name">Sanità e Benessere</field>
+            <field name="description">Studi medici e odontoiatrici, centri estetici e fitness, sanità privata.</field>
+        </record>
+        <record id="vertical_trasporti_logistica" model="erpv6.vertical.catalog">
+            <field name="verticale">trasporti_logistica</field>
+            <field name="name">Trasporti e Logistica</field>
+            <field name="description">Autotrasporto, spedizionieri, magazzinaggio e distribuzione.</field>
+        </record>
+        <record id="vertical_moda_tessile" model="erpv6.vertical.catalog">
+            <field name="verticale">moda_tessile</field>
+            <field name="name">Moda e Tessile</field>
+            <field name="description">Confezioni, calzature, accessori, filiera tessile.</field>
+        </record>
+        <record id="vertical_automotive_meccanica" model="erpv6.vertical.catalog">
+            <field name="verticale">automotive_meccanica</field>
+            <field name="name">Automotive e Meccanica</field>
+            <field name="description">Officine, componentistica, carrozzerie, meccanica di precisione.</field>
+        </record>
+        <record id="vertical_energia_ambiente" model="erpv6.vertical.catalog">
+            <field name="verticale">energia_ambiente</field>
+            <field name="name">Energia e Ambiente</field>
+            <field name="description">Rinnovabili, efficientamento energetico, gestione rifiuti e ambiente.</field>
+        </record>
+        <record id="vertical_formazione" model="erpv6.vertical.catalog">
+            <field name="verticale">formazione</field>
+            <field name="name">Formazione ed Educazione</field>
+            <field name="description">Enti di formazione, scuole private, corsi professionali.</field>
+        </record>
+        <record id="vertical_altro" model="erpv6.vertical.catalog">
+            <field name="verticale">altro</field>
+            <field name="name">Altro</field>
+            <field name="description">Settore non compreso nelle categorie sopra — non blocca l'intervista, resta sul ramo di conoscenza trasversale/generico.</field>
+        </record>
+    </data>
+</odoo>
