@@ -23,7 +23,8 @@
         "security/ir.model.access.csv",
         "views/saas_tenant_views.xml",
         "views/vertical_catalog_views.xml",
-        "data/cron_data.xml"
+        "data/cron_data.xml",
+        "data/vertical_catalog_data.xml"
     ],
     "application": True,
     "installable": True,
