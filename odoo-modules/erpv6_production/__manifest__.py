@@ -20,6 +20,7 @@
         'mail',
         'crm',
         'resource',
+        'project',
         'erpv6_core',
         'erpv6_methodology',
         'erpv6_kb',
@@ -27,6 +28,8 @@
         'erpv6_omni_bridge',
         'erpv6_library',
         'erpv6_validation',
+        'erpv6_contract',
+        'erpv6_typst',
     ],
     'data': [
         'security/ir.model.access.csv',

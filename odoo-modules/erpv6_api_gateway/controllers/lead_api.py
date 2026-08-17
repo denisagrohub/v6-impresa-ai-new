@@ -76,6 +76,32 @@ class LeadAPIController(APIBaseController):
             _logger.error("Lead creation error: %s", e)
             return self._json_response({'error': 'Creation failed'}, 500)
 
+        # Assegna un venditore reale (mai l'utente pubblico con cui gira
+        # questa richiesta): senza questo, create() lascia user_id sul default
+        # env.user, cioe' l'utente pubblico stesso - nessun umano risulta mai
+        # responsabile del lead, quindi nessuna notifica arriva a nessuno.
+        # Round-robin sui membri reali del team gia' assegnato al lead
+        # (metodo nativo crm.lead, stesso usato dal wizard di assegnazione
+        # Odoo) cosi' resta automatico anche se il team cambia composizione.
+        try:
+            team = lead.sudo().team_id
+            members = team.crm_team_member_ids.mapped('user_id') if team else env['res.users']
+            if members:
+                lead.sudo()._handle_salesmen_assignment(user_ids=members.ids)
+                lead.sudo().activity_schedule(
+                    'mail.mail_activity_data_todo',
+                    summary=f"Nuovo lead da gestire: {lead.name}",
+                    note=f"Lead ricevuto da {data.get('source') or 'sito web'}. Verificare e contattare.",
+                    user_id=lead.sudo().user_id.id,
+                )
+            else:
+                _logger.warning(
+                    "Nessun membro reale nel team '%s' - lead #%s creato senza venditore assegnato.",
+                    team.name if team else '(nessun team)', lead.id,
+                )
+        except Exception as e:
+            _logger.warning("Assegnazione venditore fallita per lead #%s: %s", lead.id, e)
+
         # Avvia funnel se disponibile
         funnel_started = False
         if data.get('start_funnel', True) and hasattr(lead, '_start_funnel'):
@@ -93,6 +119,7 @@ class LeadAPIController(APIBaseController):
                 lead._start_production(
                     score=data.get('score'),
                     package_hint=data.get('package_hint') or data.get('packageId') or data.get('livello'),
+                    verticale=data.get('verticale') or data.get('settore'),
                 )
             except Exception as e:
                 _logger.warning("Production start error: %s", e)

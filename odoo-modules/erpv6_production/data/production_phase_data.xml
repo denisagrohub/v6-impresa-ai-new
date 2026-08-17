@@ -13,6 +13,7 @@
         <field name="requires_output">True</field>
         <field name="output_category">proposal</field>
         <field name="requires_validation">True</field>
+        <field name="typst_template_id" ref="erpv6_typst.typst_template_proposal"/>
     </record>
     <record id="phase_consegnato" model="erpv6.production.phase">
         <field name="name">Consegnato</field>

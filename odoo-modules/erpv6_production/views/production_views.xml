@@ -18,6 +18,8 @@
             <form>
                 <header>
                     <button name="action_consultant_advance" type="object" string="Valuta avanzamento" class="oe_highlight"/>
+                    <button name="action_create_contract" type="object" string="Crea Contratto"
+                            invisible="contract_id"/>
                 </header>
                 <sheet>
                     <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
@@ -26,10 +28,13 @@
                             <field name="lead_id"/>
                             <field name="package_id"/>
                             <field name="phase_id"/>
+                            <field name="project_id" readonly="1"/>
+                            <field name="contract_id" readonly="1"/>
                         </group>
                         <group string="Dati Intervista">
                             <field name="interview_package_hint"/>
                             <field name="interview_score"/>
+                            <field name="verticale"/>
                         </group>
                     </group>
                     <notebook>

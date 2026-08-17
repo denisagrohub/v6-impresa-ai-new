@@ -20,16 +20,42 @@ function ensureQueueFile(): void {
     }
 }
 
-// L'intervista produce campi in italiano (nome, telefono, azienda, obiettivi);
-// /api/v1/leads (lead_api.py) richiede name/email obbligatori e accetta
-// phone/company_name/description opzionali, tutti in inglese.
+// L'intervista produce campi in italiano (nome, telefono, azienda, obiettivi,
+// settore, score, packageId, ...); /api/v1/leads (lead_api.py) richiede
+// name/email obbligatori, accetta phone/company_name/description/score/
+// package_hint/verticale opzionali, tutti in inglese. Le risposte che non
+// hanno un campo Odoo dedicato (fatturato, dipendenti, budget, ecc.) vengono
+// comunque accodate in coda a description invece di essere scartate in
+// silenzio - erano dati raccolti dall'utente e mai arrivati a Odoo.
+const CORE_FIELDS = new Set([
+    'nome', 'email', 'telefono', 'azienda', 'obiettivi',
+    'settore', 'score', 'packageId', 'package', 'recommendedLevel', 'estimatedPrice', 'timestamp',
+]);
+
+function formatExtraAnswers(data: Record<string, any>): string {
+    return Object.entries(data)
+        .filter(([key, value]) => !CORE_FIELDS.has(key) && value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n');
+}
+
 function mapLeadDataForOdoo(data: Record<string, any>): Record<string, any> {
+    const extra = formatExtraAnswers(data);
     return {
         name: data.nome || '',
         email: data.email || '',
         phone: data.telefono || '',
         company_name: data.azienda || '',
-        description: data.obiettivi || '',
+        description: extra ? `${data.obiettivi || ''}\n\n${extra}`.trim() : (data.obiettivi || ''),
+        // NON scrivere qui su fenice_score/fenice_livello: sono campi
+        // specifici della verticale Fenice (Selection 'I'/'II'/'III'/'IV',
+        // dominio incompatibile con 'L1'/'L2'/'L3' di questa intervista) e
+        // scriverli causerebbe un ValueError su lead di un'altra verticale.
+        // score/package_hint finiscono invece su production_order via
+        // _start_production, che e' lo scoring generico corretto per questo sito.
+        score: data.score,
+        package_hint: data.packageId || data.recommendedLevel,
+        settore: data.settore || '',
     };
 }
 
