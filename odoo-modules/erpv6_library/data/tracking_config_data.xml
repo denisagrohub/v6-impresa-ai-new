@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Configurazione di default per i lotti sui documenti di libreria
+         (erpv6.library.document eredita erpv6.tracking.mixin ma prima
+         d'ora nessun documento riceveva mai un lotto: action_create_batch_lot
+         richiede una erpv6.tracking.config con code=tracking_type e senza
+         questa non ne esisteva nessuna, per nessun modulo). Non specifico
+         a un verticale: qualunque documento generato (relazione, business
+         plan, proposta) passa da qui per la tracciabilità. -->
+    <record id="tracking_config_document" model="erpv6.tracking.config">
+        <field name="name">Documenti (default)</field>
+        <field name="code">document</field>
+        <field name="company_code">V6I</field>
+        <field name="default_brand">PI</field>
+        <field name="tracking_types">document</field>
+        <field name="use_definitive_lot">False</field>
+        <field name="use_batch_lot">True</field>
+        <field name="description">Lotto batch assegnato a ogni documento generato da erpv6_typst e registrato in erpv6_library, per tracciabilità (vedi CLAUDE.md/regola pipeline documenti).</field>
+    </record>
+</odoo>

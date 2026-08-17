@@ -38,10 +38,12 @@ class TrackingMixin(models.AbstractModel):
         if not config:
             raise UserError('Configurazione tracciamento non trovata')
 
+        # create_batch_lot() non accetta product_id (bug pre-esistente: mai
+        # stato nella firma del metodo, vedi tracking_lot.py) - passarlo
+        # come qui prima faceva sempre TypeError, per qualunque modello
+        # ereditasse questo mixin, mai scoperto perche' mai chiamato prima.
         lot = self.env['erpv6.tracking.lot'].create_batch_lot(
             config_id=config.id,
-            product_id=self.product_id.id if hasattr(
-                self, 'product_id') else None,
             quantity=self.quantity if hasattr(self, 'quantity') else 1.0,
             notes=f'Creato da {self._name} ID {self.id}'
         )

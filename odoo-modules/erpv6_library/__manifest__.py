@@ -8,6 +8,7 @@
     'depends': ['base', 'mail', 'erpv6_core', 'erpv6_tracking', 'erpv6_blockchain', 'erpv6_brand'],
     'data': [
         'security/ir.model.access.csv',
+        'data/tracking_config_data.xml',
         'views/library_views.xml',
         'views/brand_project_views.xml',
     ],

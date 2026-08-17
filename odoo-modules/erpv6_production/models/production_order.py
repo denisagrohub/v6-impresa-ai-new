@@ -44,6 +44,24 @@ class Erpv6ProductionOrder(models.Model):
         help='Settore usato per risolvere la KB corretta (erpv6.kb.find_best_for). '
              'Dato di produzione, non scritto su crm.lead. Se vuoto, trattato come "generico".'
     )
+    # Valori grezzi (stessa scelta di design di interview_package_hint: la
+    # tassonomia delle opzioni vive nel frontend, non qui - un Selection
+    # andrebbe fuori sync ad ogni cambio delle opzioni in intervista/page.tsx).
+    # Usati da _compute_kairos_matrix() per derivare impatto/prontezza.
+    interview_budget = fields.Char(string='Budget (intervista)')
+    interview_tempistiche = fields.Char(string='Tempistiche (intervista)')
+    interview_tipo_progetto = fields.Char(string='Tipo Progetto (intervista)')
+    interview_destinatario = fields.Char(string='Destinatario BP (intervista)')
+    interview_fatturato = fields.Char(string='Fatturato Azienda (intervista)')
+
+    # "Il metodo" (erpv6.kb.engine su KB kb_type=metodo_v6, gia' usato per
+    # decidere l'avanzamento fase in _evaluate_and_advance_one) - risultato
+    # dell'ultima analisi, cosi' resta visibile/consultabile invece di essere
+    # scartato subito dopo aver deciso se avanzare. Vuoto finche' non esiste
+    # una KB metodo_v6 reale per il verticale (vedi kb_request_id sull'evento
+    # corrispondente per il gap) - mai un suggerimento inventato qui.
+    metodo_ultimo_suggerimento = fields.Text(string='Ultimo Suggerimento del Metodo')
+    metodo_ultima_analisi_date = fields.Datetime(string='Ultima Analisi del Metodo')
 
     event_ids = fields.One2many('erpv6.production.event', 'order_id', string='Eventi')
     schedule_ids = fields.One2many('erpv6.production.schedule', 'order_id', string='Pianificazione Risorse')
@@ -119,6 +137,72 @@ class Erpv6ProductionOrder(models.Model):
             'verticale': self.verticale or '',
         }
 
+    # Mapping da risposte grezze dell'intervista (stringhe esatte delle
+    # opzioni in apps/impresa/src/app/intervista/page.tsx) a punteggi
+    # erpv6.kairos.matrix. Solo budget/tempistiche hanno un segnale diretto
+    # nell'intervista attuale; gli altri 3 indicatori (apertura, risorse
+    # interne diverse dal budget, storico) restano al valore neutro 2 -
+    # deciso esplicitamente con l'utente, mai inventato un segnale che
+    # l'intervista non raccoglie davvero.
+    _KAIROS_BUDGET_TO_IMPATTO = {
+        '< €5.000': 2, '€5.000 - €10.000': 3, '€10.000 - €25.000': 4, '> €25.000': 5,
+    }
+    _KAIROS_BUDGET_TO_LIQUIDITA = {
+        '< €5.000': 1, '€5.000 - €10.000': 2, '€10.000 - €25.000': 2, '> €25.000': 3,
+    }
+    _KAIROS_TEMPISTICHE_TO_URGENZA = {
+        'Immediata (< 1 mese)': 3, 'Breve (1-3 mesi)': 3, 'Media (3-6 mesi)': 2, 'Lunga (> 6 mesi)': 1,
+    }
+    _KAIROS_NEUTRO = 2
+
+    def _compute_kairos_matrix(self):
+        """Crea/aggiorna una erpv6.kairos.matrix (matrix_type='finanziario',
+        motore generico di erpv6_methodology, non reimplementato qui) per
+        capire se vale la pena chiamare subito questo lead o nutrirlo prima.
+        Richiede budget+tempistiche dall'intervista: se mancano (es. lead da
+        form contatti, non dall'intervista) non crea nulla - mai una matrice
+        fabbricata su dati che non ci sono."""
+        self.ensure_one()
+        budget = (self.interview_budget or '').strip()
+        tempistiche = (self.interview_tempistiche or '').strip()
+        if not budget or not tempistiche:
+            return False
+
+        impatto = self._KAIROS_BUDGET_TO_IMPATTO.get(budget)
+        liquidita = self._KAIROS_BUDGET_TO_LIQUIDITA.get(budget)
+        urgenza = self._KAIROS_TEMPISTICHE_TO_URGENZA.get(tempistiche)
+        if impatto is None or urgenza is None:
+            _logger.warning(
+                "Kairos: budget '%s' o tempistiche '%s' non riconosciuti (opzioni intervista cambiate?) "
+                "per produzione #%s - matrice non calcolata.", budget, tempistiche, self.id,
+            )
+            return False
+
+        Matrix = self.env['erpv6.kairos.matrix'].sudo()
+        vals = {
+            'res_model': self._name,
+            'res_id': self.id,
+            'matrix_type': 'finanziario',
+            'impatto_score': impatto,
+            'indicatore_1': self._KAIROS_NEUTRO,
+            'indicatore_2': liquidita,
+            'indicatore_3': self._KAIROS_NEUTRO,
+            'indicatore_4': urgenza,
+            'indicatore_5': self._KAIROS_NEUTRO,
+            'notes': (
+                "Calcolato automaticamente da budget/tempistiche dell'intervista "
+                "(_compute_kairos_matrix). Indicatori 1/3/5 = valore neutro: "
+                "l'intervista non raccoglie apertura del titolare o storico bancario."
+            ),
+        }
+        existing = Matrix.search([
+            ('res_model', '=', self._name), ('res_id', '=', self.id), ('matrix_type', '=', 'finanziario'),
+        ], limit=1)
+        if existing:
+            existing.write(vals)
+            return existing
+        return Matrix.create(vals)
+
     def _notify_stall(self, summary):
         """Crea un'activity Odoo (visibile in Attivita'/Discuss, non solo
         nel log eventi dell'ordine) quando la produzione resta bloccata o
@@ -177,6 +261,31 @@ class Erpv6ProductionOrder(models.Model):
             self.id,
             data=self._build_typst_data(),
         )
+        # action_render() (chiamato dentro generate_document) non solleva mai
+        # un'eccezione al chiamante - cattura tutto e scrive status='failed'
+        # + error_message sul documento. Se non controlliamo lo status qui,
+        # register_document() viene chiamato comunque e l'evento sotto dice
+        # "generato con successo" anche quando il rendering e' fallito per
+        # davvero (es. template senza typst_source) - falso successo scoperto
+        # in audit, non piu' silenzioso.
+        if typst_doc.status != 'ready':
+            self.env['erpv6.production.event'].create({
+                'order_id': self.id,
+                'event_type': 'cron_automatico',
+                'decision_method': 'deterministico',
+                'description': (
+                    f"Generazione documento fallita per fase '{phase.name}' (typst doc #{typst_doc.id}, "
+                    f"status='{typst_doc.status}'): {typst_doc.error_message or 'nessun dettaglio'} — "
+                    "avanzamento sospeso."
+                ),
+                'phase_before_id': phase.id,
+            })
+            self._notify_stall(
+                f"Rendering Typst fallito per produzione #{self.id}, fase '{phase.name}' — "
+                f"vedi typst doc #{typst_doc.id} (status '{typst_doc.status}')."
+            )
+            return False
+
         library_doc = self.env['erpv6.library.document'].register_document(
             project_id=self.lead_id.id,
             name=f"{phase.name} - {self.lead_id.name or self.name}",
@@ -186,11 +295,27 @@ class Erpv6ProductionOrder(models.Model):
             source_res_id=self.id,
             is_final=(phase.output_category == 'final'),
         )
+
+        # Ogni documento generato riceve un lotto (tracciabilita', vedi
+        # CLAUDE.md/regola pipeline documenti) - non blocca l'avanzamento se
+        # la config manca (es. admin l'ha disattivata), ma lo segnala.
+        lot = False
+        try:
+            lot = library_doc.action_create_batch_lot(config_code='document')
+        except Exception:
+            _logger.exception(
+                "Assegnazione lotto fallita per documento #%s (produzione #%s), non bloccante.",
+                library_doc.id, self.id,
+            )
+
         self.env['erpv6.production.event'].create({
             'order_id': self.id,
             'event_type': 'documento_generato',
             'decision_method': 'deterministico',
-            'description': f"Documento generato per fase '{phase.name}' (typst doc #{typst_doc.id})",
+            'description': (
+                f"Documento generato per fase '{phase.name}' (typst doc #{typst_doc.id}, "
+                f"lotto {lot.code if lot else 'non assegnato'})"
+            ),
             'phase_before_id': phase.id,
             'phase_after_id': phase.id,
         })
@@ -266,12 +391,14 @@ class Erpv6ProductionOrder(models.Model):
         if not next_phase:
             return
 
+        document_generated = None
         if phase.requires_output:
             existing_doc = order.document_ids.filtered(lambda d: d.category == phase.output_category)
             if not existing_doc:
                 generated = order._generate_phase_output(phase)
                 if not generated:
                     return
+                document_generated = generated
 
         if phase.requires_validation:
             last_session = self.env['erpv6.validation.session'].search(
@@ -322,11 +449,43 @@ class Erpv6ProductionOrder(models.Model):
             })
             return
 
+        # Cattura il risultato del metodo (prima veniva scartato subito dopo
+        # aver deciso se avanzare) cosi' resta consultabile da consulente/UI,
+        # non solo usato una tantum per la decisione binaria fallback si'/no.
+        order.write({
+            'metodo_ultimo_suggerimento': str(result),
+            'metodo_ultima_analisi_date': fields.Datetime.now(),
+        })
+
         vals = dict(event_vals or {})
         vals.setdefault('event_type', event_type)
         vals.setdefault('decision_method', 'deterministico')
         vals.setdefault('description', 'Avanzamento automatico valutato da evaluate_and_advance')
         order.advance_phase(next_phase.id, event_vals=vals)
+        order._notify_consultant_update(next_phase, document_generated)
+
+    def _notify_consultant_update(self, new_phase, document_generated=None):
+        """Aggiorna il consulente (venditore assegnato sul lead) ogni volta
+        che il metodo fa avanzare davvero una fase - non solo sul log eventi
+        interno, che nessuno controlla proattivamente. Se in questo stesso
+        giro e' stato generato anche un documento, lo segnala col suo lotto."""
+        self.ensure_one()
+        user = self.lead_id.user_id
+        if not user or user == self.env.ref('base.public_user', raise_if_not_found=False):
+            return
+        summary = f"Produzione #{self.id} ({self.lead_id.name}) avanzata a '{new_phase.name}'"
+        note_parts = []
+        if document_generated:
+            lot_code = document_generated.batch_lot_id.code if document_generated.batch_lot_id else 'non assegnato'
+            note_parts.append(f"Documento generato: '{document_generated.name}' (lotto {lot_code}).")
+        if self.metodo_ultimo_suggerimento:
+            note_parts.append(f"Suggerimento del metodo: {self.metodo_ultimo_suggerimento}")
+        self.lead_id.activity_schedule(
+            'mail.mail_activity_data_todo',
+            summary=summary,
+            note='\n'.join(note_parts) or summary,
+            user_id=user.id,
+        )
 
     def action_consultant_advance(self):
         self.ensure_one()
