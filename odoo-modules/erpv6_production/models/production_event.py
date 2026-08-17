@@ -11,6 +11,7 @@ class Erpv6ProductionEvent(models.Model):
         ('interazione_consulente', 'Interazione consulente'),
         ('cron_automatico', 'Cron automatico'),
         ('documento_generato', 'Documento generato'),
+        ('risorsa_assegnata', 'Risorsa assegnata'),
     ], required=True, default='interazione_consulente')
     description = fields.Text()
     triggered_by = fields.Many2one('res.users', string='Attivato da', default=lambda self: self.env.user)

@@ -43,3 +43,13 @@ class Erpv6ProductionPhase(models.Model):
         ('sesto_only', 'Solo Sesto Uomo'),
         ('full_six_judges', '5 Analisti + Sesto Uomo'),
     ], string='Modalità Validazione', default='full_six_judges')
+
+    estimated_hours = fields.Float(
+        string='Ore Stimate',
+        help='Ore stimate per completare questa fase, usate come default per erpv6.production.schedule.planned_hours'
+    )
+    eligible_resource_ids = fields.Many2many(
+        'resource.resource', string='Risorse Idonee',
+        help='Pool di risorse (postazioni/consulenti) su cui bilanciare automaticamente il carico di questa fase. '
+             'Se vuoto, nessuna risorsa viene assegnata automaticamente.'
+    )

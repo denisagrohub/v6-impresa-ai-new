@@ -49,6 +49,15 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Pianificazione Risorse">
+                            <field name="schedule_ids" readonly="1">
+                                <list create="0" delete="0">
+                                    <field name="phase_id"/><field name="resource_id"/>
+                                    <field name="planned_hours"/><field name="date_start"/><field name="date_end"/>
+                                    <field name="state"/>
+                                </list>
+                            </field>
+                        </page>
                     </notebook>
                 </sheet>
                 <div class="oe_chatter">
@@ -74,6 +83,8 @@
                 <field name="requires_output"/><field name="output_category"/>
                 <field name="typst_template_id"/>
                 <field name="requires_validation"/><field name="validation_mode"/>
+                <field name="estimated_hours"/>
+                <field name="eligible_resource_ids" widget="many2many_tags"/>
             </list>
         </field>
     </record>

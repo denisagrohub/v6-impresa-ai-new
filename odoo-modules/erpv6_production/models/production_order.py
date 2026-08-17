@@ -36,6 +36,7 @@ class Erpv6ProductionOrder(models.Model):
     )
 
     event_ids = fields.One2many('erpv6.production.event', 'order_id', string='Eventi')
+    schedule_ids = fields.One2many('erpv6.production.schedule', 'order_id', string='Pianificazione Risorse')
 
     # Non un vero One2many: erpv6_library non dipende da erpv6_production
     # (e' vero il contrario), quindi niente Many2one production_order_id su
@@ -73,7 +74,27 @@ class Erpv6ProductionOrder(models.Model):
         })
         self.env['erpv6.production.event'].create(vals)
         self.phase_id = new_phase_id
+        new_phase = self.env['erpv6.production.phase'].browse(new_phase_id)
+        self.env['erpv6.production.schedule'].sudo().create_for_phase(self, new_phase)
         return True
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = super().create(vals_list)
+        for order in orders:
+            if not order.phase_id:
+                continue
+            try:
+                self.env['erpv6.production.schedule'].sudo().create_for_phase(order, order.phase_id)
+            except Exception:
+                # Fuori dal savepoint di evaluate_and_advance: questo path e'
+                # chiamato in diretta da erpv6_api_gateway su ogni lead reale
+                # in ingresso - un errore di pianificazione non deve mai far
+                # fallire l'intake di un lead.
+                _logger.exception(
+                    "create_for_phase fallito alla creazione di produzione #%s, intake non impattato.", order.id
+                )
+        return orders
 
     def _build_typst_data(self):
         """Dati reali disponibili sull'ordine, usati sia per generare il
