@@ -7,7 +7,11 @@
         <field name="model">res.config.settings</field>
         <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//app[@name='base']" position="after">
+            <!-- base.res_config_settings_view_form e' un <form> vuoto (ogni
+                 app lo popola da se') - //app[@name='base'] non e' mai
+                 esistito, bug pre-esistente mai scoperto perche' questo
+                 modulo non era mai stato promosso prima d'ora. -->
+            <xpath expr="//form" position="inside">
                 <app string="V6 Impresa AI" name="erpv6_settings">
                     <block title="Tracciabilità" name="tracking_settings_block">
                         <setting id="tracking_product_setting" string="Tracciabilità Prodotti">
