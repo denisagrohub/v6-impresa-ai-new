@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveLead, getPendingLeads, syncPendingLeads } from '@/lib/lead-queue';
+import { saveLead, getPendingLeads, syncPendingLeads, createPartialLead } from '@/lib/lead-queue';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { source, data } = body;
+        const { source, data, partial } = body;
 
         if (!source || !data) {
             return NextResponse.json(
                 { error: 'source e data sono obbligatori' },
                 { status: 400 }
             );
+        }
+
+        // Cattura anticipata per form a piu' fasi (vedi createPartialLead):
+        // niente coda locale di fallback qui, il chiamante puo' semplicemente
+        // riprovare o ripiegare sul submit finale completo.
+        if (partial) {
+            const partialResult = await createPartialLead(data);
+            return NextResponse.json(partialResult);
         }
 
         const result = await saveLead(data, source);

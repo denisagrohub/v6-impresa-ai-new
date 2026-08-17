@@ -105,6 +105,46 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
     }
 }
 
+// Cattura anticipata (best-effort) per form lunghi a più fasi: crea un lead
+// grezzo non qualificato (qualified:false, vedi lead_api.py) appena i primi
+// dati minimi sono disponibili, così un abbandono a metà form non perde
+// tutto. Nessun fallback su coda locale qui - se fallisce (rete, Odoo giù),
+// la submitAnswers finale ricade comunque su saveLead() come sempre.
+export async function createPartialLead(leadData: Record<string, any>): Promise<{ success: boolean; leadId?: number }> {
+    if (!isOdooEnabled()) {
+        return { success: false };
+    }
+    try {
+        const result = await callOdooAPI('/api/v1/leads', {
+            method: 'POST',
+            body: JSON.stringify({ ...mapLeadDataForOdoo(leadData), qualified: false }),
+        });
+        return { success: true, leadId: result?.data?.id ?? result?.id };
+    } catch (error) {
+        console.debug('Cattura anticipata non riuscita (non bloccante):', error);
+        return { success: false };
+    }
+}
+
+// Arricchisce e qualifica un lead gia' catturato da createPartialLead,
+// portandolo da 'lead' grezzo a 'opportunity' (venditore reale, notifica,
+// project.project - vedi crm_lead.py::_promote_to_opportunity).
+export async function updateLead(leadId: number, leadData: Record<string, any>): Promise<{ success: boolean }> {
+    if (!isOdooEnabled()) {
+        return { success: false };
+    }
+    try {
+        await callOdooAPI(`/api/v1/leads/${leadId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ ...mapLeadDataForOdoo(leadData), qualified: true }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Aggiornamento/qualificazione lead fallito:', error);
+        return { success: false };
+    }
+}
+
 async function fallbackToQueue(lead: Lead): Promise<{ success: boolean; queued: boolean }> {
     const queued = await saveLeadToQueue(lead);
     if (!queued) {

@@ -10,6 +10,25 @@ _logger = logging.getLogger(__name__)
 
 class SaaSAPIController(APIBaseController):
 
+    @http.route('/api/v1/verticals', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def get_public_verticals(self, **kwargs):  # pylint: disable=unused-argument
+        """GET /api/v1/verticals - lista pubblica (nessuna auth) dei
+        verticali attivi, usata dai form dei siti vetrina (es. domanda
+        'settore' dell'intervista): solo code/name, mai description/moduli
+        (dettaglio interno SaaS, vedi /api/v1/saas/verticals per quello).
+        Stessa fonte usata dal vincolo su erpv6.kb.category.verticale
+        (erpv6_saas/models/kb_category.py) - un settore scelto qui e'
+        garantito esistere anche lato KB."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        try:
+            verticals = request.env['erpv6.vertical.catalog'].sudo().search([('is_active', '=', True)], order='name')
+            result = [{'code': v.verticale or '', 'name': v.name or ''} for v in verticals]
+            return self._json_response(result, status=200)
+        except Exception as e:
+            _logger.error(f"Errore nel fetch verticali pubblici: {e}")
+            return self._json_response({'error': str(e)}, status=500)
+
     @http.route('/api/v1/saas/verticals', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_verticals(self, **kwargs):
         """

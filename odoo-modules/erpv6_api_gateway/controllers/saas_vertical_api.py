@@ -6,7 +6,14 @@ from .main import APIBaseController
 
 
 class SaasVerticalAPIController(APIBaseController):
-    """API per gestione Verticali SaaS"""
+    """API per gestione Verticali SaaS.
+
+    ATTENZIONE: questo file NON e' importato da controllers/__init__.py di
+    erpv6_api_gateway (bug preesistente, non introdotto qui) - le sue rotte
+    non sono mai raggiungibili, restano ombreggiate dalla copia duplicata in
+    erpv6_saas/controllers/saas_api.py, che e' quella davvero caricata. Non
+    aggiungere nuove rotte qui finche' questo non viene risolto: vedi
+    erpv6_saas/controllers/saas_api.py per l'endpoint pubblico /api/v1/verticals."""
 
     @http.route('/api/v1/saas/verticals', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_verticals_list(self, **kwargs):
