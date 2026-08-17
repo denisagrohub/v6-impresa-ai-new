@@ -183,6 +183,19 @@ fi
 echo "✅ Installazione su staging riuscita, nessun errore rilevato."
 echo "custom-addons già aggiornato (Step 1)."
 
+# L'aggiornamento sopra (-i/-u --stop-after-init) gira in un processo Odoo
+# separato (docker compose exec), non nel server web persistente. Su questo
+# VPS Odoo gira senza "workers" (single-process): il server già in esecuzione
+# NON ricarica da solo registro/menu/viste dopo una modifica esterna al DB,
+# serve un restart esplicito — altrimenti l'utente vede ancora comportamento
+# vecchio (menu mancanti, "field is undefined") pur con lo schema già corretto.
+# Scoperto il 17/08/2026 dopo due falsi allarmi live per questo motivo esatto.
+echo ""
+echo "=== Step 2bis — Riavvio servizio Odoo (registro live non si auto-ricarica) ==="
+docker compose restart "$ODOO_SERVICE_NAME"
+sleep 8
+echo "✅ Servizio riavviato."
+
 echo ""
 echo "=== Step 3 — Aggiornamento su produzione ==="
 echo "NOTA: questo passo aggiorna anche il database di produzione ($PROD_DB)."

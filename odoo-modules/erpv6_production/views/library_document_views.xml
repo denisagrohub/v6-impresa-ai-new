@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Aggiunge il chatter al form di erpv6.library.document, possibile
+         solo da qui: mail.thread e' mixato in erpv6_production/models/library_document.py
+         (erpv6_library, dove vive la vista base, non puo' dipendere da mail.thread
+         per questo scopo senza creare un ciclo con erpv6_omni_bridge/erpv6_validation). -->
+    <record id="view_library_document_form_chatter" model="ir.ui.view">
+        <field name="name">erpv6.library.document.form.chatter</field>
+        <field name="model">erpv6.library.document</field>
+        <field name="inherit_id" ref="erpv6_library.view_library_document_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <chatter/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

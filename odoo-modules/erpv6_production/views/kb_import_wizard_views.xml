@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_kb_import_wizard_form" model="ir.ui.view">
+        <field name="name">erpv6.kb.import.wizard.form</field>
+        <field name="model">erpv6.kb.import.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group invisible="state != 'draft'">
+                    <field name="source_file" filename="source_filename" required="state == 'draft'"/>
+                    <field name="source_filename" invisible="1"/>
+                    <field name="extraction_notes" placeholder="Es: queste righe sono tutte regole fiscali per artigiani..."/>
+                </group>
+                <group string="Anteprima testo estratto" invisible="not raw_preview">
+                    <field name="raw_preview" readonly="1" nolabel="1"/>
+                </group>
+                <field name="line_ids" invisible="state != 'review'">
+                    <list editable="bottom">
+                        <field name="selected" widget="boolean_toggle"/>
+                        <field name="name"/>
+                        <field name="kb_type"/>
+                        <field name="category_name"/>
+                        <field name="content"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_extract" type="object" string="Estrai con AI"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_create_kb" type="object" string="Crea Voci KB Selezionate"
+                            class="btn-primary" invisible="state != 'review'"/>
+                    <button string="Annulla" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_kb_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importa da Documento (AI)</field>
+        <field name="res_model">erpv6.kb.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_kb_import" name="Importa da Documento (AI)" parent="erpv6_kb.menu_kb"
+              action="action_kb_import_wizard" sequence="15"/>
+</odoo>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Categoria seed per sbloccare find_best_for(kb_type='metodo_v6') sui verticali
+         senza una categoria dedicata. Editabile/aggiungibile liberamente da
+         Knowledge Base > Configurazione > Categorie dopo l'installazione. -->
+    <record id="kb_category_metodo_v6" model="erpv6.kb.category">
+        <field name="name">Metodologia V6 Impresa</field>
+        <field name="kb_type">metodo_v6</field>
+        <field name="is_transversal">True</field>
+    </record>
+</odoo>

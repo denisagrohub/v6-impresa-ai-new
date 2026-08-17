@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Route: Estrazione KB da documento caricato dall'utente -->
+        <record id="omni_route_kb_extraction" model="erpv6.omni.route.config">
+            <field name="name">Estrazione Knowledge Base da Documento</field>
+            <field name="task_type">kb_extraction</field>
+            <!-- Primario Groq, fallback OpenAI: entrambi OpenAI-compatibili
+                 ({api_url}/chat/completions + header Bearer, esattamente come
+                 chiama erpv6.omni.bridge). NON Anthropic: il suo endpoint reale
+                 e' diverso (/v1/messages, header x-api-key) e fallirebbe sempre
+                 anche con una chiave valida, finche' erpv6_omni_bridge non viene
+                 corretto per quel provider (bug preesistente, fuori scope). -->
+            <field name="primary_provider_id" ref="omni_provider_groq"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai')])]"/>
+            <field name="routing_strategy">balanced</field>
+            <field name="priority">30</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+    </data>
+</odoo>
