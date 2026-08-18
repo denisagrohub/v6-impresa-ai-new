@@ -42,7 +42,12 @@
             <field name="max_rpm">100</field>
             <field name="cost_per_1k_input">0.0001</field>
             <field name="cost_per_1k_output">0.0001</field>
-            <field name="supported_models">llama-3-70b,llama-3-8b,mixtral-8x7b</field>
+            <!-- Verificato dal vivo su GET {api_url}/models con chiave reale
+                 (17/08/2026): i nomi llama-3-* / mixtral-8x7b originari sono
+                 stati dismessi da Groq. Aggiornato ai soli modelli generalisti
+                 chat/completion reali oggi disponibili (esclusi audio/whisper,
+                 modelli di sola safety/prompt-guard, e i TTS). -->
+            <field name="supported_models">openai/gpt-oss-120b,openai/gpt-oss-20b</field>
             <field name="is_active" eval="False"/>
         </record>
 

@@ -6,7 +6,11 @@
     'author': 'V6 Impresa AI',
     'license': 'LGPL-3',
     'depends': ['base', 'mail', 'erpv6_core', 'erpv6_crypto', 'erpv6_consulting'],
-    'data': ['security/ir.model.access.csv', 'views/kb_views.xml'],
+    'data': [
+        'security/ir.model.access.csv',
+        'data/kb_category_data.xml',
+        'views/kb_views.xml',
+    ],
     'installable': True,
     'application': True,
 }

@@ -24,6 +24,7 @@
                         </group>
                         <group>
                             <field name="external_id"/>
+                            <field name="envelope_item_id"/>
                             <field name="request_url" widget="url"/>
                             <field name="sent_at"/>
                             <field name="viewed_at"/>

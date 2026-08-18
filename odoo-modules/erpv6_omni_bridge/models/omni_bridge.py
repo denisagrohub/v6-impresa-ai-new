@@ -40,8 +40,6 @@ class Erpv6OmniBridge(models.AbstractModel):
         :param context: Info extra per il logging (partner_id, project_id, session_id, ecc.)
         :return: Dizionario con la risposta del provider AI
         """
-        self.ensure_one()
-        
         if context is None:
             context = {}
         

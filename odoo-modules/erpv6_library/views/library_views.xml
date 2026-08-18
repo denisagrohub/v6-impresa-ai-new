@@ -31,7 +31,7 @@
                         </group>
                     </group>
                     <group>
-                        <field name="file" invisible="origin == 'generated'"/>
+                        <field name="file" filename="file_name" invisible="origin == 'generated'"/>
                         <field name="file_name" invisible="origin == 'generated'"/>
                     </group>
                     <!-- Tracking mixin fields -->

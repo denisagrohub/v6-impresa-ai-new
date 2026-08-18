@@ -37,6 +37,8 @@
         'data/production_phase_data.xml',
         'views/production_views.xml',
         'views/production_schedule_views.xml',
+        'views/kb_import_wizard_views.xml',
+        'views/library_document_views.xml',
     ],
     'installable': True,
     'application': True,

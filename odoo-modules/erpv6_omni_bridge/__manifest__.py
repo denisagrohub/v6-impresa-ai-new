@@ -32,6 +32,7 @@ Modulo ponte per integrare il sistema OmniRoute con ERPV6.
         'data/omni_default_providers.xml',
         'data/omni_package_metadata_routes.xml',
         'data/omni_brand_routes.xml',
+        'data/omni_kb_extraction_route.xml',
     ],
     'installable': True,
     'application': False,

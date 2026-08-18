@@ -7,3 +7,5 @@ access_production_event_user,erpv6.production.event user,model_erpv6_production_
 access_production_event_admin,erpv6.production.event admin,model_erpv6_production_event,base.group_system,1,1,1,1
 access_production_schedule_user,erpv6.production.schedule user,model_erpv6_production_schedule,base.group_user,1,1,1,0
 access_production_schedule_admin,erpv6.production.schedule admin,model_erpv6_production_schedule,base.group_system,1,1,1,1
+access_kb_import_wizard_user,erpv6.kb.import.wizard user,model_erpv6_kb_import_wizard,base.group_user,1,1,1,1
+access_kb_import_wizard_line_user,erpv6.kb.import.wizard.line user,model_erpv6_kb_import_wizard_line,base.group_user,1,1,1,1

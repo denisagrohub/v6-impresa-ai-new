@@ -11,4 +11,8 @@ class Erpv6ValidationSession(models.Model):
                 order = self.env['erpv6.production.order'].browse(session.res_id)
                 if order.exists():
                     order.evaluate_and_advance(trigger='validation_approved')
+            elif session.res_model == 'erpv6.kb':
+                kb = self.env['erpv6.kb'].browse(session.res_id)
+                if kb.exists():
+                    kb.write({'is_active': True})
         return result

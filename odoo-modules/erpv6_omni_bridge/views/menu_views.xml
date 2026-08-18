@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Menu Principale -->
-    <menuitem id="menu_omni_root" 
-              name="AI &amp; OmniRoute" 
-              parent="base.menu_custom"
-              sequence="1"/>
+    <!-- Prima sotto base.menu_custom (Settings > Technical): invisibile senza
+         Modalità Sviluppatore attiva, per un menu di configurazione usato
+         regolarmente (provider AI, routing) non un tool tecnico raro.
+         Spostato sotto la root erpv6 (stesso pattern di Knowledge Base). -->
+    <menuitem id="menu_omni_root"
+              name="AI &amp; OmniRoute"
+              parent="erpv6_core.menu_erpv6_root"
+              sequence="25"/>
 
     <menuitem id="menu_omni_config" 
               name="Configurazione" 
