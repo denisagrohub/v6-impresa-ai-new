@@ -22,3 +22,10 @@ class Erpv6ValidationRound(models.Model):
     # risultato, anche nel certificato finale.
     analyst_prompt_ref = fields.Char(string='Prompt Analista Usato')
     sesto_prompt_ref = fields.Char(string='Prompt Sesto Uomo Usato')
+    # True quando issues_found e' stato forzato da un fallimento REALE della
+    # chiamata AI (vedi _run_round, error_sesto), non da un disaccordo di
+    # contenuto genuino tra i giudici -- distingue le due cause di
+    # un'escalation, cosi' _cron_retry_escalated_ai_failures puo' ritentare
+    # solo i fallimenti tecnici e non toccare mai un'escalation per
+    # contenuto reale (quella resta sempre umana, mai automatica).
+    is_ai_failure = fields.Boolean(string='Escalation per fallimento tecnico AI', default=False)

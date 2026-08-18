@@ -9,6 +9,13 @@ import json
 
 _logger = logging.getLogger(__name__)
 
+# _cron_retry_escalated_ai_failures: quante volte ritentare automaticamente
+# una sessione escalata per un fallimento TECNICO (non di contenuto) prima di
+# lasciarla comunque in escalation per intervento umano, e di quanti round
+# estendere il budget (max_rounds) a ogni tentativo.
+VALIDATION_MAX_AI_FAILURE_RETRIES = 5
+VALIDATION_EXTRA_ROUNDS_PER_RETRY = 3
+
 # Template di default per i prompt (usati se nessun override, es. erpv6_production
 # che li legge da una voce erpv6.kb kb_type='prompt', li fornisce -- vedi
 # _get_analyst_prompt_template/_get_sesto_uomo_prompt_template sotto). Placeholder
@@ -75,10 +82,44 @@ class Erpv6ValidationSession(models.Model):
     human_reviewed_at = fields.Datetime(string='Revisionato il')
     human_notes = fields.Text(string='Note Revisore')
 
+    # Contatore dei soli tentativi lanciati dal cron
+    # (_cron_retry_escalated_ai_failures), non dei round normali -- oltre
+    # VALIDATION_MAX_AI_FAILURE_RETRIES il cron smette e la sessione resta
+    # in escalation per intervento umano davvero (non solo tecnico).
+    ai_failure_retry_count = fields.Integer(string='Tentativi automatici di retry (fallimento AI)', default=0)
+
     @api.depends('round_ids')
     def _compute_current_round(self):
         for session in self:
             session.current_round_number = len(session.round_ids)
+
+    @api.model
+    def _cron_retry_escalated_ai_failures(self):
+        """Rimette in coda automaticamente le sessioni finite in escalation
+        SOLO per un fallimento tecnico delle chiamate AI (vedi
+        erpv6.validation.round.is_ai_failure), mai per un disaccordo di
+        contenuto genuino tra i giudici -- quella resta sempre e solo
+        umana (action_human_approve/action_human_reject), l'automazione qui
+        riguarda esclusivamente "la chiamata non e' partita", non "il
+        contenuto e' controverso". Estende max_rounds per dare spazio a
+        nuovi round invece di azzerare lo storico esistente (audit trail
+        completo, coerente col principio gia' seguito per l'estrazione KB
+        -- vedi library_document.py/_cron_retry_kb_extraction_failures)."""
+        sessions = self.search([
+            ('status', '=', 'escalated_to_human'),
+            ('ai_failure_retry_count', '<', VALIDATION_MAX_AI_FAILURE_RETRIES),
+        ])
+        for session in sessions:
+            last_round = session.round_ids[-1] if session.round_ids else None
+            if not last_round or not last_round.is_ai_failure:
+                continue
+            session.ai_failure_retry_count += 1
+            session.max_rounds += VALIDATION_EXTRA_ROUNDS_PER_RETRY
+            session.status = 'in_validation'
+            _logger.info(
+                "Cron retry validazione: sessione #%s, tentativo automatico %d/%d",
+                session.id, session.ai_failure_retry_count, VALIDATION_MAX_AI_FAILURE_RETRIES)
+            session._run_round()
 
     def action_start_validation(self):
         """Avvia il primo round di validazione"""
@@ -233,7 +274,13 @@ class Erpv6ValidationSession(models.Model):
             validation_round.write({
                 'issues_found': issues_found,
                 'sesto_uomo_notes': sesto_notes,
-                'corrected_material': parsed_sesto.get('corrected_material', {})
+                'corrected_material': parsed_sesto.get('corrected_material', {}),
+                # Marca SOLO il fallimento tecnico della chiamata (non un
+                # disaccordo di contenuto genuino) -- distingue le due cause
+                # di un'eventuale escalation, vedi
+                # _cron_retry_escalated_ai_failures: ritenta automaticamente
+                # solo quelle marcate qui, mai un'escalation per contenuto.
+                'is_ai_failure': bool(error_sesto),
             })
 
             # Crea il record di analisi per il sesto uomo

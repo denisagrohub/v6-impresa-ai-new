@@ -78,19 +78,25 @@ class LibraryDocument(models.Model):
             document._process_kb_source(is_auto_retry=True)
 
     def _kb_extraction_error_is_transient(self, error_text):
-        """True se l'errore e' verosimilmente transitorio (rate limit Groq,
-        incluso il circuit breaker locale che lo segue -- vedi
-        CHUNK_RATE_LIMIT_WAIT_SECONDS in kb_extraction_service.py) e quindi
-        vale la pena ritentarlo automaticamente via cron. Stesse parole
-        chiave del primo ramo di _kb_extraction_failure_advice sotto (non
-        fattorizzate in una costante condivisa: quel metodo resta "cosa dire
-        all'utente", questo resta "vale la pena ritentare da solo" -- se un
-        domani divergono non si vuole che un cambio nell'uno rompa
-        silenziosamente l'altro). Tutti gli altri errori (API Key mancante,
-        formato non supportato, file illeggibile, ecc.) sono permanenti: il
-        cron non li ritenta, sprecherebbe cicli senza mai risolversi da soli."""
+        """True se l'errore vale la pena ritentarlo automaticamente via cron.
+        Deny-list, non allow-list: con piu' di un provider configurato
+        (Groq/Cerebras/OpenRouter) il messaggio finale riporta solo l'ULTIMO
+        provider tentato (vedi omni_bridge.py) -- un 429 transitorio su Groq
+        seguito da un 402 permanente su Cerebras (l'ultimo tentato) farebbe
+        sembrare l'intero fallimento "permanente" con un allow-list basato
+        solo su '429', anche se il vero problema si risolverebbe da solo.
+        Qui si nega il retry SOLO per segnali chiaramente permanenti
+        (indipendenti dal provider, non si risolvono aspettando) -- tutto il
+        resto (429, 402, 500, errori di rete, ecc. su uno qualsiasi dei
+        provider) viene ritentato, nel dubbio."""
         text = error_text or ''
-        return '429' in text or 'Too Many Requests' in text or 'tokens per minute' in text
+        permanent_markers = (
+            'API Key mancante', 'Nessuna route configurata',
+            'Formato file non supportato', 'non contiene testo estraibile',
+            'openpyxl non disponibile', 'PyPDF2 non disponibile', 'docx non valido',
+            'Nessun contenuto leggibile', 'Nessun file fornito',
+        )
+        return not any(marker in text for marker in permanent_markers)
 
     def _process_kb_source(self, is_auto_retry=False):
         """Estrae le voci KB dal documento (create inattive, in categoria di
