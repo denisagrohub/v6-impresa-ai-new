@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Rimette in coda le sole sessioni escalate per fallimento tecnico
+             delle chiamate AI (vedi _cron_retry_escalated_ai_failures), mai
+             quelle escalate per disaccordo di contenuto reale. Stesso
+             intervallo del cron gemello per l'estrazione KB
+             (_cron_retry_kb_extraction_failures, erpv6_production). -->
+        <record id="cron_retry_escalated_ai_failures" model="ir.cron">
+            <field name="name">Retry Automatico Validazione Escalata (fallimento AI tecnico) - Ogni 15 minuti</field>
+            <field name="model_id" ref="model_erpv6_validation_session"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_retry_escalated_ai_failures()</field>
+            <field name="interval_number">15</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

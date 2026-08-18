@@ -21,7 +21,8 @@
     "data": [
         "security/ir.model.access.csv",
         "views/validation_session_views.xml",
-        "data/omni_validation_routes.xml"
+        "data/omni_validation_routes.xml",
+        "data/validation_retry_cron.xml"
     ],
     "application": True,
     "installable": True,
