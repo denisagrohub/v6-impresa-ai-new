@@ -237,6 +237,74 @@
 ]]]></field>
         </record>
 
+        <!-- Template Resoconto Pre-Approvazione 6 Giudici (interno) -->
+        <record id="typst_template_kb_pending_review_report" model="erpv6.typst.template">
+            <field name="name">Resoconto Pre-Approvazione 6 Giudici (interno)</field>
+            <field name="code">KB-PENDING-REVIEW-001</field>
+            <field name="category">custom</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Report interno (non per il cliente finale) leggibile dell'analisi "6 Giudici" (5 Analisti + Sesto Uomo) su un batch di voci KB appena estratte, generato SUBITO dopo la convergenza dei round e PRIMA di qualsiasi gate umano -- pensato per supportare la decisione di approvazione, non per certificarla dopo (per quello vedi typst_template_kb_validation_certificate). Generato e inviato (notifica in-app + email) da erpv6_production/models/library_document.py._send_kb_pending_review_report al supervisore KB, un documento per batch di estrazione, non uno per singola voce.</field>
+            <field name="sequence">7</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields">{
+                "source_document": {"type": "string", "description": "Nome del documento erpv6.library.document sorgente"},
+                "file_name": {"type": "string", "description": "Nome del file caricato"},
+                "generated_at": {"type": "string", "description": "Data/ora generazione resoconto"},
+                "entries_count": {"type": "integer", "description": "Numero di voci KB analizzate in questo batch"},
+                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, status, rounds_count, final_issues_found, sesto_uomo_summary"}
+            }</field>
+            <field name="typst_source"><![CDATA[#let data = json("data.json")
+
+#set page(paper: "a4", margin: 2.5cm)
+#set text(size: 10pt, lang: "it")
+
+#align(center)[
+  #text(size: 20pt, weight: "bold")[Analisi 6 Giudici — In Attesa di Approvazione]
+  #v(0.3em)
+  #text(size: 11pt, fill: gray)[Generato il #data.at("generated_at", default: "-")]
+]
+
+#v(1.5em)
+#line(length: 100%, stroke: 0.5pt + gray)
+#v(1em)
+
+= Documento Sorgente
+
+#table(
+  columns: (auto, 1fr),
+  stroke: none,
+  row-gutter: 0.6em,
+  [*Nome documento*], [#data.at("source_document", default: "-")],
+  [*File*], [#data.at("file_name", default: "-")],
+  [*Voci in questo batch*], [#str(data.at("entries_count", default: 0))],
+)
+
+#v(1em)
+#text(style: "italic")[Nessuna voce elencata qui e' ancora attiva: serve prima il primo gate (revisione umana) e poi il secondo gate (supervisore KB). Questo documento riporta solo l'esito dell'analisi automatica, per aiutare la decisione.]
+
+#v(1.5em)
+= Analisi per Voce
+
+#table(
+  columns: (1fr, auto, auto, auto, 1fr),
+  stroke: 0.5pt + gray,
+  inset: 5pt,
+  [*Nome*], [*Tipo*], [*Esito*], [*Problemi residui*], [*Nota Sesto Uomo*],
+  ..data.at("entries", default: ()).map(e => (
+    [#e.at("kb_name", default: "-")],
+    [#e.at("kb_type", default: "-")],
+    [#e.at("status", default: "-")],
+    [#str(e.at("final_issues_found", default: 0))],
+    [#e.at("sesto_uomo_summary", default: "-")],
+  )).flatten()
+)
+
+#v(1em)
+#text(style: "italic")[Documento interno, generato automaticamente. Non e' un documento client-facing.]]]></field>
+        </record>
+
         <!-- Template Certificato Validazione 6 Giudici (interno) -->
         <record id="typst_template_kb_validation_certificate" model="erpv6.typst.template">
             <field name="name">Certificato Validazione 6 Giudici (interno)</field>
@@ -245,7 +313,7 @@
             <field name="language">it</field>
             <field name="version">1.0</field>
             <field name="description">Certificato interno (non per il cliente finale) dell'esito della validazione "6 Giudici" (5 Analisti + Sesto Uomo): UNA CATEGORIA KB alla volta, con una riga per ogni voce approvata in quella categoria nello stesso batch di approvazione del supervisore -- non uno per singola voce, per non generare decine di certificati/email quando il supervisore approva in blocco (vedi data/validation_session_bulk_actions.xml). Generato e inviato (notifica in-app + email) da erpv6_production/models/validation_session.py._send_kb_validation_certificates_by_category ai revisori/supervisore coinvolti, alla approvazione finale.</field>
-            <field name="sequence">7</field>
+            <field name="sequence">8</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
             <field name="required_fields">{

@@ -223,6 +223,16 @@ class TypstDocument(models.Model):
                 'email_to': user.email,
                 'attachment_ids': mail_attachment_ids,
             }
+            # Senza email_from esplicito, mail.mail risolve il mittente da
+            # self.env.user al momento della creazione -- incoerente a
+            # seconda di chi/cosa esegue questa azione (click reale, cron,
+            # odoo shell): visto dal vivo un invio finire come "OdooBot
+            # <odoobot@example.com>" invece del mittente aziendale atteso.
+            # mail.default.from (impostato una volta in Impostazioni Tecniche,
+            # non hardcoded qui) da' un mittente stabile con nome leggibile.
+            default_from = self.env['ir.config_parameter'].sudo().get_param('mail.default.from')
+            if default_from:
+                mail_values['email_from'] = f'"{self.env.company.name}" <{default_from}>'
             self.env['mail.mail'].create(mail_values).send()
 
         self.status = 'sent'
