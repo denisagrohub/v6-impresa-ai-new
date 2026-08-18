@@ -65,6 +65,19 @@ class Erpv6KnowledgeBase(models.Model):
              "erpv6_production/models/validation_session.py). Vuoto per voci create "
              "manualmente al di fuori del flusso di estrazione AI.")
 
+    prompt_approval_state = fields.Selection([
+        ('none', 'Nessuna modifica in sospeso'),
+        ('pending', 'In attesa di approvazione admin'),
+    ], default='none', readonly=True, tracking=True,
+        help="Solo per kb_type='prompt': una modifica al contenuto proposta da un "
+             "utente non admin (base.group_system) non viene applicata subito ma "
+             "resta qui in sospeso finche' un admin non la approva o rifiuta (vedi "
+             "action_approve_pending_prompt/action_reject_pending_prompt). Un admin "
+             "che modifica direttamente il contenuto bypassa questo gate.")
+    prompt_pending_content = fields.Text(string='Modifica proposta (in attesa)', readonly=True)
+    prompt_pending_author_id = fields.Many2one('res.users', string='Proposta da', readonly=True)
+    prompt_pending_since = fields.Datetime(string='In attesa dal', readonly=True)
+
     _sql_constraints = [('name_unique', 'unique(name, kb_type)', 'Nome+tipo deve essere univoco!')]
 
     @api.constrains('priority')
@@ -94,10 +107,43 @@ class Erpv6KnowledgeBase(models.Model):
                 vals['content'] = crypto.encrypt(vals['content'], double=double, context=f'kb_create_{vals.get("kb_type")}')
         return super().create(vals_list)
 
+    def _post_prompt_gate_notification(self, body):
+        """message_post richiede un mittente con email configurata
+        (raise_on_email=True in mail.thread) -- un utente/account API senza
+        email non deve mai impedire il salvataggio della proposta o
+        l'approvazione/rifiuto, che sono la garanzia vera del gate. La
+        notifica in chatter e' un di piu', non deve mai bloccare."""
+        try:
+            self.message_post(body=body)
+        except UserError:
+            pass
+
     def write(self, vals):
         if 'content' in vals and self.env.context.get('encrypt_content', True):
+            is_admin = self.env.user.has_group('base.group_system')
             crypto = self.env['erpv6.crypto.engine']
             for rec in self:
+                if rec.kb_type == 'prompt' and not is_admin:
+                    # Gate di approvazione: un non-admin non scrive mai il contenuto
+                    # di un prompt AI direttamente, la modifica resta in sospeso
+                    # finche' un admin non la approva (action_approve_pending_prompt).
+                    proposed = vals.get('content')
+                    rec_vals = {k: v for k, v in vals.items() if k != 'content'}
+                    is_change = proposed is not None and proposed != rec.content
+                    if is_change:
+                        rec_vals.update({
+                            'prompt_pending_content': proposed,
+                            'prompt_pending_author_id': self.env.user.id,
+                            'prompt_pending_since': fields.Datetime.now(),
+                            'prompt_approval_state': 'pending',
+                        })
+                    super(Erpv6KnowledgeBase, rec).write(rec_vals)
+                    if is_change:
+                        rec._post_prompt_gate_notification(_(
+                            "%(user)s ha proposto una modifica al contenuto di questo "
+                            "prompt AI: in attesa di approvazione admin."
+                        ) % {'user': self.env.user.name})
+                    continue
                 rec_vals = vals.copy()
                 if rec.is_encrypted and rec_vals.get('content'):
                     if rec_vals['content'] != rec.content:
@@ -109,8 +155,47 @@ class Erpv6KnowledgeBase(models.Model):
                     if rec_vals.get('content') and rec_vals['content'] != rec.content:
                         rec._increment_version(rec_vals.get('change_notes', 'Aggiornamento'))
                     super(Erpv6KnowledgeBase, rec).write(rec_vals)
+                if rec.kb_type == 'prompt' and rec.prompt_approval_state == 'pending':
+                    # L'admin ha scritto direttamente il contenuto: la sua modifica
+                    # e' gia' applicata, la proposta in sospeso (se c'era) e' superata.
+                    super(Erpv6KnowledgeBase, rec).write({
+                        'prompt_pending_content': False,
+                        'prompt_pending_author_id': False,
+                        'prompt_pending_since': False,
+                        'prompt_approval_state': 'none',
+                    })
             return True
         return super().write(vals)
+
+    def action_approve_pending_prompt(self):
+        for rec in self:
+            if not self.env.user.has_group('base.group_system'):
+                raise UserError(_("Solo un admin puo' approvare la modifica di un prompt AI."))
+            if rec.prompt_approval_state != 'pending':
+                raise UserError(_("Nessuna modifica in sospeso da approvare per '%s'.") % rec.name)
+            proposed = rec.prompt_pending_content
+            author = rec.prompt_pending_author_id
+            rec.write({'content': proposed, 'change_notes': _('Approvata da admin (proposta da %s)') % (author.name if author else '?')})
+            rec._post_prompt_gate_notification(_(
+                "%(admin)s ha approvato la modifica proposta da %(author)s: contenuto aggiornato."
+            ) % {'admin': self.env.user.name, 'author': author.name if author else '?'})
+
+    def action_reject_pending_prompt(self):
+        for rec in self:
+            if not self.env.user.has_group('base.group_system'):
+                raise UserError(_("Solo un admin puo' rifiutare la modifica di un prompt AI."))
+            if rec.prompt_approval_state != 'pending':
+                raise UserError(_("Nessuna modifica in sospeso da rifiutare per '%s'.") % rec.name)
+            author = rec.prompt_pending_author_id
+            rec.write({
+                'prompt_pending_content': False,
+                'prompt_pending_author_id': False,
+                'prompt_pending_since': False,
+                'prompt_approval_state': 'none',
+            })
+            rec._post_prompt_gate_notification(_(
+                "%(admin)s ha rifiutato la modifica proposta da %(author)s: contenuto invariato."
+            ) % {'admin': self.env.user.name, 'author': author.name if author else '?'})
 
     def get_content_for_ai(self, ai_name='unknown'):
         self.ensure_one()

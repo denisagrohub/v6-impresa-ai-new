@@ -344,6 +344,25 @@ class Erpv6KbExtractionService(models.AbstractModel):
         # (finish_reason='stop', errore reale non riprovabile allo stesso modo).
         truncated_by_length = choice.get('finish_reason') == 'length'
 
+        if message_content is None:
+            # Modelli "reasoning" (es. Gemini 3.6) possono restituire
+            # message.content=None con finish_reason='length' quando il
+            # budget di max_tokens si esaurisce nel ragionamento interno
+            # prima di produrre testo -- stesso rimedio del troncamento
+            # normale (dimezzare il blocco riduce anche il ragionamento
+            # necessario). Se invece finish_reason non e' 'length', un
+            # content nullo e' davvero inatteso: mai inventare un
+            # risultato vuoto, va segnalato con la risposta grezza.
+            if truncated_by_length:
+                raise _ChunkTruncatedError(
+                    f"{chunk_label}: nessun contenuto testuale nella risposta "
+                    "(probabile budget di reasoning esaurito) con finish_reason=length"
+                )
+            raise UserError(_(
+                "Risposta AI senza contenuto testuale (%(chunk)s), finish_reason=%(reason)s. "
+                "Risposta grezza: %(raw)s"
+            ) % {'chunk': chunk_label, 'reason': choice.get('finish_reason'), 'raw': json.dumps(raw_content)[:1000]})
+
         message_content = message_content.strip()
         if message_content.startswith('```'):
             message_content = message_content.strip('`')

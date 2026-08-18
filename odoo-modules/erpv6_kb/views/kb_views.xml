@@ -16,10 +16,23 @@
         <field name="arch" type="xml">
             <form>
                 <header>
+                    <button name="action_approve_pending_prompt" type="object" string="Approva Modifica Prompt"
+                            class="oe_highlight" groups="base.group_system"
+                            invisible="kb_type != 'prompt' or prompt_approval_state != 'pending'"/>
+                    <button name="action_reject_pending_prompt" type="object" string="Rifiuta Modifica Prompt"
+                            groups="base.group_system"
+                            invisible="kb_type != 'prompt' or prompt_approval_state != 'pending'"/>
                     <button name="action_show_content" type="object" string="Mostra Contenuto" class="oe_highlight" invisible="not is_encrypted"/>
                     <button name="action_log_usage" type="object" string="Registra Utilizzo"/>
+                    <field name="prompt_approval_state" widget="statusbar" invisible="kb_type != 'prompt'"/>
                 </header>
                 <sheet>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="kb_type != 'prompt' or prompt_approval_state != 'pending'">
+                        Modifica proposta da <field name="prompt_pending_author_id" readonly="1"/>
+                        il <field name="prompt_pending_since" readonly="1"/>, in attesa di approvazione admin:
+                        <field name="prompt_pending_content" readonly="1" widget="text"/>
+                    </div>
                     <div class="oe_title"><h1><field name="name" placeholder="Titolo..."/></h1></div>
                     <group>
                         <group string="Classificazione"><field name="kb_type"/><field name="category_id"/>
