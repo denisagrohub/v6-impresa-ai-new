@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import logging
+import time
 
 from odoo import api, models, _
 from odoo.exceptions import UserError
@@ -10,11 +11,25 @@ from odoo.addons.erpv6_kb.models.kb_knowledge import KB_TYPE_SELECTION
 
 _logger = logging.getLogger(__name__)
 
-MAX_RAW_CHARS = 40000
+# Groq tier gratuito impone un limite di 8000 token/minuto su openai/gpt-oss-120b
+# (verificato dal vivo: la soglia "Requested" di Groq conta input + max_tokens
+# riservato per l'output, non solo l'input effettivo -- una singola chiamata con
+# troppo testo va in 413 "tokens per minute", una con testo moderato ma senza
+# max_tokens esplicito si vede accorciare l'output a meta' JSON, invalido).
+# Per documenti piu' grandi di un chunk, il testo viene spezzato ed elaborato
+# a piu' chiamate sequenziali (l'utente ha scelto questa strada gratuita invece
+# di un upgrade a pagamento del piano Groq).
+CHUNK_MAX_CHARS = 8000
+CHUNK_MAX_OUTPUT_TOKENS = 4000
+# Il limite Groq e' una finestra scorrevole di 60s condivisa da tutte le chiamate
+# dell'organizzazione: senza un piano a pagamento non c'e' altro modo per restare
+# sotto soglia che aspettare che la chiamata precedente "esca" dalla finestra.
+CHUNK_PACING_SECONDS = 65
 
 EXTRACTION_SYSTEM_PROMPT = """Sei un motore di estrazione dati per la Knowledge Base aziendale di V6 Impresa.
 Ti viene fornito il contenuto grezzo di un documento (tabellare o testuale) caricato da un consulente.
 Estrai le voci di conoscenza strutturate SENZA inventare contenuto che non è presente nel testo fornito.
+Non fare allusioni, inferenze implicite o supposizioni: riporta solo ciò che è esplicitamente scritto nel testo, senza sottintendere, ipotizzare o suggerire informazioni non dichiarate.
 Se una riga/sezione non contiene conoscenza utile (es. intestazioni vuote), ignorala.
 
 Per ogni voce identificabile produci un oggetto JSON con questi campi:
@@ -61,36 +76,121 @@ class Erpv6KbExtractionService(models.AbstractModel):
                         lines.append(f"Riga {row_idx}: " + " | ".join(cells))
             return "\n".join(lines)
 
+        if filename.endswith('.pdf'):
+            try:
+                from PyPDF2 import PdfReader
+            except ImportError:
+                raise UserError(_("Libreria PyPDF2 non disponibile sul server."))
+            reader = PdfReader(io.BytesIO(data))
+            pages = [(page.extract_text() or '') for page in reader.pages]
+            text = "\n".join(pages).strip()
+            if not text:
+                raise UserError(_(
+                    "Il PDF non contiene testo estraibile (probabile scansione/immagine "
+                    "senza OCR): questo server non ha un motore OCR configurato."
+                ))
+            return text
+
+        if filename.endswith('.docx'):
+            import zipfile
+            from xml.etree import ElementTree
+            try:
+                with zipfile.ZipFile(io.BytesIO(data)) as z:
+                    xml_bytes = z.read('word/document.xml')
+            except (zipfile.BadZipFile, KeyError):
+                raise UserError(_("File .docx non valido o corrotto."))
+            ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            root = ElementTree.fromstring(xml_bytes)
+            paragraphs = []
+            for p in root.iter(f"{{{ns['w']}}}p"):
+                texts = [t.text or '' for t in p.iter(f"{{{ns['w']}}}t")]
+                paragraphs.append(''.join(texts))
+            return "\n".join(paragraphs)
+
         try:
-            return data.decode('utf-8')
+            text = data.decode('utf-8')
         except UnicodeDecodeError:
-            return data.decode('latin-1', errors='replace')
+            text = data.decode('latin-1', errors='replace')
+
+        # Formati testuali generici (csv, xml, txt, md, ...) arrivano qui e
+        # vanno bene cosi' come stringa grezza -- il prompt AI a valle decide
+        # come interpretarli. Ma un file binario non riconosciuto sopra
+        # (immagine, .doc legacy, ecc.) decodificato "a forza" con latin-1
+        # produce sempre una stringa (non solleva mai UnicodeDecodeError),
+        # quindi senza questo controllo verrebbe inviato all'AI come testo
+        # illeggibile, sprecando la chiamata e producendo voci KB spazzatura.
+        printable_ratio = sum(1 for c in text if c.isprintable() or c in '\n\r\t') / max(len(text), 1)
+        if printable_ratio < 0.85:
+            raise UserError(_(
+                "Formato file non supportato per l'estrazione automatica del testo "
+                "(probabile immagine o binario senza un parser dedicato). Formati "
+                "supportati oggi: testo semplice, CSV, XML, .xlsx/.xlsm, .pdf (con testo, "
+                "non scansioni), .docx."
+            ))
+        return text
 
     @api.model
-    def extract_kb_entries(self, file_data_b64, filename, notes=None):
-        """Ritorna una lista di dict {name, kb_type, category, content} estratti via AI.
+    def _split_into_chunks(self, text, max_chars):
+        """Spezza su un a-capo vicino al limite quando possibile, per non
+        tagliare una riga di tabella a meta' e confondere il modello."""
+        chunks = []
+        start = 0
+        length = len(text)
+        while start < length:
+            end = min(start + max_chars, length)
+            if end < length:
+                newline_pos = text.rfind('\n', start, end)
+                if newline_pos > start:
+                    end = newline_pos + 1
+            chunks.append(text[start:end])
+            start = end
+        return chunks
 
-        Solleva UserError se l'estrazione fallisce (nessun provider attivo,
-        risposta non valida, ecc.) -- il chiamante decide come gestirlo
-        (mostrare all'utente nel wizard, o loggarlo nel chatter del documento).
-        """
+    @api.model
+    def estimate_extraction_plan(self, file_data_b64, filename):
+        """Stima blocchi/tempo attesi PRIMA di lanciare l'estrazione vera e
+        propria (sincrona, vedi extract_kb_entries) -- usata dal chiamante
+        (erpv6_production/models/library_document.py) per notificare
+        subito l'utente di quanto durera' probabilmente, invece di lasciarlo
+        senza segnali per diversi minuti su un documento grande. Riusa
+        extract_raw_text/_split_into_chunks (stessa logica di
+        extract_kb_entries, nessuna duplicazione) -- solleva la stessa
+        UserError di extract_raw_text se il file non e' leggibile; il
+        chiamante puo' ignorarla e lasciare che extract_kb_entries la
+        risollevi (parsing di un file e' economico, non ripete alcuna
+        chiamata AI)."""
         raw_text = self.extract_raw_text(file_data_b64, filename)
-        if not raw_text.strip():
-            raise UserError(_("Nessun contenuto leggibile trovato nel documento."))
+        chunk_count = len(self._split_into_chunks(raw_text, CHUNK_MAX_CHARS))
+        return {
+            'chunk_count': chunk_count,
+            'estimated_seconds': chunk_count * CHUNK_PACING_SECONDS,
+        }
 
-        truncated = raw_text[:MAX_RAW_CHARS]
-        extra_notes = f"Note aggiuntive dell'utente: {notes}" if notes else ""
-        system_prompt = EXTRACTION_SYSTEM_PROMPT.format(
-            kb_types=", ".join(f'"{k}"' for k, _label in KB_TYPE_SELECTION),
-            extra_notes=extra_notes,
-        )
+    @api.model
+    def _resolve_route_and_model(self):
+        # Il payload viene inviato cosi' com'e' al provider che il bridge sceglie
+        # (vedi erpv6.omni.bridge.execute_ai_task, che non adatta 'model' in base
+        # al provider effettivo) -- usiamo il modello del provider primario di
+        # QUESTA route invece di un default fisso, cosi' almeno il percorso
+        # primario ha un nome di modello valido. Se il primario fallisce e il
+        # bridge passa a un fallback, quel provider potrebbe non avere questo
+        # stesso modello -- gap noto nel bridge, non risolvibile da qui senza
+        # cambiare execute_ai_task per ogni altra route che lo usa.
+        route = self.env['erpv6.omni.route.config'].search([
+            ('task_type', '=', 'kb_extraction'), ('is_active', '=', True),
+        ], limit=1)
+        model = route.primary_provider_id.get_optimal_model('kb_extraction') if route and route.primary_provider_id else None
+        return model or 'gpt-4-turbo'
 
+    @api.model
+    def _call_and_parse_chunk(self, system_prompt, chunk_text, model, chunk_label):
         payload = {
-            'model': 'gpt-4-turbo',
+            'model': model,
             'temperature': 0.1,
+            'max_tokens': CHUNK_MAX_OUTPUT_TOKENS,
             'messages': [
                 {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': truncated},
+                {'role': 'user', 'content': chunk_text},
             ],
         }
 
@@ -103,20 +203,20 @@ class Erpv6KbExtractionService(models.AbstractModel):
 
         if not result.get('success'):
             raise UserError(_(
-                "Estrazione AI fallita: %s\n\n"
+                "Estrazione AI fallita (%(chunk)s): %(error)s\n\n"
                 "Nota: se nessun provider AI (OpenAI/Anthropic/Groq) ha una API Key attiva "
                 "configurata in Impostazioni > V6 Impresa AI > OmniRoute > Provider, questo "
                 "errore è atteso finché non ne viene attivato almeno uno."
-            ) % result.get('error', 'errore sconosciuto'))
+            ) % {'chunk': chunk_label, 'error': result.get('error', 'errore sconosciuto')})
 
         raw_content = result.get('data', {})
         try:
             message_content = raw_content['choices'][0]['message']['content']
         except (KeyError, IndexError, TypeError):
             raise UserError(_(
-                "Risposta AI in un formato inatteso, non riconducibile a una chat completion "
-                "standard. Risposta grezza: %s"
-            ) % json.dumps(raw_content)[:1000])
+                "Risposta AI in un formato inatteso (%(chunk)s), non riconducibile a una chat "
+                "completion standard. Risposta grezza: %(raw)s"
+            ) % {'chunk': chunk_label, 'raw': json.dumps(raw_content)[:1000]})
 
         message_content = message_content.strip()
         if message_content.startswith('```'):
@@ -129,11 +229,12 @@ class Erpv6KbExtractionService(models.AbstractModel):
             entries = json.loads(message_content)
         except json.JSONDecodeError as e:
             raise UserError(_(
-                "L'AI non ha risposto con un JSON valido: %s\n\nContenuto ricevuto: %s"
-            ) % (e, message_content[:1000]))
+                "L'AI non ha risposto con un JSON valido (%(chunk)s): %(err)s\n\n"
+                "Contenuto ricevuto: %(raw)s"
+            ) % {'chunk': chunk_label, 'err': e, 'raw': message_content[:1000]})
 
         if not isinstance(entries, list):
-            raise UserError(_("L'AI non ha restituito un array di voci."))
+            raise UserError(_("L'AI non ha restituito un array di voci (%s).") % chunk_label)
 
         valid_kb_types = {k for k, _label in KB_TYPE_SELECTION}
         cleaned = []
@@ -148,6 +249,43 @@ class Erpv6KbExtractionService(models.AbstractModel):
                 'content': entry.get('content') or '',
             })
         return cleaned
+
+    @api.model
+    def extract_kb_entries(self, file_data_b64, filename, notes=None):
+        """Ritorna una lista di dict {name, kb_type, category, content} estratti via AI.
+
+        Documenti piu' grandi di CHUNK_MAX_CHARS vengono spezzati in piu' chiamate
+        sequenziali (col limite gratuito Groq -- vedi commento su CHUNK_PACING_SECONDS
+        in testa al file) e i risultati aggregati. Solleva UserError se un qualsiasi
+        chunk fallisce (nessun provider attivo, risposta non valida, ecc.) -- il
+        chiamante decide come gestirlo (mostrare all'utente nel wizard, o loggarlo
+        nel chatter del documento). Le voci dei chunk gia' riusciti prima del
+        fallimento vengono scartate (nessuna KB parziale/incoerente creata a valle).
+        """
+        raw_text = self.extract_raw_text(file_data_b64, filename)
+        if not raw_text.strip():
+            raise UserError(_("Nessun contenuto leggibile trovato nel documento."))
+
+        extra_notes = f"Note aggiuntive dell'utente: {notes}" if notes else ""
+        system_prompt = EXTRACTION_SYSTEM_PROMPT.format(
+            kb_types=", ".join(f'"{k}"' for k, _label in KB_TYPE_SELECTION),
+            extra_notes=extra_notes,
+        )
+        model = self._resolve_route_and_model()
+        chunks = self._split_into_chunks(raw_text, CHUNK_MAX_CHARS)
+
+        all_entries = []
+        total = len(chunks)
+        for idx, chunk in enumerate(chunks, start=1):
+            if idx > 1:
+                _logger.info(
+                    "Estrazione KB: pausa di %ss prima del chunk %s/%s (limite gratuito Groq)",
+                    CHUNK_PACING_SECONDS, idx, total)
+                time.sleep(CHUNK_PACING_SECONDS)
+            chunk_label = f"blocco {idx}/{total}"
+            all_entries.extend(self._call_and_parse_chunk(system_prompt, chunk, model, chunk_label))
+
+        return all_entries
 
     @api.model
     def create_kb_records(self, entries, source_label=None):

@@ -8,8 +8,9 @@
                 <sheet>
                     <group>
                         <field name="name"/>
-                        <field name="opensign_url"/>
+                        <field name="documenso_url"/>
                         <field name="api_key" password="True"/>
+                        <field name="webhook_secret" password="True"/>
                         <field name="active"/>
                     </group>
                 </sheet>

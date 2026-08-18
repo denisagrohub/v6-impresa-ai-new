@@ -156,6 +156,87 @@
 ]]></field>
         </record>
 
+        <!-- Template Resoconto Estrazione KB (interno) -->
+        <record id="typst_template_kb_extraction_report" model="erpv6.typst.template">
+            <field name="name">Resoconto Estrazione KB (interno)</field>
+            <field name="code">KB-EXTRACT-REPORT-001</field>
+            <field name="category">custom</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Report interno (non per il cliente finale) dell'esito dell'estrazione automatica AI di voci Knowledge Base da un documento caricato in erpv6.library.document (categoria 'kb_source'). Generato e inviato (notifica in-app + email) da erpv6_production/models/library_document.py._send_kb_extraction_report all'utente responsabile del progetto, sia sull'esito positivo sia su errore.</field>
+            <field name="sequence">6</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields">{
+                "source_document": {"type": "string", "description": "Nome del documento erpv6.library.document sorgente"},
+                "file_name": {"type": "string", "description": "Nome del file caricato"},
+                "generated_at": {"type": "string", "description": "Data/ora generazione resoconto"},
+                "entries_count": {"type": "integer", "description": "Numero di voci KB estratte"},
+                "entries": {"type": "array", "description": "Elenco voci estratte: name, kb_type, category"},
+                "error": {"type": "string", "description": "Messaggio di errore, se l'estrazione e' fallita"},
+                "advice": {"type": "string", "description": "Suggerimento pratico associato all'errore, se presente"}
+            }</field>
+            <field name="typst_source"><![CDATA[#let data = json("data.json")
+
+#set page(paper: "a4", margin: 2.5cm)
+#set text(size: 10pt, lang: "it")
+
+#align(center)[
+  #text(size: 20pt, weight: "bold")[Resoconto Estrazione KB]
+  #v(0.3em)
+  #text(size: 11pt, fill: gray)[Generato il #data.at("generated_at", default: "-")]
+]
+
+#v(1.5em)
+#line(length: 100%, stroke: 0.5pt + gray)
+#v(1em)
+
+= Documento Sorgente
+
+#table(
+  columns: (auto, 1fr),
+  stroke: none,
+  row-gutter: 0.6em,
+  [*Nome documento*], [#data.at("source_document", default: "-")],
+  [*File*], [#data.at("file_name", default: "-")],
+  [*Voci estratte*], [#str(data.at("entries_count", default: 0))],
+)
+
+#v(1em)
+
+#if data.at("error", default: "") != "" [
+  = Errore
+
+  #text(fill: red)[#data.error]
+
+  #if data.at("advice", default: "") != "" [
+    #v(0.8em)
+    #text(weight: "bold")[Suggerimento:] #data.advice
+  ]
+] else if data.at("entries_count", default: 0) == 0 [
+  = Esito
+
+  Nessuna voce di conoscenza estratta dal documento.
+] else [
+  = Voci Estratte
+
+  #table(
+    columns: (1fr, auto, auto),
+    stroke: 0.5pt + gray,
+    inset: 6pt,
+    [*Nome*], [*Tipo*], [*Categoria*],
+    ..data.entries.map(e => (
+      [#e.at("name", default: "-")],
+      [#e.at("kb_type", default: "-")],
+      [#e.at("category", default: "-")],
+    )).flatten()
+  )
+
+  #v(1em)
+  #text(style: "italic")[Tutte le voci sono state create inattive e inviate in validazione (motore "6 Giudici", erpv6_validation). Diventeranno disponibili al motore KB solo dopo approvazione umana.]
+]]]></field>
+        </record>
+
         <!-- Template Business Plan Standard -->
         <record id="typst_template_business_plan_standard" model="erpv6.typst.template">
             <field name="name">Business Plan Standard</field>

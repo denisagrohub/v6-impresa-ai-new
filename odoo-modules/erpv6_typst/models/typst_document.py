@@ -184,6 +184,51 @@ class TypstDocument(models.Model):
 
         return True
 
+    def action_notify_user(self, user):
+        """Invia il documento a un utente interno (res.users, non un
+        res.partner cliente) sia come notifica in-app (messaggio nell'inbox
+        Discuss del destinatario, con il PDF allegato) sia come email diretta
+        con lo stesso allegato -- per resoconti tecnici interni (es. resoconto
+        estrazione KB, vedi erpv6_production/models/library_document.py) dove
+        il destinatario e' un membro del team, non un cliente. Per il flusso
+        client-facing vedi action_send_to_partner."""
+        self.ensure_one()
+        if self.status != 'ready':
+            raise UserError(_("Il documento deve essere pronto per essere inviato."))
+        if not user or not user.partner_id:
+            return False
+
+        attachments = None
+        mail_attachment_ids = []
+        if self.pdf_file:
+            attachments = [(self.pdf_filename or 'documento.pdf', base64.b64decode(self.pdf_file))]
+            mail_attachment_ids = [(0, 0, {
+                'name': self.pdf_filename or 'documento.pdf',
+                'datas': self.pdf_file,
+                'res_model': 'erpv6.typst.document',
+                'res_id': self.id,
+            })]
+
+        self.message_post(
+            body=_("Documento generato: %s") % self.name,
+            subject=self.name,
+            partner_ids=user.partner_id.ids,
+            attachments=attachments,
+        )
+
+        if user.email:
+            mail_values = {
+                'subject': self.name,
+                'body_html': _("<p>Documento generato: <strong>%s</strong>.</p><p>In allegato il PDF.</p>") % self.name,
+                'email_to': user.email,
+                'attachment_ids': mail_attachment_ids,
+            }
+            self.env['mail.mail'].create(mail_values).send()
+
+        self.status = 'sent'
+        self.sent_at = fields.Datetime.now()
+        return True
+
     def action_download(self):
         """Scarica il PDF generato"""
         self.ensure_one()
