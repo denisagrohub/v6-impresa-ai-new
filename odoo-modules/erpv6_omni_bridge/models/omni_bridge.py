@@ -43,13 +43,22 @@ class Erpv6OmniBridge(models.AbstractModel):
         if context is None:
             context = {}
         
-        # Se viene passato solo prompt, costruisci il payload standard per chat
+        # Se viene passato solo prompt, costruisci il payload standard per chat.
+        # 'model' qui (e anche quando il chiamante passa un payload esplicito,
+        # es. kb_extraction_service.py) riflette SOLO il provider primario --
+        # se il tentativo passa a un fallback con un catalogo modelli diverso
+        # (es. Groq 'openai/gpt-oss-120b' su Cerebras, che lo chiama solo
+        # 'gpt-oss-120b'), il nome sbagliato causa un 404 anche se il fallback
+        # avrebbe funzionato. Risolto sotto, dentro il ciclo di tentativo,
+        # sovrascrivendo 'model' col catalogo del provider CHE SI STA
+        # provando in quel momento (stessa provider.get_optimal_model()
+        # che il chiamante ha gia' usato per il solo provider primario).
         if payload is None and prompt:
             payload = {
                 'messages': [
                     {'role': 'user', 'content': prompt}
                 ],
-                'model': 'gpt-4-turbo',  # Default, verrà sovrascritto dal provider
+                'model': 'gpt-4-turbo',
                 'temperature': 0.7,
             }
         elif payload is None:
@@ -85,6 +94,11 @@ class Erpv6OmniBridge(models.AbstractModel):
             start_time = time.time()
             
             try:
+                # Definito subito: deve esistere anche se l'eccezione arriva
+                # prima della risoluzione del modello sotto (es. API Key
+                # mancante), altrimenti il logging nel blocco except fallisce.
+                call_payload = payload
+
                 # 🔐 RECUPERO CHIAVE CIFRATA E DECIFRATA
                 api_key = provider.get_decrypted_api_key()
                 if not api_key:
@@ -102,11 +116,21 @@ class Erpv6OmniBridge(models.AbstractModel):
                     'Authorization': f'Bearer {api_key}',
                     'Content-Type': 'application/json'
                 }
-                
+
+                # Risolvi il modello per QUESTO provider (vedi commento sopra)
+                # -- se non ha un modello configurato per il task, tenta
+                # comunque col 'model' originale del payload piuttosto che
+                # abortire subito: potrebbe funzionare (stesso nome modello
+                # tra provider compatibili) o fallire in modo esplicito,
+                # comunque gestito dal blocco except sotto.
+                optimal_model = provider.get_optimal_model(task_type)
+                if optimal_model:
+                    call_payload = dict(payload, model=optimal_model)
+
                 # Esegui la chiamata HTTP reale
                 response = requests.post(
                     url,
-                    json=payload,
+                    json=call_payload,
                     headers=headers,
                     timeout=provider.timeout_seconds or 30
                 )
@@ -126,7 +150,7 @@ class Erpv6OmniBridge(models.AbstractModel):
                 call_log = self.env['erpv6.omni.call.log'].sudo().create_log(
                     task_type=task_type,
                     provider=provider,
-                    model=payload.get('model', 'unknown'),
+                    model=call_payload.get('model', 'unknown'),
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
                     cost=cost,
@@ -159,7 +183,7 @@ class Erpv6OmniBridge(models.AbstractModel):
                 self.env['erpv6.omni.call.log'].sudo().create_log(
                     task_type=task_type,
                     provider=provider,
-                    model=payload.get('model', 'unknown'),
+                    model=call_payload.get('model', 'unknown'),
                     input_tokens=0,
                     output_tokens=0,
                     cost=0.0,

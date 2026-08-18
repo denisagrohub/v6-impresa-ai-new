@@ -253,7 +253,7 @@
                 "file_name": {"type": "string", "description": "Nome del file caricato"},
                 "generated_at": {"type": "string", "description": "Data/ora generazione resoconto"},
                 "entries_count": {"type": "integer", "description": "Numero di voci KB analizzate in questo batch"},
-                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, status, rounds_count, final_issues_found, sesto_uomo_summary"}
+                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, status, rounds_count, final_issues_found, sesto_uomo_summary, providers_used"}
             }</field>
             <field name="typst_source"><![CDATA[#let data = json("data.json")
 
@@ -288,15 +288,16 @@
 = Analisi per Voce
 
 #table(
-  columns: (1fr, auto, auto, auto, 1fr),
+  columns: (1fr, auto, auto, auto, auto, 1fr),
   stroke: 0.5pt + gray,
   inset: 5pt,
-  [*Nome*], [*Tipo*], [*Esito*], [*Problemi residui*], [*Nota Sesto Uomo*],
+  [*Nome*], [*Tipo*], [*Esito*], [*Problemi residui*], [*Provider AI*], [*Nota Sesto Uomo*],
   ..data.at("entries", default: ()).map(e => (
     [#e.at("kb_name", default: "-")],
     [#e.at("kb_type", default: "-")],
     [#e.at("status", default: "-")],
     [#str(e.at("final_issues_found", default: 0))],
+    [#e.at("providers_used", default: "-")],
     [#e.at("sesto_uomo_summary", default: "-")],
   )).flatten()
 )
@@ -319,7 +320,7 @@
             <field name="required_fields">{
                 "category_name": {"type": "string", "description": "Nome della categoria KB certificata"},
                 "entries_count": {"type": "integer", "description": "Numero di voci KB approvate in questa categoria nel batch"},
-                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, rounds_count, final_issues_found, first_reviewer, first_reviewed_at"},
+                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, rounds_count, final_issues_found, providers_used, analyst_prompt_ref, sesto_prompt_ref, first_reviewer, first_reviewed_at"},
                 "supervisor": {"type": "string", "description": "Utente supervisore KB che ha completato il secondo gate per l'intero batch"},
                 "supervisor_approved_at": {"type": "string", "description": "Data/ora del secondo gate"},
                 "generated_at": {"type": "string", "description": "Data/ora generazione certificato"}
@@ -341,7 +342,7 @@
 #line(length: 100%, stroke: 0.5pt + gray)
 #v(1em)
 
-#text(weight: "bold")[Attestazione:] ogni voce elencata sotto ha superato entrambi i livelli di approvazione umana prima di essere attivata: il *primo gate* (revisione umana individuale, colonna "Primo gate" nella tabella) e il *secondo gate* (approvazione finale del supervisore KB, riportata in fondo a questo certificato).
+#text(weight: "bold")[Attestazione:] ogni voce elencata sotto ha superato entrambi i livelli di approvazione umana prima di essere attivata: il *primo gate* (revisione umana individuale, vedi tabella di tracciabilità) e il *secondo gate* (approvazione finale del supervisore KB, riportata in fondo a questo certificato).
 
 #v(1em)
 = Voci Validate (#str(data.at("entries_count", default: 0)))
@@ -350,13 +351,29 @@
   columns: (1fr, auto, auto, auto, 1fr),
   stroke: 0.5pt + gray,
   inset: 5pt,
-  [*Nome*], [*Tipo*], [*Round*], [*Problemi residui*], [*Primo gate (revisore, data)*],
+  [*Nome*], [*Tipo*], [*Round*], [*Problemi residui*], [*Provider AI (ultimo round)*],
   ..data.at("entries", default: ()).map(e => (
     [#e.at("kb_name", default: "-")],
     [#e.at("kb_type", default: "-")],
     [#str(e.at("rounds_count", default: 0))],
     [#str(e.at("final_issues_found", default: 0))],
+    [#e.at("providers_used", default: "-")],
+  )).flatten()
+)
+
+#v(1em)
+= Tracciabilità — Primo Gate e Prompt Usati
+
+#table(
+  columns: (1fr, 1fr, 1fr, 1fr),
+  stroke: 0.5pt + gray,
+  inset: 5pt,
+  [*Nome*], [*Primo gate (revisore, data)*], [*Prompt Analista*], [*Prompt Sesto Uomo*],
+  ..data.at("entries", default: ()).map(e => (
+    [#e.at("kb_name", default: "-")],
     [#e.at("first_reviewer", default: "-") — #e.at("first_reviewed_at", default: "-")],
+    [#e.at("analyst_prompt_ref", default: "-")],
+    [#e.at("sesto_prompt_ref", default: "-")],
   )).flatten()
 )
 

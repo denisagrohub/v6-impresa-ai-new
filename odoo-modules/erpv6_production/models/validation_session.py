@@ -26,6 +26,27 @@ class Erpv6ValidationSession(models.Model):
     kb_content_display = fields.Text(related='kb_id.content', string='Contenuto KB', readonly=True)
     kb_category_display = fields.Char(related='kb_id.category_id.name', string='Categoria KB (attuale)', readonly=True)
 
+    def _get_analyst_prompt_template(self):
+        """Sovrascrive il default hardcoded di erpv6_validation (motore
+        generico, non dipende da erpv6_kb) leggendo il prompt da una voce KB
+        dedicata (kb_type='prompt', vedi data/kb_prompt_data.xml) -- modificabile
+        da un utente senza toccare codice. Ritorna (template, riferimento) con
+        l'id della voce KB usata, tracciato sul round e riportato nel
+        certificato (vedi _build_kb_validation_certificate_data). Torna al
+        default del motore se la voce non esiste ancora (modulo non
+        aggiornato) o e' stata svuotata."""
+        kb = self.env.ref('erpv6_production.kb_prompt_validation_analyst', raise_if_not_found=False)
+        if kb and kb.content:
+            return kb.content, _("KB #%(id)d - %(name)s") % {'id': kb.id, 'name': kb.name}
+        return super()._get_analyst_prompt_template()
+
+    def _get_sesto_uomo_prompt_template(self):
+        """Come sopra, per il prompt del Sesto Uomo."""
+        kb = self.env.ref('erpv6_production.kb_prompt_validation_sesto_uomo', raise_if_not_found=False)
+        if kb and kb.content:
+            return kb.content, _("KB #%(id)d - %(name)s") % {'id': kb.id, 'name': kb.name}
+        return super()._get_sesto_uomo_prompt_template()
+
     @api.depends('res_model', 'res_id')
     def _compute_kb_id(self):
         for session in self:
@@ -174,11 +195,16 @@ class Erpv6ValidationSession(models.Model):
         for kb in kbs:
             session = session_by_kb_id.get(kb.id)
             last_round = session.round_ids[-1] if session and session.round_ids else None
+            providers_used = ', '.join(sorted(filter(None, set(
+                last_round.analysis_ids.mapped('provider_name'))))) if last_round else ''
             entries.append({
                 'kb_name': kb.name,
                 'kb_type': kb_type_labels.get(kb.kb_type, kb.kb_type),
                 'rounds_count': len(session.round_ids) if session else 0,
                 'final_issues_found': last_round.issues_found if last_round else 0,
+                'providers_used': providers_used or '-',
+                'analyst_prompt_ref': last_round.analyst_prompt_ref if last_round else '',
+                'sesto_prompt_ref': last_round.sesto_prompt_ref if last_round else '',
                 'first_reviewer': session.human_reviewer_id.name if session and session.human_reviewer_id else '',
                 'first_reviewed_at': (
                     fields.Datetime.to_string(session.human_reviewed_at)

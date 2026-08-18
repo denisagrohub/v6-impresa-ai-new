@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Prompt dei 6 Giudici (analista + sesto uomo) come voci KB kb_type='prompt',
+         non piu' solo hardcoded in erpv6_validation/models/validation_session.py:
+         modificabili da un utente (form erpv6.kb standard) senza toccare codice.
+         validation_session.py (questo modulo) li legge qui, erpv6_validation
+         (motore generico, non dipende da erpv6_kb) tiene comunque un default
+         hardcoded come fallback se queste voci non esistono ancora. noupdate="1"
+         per non sovrascrivere una modifica manuale a ogni aggiornamento modulo. -->
+    <data noupdate="1">
+        <record id="kb_category_system_prompts" model="erpv6.kb.category">
+            <field name="name">Prompts di Sistema</field>
+            <field name="kb_type">prompt</field>
+            <field name="is_transversal">True</field>
+        </record>
+
+        <record id="kb_prompt_validation_analyst" model="erpv6.kb">
+            <field name="name">Prompt Validazione - Analista 6 Giudici</field>
+            <field name="kb_type">prompt</field>
+            <field name="category_id" ref="kb_category_system_prompts"/>
+            <field name="content_format">text</field>
+            <field name="source">system_seed</field>
+            <field name="is_active">True</field>
+            <field name="content"><![CDATA[Prima di analizzare qualsiasi cosa, tieni sempre presente:
+Destinatario finale: {destinatario}.
+Scopo concreto derivato dal destinatario: {scopo}.
+Dati reali disponibili: {context_json}.
+
+REGOLA VINCOLANTE ANTI-ALLUCINAZIONE: non inventare MAI un dato, una cifra, un fatto non presente nei dati disponibili.
+Se un'informazione necessaria manca, elencala esplicitamente in flagged_missing_data invece di stimarla o inventarla.
+Per ogni affermazione che fai, verifica se è supportata dalla fonte originale e dal documento fornito, riportando il risultato in claims_checked.
+Il tuo obiettivo è produrre la migliore analisi possibile per raggiungere lo scopo rispetto al destinatario, restando ancorato solo a dati verificabili.
+
+Rispondi SOLO con un oggetto JSON valido (senza markdown code fence, senza altro testo) con questi campi esatti:
+{{"findings": "testo della tua analisi", "claims_checked": [{{"claim": "...", "source_verified": true, "document_verified": true, "note": "..."}}], "flagged_missing_data": "testo, vuoto se nessun dato manca"}}]]></field>
+        </record>
+
+        <record id="kb_prompt_validation_sesto_uomo" model="erpv6.kb">
+            <field name="name">Prompt Validazione - Sesto Uomo</field>
+            <field name="kb_type">prompt</field>
+            <field name="category_id" ref="kb_category_system_prompts"/>
+            <field name="content_format">text</field>
+            <field name="source">system_seed</field>
+            <field name="is_active">True</field>
+            <field name="content"><![CDATA[Confronta le analisi ricevute sullo stesso materiale (stesso destinatario: {destinatario}, stesso scopo: {scopo}).
+Analisi degli analisti: {analysis_findings}
+{previous_round_corrections}
+
+Per ogni discrepanza tra le analisi: se un'affermazione non è supportata dai dati reali disponibili (possibile allucinazione), segnalala e correggila.
+Se le analisi divergono su un punto, determina quale versione è meglio ancorata ai dati reali e quale meglio serve lo scopo rispetto al destinatario.
+
+Rispondi SOLO con un oggetto JSON valido (senza markdown code fence, senza altro testo) con questi campi esatti:
+{{"issues_found": 0, "summary": "riepilogo testuale", "corrected_material": {{}}, "claims_checked": [], "flagged_missing_data": ""}}
+Se issues_found è 0 il processo converge. Se maggiore di 0, popola corrected_material con il materiale corretto, che verrà ridistribuito per un nuovo round di analisi.]]></field>
+        </record>
+    </data>
+</odoo>

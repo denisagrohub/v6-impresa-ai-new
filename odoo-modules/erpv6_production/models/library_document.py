@@ -518,6 +518,8 @@ class LibraryDocument(models.Model):
         for kb in kbs:
             session = session_by_kb_id.get(kb.id)
             last_round = session.round_ids[-1] if session and session.round_ids else None
+            providers_used = ', '.join(sorted(filter(None, set(
+                last_round.analysis_ids.mapped('provider_name'))))) if last_round else ''
             entries.append({
                 'kb_name': kb.name,
                 'kb_type': kb_type_labels.get(kb.kb_type, kb.kb_type),
@@ -525,6 +527,7 @@ class LibraryDocument(models.Model):
                 'rounds_count': len(session.round_ids) if session else 0,
                 'final_issues_found': last_round.issues_found if last_round else 0,
                 'sesto_uomo_summary': (last_round.sesto_uomo_notes or '') if last_round else '',
+                'providers_used': providers_used or '-',
             })
         return {
             'source_document': self.name,

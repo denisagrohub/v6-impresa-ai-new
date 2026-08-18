@@ -53,12 +53,16 @@
                                     <field name="analysis_ids">
                                         <list string="Analisi">
                                             <field name="analyst_index"/>
+                                            <field name="provider_name"/>
+                                            <field name="model_used"/>
                                             <field name="findings"/>
                                             <field name="flagged_missing_data"/>
                                         </list>
                                         <form string="Analisi">
                                             <group>
                                                 <field name="analyst_index"/>
+                                                <field name="provider_name"/>
+                                                <field name="model_used"/>
                                                 <field name="omni_call_log_id"/>
                                                 <field name="findings"/>
                                                 <field name="claims_checked"/>

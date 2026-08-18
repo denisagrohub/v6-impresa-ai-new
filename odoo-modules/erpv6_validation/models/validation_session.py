@@ -1,9 +1,44 @@
 # -*- coding: utf-8 -*-
 
+import logging
+
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 import hashlib
 import json
+
+_logger = logging.getLogger(__name__)
+
+# Template di default per i prompt (usati se nessun override, es. erpv6_production
+# che li legge da una voce erpv6.kb kb_type='prompt', li fornisce -- vedi
+# _get_analyst_prompt_template/_get_sesto_uomo_prompt_template sotto). Placeholder
+# .format(): {destinatario} {scopo} {context_json} per l'analista;
+# {destinatario} {scopo} {analysis_findings} {previous_round_corrections} per il
+# sesto uomo. Le graffe doppie {{ }} sono letterali (escaping .format()), producono
+# l'esempio JSON nel testo finale.
+DEFAULT_ANALYST_PROMPT_TEMPLATE = """Prima di analizzare qualsiasi cosa, tieni sempre presente:
+Destinatario finale: {destinatario}.
+Scopo concreto derivato dal destinatario: {scopo}.
+Dati reali disponibili: {context_json}.
+
+REGOLA VINCOLANTE ANTI-ALLUCINAZIONE: non inventare MAI un dato, una cifra, un fatto non presente nei dati disponibili.
+Se un'informazione necessaria manca, elencala esplicitamente in flagged_missing_data invece di stimarla o inventarla.
+Per ogni affermazione che fai, verifica se è supportata dalla fonte originale e dal documento fornito, riportando il risultato in claims_checked.
+Il tuo obiettivo è produrre la migliore analisi possibile per raggiungere lo scopo rispetto al destinatario, restando ancorato solo a dati verificabili.
+
+Rispondi SOLO con un oggetto JSON valido (senza markdown code fence, senza altro testo) con questi campi esatti:
+{{"findings": "testo della tua analisi", "claims_checked": [{{"claim": "...", "source_verified": true, "document_verified": true, "note": "..."}}], "flagged_missing_data": "testo, vuoto se nessun dato manca"}}"""
+
+DEFAULT_SESTO_UOMO_PROMPT_TEMPLATE = """Confronta le analisi ricevute sullo stesso materiale (stesso destinatario: {destinatario}, stesso scopo: {scopo}).
+Analisi degli analisti: {analysis_findings}
+{previous_round_corrections}
+
+Per ogni discrepanza tra le analisi: se un'affermazione non è supportata dai dati reali disponibili (possibile allucinazione), segnalala e correggila.
+Se le analisi divergono su un punto, determina quale versione è meglio ancorata ai dati reali e quale meglio serve lo scopo rispetto al destinatario.
+
+Rispondi SOLO con un oggetto JSON valido (senza markdown code fence, senza altro testo) con questi campi esatti:
+{{"issues_found": 0, "summary": "riepilogo testuale", "corrected_material": {{}}, "claims_checked": [], "flagged_missing_data": ""}}
+Se issues_found è 0 il processo converge. Se maggiore di 0, popola corrected_material con il materiale corretto, che verrà ridistribuito per un nuovo round di analisi."""
 
 
 class Erpv6ValidationSession(models.Model):
@@ -53,102 +88,164 @@ class Erpv6ValidationSession(models.Model):
             session.status = 'in_validation'
             session._run_round()
 
+    def _get_analyst_prompt_template(self):
+        """Ritorna (template, riferimento_tracciabile) -- placeholder .format()
+        nel template: destinatario, scopo, context_json. Hook riscrivibile:
+        erpv6_production lo sovrascrive per leggere il prompt da una voce
+        erpv6.kb (kb_type='prompt') invece del default hardcoded qui, e
+        ritornare un riferimento tipo "KB #<id> - <nome>" (tracciato sul round
+        e riportato nel certificato) -- questo modulo (motore generico) non
+        dipende da erpv6_kb, quindi non puo' leggerla direttamente."""
+        return DEFAULT_ANALYST_PROMPT_TEMPLATE, 'default motore (nessuna voce KB)'
+
+    def _get_sesto_uomo_prompt_template(self):
+        """Come sopra, per il prompt del Sesto Uomo (placeholder: destinatario,
+        scopo, analysis_findings, previous_round_corrections)."""
+        return DEFAULT_SESTO_UOMO_PROMPT_TEMPLATE, 'default motore (nessuna voce KB)'
+
+    def _parse_ai_json_response(self, result):
+        """Estrae il contenuto JSON della risposta AI (choices[0].message.content).
+        Ritorna (dict_parsato, error_text) -- error_text vuoto solo se la chiamata
+        e' riuscita E il contenuto e' un JSON valido. MAI silenziosamente
+        trattare un fallimento come "nessun problema trovato": e' esattamente il
+        tipo di esito fabbricato che la regola anti-allucinazione del progetto
+        vieta -- il chiamante decide come reagire a error_text non vuoto (qui:
+        forzare un problema residuo, mai una falsa convergenza)."""
+        if not result.get('success'):
+            return {}, result.get('error') or 'chiamata AI fallita (nessun dettaglio)'
+        try:
+            content = result['data']['choices'][0]['message']['content']
+        except (KeyError, IndexError, TypeError):
+            return {}, 'risposta AI in formato inatteso (non una chat completion standard)'
+        content = (content or '').strip()
+        if content.startswith('```'):
+            content = content.strip('`')
+            if content.lower().startswith('json'):
+                content = content[4:]
+            content = content.strip()
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError as e:
+            return {}, f'risposta AI non in JSON valido: {e}'
+        if not isinstance(parsed, dict):
+            return {}, "risposta AI non e' un oggetto JSON"
+        return parsed, ''
+
     def _run_round(self):
         """Esegue un round di validazione"""
         for session in self:
             round_number = len(session.round_ids) + 1
-            
+
             if round_number > session.max_rounds:
                 session.status = 'escalated_to_human'
                 continue
-            
+
             # Crea il round
             round_vals = {
                 'session_id': session.id,
                 'round_number': round_number,
             }
             validation_round = self.env['erpv6.validation.round'].create(round_vals)
-            
+
             # Determina quali analisti eseguire
             analyst_indices = []
             if session.validation_mode == 'full_six_judges':
                 analyst_indices = ['1', '2', '3', '4', '5']
             analyst_indices.append('sesto')
-            
+
             # Prepara i dati per i prompt
             context_json = json.dumps(session.context_data, ensure_ascii=False)
-            
+            analyst_template, analyst_prompt_ref = session._get_analyst_prompt_template()
+            validation_round.analyst_prompt_ref = analyst_prompt_ref
+
             # Esegui analisi per ogni analista (1-5 o solo sesto)
             analysis_findings = []
             for analyst_idx in analyst_indices[:-1]:  # Tutti tranne il sesto
-                prompt_analista = f"""Prima di analizzare qualsiasi cosa, tieni sempre presente: 
-Destinatario finale: {session.destinatario}. 
-Scopo concreto derivato dal destinatario: {session.scopo}. 
-Dati reali disponibili: {context_json}. 
-
-REGOLA VINCOLANTE ANTI-ALLUCINAZIONE: non inventare MAI un dato, una cifra, un fatto non presente nei dati disponibili. 
-Se un'informazione necessaria manca, elencala esplicitamente in flagged_missing_data invece di stimarla o inventarla. 
-Per ogni affermazione che fai, verifica se è supportata dalla fonte originale e dal documento fornito, 
-riportando il risultato in claims_checked come lista di {{claim, source_verified, document_verified, note}}. 
-Il tuo obiettivo è produrre la migliore analisi possibile per raggiungere lo scopo rispetto al destinatario, 
-restando ancorato solo a dati verificabili."""
+                prompt_analista = analyst_template.format(
+                    destinatario=session.destinatario,
+                    scopo=session.scopo,
+                    context_json=context_json,
+                )
 
                 result = self.env['erpv6.omni.bridge'].execute_ai_task(
                     task_type='validation_analyst',
                     prompt=prompt_analista,
                     context={'analyst_index': analyst_idx}
                 )
-                
+                parsed, error = session._parse_ai_json_response(result)
+                if error:
+                    _logger.warning(
+                        "Analista %s (sessione #%s, round %d) fallito: %s",
+                        analyst_idx, session.id, round_number, error)
+                findings = parsed.get('findings', '') if not error else _("[ERRORE ANALISI: %s]") % error
+
                 # Crea il record di analisi
                 self.env['erpv6.validation.analysis'].create({
                     'round_id': validation_round.id,
                     'analyst_index': analyst_idx,
                     'omni_call_log_id': result.get('call_log_id'),
-                    'findings': result.get('findings', ''),
-                    'claims_checked': result.get('claims_checked', []),
-                    'flagged_missing_data': result.get('flagged_missing_data', '')
+                    'findings': findings,
+                    'claims_checked': parsed.get('claims_checked', []),
+                    'flagged_missing_data': parsed.get('flagged_missing_data', '')
                 })
-                analysis_findings.append(result.get('findings', ''))
-            
+                analysis_findings.append(findings)
+
             # Ora esegui il Sesto Uomo
             previous_round_corrections = ''
             if len(session.round_ids) > 0:
                 last_round = session.round_ids[-1]
                 if last_round.sesto_uomo_notes:
                     previous_round_corrections = f"\n\nCorrezioni dal round precedente: {last_round.sesto_uomo_notes}"
-            
-            prompt_sesto = f"""Confronta le analisi ricevute sullo stesso materiale (stesso destinatario: {session.destinatario}, stesso scopo: {session.scopo}).
-Analisi degli analisti: {' | '.join(analysis_findings)}
-{previous_round_corrections}
 
-Per ogni discrepanza tra le analisi: se un'affermazione non è supportata dai dati reali disponibili (possibile allucinazione), segnalala e correggila. 
-Se le analisi divergono su un punto, determina quale versione è meglio ancorata ai dati reali e quale meglio serve lo scopo rispetto al destinatario. 
-Riporta il numero di problemi residui trovati in issues_found. Se 0, il processo converge. 
-Se maggiore di 0, produci il materiale corretto in corrected_material, che verrà ridistribuito per un nuovo round di analisi."""
+            sesto_template, sesto_prompt_ref = session._get_sesto_uomo_prompt_template()
+            validation_round.sesto_prompt_ref = sesto_prompt_ref
+            prompt_sesto = sesto_template.format(
+                destinatario=session.destinatario,
+                scopo=session.scopo,
+                analysis_findings=' | '.join(analysis_findings),
+                previous_round_corrections=previous_round_corrections,
+            )
 
             result_sesto = self.env['erpv6.omni.bridge'].execute_ai_task(
                 task_type='validation_sesto_uomo',
                 prompt=prompt_sesto
             )
-            
+            parsed_sesto, error_sesto = session._parse_ai_json_response(result_sesto)
+            if error_sesto:
+                _logger.warning(
+                    "Sesto Uomo (sessione #%s, round %d) fallito: %s",
+                    session.id, round_number, error_sesto)
+                # MAI convergere su un fallimento reale della chiamata AI --
+                # forza un problema residuo cosi' il round va in retry/escalation
+                # invece di approvare qualcosa mai davvero validato (stesso
+                # principio anti-allucinazione: un esito mancante non e' un
+                # esito positivo). Stesso default (1, non 0) se la chiamata
+                # riesce ma il campo issues_found manca dalla risposta.
+                issues_found = 1
+                sesto_notes = _("Chiamata AI al Sesto Uomo fallita: %s") % error_sesto
+            else:
+                issues_found = parsed_sesto.get('issues_found')
+                if issues_found is None:
+                    issues_found = 1
+                sesto_notes = parsed_sesto.get('summary', '')
+
             # Aggiorna il round con i risultati del sesto uomo
-            issues_found = result_sesto.get('issues_found', 0)
             validation_round.write({
                 'issues_found': issues_found,
-                'sesto_uomo_notes': result_sesto.get('summary', ''),
-                'corrected_material': result_sesto.get('corrected_material', {})
+                'sesto_uomo_notes': sesto_notes,
+                'corrected_material': parsed_sesto.get('corrected_material', {})
             })
-            
+
             # Crea il record di analisi per il sesto uomo
             self.env['erpv6.validation.analysis'].create({
                 'round_id': validation_round.id,
                 'analyst_index': 'sesto',
                 'omni_call_log_id': result_sesto.get('call_log_id'),
-                'findings': result_sesto.get('summary', ''),
-                'claims_checked': result_sesto.get('claims_checked', []),
-                'flagged_missing_data': result_sesto.get('flagged_missing_data', '')
+                'findings': sesto_notes,
+                'claims_checked': parsed_sesto.get('claims_checked', []),
+                'flagged_missing_data': parsed_sesto.get('flagged_missing_data', '')
             })
-            
+
             # Verifica convergenza
             if issues_found == 0:
                 session.status = 'converged'
