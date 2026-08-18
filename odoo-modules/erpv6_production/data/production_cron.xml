@@ -10,5 +10,20 @@
             <field name="interval_type">minutes</field>
             <field name="active">True</field>
         </record>
+
+        <!-- Retry automatico su documenti KB falliti per rate limit Groq
+             transitorio (checkpoint-safe, vedi _cron_retry_kb_extraction_failures
+             in library_document.py): 15 minuti, abbastanza per superare il
+             circuit breaker di 5 minuti del provider (CHUNK_RATE_LIMIT_WAIT_SECONDS
+             in kb_extraction_service.py) senza martellare inutilmente. -->
+        <record id="cron_retry_kb_extraction_failures" model="ir.cron">
+            <field name="name">Retry Automatico Estrazione KB Fallita (rate limit transitorio) - Ogni 15 minuti</field>
+            <field name="model_id" ref="model_erpv6_library_document"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_retry_kb_extraction_failures()</field>
+            <field name="interval_number">15</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+        </record>
     </data>
 </odoo>

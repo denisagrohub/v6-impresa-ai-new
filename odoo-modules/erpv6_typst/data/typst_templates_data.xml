@@ -237,6 +237,81 @@
 ]]]></field>
         </record>
 
+        <!-- Template Certificato Validazione 6 Giudici (interno) -->
+        <record id="typst_template_kb_validation_certificate" model="erpv6.typst.template">
+            <field name="name">Certificato Validazione 6 Giudici (interno)</field>
+            <field name="code">KB-VALID-CERT-001</field>
+            <field name="category">custom</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Certificato interno (non per il cliente finale) dell'esito della validazione "6 Giudici" (5 Analisti + Sesto Uomo): UNA CATEGORIA KB alla volta, con una riga per ogni voce approvata in quella categoria nello stesso batch di approvazione del supervisore -- non uno per singola voce, per non generare decine di certificati/email quando il supervisore approva in blocco (vedi data/validation_session_bulk_actions.xml). Generato e inviato (notifica in-app + email) da erpv6_production/models/validation_session.py._send_kb_validation_certificates_by_category ai revisori/supervisore coinvolti, alla approvazione finale.</field>
+            <field name="sequence">7</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields">{
+                "category_name": {"type": "string", "description": "Nome della categoria KB certificata"},
+                "entries_count": {"type": "integer", "description": "Numero di voci KB approvate in questa categoria nel batch"},
+                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, rounds_count, final_issues_found, first_reviewer, first_reviewed_at"},
+                "supervisor": {"type": "string", "description": "Utente supervisore KB che ha completato il secondo gate per l'intero batch"},
+                "supervisor_approved_at": {"type": "string", "description": "Data/ora del secondo gate"},
+                "generated_at": {"type": "string", "description": "Data/ora generazione certificato"}
+            }</field>
+            <field name="typst_source"><![CDATA[#let data = json("data.json")
+
+#set page(paper: "a4", margin: 2.5cm)
+#set text(size: 10pt, lang: "it")
+
+#align(center)[
+  #text(size: 20pt, weight: "bold")[Certificato di Validazione — 6 Giudici]
+  #v(0.3em)
+  #text(size: 13pt)[Categoria: #data.at("category_name", default: "-")]
+  #v(0.3em)
+  #text(size: 11pt, fill: gray)[Generato il #data.at("generated_at", default: "-")]
+]
+
+#v(1.5em)
+#line(length: 100%, stroke: 0.5pt + gray)
+#v(1em)
+
+#text(weight: "bold")[Attestazione:] ogni voce elencata sotto ha superato entrambi i livelli di approvazione umana prima di essere attivata: il *primo gate* (revisione umana individuale, colonna "Primo gate" nella tabella) e il *secondo gate* (approvazione finale del supervisore KB, riportata in fondo a questo certificato).
+
+#v(1em)
+= Voci Validate (#str(data.at("entries_count", default: 0)))
+
+#table(
+  columns: (1fr, auto, auto, auto, 1fr),
+  stroke: 0.5pt + gray,
+  inset: 5pt,
+  [*Nome*], [*Tipo*], [*Round*], [*Problemi residui*], [*Primo gate (revisore, data)*],
+  ..data.at("entries", default: ()).map(e => (
+    [#e.at("kb_name", default: "-")],
+    [#e.at("kb_type", default: "-")],
+    [#str(e.at("rounds_count", default: 0))],
+    [#str(e.at("final_issues_found", default: 0))],
+    [#e.at("first_reviewer", default: "-") — #e.at("first_reviewed_at", default: "-")],
+  )).flatten()
+)
+
+#v(1.5em)
+#line(length: 100%, stroke: 0.5pt + gray)
+#v(1em)
+
+= Secondo Gate — Approvazione Finale
+
+Confermata l'approvazione finale, successiva e distinta dal primo gate riportato per ciascuna voce sopra:
+
+#table(
+  columns: (auto, 1fr),
+  stroke: none,
+  row-gutter: 0.6em,
+  [*Supervisore KB (secondo gate)*], [#data.at("supervisor", default: "-")],
+  [*Data approvazione*], [#data.at("supervisor_approved_at", default: "-")],
+)
+
+#v(1em)
+#text(style: "italic")[Documento interno, generato automaticamente a valle dell'approvazione finale del supervisore KB. Non e' un documento client-facing.]]]></field>
+        </record>
+
         <!-- Template Business Plan Standard -->
         <record id="typst_template_business_plan_standard" model="erpv6.typst.template">
             <field name="name">Business Plan Standard</field>

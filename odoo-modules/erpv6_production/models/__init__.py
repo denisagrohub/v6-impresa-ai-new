@@ -7,3 +7,4 @@ from . import crm_lead
 from . import validation_session
 from . import library_document
 from . import kb_validation_gate
+from . import kb_knowledge
