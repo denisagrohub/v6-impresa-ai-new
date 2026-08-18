@@ -37,7 +37,15 @@ class SignConfig(models.Model):
              "noi verso Documenso: sono due segreti a senso opposto, non intercambiabili). "
              "Il webhook con questo secret va registrato manualmente via tRPC autenticato "
              "(/api/trpc/webhook.createWebhook con cookie di sessione + header x-team-id) "
-             "perché la gestione webhook non è esposta sull'API pubblica /api/v2 con API Key.",
+             "perché la gestione webhook non è esposta sull'API pubblica /api/v2 con API Key. "
+             "IMPORTANTE: registrare il webhook con l'URL INTERNO Docker "
+             "(http://odoo:8069/api/documenso/webhook), NON con l'URL pubblico "
+             "(https://erp.v6sviluppoimpresa.it/...) -- stesso problema di hairpin NAT "
+             "documentato sopra per documenso_url, ma nella direzione opposta (il "
+             "container documenso non riesce a raggiungere l'IP pubblico del proprio "
+             "host per consegnare la chiamata webhook: verificato dal vivo il "
+             "18/08/2026, consegne fallite con 'status 0' finché l'URL non è stato "
+             "corretto in quello interno).",
     )
     active = fields.Boolean(string='Attivo', default=True)
 

@@ -11,6 +11,13 @@ from odoo.addons.erpv6_kb.models.kb_knowledge import KB_TYPE_SELECTION
 
 _logger = logging.getLogger(__name__)
 
+
+class _ChunkTruncatedError(Exception):
+    """Interna: il modello ha troncato l'output (finish_reason='length')
+    prima di chiudere il JSON. Diversa da un JSONDecodeError generico --
+    qui la causa e' nota (output troppo lungo per il blocco) e riprovabile
+    dimezzando il blocco, non un problema di formato/contenuto."""
+
 # Groq tier gratuito impone un limite di 8000 token/minuto su openai/gpt-oss-120b
 # (verificato dal vivo: la soglia "Requested" di Groq conta input + max_tokens
 # riservato per l'output, non solo l'input effettivo -- una singola chiamata con
@@ -25,6 +32,13 @@ CHUNK_MAX_OUTPUT_TOKENS = 4000
 # dell'organizzazione: senza un piano a pagamento non c'e' altro modo per restare
 # sotto soglia che aspettare che la chiamata precedente "esca" dalla finestra.
 CHUNK_PACING_SECONDS = 65
+# Se un blocco e' particolarmente denso (tante righe -> tante voci KB), il JSON
+# di output puo' superare CHUNK_MAX_OUTPUT_TOKENS prima di chiudersi: il modello
+# lo tronca a meta' stringa (finish_reason='length', non un problema di rate
+# limit ne' di formato). SPLIT_MAX_DEPTH limita quante volte un blocco del
+# genere viene dimezzato e riprovato prima di arrendersi con l'errore reale
+# (evita di dimezzare all'infinito un blocco che fallisce per un'altra ragione).
+CHUNK_SPLIT_MAX_DEPTH = 3
 
 EXTRACTION_SYSTEM_PROMPT = """Sei un motore di estrazione dati per la Knowledge Base aziendale di V6 Impresa.
 Ti viene fornito il contenuto grezzo di un documento (tabellare o testuale) caricato da un consulente.
@@ -211,12 +225,20 @@ class Erpv6KbExtractionService(models.AbstractModel):
 
         raw_content = result.get('data', {})
         try:
-            message_content = raw_content['choices'][0]['message']['content']
+            choice = raw_content['choices'][0]
+            message_content = choice['message']['content']
         except (KeyError, IndexError, TypeError):
             raise UserError(_(
                 "Risposta AI in un formato inatteso (%(chunk)s), non riconducibile a una chat "
                 "completion standard. Risposta grezza: %(raw)s"
             ) % {'chunk': chunk_label, 'raw': json.dumps(raw_content)[:1000]})
+
+        # finish_reason='length' (schema OpenAI-compatibile, valido anche per
+        # Groq) e' l'unico segnale affidabile che l'output e' stato tagliato
+        # per CHUNK_MAX_OUTPUT_TOKENS -- serve a distinguere questo caso
+        # (riprovabile dimezzando il blocco) da un JSON davvero malformato
+        # (finish_reason='stop', errore reale non riprovabile allo stesso modo).
+        truncated_by_length = choice.get('finish_reason') == 'length'
 
         message_content = message_content.strip()
         if message_content.startswith('```'):
@@ -228,6 +250,9 @@ class Erpv6KbExtractionService(models.AbstractModel):
         try:
             entries = json.loads(message_content)
         except json.JSONDecodeError as e:
+            if truncated_by_length:
+                raise _ChunkTruncatedError(
+                    f"{chunk_label}: output troncato per limite lunghezza (finish_reason=length)")
             raise UserError(_(
                 "L'AI non ha risposto con un JSON valido (%(chunk)s): %(err)s\n\n"
                 "Contenuto ricevuto: %(raw)s"
@@ -249,6 +274,45 @@ class Erpv6KbExtractionService(models.AbstractModel):
                 'content': entry.get('content') or '',
             })
         return cleaned
+
+    @api.model
+    def _extract_chunk_with_split_retry(self, system_prompt, chunk_text, model, chunk_label, call_state, depth=0):
+        """Chiama _call_and_parse_chunk con pacing condiviso (call_state['calls']
+        conta le chiamate AI reali fatte finora in questa estrazione, per
+        rispettare CHUNK_PACING_SECONDS anche tra le sotto-chiamate di uno split,
+        non solo tra i blocchi di primo livello). Su troncamento per lunghezza
+        (_ChunkTruncatedError) dimezza il blocco e riprova ricorsivamente fino a
+        CHUNK_SPLIT_MAX_DEPTH: un blocco denso si adatta da solo invece di far
+        fallire l'intera estrazione per un limite di output, non di contenuto."""
+        if call_state['calls'] > 0:
+            _logger.info(
+                "Estrazione KB: pausa di %ss prima di %s (limite gratuito Groq)",
+                CHUNK_PACING_SECONDS, chunk_label)
+            time.sleep(CHUNK_PACING_SECONDS)
+        call_state['calls'] += 1
+
+        try:
+            return self._call_and_parse_chunk(system_prompt, chunk_text, model, chunk_label)
+        except _ChunkTruncatedError:
+            if depth >= CHUNK_SPLIT_MAX_DEPTH or len(chunk_text) < 500:
+                raise UserError(_(
+                    "L'AI continua a troncare l'output per %(chunk)s anche dopo %(depth)d "
+                    "tentativi di dimezzamento del blocco: il contenuto in questa porzione "
+                    "del documento è troppo denso per il limite di output configurato. "
+                    "Valuta di caricare questa parte del documento separatamente, in un file "
+                    "più piccolo."
+                ) % {'chunk': chunk_label, 'depth': depth})
+            half = max(len(chunk_text) // 2, 1)
+            sub_chunks = self._split_into_chunks(chunk_text, half)
+            _logger.info(
+                "Estrazione KB: %s troncato per lunghezza, diviso in %d sotto-blocchi (tentativo %d/%d)",
+                chunk_label, len(sub_chunks), depth + 1, CHUNK_SPLIT_MAX_DEPTH)
+            entries = []
+            for sub_idx, sub_text in enumerate(sub_chunks, start=1):
+                sub_label = f"{chunk_label}.{sub_idx}"
+                entries.extend(self._extract_chunk_with_split_retry(
+                    system_prompt, sub_text, model, sub_label, call_state, depth=depth + 1))
+            return entries
 
     @api.model
     def extract_kb_entries(self, file_data_b64, filename, notes=None):
@@ -276,14 +340,11 @@ class Erpv6KbExtractionService(models.AbstractModel):
 
         all_entries = []
         total = len(chunks)
+        call_state = {'calls': 0}
         for idx, chunk in enumerate(chunks, start=1):
-            if idx > 1:
-                _logger.info(
-                    "Estrazione KB: pausa di %ss prima del chunk %s/%s (limite gratuito Groq)",
-                    CHUNK_PACING_SECONDS, idx, total)
-                time.sleep(CHUNK_PACING_SECONDS)
             chunk_label = f"blocco {idx}/{total}"
-            all_entries.extend(self._call_and_parse_chunk(system_prompt, chunk, model, chunk_label))
+            all_entries.extend(self._extract_chunk_with_split_retry(
+                system_prompt, chunk, model, chunk_label, call_state))
 
         return all_entries
 
