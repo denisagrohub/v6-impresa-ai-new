@@ -199,7 +199,20 @@ class LibraryDocument(models.Model):
         created = service.create_kb_records(
             entries, source_label=f'library_document:{self.id}:{self.file_name or self.name}')
         if created:
-            self.env['erpv6.kb.validation.gate'].create_validation_sessions(created)
+            sessions = self.env['erpv6.kb.validation.gate'].create_validation_sessions(created)
+            # create_validation_sessions e' sincrona (action_start_validation
+            # gira tutti i round subito, non in coda) -- a questo punto le
+            # sessioni hanno gia' lo stato finale (converged/escalated), utile
+            # per generare SUBITO il documento leggibile pre-approvazione
+            # invece di aspettare un gate umano che potrebbe non arrivare per
+            # ore/giorni.
+            try:
+                self._send_kb_pending_review_report(created, sessions)
+            except Exception:
+                _logger.exception(
+                    "Generazione/invio resoconto pre-approvazione fallita per documento #%s, non bloccante.",
+                    self.id,
+                )
         self.kb_extraction_completed_chunks = chunk_number
         self.message_post(body=_(
             "Elaborazione KB: batch fino al blocco %(chunk)d completato — %(count)d voci create "
@@ -444,4 +457,79 @@ class LibraryDocument(models.Model):
             'entries': entries,
             'error': error or '',
             'advice': advice or '',
+        }
+
+    def _send_kb_pending_review_report(self, kbs, sessions):
+        """Genera il resoconto Typst leggibile dell'analisi 6 Giudici PRIMA
+        di qualsiasi gate umano (le sessioni, a questo punto, sono gia'
+        convergenti/escalation -- create_validation_sessions e' sincrona) e
+        lo invia al supervisore KB via
+        erpv6.typst.document.action_notify_user (notifica in-app + email,
+        ora funzionante: vedi configurazione SMTP Brevo). Un documento per
+        BATCH (questa chiamata, gia' raggruppata da _commit_kb_extraction_batch),
+        non uno per singola voce -- stesso principio del certificato
+        (validation_session.py._send_kb_validation_certificates_by_category),
+        pensato pero' per supportare la decisione, non per certificarla dopo:
+        elenca findings/problemi residui SENZA nessuna informazione di
+        approvazione (non e' ancora successa)."""
+        self.ensure_one()
+        if not kbs:
+            return
+        template = self.env.ref(
+            'erpv6_typst.typst_template_kb_pending_review_report', raise_if_not_found=False)
+        if not template:
+            _logger.warning(
+                "Template Typst resoconto pre-approvazione non trovato — non generato per documento #%s.",
+                self.id,
+            )
+            return
+
+        session_by_kb_id = {s.res_id: s for s in sessions if s.res_model == 'erpv6.kb'}
+        typst_doc = self.env['erpv6.typst.engine'].generate_document(
+            template.id, 'erpv6.library.document', self.id,
+            data=self._build_kb_pending_review_report_data(kbs, session_by_kb_id),
+        )
+        if typst_doc.status != 'ready':
+            _logger.warning(
+                "Rendering resoconto pre-approvazione fallito per documento #%s (typst doc #%s): %s",
+                self.id, typst_doc.id, typst_doc.error_message,
+            )
+            return
+
+        supervisor = kbs[0]._resolve_kb_supervisor()
+        public_user = self.env.ref('base.public_user', raise_if_not_found=False)
+        candidates = [supervisor, self.project_id.user_id, self.create_uid]
+        recipients = self.env['res.users']
+        for u in candidates:
+            if u and u != public_user:
+                recipients |= u
+        for user in recipients:
+            typst_doc.action_notify_user(user)
+
+    def _build_kb_pending_review_report_data(self, kbs, session_by_kb_id):
+        """Dati reali (nessun valore inventato) per il template Typst del
+        resoconto pre-approvazione: una riga per voce KB con lo stato di
+        convergenza e i problemi residui rilevati dall'ultimo round --
+        nessun campo di approvazione, non e' ancora successa."""
+        self.ensure_one()
+        status_labels = dict(self.env['erpv6.validation.session']._fields['status'].selection)
+        kb_type_labels = dict(kbs._fields['kb_type'].selection) if kbs else {}
+        entries = []
+        for kb in kbs:
+            session = session_by_kb_id.get(kb.id)
+            last_round = session.round_ids[-1] if session and session.round_ids else None
+            entries.append({
+                'kb_name': kb.name,
+                'kb_type': kb_type_labels.get(kb.kb_type, kb.kb_type),
+                'status': status_labels.get(session.status, session.status) if session else '-',
+                'rounds_count': len(session.round_ids) if session else 0,
+                'final_issues_found': last_round.issues_found if last_round else 0,
+                'sesto_uomo_summary': (last_round.sesto_uomo_notes or '') if last_round else '',
+            })
+        return {
+            'source_document': self.name,
+            'file_name': self.file_name or '',
+            'generated_at': fields.Datetime.to_string(fields.Datetime.now()),
+            'entries_count': len(kbs),
+            'entries': entries,
         }
