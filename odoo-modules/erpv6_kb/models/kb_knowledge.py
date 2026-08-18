@@ -56,6 +56,15 @@ class Erpv6KnowledgeBase(models.Model):
     valid_to = fields.Date()
     is_active = fields.Boolean(default=True, index=True)
 
+    suggested_category_name = fields.Char(
+        string='Categoria suggerita (AI)',
+        help="Categoria proposta dall'estrazione AI al momento della creazione, prima "
+             "della validazione 6 Giudici -- la voce viene creata nella categoria di "
+             "transito 'KB estratte — in attesa di validazione' e spostata qui solo se "
+             "approvata (vedi action_human_approve in "
+             "erpv6_production/models/validation_session.py). Vuoto per voci create "
+             "manualmente al di fuori del flusso di estrazione AI.")
+
     _sql_constraints = [('name_unique', 'unique(name, kb_type)', 'Nome+tipo deve essere univoco!')]
 
     @api.constrains('priority')

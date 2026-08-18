@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Azioni in blocco dalla vista lista: approvare 70+ voci KB una per una
+         (aprendo ogni scheda) e' impraticabile (segnalato dal vivo
+         dall'utente). action_human_approve/action_supervisor_approve gia'
+         operano su un intero recordset (self), qui le agganciamo alla
+         selezione multipla della vista lista tramite binding_model_id.
+         Consigliato filtrare la lista per stato prima di lanciarle (vedi
+         filtro "Revisionato" aggiunto sotto): se anche una sola riga
+         selezionata non e' nello stato giusto, il metodo solleva un errore e
+         blocca l'intera azione (nessuna approvazione parziale silenziosa). -->
+    <record id="ir_actions_server_bulk_human_approve" model="ir.actions.server">
+        <field name="name">Approva (primo gate)</field>
+        <field name="model_id" ref="erpv6_production.model_erpv6_validation_session"/>
+        <field name="binding_model_id" ref="erpv6_production.model_erpv6_validation_session"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_human_approve()</field>
+    </record>
+
+    <record id="ir_actions_server_bulk_supervisor_approve" model="ir.actions.server">
+        <field name="name">Approvazione Supervisore KB (finale)</field>
+        <field name="model_id" ref="erpv6_production.model_erpv6_validation_session"/>
+        <field name="binding_model_id" ref="erpv6_production.model_erpv6_validation_session"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_supervisor_approve()</field>
+    </record>
+</odoo>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Lead fisso "Amministrazione KB": ancora per i documenti kb_source
+         caricati per una decisione interna (arricchire la Knowledge Base),
+         non perche' un cliente reale li ha richiesti. Oggi
+         erpv6.library.document.project_id e' required=True su crm.lead,
+         quindi senza questo lead un documento del genere finiva forzato
+         sotto un cliente a caso solo per rispettare il vincolo (visto dal
+         vivo sul documento #9: attaccato al lead di test "Andrea - Prova").
+         user_id e' anche il referente KB globale (secondo gate di
+         approvazione, vedi validation_session.py/action_supervisor_approve
+         e kb_knowledge.py/_resolve_kb_supervisor), modificabile a mano
+         dall'admin come qualsiasi altro lead; noupdate="1" per non
+         sovrascrivere quella scelta a ogni aggiornamento modulo. -->
+    <data noupdate="1">
+        <record id="crm_lead_kb_admin" model="crm.lead">
+            <field name="name">Amministrazione KB — Analisi documenti interni</field>
+            <field name="type">opportunity</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+    </data>
+</odoo>

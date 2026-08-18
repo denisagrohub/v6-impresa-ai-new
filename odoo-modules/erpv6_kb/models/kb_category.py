@@ -46,3 +46,15 @@ class Erpv6KbCategory(models.Model):
     def _compute_article_count(self):
         for cat in self:
             cat.article_count = self.env['erpv6.kb'].search_count([('category_id', '=', cat.id)])
+
+    @api.model
+    def get_or_create(self, name, kb_type, **extra_vals):
+        """Get-or-create per (name, kb_type) -- stessa chiave logica riusata sia
+        dall'estrazione KB (erpv6_omni_bridge, categoria di staging) sia dallo
+        spostamento nella categoria reale all'approvazione 6 Giudici
+        (erpv6_production/models/validation_session.py), per non duplicare la
+        stessa ricerca in due moduli diversi."""
+        category = self.search([('name', '=', name), ('kb_type', '=', kb_type)], limit=1)
+        if not category:
+            category = self.create(dict(extra_vals, name=name, kb_type=kb_type))
+        return category

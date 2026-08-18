@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import logging
+import re
 import time
 
 from odoo import api, models, _
@@ -18,6 +19,12 @@ class _ChunkTruncatedError(Exception):
     qui la causa e' nota (output troppo lungo per il blocco) e riprovabile
     dimezzando il blocco, non un problema di formato/contenuto."""
 
+
+class _ChunkRateLimitedError(Exception):
+    """Interna: il provider ha rifiutato la chiamata con un 429 reale
+    (rate limit), diverso da un troncamento per lunghezza o da un errore di
+    formato -- riprovabile aspettando piu' a lungo, non dimezzando il blocco."""
+
 # Groq tier gratuito impone un limite di 8000 token/minuto su openai/gpt-oss-120b
 # (verificato dal vivo: la soglia "Requested" di Groq conta input + max_tokens
 # riservato per l'output, non solo l'input effettivo -- una singola chiamata con
@@ -28,6 +35,10 @@ class _ChunkTruncatedError(Exception):
 # di un upgrade a pagamento del piano Groq).
 CHUNK_MAX_CHARS = 8000
 CHUNK_MAX_OUTPUT_TOKENS = 4000
+# Pavimento di max_tokens per i sotto-blocchi di uno split: un sotto-blocco
+# piccolo non ha bisogno di 4000 token riservati, ma non si scende mai sotto
+# questa soglia per lasciare comunque margine a voci KB verbose.
+CHUNK_MIN_OUTPUT_TOKENS = 800
 # Il limite Groq e' una finestra scorrevole di 60s condivisa da tutte le chiamate
 # dell'organizzazione: senza un piano a pagamento non c'e' altro modo per restare
 # sotto soglia che aspettare che la chiamata precedente "esca" dalla finestra.
@@ -39,6 +50,31 @@ CHUNK_PACING_SECONDS = 65
 # genere viene dimezzato e riprovato prima di arrendersi con l'errore reale
 # (evita di dimezzare all'infinito un blocco che fallisce per un'altra ragione).
 CHUNK_SPLIT_MAX_DEPTH = 3
+# Un 429 reale (a differenza del troncamento per lunghezza) puo' capitare anche
+# con un pacing corretto, perche' la finestra di 60s e' condivisa a livello di
+# organizzazione Groq (non solo dalle chiamate di questa estrazione) -- si
+# riprova con un'attesa extra crescente invece di abortire subito l'estrazione.
+CHUNK_RATE_LIMIT_MAX_RETRIES = 3
+# erpv6.omni.provider.is_available() (omni_provider.py) ha un circuit breaker
+# con cooldown FISSO di 5 minuti su QUALSIASI errore del provider, non solo un
+# 429 -- verificato dal vivo sul documento #9: dopo un 429 reale, un retry a
+# 130s e' arrivato PRIMA che il cooldown finisse, quindi il circuit breaker ha
+# bloccato la chiamata ancora prima di provare Groq (l'errore diventa
+# generico "Tutti i provider hanno fallito. Ultimo errore: None", non un 429),
+# e senza riconoscerlo come rate limit l'estrazione abortiva comunque.
+# L'attesa deve superare SEMPRE questo cooldown, non il pacing Groq normale.
+CHUNK_RATE_LIMIT_WAIT_SECONDS = 310
+# Ogni tot blocchi di primo livello completati, le voci estratte finora vengono
+# salvate/commitate e mandate in validazione (vedi library_document.py,
+# _commit_kb_extraction_batch) invece di aspettare la fine dell'intero
+# documento -- un fallimento successivo non fa perdere il lavoro gia' fatto.
+KB_BATCH_SIZE = 5
+# Nome fisso (non tradotto: usato come chiave di ricerca in get_or_create, una
+# traduzione diversa per lingua romperebbe il match) della categoria di
+# transito per le voci KB appena estratte, prima della validazione 6 Giudici --
+# vedi erpv6_production/models/validation_session.py per lo spostamento nella
+# categoria reale suggerita dall'AI al momento dell'approvazione.
+KB_STAGING_CATEGORY_NAME = "KB estratte — in attesa di validazione"
 
 EXTRACTION_SYSTEM_PROMPT = """Sei un motore di estrazione dati per la Knowledge Base aziendale di V6 Impresa.
 Ti viene fornito il contenuto grezzo di un documento (tabellare o testuale) caricato da un consulente.
@@ -97,7 +133,11 @@ class Erpv6KbExtractionService(models.AbstractModel):
                 raise UserError(_("Libreria PyPDF2 non disponibile sul server."))
             reader = PdfReader(io.BytesIO(data))
             pages = [(page.extract_text() or '') for page in reader.pages]
-            text = "\n".join(pages).strip()
+            # Riga vuota tra le pagine (non un singolo \n): e' il confine di
+            # sezione reale piu' affidabile che abbiamo su un PDF senza
+            # struttura esplicita, usato da _split_into_chunks per non
+            # spezzare mai una pagina a meta' finche' non e' necessario.
+            text = "\n\n".join(pages).strip()
             if not text:
                 raise UserError(_(
                     "Il PDF non contiene testo estraibile (probabile scansione/immagine "
@@ -119,7 +159,9 @@ class Erpv6KbExtractionService(models.AbstractModel):
             for p in root.iter(f"{{{ns['w']}}}p"):
                 texts = [t.text or '' for t in p.iter(f"{{{ns['w']}}}t")]
                 paragraphs.append(''.join(texts))
-            return "\n".join(paragraphs)
+            # Riga vuota tra i paragrafi (non un singolo \n): stesso motivo
+            # del PDF sopra, e' il vero confine di paragrafo del .docx.
+            return "\n\n".join(paragraphs)
 
         try:
             text = data.decode('utf-8')
@@ -144,9 +186,28 @@ class Erpv6KbExtractionService(models.AbstractModel):
         return text
 
     @api.model
-    def _split_into_chunks(self, text, max_chars):
-        """Spezza su un a-capo vicino al limite quando possibile, per non
-        tagliare una riga di tabella a meta' e confondere il modello."""
+    def _split_into_sections(self, text):
+        """Divide il testo in sezioni "atomiche" che _split_into_chunks non
+        spezzera' mai (a meno che una sezione da sola non superi
+        max_chars) -- una sezione e' un blocco tra righe vuote (paragrafo
+        .docx, pagina .pdf, vedi extract_raw_text) oppure un foglio .xlsx
+        (marcatore "--- Foglio: " gia' presente nel testo, mai inventato).
+        Testo senza alcuna riga vuota (es. .txt/.csv senza struttura)
+        produce una sola sezione -- degrada a comportamento identico a prima
+        (l'intera stringa passa dal fallback di taglio per lunghezza)."""
+        # Split su 2+ a-capo consecutivi, MA forza anche un confine subito
+        # prima di ogni "--- Foglio:" (l'export xlsx non mette righe vuote
+        # tra le righe di uno stesso foglio, solo tra fogli diversi).
+        text = re.sub(r'(?m)^(--- Foglio: )', r'\n\n\1', text)
+        raw_sections = re.split(r'\n\s*\n+', text)
+        return [s for s in (section.strip('\n') for section in raw_sections) if s]
+
+    @api.model
+    def _split_oversized_section(self, text, max_chars):
+        """Spezza una singola sezione troppo grande per un blocco, su un
+        a-capo vicino al limite quando possibile (stesso fallback di sempre,
+        per non tagliare una riga di tabella a meta' e confondere il
+        modello)."""
         chunks = []
         start = 0
         length = len(text)
@@ -158,6 +219,36 @@ class Erpv6KbExtractionService(models.AbstractModel):
                     end = newline_pos + 1
             chunks.append(text[start:end])
             start = end
+        return chunks
+
+    @api.model
+    def _split_into_chunks(self, text, max_chars):
+        """Pacchettizza il testo per sezioni intere (vedi
+        _split_into_sections) invece che per taglio cieco a N caratteri: una
+        sezione entra intera in un blocco finche' c'e' spazio, e viene
+        spezzata internamente (_split_oversized_section, fallback identico
+        al vecchio comportamento) solo se da sola supera max_chars. Cosi' i
+        blocchi mandati ai 6 Giudici sono sezioni coerenti e complete, non
+        frammenti a meta' capitolo, finche' non e' l'unica strada per
+        rispettare il limite di output del modello."""
+        sections = self._split_into_sections(text)
+        chunks = []
+        current = ''
+        for section in sections:
+            if len(section) > max_chars:
+                if current:
+                    chunks.append(current)
+                    current = ''
+                chunks.extend(self._split_oversized_section(section, max_chars))
+                continue
+            candidate = f"{current}\n\n{section}" if current else section
+            if len(candidate) > max_chars and current:
+                chunks.append(current)
+                current = section
+            else:
+                current = candidate
+        if current:
+            chunks.append(current)
         return chunks
 
     @api.model
@@ -197,11 +288,11 @@ class Erpv6KbExtractionService(models.AbstractModel):
         return model or 'gpt-4-turbo'
 
     @api.model
-    def _call_and_parse_chunk(self, system_prompt, chunk_text, model, chunk_label):
+    def _call_and_parse_chunk(self, system_prompt, chunk_text, model, chunk_label, max_tokens=None):
         payload = {
             'model': model,
             'temperature': 0.1,
-            'max_tokens': CHUNK_MAX_OUTPUT_TOKENS,
+            'max_tokens': max_tokens or CHUNK_MAX_OUTPUT_TOKENS,
             'messages': [
                 {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': chunk_text},
@@ -216,12 +307,25 @@ class Erpv6KbExtractionService(models.AbstractModel):
         )
 
         if not result.get('success'):
+            error_text = result.get('error', 'errore sconosciuto')
+            # execute_ai_task propaga str(HTTPError) da requests.raise_for_status()
+            # cosi' com'e' -- un 429 reale contiene sempre questo testo, distinto
+            # da qualsiasi altro errore (chiave mancante, formato, timeout...).
+            # "Ultimo errore: None" e' il secondo segnale: il circuit breaker di
+            # is_available() ha bloccato TUTTI i provider prima ancora di
+            # provarli (cooldown post-429 non ancora scaduto, vedi
+            # CHUNK_RATE_LIMIT_WAIT_SECONDS) -- anche questo e' transitorio,
+            # NON un errore di configurazione reale (quello avrebbe un
+            # last_error concreto, non None, dopo "Ultimo errore:").
+            circuit_breaker_blocked = error_text.rstrip().endswith('Ultimo errore: None')
+            if '429' in error_text or 'too many requests' in error_text.lower() or circuit_breaker_blocked:
+                raise _ChunkRateLimitedError(f"{chunk_label}: {error_text}")
             raise UserError(_(
                 "Estrazione AI fallita (%(chunk)s): %(error)s\n\n"
                 "Nota: se nessun provider AI (OpenAI/Anthropic/Groq) ha una API Key attiva "
                 "configurata in Impostazioni > V6 Impresa AI > OmniRoute > Provider, questo "
                 "errore è atteso finché non ne viene attivato almeno uno."
-            ) % {'chunk': chunk_label, 'error': result.get('error', 'errore sconosciuto')})
+            ) % {'chunk': chunk_label, 'error': error_text})
 
         raw_content = result.get('data', {})
         try:
@@ -276,55 +380,106 @@ class Erpv6KbExtractionService(models.AbstractModel):
         return cleaned
 
     @api.model
-    def _extract_chunk_with_split_retry(self, system_prompt, chunk_text, model, chunk_label, call_state, depth=0):
+    def _extract_chunk_with_split_retry(self, system_prompt, chunk_text, model, chunk_label, call_state,
+                                          depth=0, max_tokens=None):
         """Chiama _call_and_parse_chunk con pacing condiviso (call_state['calls']
         conta le chiamate AI reali fatte finora in questa estrazione, per
         rispettare CHUNK_PACING_SECONDS anche tra le sotto-chiamate di uno split,
-        non solo tra i blocchi di primo livello). Su troncamento per lunghezza
-        (_ChunkTruncatedError) dimezza il blocco e riprova ricorsivamente fino a
-        CHUNK_SPLIT_MAX_DEPTH: un blocco denso si adatta da solo invece di far
-        fallire l'intera estrazione per un limite di output, non di contenuto."""
+        non solo tra i blocchi di primo livello). Gestisce due errori riprovabili
+        in modo diverso: su troncamento per lunghezza (_ChunkTruncatedError)
+        dimezza il blocco e riprova ricorsivamente fino a CHUNK_SPLIT_MAX_DEPTH
+        (un blocco denso si adatta da solo); su rate limit reale
+        (_ChunkRateLimitedError) NON dimezza (il blocco non e' il problema) ma
+        riprova lo stesso blocco con un'attesa extra crescente, fino a
+        CHUNK_RATE_LIMIT_MAX_RETRIES."""
         if call_state['calls'] > 0:
             _logger.info(
                 "Estrazione KB: pausa di %ss prima di %s (limite gratuito Groq)",
                 CHUNK_PACING_SECONDS, chunk_label)
             time.sleep(CHUNK_PACING_SECONDS)
         call_state['calls'] += 1
+        effective_max_tokens = max_tokens or CHUNK_MAX_OUTPUT_TOKENS
 
-        try:
-            return self._call_and_parse_chunk(system_prompt, chunk_text, model, chunk_label)
-        except _ChunkTruncatedError:
-            if depth >= CHUNK_SPLIT_MAX_DEPTH or len(chunk_text) < 500:
-                raise UserError(_(
-                    "L'AI continua a troncare l'output per %(chunk)s anche dopo %(depth)d "
-                    "tentativi di dimezzamento del blocco: il contenuto in questa porzione "
-                    "del documento è troppo denso per il limite di output configurato. "
-                    "Valuta di caricare questa parte del documento separatamente, in un file "
-                    "più piccolo."
-                ) % {'chunk': chunk_label, 'depth': depth})
-            half = max(len(chunk_text) // 2, 1)
-            sub_chunks = self._split_into_chunks(chunk_text, half)
-            _logger.info(
-                "Estrazione KB: %s troncato per lunghezza, diviso in %d sotto-blocchi (tentativo %d/%d)",
-                chunk_label, len(sub_chunks), depth + 1, CHUNK_SPLIT_MAX_DEPTH)
-            entries = []
-            for sub_idx, sub_text in enumerate(sub_chunks, start=1):
-                sub_label = f"{chunk_label}.{sub_idx}"
-                entries.extend(self._extract_chunk_with_split_retry(
-                    system_prompt, sub_text, model, sub_label, call_state, depth=depth + 1))
-            return entries
+        rate_limit_retries = 0
+        while True:
+            try:
+                return self._call_and_parse_chunk(
+                    system_prompt, chunk_text, model, chunk_label, effective_max_tokens)
+            except _ChunkRateLimitedError as e:
+                rate_limit_retries += 1
+                if rate_limit_retries > CHUNK_RATE_LIMIT_MAX_RETRIES:
+                    raise UserError(_(
+                        "Limite di richieste Groq superato per %(chunk)s anche dopo %(n)d tentativi "
+                        "extra di attesa: il servizio AI è sovraccarico, verosimilmente da altro "
+                        "traffico sull'organizzazione Groq e non solo da questa estrazione. "
+                        "Dettaglio: %(error)s"
+                    ) % {'chunk': chunk_label, 'n': CHUNK_RATE_LIMIT_MAX_RETRIES, 'error': str(e)})
+                # Deve sempre superare CHUNK_RATE_LIMIT_WAIT_SECONDS (il
+                # cooldown fisso del circuit breaker, vedi sopra) -- un
+                # pacing crescente ma piu' corto di quello e' garantito che
+                # fallisca di nuovo, verificato dal vivo sul documento #9.
+                wait_seconds = CHUNK_RATE_LIMIT_WAIT_SECONDS + CHUNK_PACING_SECONDS * (rate_limit_retries - 1)
+                _logger.warning(
+                    "Estrazione KB: rate limit/circuit breaker su %s, attesa extra di %ss (tentativo %d/%d)",
+                    chunk_label, wait_seconds, rate_limit_retries, CHUNK_RATE_LIMIT_MAX_RETRIES)
+                time.sleep(wait_seconds)
+            except _ChunkTruncatedError:
+                if depth >= CHUNK_SPLIT_MAX_DEPTH or len(chunk_text) < 500:
+                    raise UserError(_(
+                        "L'AI continua a troncare l'output per %(chunk)s anche dopo %(depth)d "
+                        "tentativi di dimezzamento del blocco: il contenuto in questa porzione "
+                        "del documento è troppo denso per il limite di output configurato. "
+                        "Valuta di caricare questa parte del documento separatamente, in un file "
+                        "più piccolo."
+                    ) % {'chunk': chunk_label, 'depth': depth})
+                half = max(len(chunk_text) // 2, 1)
+                sub_chunks = self._split_into_chunks(chunk_text, half)
+                # Un sotto-blocco piu' piccolo non ha bisogno del budget di
+                # output pieno riservato al blocco originale -- ridurlo
+                # proporzionalmente abbassa anche il totale di token
+                # richiesti (input+max_tokens) nella finestra scorrevole di
+                # Groq, che e' esattamente cio' che ha fatto scattare il 429
+                # reale sul documento #9 quando piu' blocchi si spezzavano
+                # nella stessa finestra.
+                sub_max_tokens = max(
+                    CHUNK_MIN_OUTPUT_TOKENS,
+                    min(CHUNK_MAX_OUTPUT_TOKENS, round(CHUNK_MAX_OUTPUT_TOKENS * half / CHUNK_MAX_CHARS)))
+                _logger.info(
+                    "Estrazione KB: %s troncato per lunghezza, diviso in %d sotto-blocchi "
+                    "(tentativo %d/%d, max_tokens %d)",
+                    chunk_label, len(sub_chunks), depth + 1, CHUNK_SPLIT_MAX_DEPTH, sub_max_tokens)
+                entries = []
+                for sub_idx, sub_text in enumerate(sub_chunks, start=1):
+                    sub_label = f"{chunk_label}.{sub_idx}"
+                    entries.extend(self._extract_chunk_with_split_retry(
+                        system_prompt, sub_text, model, sub_label, call_state,
+                        depth=depth + 1, max_tokens=sub_max_tokens))
+                return entries
 
     @api.model
-    def extract_kb_entries(self, file_data_b64, filename, notes=None):
+    def extract_kb_entries(self, file_data_b64, filename, notes=None, start_chunk_index=0, on_batch_complete=None):
         """Ritorna una lista di dict {name, kb_type, category, content} estratti via AI.
 
         Documenti piu' grandi di CHUNK_MAX_CHARS vengono spezzati in piu' chiamate
         sequenziali (col limite gratuito Groq -- vedi commento su CHUNK_PACING_SECONDS
         in testa al file) e i risultati aggregati. Solleva UserError se un qualsiasi
-        chunk fallisce (nessun provider attivo, risposta non valida, ecc.) -- il
-        chiamante decide come gestirlo (mostrare all'utente nel wizard, o loggarlo
-        nel chatter del documento). Le voci dei chunk gia' riusciti prima del
-        fallimento vengono scartate (nessuna KB parziale/incoerente creata a valle).
+        chunk fallisce dopo aver esaurito i retry (nessun provider attivo, risposta
+        non valida, rate limit persistente, ecc.) -- il chiamante decide come
+        gestirlo (mostrare all'utente nel wizard, o loggarlo nel chatter del
+        documento).
+
+        :param start_chunk_index: indice (0-based) del primo blocco di primo
+            livello da elaborare -- permette di riprendere un'estrazione fallita
+            a meta' senza rielaborare (e duplicare) i blocchi gia' completati in
+            un tentativo precedente (vedi library_document.py, che passa qui il
+            campo persistito kb_extraction_completed_chunks).
+        :param on_batch_complete: callback opzionale invocata ogni KB_BATCH_SIZE
+            blocchi di primo livello completati (e sull'ultimo blocco del
+            documento), con (entries_del_batch, indice_1based_ultimo_blocco).
+            Permette al chiamante di salvare/commitare il lavoro incrementalmente
+            invece di perdere tutto un documento lungo per un fallimento verso la
+            fine (vedi library_document.py/_commit_kb_extraction_batch). Se non
+            passata, il comportamento resta tutto-o-niente come prima.
         """
         raw_text = self.extract_raw_text(file_data_b64, filename)
         if not raw_text.strip():
@@ -337,20 +492,36 @@ class Erpv6KbExtractionService(models.AbstractModel):
         )
         model = self._resolve_route_and_model()
         chunks = self._split_into_chunks(raw_text, CHUNK_MAX_CHARS)
+        total = len(chunks)
 
         all_entries = []
-        total = len(chunks)
+        batch_entries = []
         call_state = {'calls': 0}
-        for idx, chunk in enumerate(chunks, start=1):
-            chunk_label = f"blocco {idx}/{total}"
-            all_entries.extend(self._extract_chunk_with_split_retry(
-                system_prompt, chunk, model, chunk_label, call_state))
+        for idx in range(start_chunk_index, total):
+            chunk_number = idx + 1
+            chunk_label = f"blocco {chunk_number}/{total}"
+            entries = self._extract_chunk_with_split_retry(
+                system_prompt, chunks[idx], model, chunk_label, call_state)
+            all_entries.extend(entries)
+            batch_entries.extend(entries)
+            is_last_chunk = chunk_number == total
+            if on_batch_complete and (chunk_number % KB_BATCH_SIZE == 0 or is_last_chunk):
+                on_batch_complete(batch_entries, chunk_number)
+                batch_entries = []
 
         return all_entries
 
     @api.model
     def create_kb_records(self, entries, source_label=None):
         """Crea (o riusa) le erpv6.kb.category necessarie e crea le erpv6.kb.
+
+        Le voci vengono create nella categoria di transito KB_STAGING_CATEGORY_NAME
+        (una per kb_type), NON nella categoria suggerita dall'AI (entry['category'],
+        salvata comunque in suggested_category_name) -- finche' una voce non e'
+        approvata dai 6 Giudici non deve comparire mescolata a voci gia' validate
+        nella categoria di business reale (es. "IVA agricola"). Lo spostamento
+        nella categoria reale avviene in erpv6_production/models/validation_session.py
+        (action_human_approve) al momento dell'approvazione.
 
         :param entries: lista di dict {name, kb_type, category, content}
         :param source_label: valore per il campo 'source' di erpv6.kb
@@ -361,20 +532,13 @@ class Erpv6KbExtractionService(models.AbstractModel):
         created = self.env['erpv6.kb']
 
         for entry in entries:
-            category = category_model.search([
-                ('name', '=', entry['category']),
-                ('kb_type', '=', entry['kb_type']),
-            ], limit=1)
-            if not category:
-                category = category_model.create({
-                    'name': entry['category'],
-                    'kb_type': entry['kb_type'],
-                    'is_transversal': True,
-                })
+            staging_category = category_model.get_or_create(
+                KB_STAGING_CATEGORY_NAME, entry['kb_type'], is_transversal=True)
             kb = kb_model.create({
                 'name': entry['name'],
                 'kb_type': entry['kb_type'],
-                'category_id': category.id,
+                'category_id': staging_category.id,
+                'suggested_category_name': entry['category'],
                 'content': entry['content'],
                 'content_format': 'text',
                 'source': source_label or 'kb_extraction_service',
