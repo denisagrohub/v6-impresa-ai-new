@@ -8,7 +8,15 @@ KB_TYPE_SELECTION = [
     ('normativo', 'Normativo'), ('industriale', 'Industriale'),
     ('artigianale', 'Artigianale'), ('prompt', 'Prompt AI'),
     ('metodo_v6', 'Metodo V6'),
+    ('changelog_tecnico', 'Changelog Tecnico (specchio memoria sviluppo, mai per il motore)'),
 ]
+
+# kb_type esclusi per costruzione da find_best_for(), indipendentemente da
+# is_active o da cosa un chiamante futuro passi per errore -- specchio
+# leggibile della memoria di sviluppo (bug trovati, fix applicati, esiti
+# verificati), concettualmente diverso dalla KB di business che il motore
+# usa per rispondere ai clienti. Vedi find_best_for() sotto.
+KB_TYPE_EXCLUDED_FROM_ENGINE = {'changelog_tecnico'}
 
 
 class Erpv6KnowledgeBase(models.Model):
@@ -224,6 +232,8 @@ class Erpv6KnowledgeBase(models.Model):
     @api.model
     def find_best_for(self, kb_type, verticale=None, category_hint=None, tags=None):
         """Trova la KB piu' specifica per kb_type/verticale. Ritorna un id o False."""
+        if kb_type in KB_TYPE_EXCLUDED_FROM_ENGINE:
+            return False
         base_domain = [('kb_type', '=', kb_type), ('is_active', '=', True)]
         candidates = self.search(base_domain)
         if not candidates:
