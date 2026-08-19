@@ -50,6 +50,19 @@ CHUNK_PACING_SECONDS = 65
 # genere viene dimezzato e riprovato prima di arrendersi con l'errore reale
 # (evita di dimezzare all'infinito un blocco che fallisce per un'altra ragione).
 CHUNK_SPLIT_MAX_DEPTH = 3
+# CHUNK_MAX_CHARS da solo non basta: e' un proxy per la dimensione
+# dell'INPUT, non dell'OUTPUT. Una riga tabellare compatta (es. export
+# .xlsx, "Riga N: campo1 | campo2 | ...") va espansa in un oggetto JSON con
+# piu' chiavi nominate per esteso -- l'output di una singola voce puo'
+# superare il testo sorgente della riga stessa. Un blocco con molte voci
+# dense puo' quindi restare ben sotto CHUNK_MAX_CHARS eppure produrre un
+# output che tronca comunque (verificato dal vivo sul blocco 6 del
+# documento #9: 7564 caratteri ma 21 voci tabellari dense, troncato anche
+# dopo 3 dimezzamenti per caratteri -- il dimezzamento restava ancorato ai
+# caratteri di input, mai al numero di voci da generare). CHUNK_MAX_ENTRIES
+# limita quante righe non vuote entrano in un singolo blocco,
+# indipendentemente da CHUNK_MAX_CHARS.
+CHUNK_MAX_ENTRIES = 10
 # Un 429 reale (a differenza del troncamento per lunghezza) puo' capitare anche
 # con un pacing corretto, perche' la finestra di 60s e' condivisa a livello di
 # organizzazione Groq (non solo dalle chiamate di questa estrazione) -- si
@@ -203,11 +216,37 @@ class Erpv6KbExtractionService(models.AbstractModel):
         return [s for s in (section.strip('\n') for section in raw_sections) if s]
 
     @api.model
-    def _split_oversized_section(self, text, max_chars):
+    def _count_entries(self, text):
+        """Righe non vuote in text -- proxy generico per il numero di
+        "voci" da estrarre (per .xlsx corrisponde esattamente al numero di
+        righe tabellari, una per voce KB, vedi extract_raw_text; per PDF/
+        docx e' una stima piu' approssimativa ma comunque un argine utile
+        contro blocchi troppo densi di output, vedi CHUNK_MAX_ENTRIES)."""
+        return sum(1 for line in text.splitlines() if line.strip())
+
+    @api.model
+    def _limit_end_by_entries(self, text, start, end, max_lines):
+        """Restringe [start:end) al piu' vicino a-capo dopo la
+        max_lines-esima riga non vuota, se il segmento ne contiene di piu'
+        -- non allarga mai end oltre il valore gia' calcolato per
+        rispettare max_chars, lo restringe solo se necessario."""
+        count = 0
+        pos = start
+        for line in text[start:end].splitlines(keepends=True):
+            if line.strip():
+                count += 1
+            pos += len(line)
+            if count >= max_lines:
+                return pos
+        return end
+
+    @api.model
+    def _split_oversized_section(self, text, max_chars, max_lines=None):
         """Spezza una singola sezione troppo grande per un blocco, su un
         a-capo vicino al limite quando possibile (stesso fallback di sempre,
         per non tagliare una riga di tabella a meta' e confondere il
-        modello)."""
+        modello). Se max_lines e' passato, restringe ulteriormente ogni
+        pezzo a al piu' max_lines righe non vuote (vedi CHUNK_MAX_ENTRIES)."""
         chunks = []
         start = 0
         length = len(text)
@@ -217,32 +256,40 @@ class Erpv6KbExtractionService(models.AbstractModel):
                 newline_pos = text.rfind('\n', start, end)
                 if newline_pos > start:
                     end = newline_pos + 1
+            if max_lines:
+                end = self._limit_end_by_entries(text, start, end, max_lines)
             chunks.append(text[start:end])
             start = end
         return chunks
 
     @api.model
-    def _split_into_chunks(self, text, max_chars):
+    def _split_into_chunks(self, text, max_chars, max_lines=None):
         """Pacchettizza il testo per sezioni intere (vedi
         _split_into_sections) invece che per taglio cieco a N caratteri: una
         sezione entra intera in un blocco finche' c'e' spazio, e viene
         spezzata internamente (_split_oversized_section, fallback identico
-        al vecchio comportamento) solo se da sola supera max_chars. Cosi' i
-        blocchi mandati ai 6 Giudici sono sezioni coerenti e complete, non
-        frammenti a meta' capitolo, finche' non e' l'unica strada per
-        rispettare il limite di output del modello."""
+        al vecchio comportamento) solo se da sola supera max_chars O
+        max_lines (voci non vuote, vedi CHUNK_MAX_ENTRIES). Cosi' i blocchi
+        mandati ai 6 Giudici sono sezioni coerenti e complete, non frammenti
+        a meta' capitolo, finche' non e' l'unica strada per rispettare il
+        limite di output del modello -- ne' per caratteri (input) ne' per
+        numero di voci (proxy dell'output, vedi CHUNK_MAX_ENTRIES)."""
         sections = self._split_into_sections(text)
         chunks = []
         current = ''
         for section in sections:
-            if len(section) > max_chars:
+            oversized = len(section) > max_chars or (
+                max_lines and self._count_entries(section) > max_lines)
+            if oversized:
                 if current:
                     chunks.append(current)
                     current = ''
-                chunks.extend(self._split_oversized_section(section, max_chars))
+                chunks.extend(self._split_oversized_section(section, max_chars, max_lines))
                 continue
             candidate = f"{current}\n\n{section}" if current else section
-            if len(candidate) > max_chars and current:
+            candidate_oversized = len(candidate) > max_chars or (
+                max_lines and self._count_entries(candidate) > max_lines)
+            if candidate_oversized and current:
                 chunks.append(current)
                 current = section
             else:
@@ -265,7 +312,7 @@ class Erpv6KbExtractionService(models.AbstractModel):
         risollevi (parsing di un file e' economico, non ripete alcuna
         chiamata AI)."""
         raw_text = self.extract_raw_text(file_data_b64, filename)
-        chunk_count = len(self._split_into_chunks(raw_text, CHUNK_MAX_CHARS))
+        chunk_count = len(self._split_into_chunks(raw_text, CHUNK_MAX_CHARS, max_lines=CHUNK_MAX_ENTRIES))
         return {
             'chunk_count': chunk_count,
             'estimated_seconds': chunk_count * CHUNK_PACING_SECONDS,
@@ -452,7 +499,8 @@ class Erpv6KbExtractionService(models.AbstractModel):
                         "più piccolo."
                     ) % {'chunk': chunk_label, 'depth': depth})
                 half = max(len(chunk_text) // 2, 1)
-                sub_chunks = self._split_into_chunks(chunk_text, half)
+                half_entries = max(self._count_entries(chunk_text) // 2, 1)
+                sub_chunks = self._split_into_chunks(chunk_text, half, max_lines=half_entries)
                 # Un sotto-blocco piu' piccolo non ha bisogno del budget di
                 # output pieno riservato al blocco originale -- ridurlo
                 # proporzionalmente abbassa anche il totale di token
@@ -510,7 +558,7 @@ class Erpv6KbExtractionService(models.AbstractModel):
             extra_notes=extra_notes,
         )
         model = self._resolve_route_and_model()
-        chunks = self._split_into_chunks(raw_text, CHUNK_MAX_CHARS)
+        chunks = self._split_into_chunks(raw_text, CHUNK_MAX_CHARS, max_lines=CHUNK_MAX_ENTRIES)
         total = len(chunks)
 
         all_entries = []
@@ -551,6 +599,24 @@ class Erpv6KbExtractionService(models.AbstractModel):
         created = self.env['erpv6.kb']
 
         for entry in entries:
+            # (name, kb_type) e' univoco a livello DB (erpv6_kb_name_unique).
+            # Una voce puo' ripresentarsi identica tra blocchi diversi --
+            # tipicamente riprendendo un'estrazione interrotta dopo che i
+            # parametri di suddivisione blocchi sono cambiati (il checkpoint
+            # kb_extraction_completed_chunks salvato non corrisponde piu' agli
+            # stessi confini nella nuova suddivisione, quindi si puo' rientrare
+            # su contenuto gia' estratto in precedenza). Senza questo controllo
+            # l'INSERT falliva con IntegrityError e mandava in abort l'intera
+            # transazione della sessione di estrazione, perdendo anche il
+            # lavoro valido gia' fatto nello stesso batch.
+            if kb_model.search_count([
+                ('name', '=', entry['name']), ('kb_type', '=', entry['kb_type']),
+            ]):
+                _logger.warning(
+                    "Estrazione KB: voce '%s' (kb_type=%s) gia' esistente, saltata "
+                    "(probabile sovrapposizione con contenuto gia' estratto in "
+                    "precedenza).", entry['name'], entry['kb_type'])
+                continue
             staging_category = category_model.get_or_create(
                 KB_STAGING_CATEGORY_NAME, entry['kb_type'], is_transversal=True)
             kb = kb_model.create({
