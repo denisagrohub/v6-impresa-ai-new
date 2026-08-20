@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Segnalazione Manuale: form d'ingresso "zero attrito" (regola Kaizen
+         #1, KB #299) con collegamento obbligatorio a un record reale
+         (regola #4, KB #302). -->
+    <record id="view_kaizen_manual_report_form" model="ir.ui.view">
+        <field name="name">erpv6.kaizen.manual_report.form</field>
+        <field name="model">erpv6.kaizen.manual_report</field>
+        <field name="arch" type="xml">
+            <form string="Segnalazione Kaizen">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="Titolo breve della segnalazione..."/></h1></div>
+                    <group>
+                        <group>
+                            <field name="severity"/>
+                            <field name="related_record"/>
+                        </group>
+                        <group>
+                            <field name="reporter_id" readonly="1"/>
+                            <field name="heinrich_indicator_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Cosa è successo">
+                        <field name="description" nolabel="1" placeholder="Descrivi cosa hai osservato, senza preoccuparti della forma..."/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_kaizen_manual_report_list" model="ir.ui.view">
+        <field name="name">erpv6.kaizen.manual_report.list</field>
+        <field name="model">erpv6.kaizen.manual_report</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="severity" widget="badge"/>
+                <field name="related_record"/>
+                <field name="reporter_id"/>
+                <field name="create_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_kaizen_manual_report" model="ir.actions.act_window">
+        <field name="name">Segnalazione Manuale</field>
+        <field name="res_model">erpv6.kaizen.manual_report</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html"><p class="o_view_nocontent_smiling_face">Segnala un problema, un near-miss o un'osservazione collegata a un record reale.</p></field>
+    </record>
+
+    <!-- Viste di sola lettura sui motori generici gia' popolati dal cron di
+         rilevamento (erpv6_methodology): non nuove liste custom, solo
+         azioni che puntano ai modelli gia' esistenti, cosi' i dati raccolti
+         stanotte sono raggiungibili da un menu invece che solo da odoo
+         shell (gap segnalato esplicitamente durante la sessione). -->
+    <record id="action_kaizen_heinrich" model="ir.actions.act_window">
+        <field name="name">Indicatori Heinrich</field>
+        <field name="res_model">erpv6.heinrich.indicator</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_kaizen_pareto" model="ir.actions.act_window">
+        <field name="name">Backlog Pareto</field>
+        <field name="res_model">erpv6.pareto.analysis</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <record id="action_kaizen_detected_signal" model="ir.actions.act_window">
+        <field name="name">Segnali Rilevati Automaticamente</field>
+        <field name="res_model">erpv6.kaizen.detected_signal</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <menuitem id="menu_kaizen_root" name="Kaizen" parent="erpv6_core.menu_erpv6_root" sequence="15"/>
+    <menuitem id="menu_kaizen_manual_report" name="Segnalazione Manuale" parent="menu_kaizen_root"
+              action="action_kaizen_manual_report" sequence="10"/>
+    <!-- Le proposte dell'agente vivono ora in erpv6_agent (modulo condiviso
+         da tutti gli agenti, estratto il 20/08/2026): scorciatoia qui
+         invece di duplicare l'azione. -->
+    <menuitem id="menu_kaizen_ai_proposal" name="Proposte Agente" parent="menu_kaizen_root"
+              action="erpv6_agent.action_agent_proposal" sequence="15"/>
+    <menuitem id="menu_kaizen_heinrich" name="Indicatori Heinrich" parent="menu_kaizen_root"
+              action="action_kaizen_heinrich" sequence="20"/>
+    <menuitem id="menu_kaizen_pareto" name="Backlog Pareto" parent="menu_kaizen_root"
+              action="action_kaizen_pareto" sequence="30"/>
+    <menuitem id="menu_kaizen_detected_signal" name="Segnali Automatici" parent="menu_kaizen_root"
+              action="action_kaizen_detected_signal" sequence="40"/>
+</odoo>

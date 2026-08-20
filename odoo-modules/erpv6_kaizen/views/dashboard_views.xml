@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dashboard "a misura di ruolo" (richiesta dal vivo dall'utente il
+         20/08/2026): consulente vede lead/produzione, admin vede anche i
+         motori del sistema. Riusa azioni gia' esistenti e testate (crm,
+         production, validazione) invece di reinventare viste: solo menu
+         nuovi che le organizzano per ruolo. base.group_system = admin,
+         base.group_user = chiunque altro: non esiste ancora un gruppo
+         "Consulente" dedicato (nessun utente consulente configurato oggi),
+         se/quando servira' un ruolo piu' specifico va sostituito qui. -->
+
+    <menuitem id="menu_dashboard_root" name="Dashboard" parent="erpv6_core.menu_erpv6_root" sequence="5"/>
+
+    <menuitem id="menu_dashboard_leads" name="Lead" parent="menu_dashboard_root"
+              action="crm.crm_lead_opportunities" sequence="10" groups="base.group_user"/>
+    <menuitem id="menu_dashboard_production" name="Produzione / Lavori" parent="menu_dashboard_root"
+              action="erpv6_production.action_production_order" sequence="20" groups="base.group_user"/>
+
+    <menuitem id="menu_dashboard_admin_root" name="Amministrazione" parent="menu_dashboard_root"
+              sequence="90" groups="base.group_system"/>
+    <menuitem id="menu_dashboard_admin_proposals" name="Proposte Agenti" parent="menu_dashboard_admin_root"
+              action="erpv6_agent.action_agent_proposal" sequence="5" groups="base.group_system"/>
+    <menuitem id="menu_dashboard_admin_pareto" name="Backlog Pareto" parent="menu_dashboard_admin_root"
+              action="action_kaizen_pareto" sequence="10" groups="base.group_system"/>
+    <menuitem id="menu_dashboard_admin_heinrich" name="Indicatori Heinrich" parent="menu_dashboard_admin_root"
+              action="action_kaizen_heinrich" sequence="20" groups="base.group_system"/>
+    <menuitem id="menu_dashboard_admin_validation" name="Validazione in Attesa" parent="menu_dashboard_admin_root"
+              action="erpv6_validation.action_erpv6_validation_session" sequence="30" groups="base.group_system"/>
+    <menuitem id="menu_dashboard_admin_invoicing" name="Contabilità" parent="menu_dashboard_admin_root"
+              action="account.action_move_out_invoice_type" sequence="40" groups="base.group_system"/>
+</odoo>

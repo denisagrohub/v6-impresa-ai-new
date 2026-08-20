@@ -1,29 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Azioni in blocco dalla vista lista: approvare 70+ voci KB una per una
-         (aprendo ogni scheda) e' impraticabile (segnalato dal vivo
-         dall'utente). action_human_approve/action_supervisor_approve gia'
-         operano su un intero recordset (self), qui le agganciamo alla
-         selezione multipla della vista lista tramite binding_model_id.
-         Consigliato filtrare la lista per stato prima di lanciarle (vedi
-         filtro "Revisionato" aggiunto sotto): se anche una sola riga
-         selezionata non e' nello stato giusto, il metodo solleva un errore e
-         blocca l'intera azione (nessuna approvazione parziale silenziosa). -->
-    <record id="ir_actions_server_bulk_human_approve" model="ir.actions.server">
-        <field name="name">Approva (primo gate)</field>
-        <field name="model_id" ref="erpv6_production.model_erpv6_validation_session"/>
-        <field name="binding_model_id" ref="erpv6_production.model_erpv6_validation_session"/>
-        <field name="binding_view_types">list</field>
-        <field name="state">code</field>
-        <field name="code">records.action_human_approve()</field>
-    </record>
+    <!-- Le due vecchie azioni in blocco (Approva/Approvazione Supervisore,
+         sostituite sotto da un'unica azione "Valida") sono state rimosse una
+         tantum il 20/08/2026 con <delete> espliciti: promossi con successo,
+         poi tolti da qui subito dopo: un <delete> su un external ID gia'
+         cancellato fa fallire ValueError("External ID not found") ad OGNI
+         update successivo di QUALSIASI modulo (promote_module.sh aggiorna
+         piu' moduli insieme), non solo la prima volta. Se altre voci fantasma
+         vanno rimosse in futuro, ripetere lo stesso schema ma togliere il tag
+         <delete> subito dopo la promozione riuscita, non lasciarlo. -->
 
-    <record id="ir_actions_server_bulk_supervisor_approve" model="ir.actions.server">
-        <field name="name">Approvazione Supervisore KB (finale)</field>
+    <!-- Azione in blocco dalla vista lista: approvare 70+ voci KB una per una
+         (aprendo ogni scheda) e' impraticabile (segnalato dal vivo
+         dall'utente). action_validate_kb (erpv6_production/models/
+         validation_session.py) incatena da solo i due gate per ogni
+         sessione selezionata, qualunque sia il suo stato di partenza
+         (converged/escalated_to_human/human_reviewed): non serve piu'
+         filtrare la lista per stato prima di lanciarla. Sostituiva due
+         azioni separate (Approva + Approvazione Supervisore) accorpate qui
+         il 20/08/2026 per lo stesso motivo del bottone unico sul form. -->
+    <record id="ir_actions_server_bulk_validate_kb" model="ir.actions.server">
+        <field name="name">Valida</field>
         <field name="model_id" ref="erpv6_production.model_erpv6_validation_session"/>
         <field name="binding_model_id" ref="erpv6_production.model_erpv6_validation_session"/>
         <field name="binding_view_types">list</field>
         <field name="state">code</field>
-        <field name="code">records.action_supervisor_approve()</field>
+        <field name="code">records.action_validate_kb()</field>
     </record>
 </odoo>

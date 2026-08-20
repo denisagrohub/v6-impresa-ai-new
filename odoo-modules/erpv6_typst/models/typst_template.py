@@ -34,6 +34,8 @@ class TypstTemplate(models.Model):
         ('bando_application', 'Candidatura Bando'),
         ('proposal', 'Proposta Commerciale'),
         ('contract', 'Contratto'),
+        ('relazione', 'Relazione'),
+        ('manuale', 'Manuale'),
         ('custom', 'Personalizzato'),
     ], string='Categoria', required=True, default='business_plan')
 

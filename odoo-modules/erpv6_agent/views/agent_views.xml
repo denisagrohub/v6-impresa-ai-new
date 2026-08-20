@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Configurazione Agenti: registro condiviso, un record per agente
+         (Kaizen registrato da erpv6_kaizen via data XML, futuri agenti
+         allo stesso modo). -->
+    <record id="view_agent_config_form" model="ir.ui.view">
+        <field name="name">erpv6.agent.config.form</field>
+        <field name="model">erpv6.agent.config</field>
+        <field name="arch" type="xml">
+            <form string="Configurazione Agente">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="Nome agente..."/></h1></div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="pattern_id"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="instructions_category_id"/>
+                            <field name="context_category_id"/>
+                            <field name="omni_task_type"/>
+                        </group>
+                    </group>
+                    <group string="Descrizione">
+                        <field name="description" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_agent_config_list" model="ir.ui.view">
+        <field name="name">erpv6.agent.config.list</field>
+        <field name="model">erpv6.agent.config</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="instructions_category_id"/>
+                <field name="omni_task_type"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_agent_config" model="ir.actions.act_window">
+        <field name="name">Configurazione Agenti</field>
+        <field name="res_model">erpv6.agent.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Thor: crea un nuovo agente scegliendo un pattern gia' pronto,
+         nessun codice Python da scrivere: vedi agent_create_wizard.py. -->
+    <record id="view_agent_create_wizard_form" model="ir.ui.view">
+        <field name="name">erpv6.agent.create_wizard.form</field>
+        <field name="model">erpv6.agent.create_wizard</field>
+        <field name="arch" type="xml">
+            <form string="Thor - Crea Nuovo Agente">
+                <group>
+                    <field name="name" placeholder="Nome agente, es. Sabrina..."/>
+                    <field name="code" placeholder="codice tecnico, es. sabrina"/>
+                    <field name="pattern_id"/>
+                </group>
+                <group string="Istruzioni e contesto (scegli esistente o scrivi un nome nuovo per crearla)">
+                    <field name="instructions_category_id"/>
+                    <field name="context_category_id"/>
+                </group>
+                <group string="Rotta AI">
+                    <field name="omni_task_type"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Crea Agente" class="oe_highlight"/>
+                    <button string="Annulla" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="action_agent_create_wizard" model="ir.actions.act_window">
+        <field name="name">Thor - Nuovo Agente</field>
+        <field name="res_model">erpv6.agent.create_wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Proposte: gate umano condiviso da tutti gli agenti. -->
+    <record id="view_agent_proposal_form" model="ir.ui.view">
+        <field name="name">erpv6.agent.proposal.form</field>
+        <field name="model">erpv6.agent.proposal</field>
+        <field name="arch" type="xml">
+            <form string="Proposta Agente">
+                <header>
+                    <button name="action_accept" type="object" string="Accetta" class="oe_highlight"
+                            invisible="status != 'pending_review'"/>
+                    <button name="action_reject" type="object" string="Rifiuta"
+                            invisible="status != 'pending_review'"/>
+                    <button name="action_mark_actioned" type="object" string="Segna come Attuata"
+                            invisible="status != 'accepted'"/>
+                    <field name="status" widget="statusbar" statusbar_visible="pending_review,accepted,actioned"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="agent_config_id" readonly="1"/>
+                            <field name="rule_applied" readonly="1"/>
+                            <field name="provider_name" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="reviewer_id" readonly="1"/>
+                            <field name="reviewed_at" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Proposta">
+                        <field name="proposal_text" nolabel="1" readonly="1"/>
+                    </group>
+                    <group string="Basata su">
+                        <field name="based_on" nolabel="1" readonly="1"/>
+                    </group>
+                    <group string="Note del revisore">
+                        <field name="review_notes" nolabel="1"/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+    <record id="view_agent_proposal_list" model="ir.ui.view">
+        <field name="name">erpv6.agent.proposal.list</field>
+        <field name="model">erpv6.agent.proposal</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="agent_config_id"/>
+                <field name="name"/>
+                <field name="rule_applied"/>
+                <field name="status" widget="badge"/>
+                <field name="create_date"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_agent_proposal" model="ir.actions.act_window">
+        <field name="name">Proposte Agenti</field>
+        <field name="res_model">erpv6.agent.proposal</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_agent_proposal_accept_wizard_form" model="ir.ui.view">
+        <field name="name">erpv6.agent.proposal.accept_wizard.form</field>
+        <field name="model">erpv6.agent.proposal.accept_wizard</field>
+        <field name="arch" type="xml">
+            <form string="Assegna ed accetta">
+                <group>
+                    <field name="proposal_text" nolabel="1" readonly="1"/>
+                </group>
+                <group>
+                    <field name="assignee_id"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Conferma" class="oe_highlight"/>
+                    <button string="Annulla" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <menuitem id="menu_agent_root" name="Agenti AI" parent="erpv6_core.menu_erpv6_root" sequence="16"/>
+    <menuitem id="menu_agent_proposal" name="Proposte" parent="menu_agent_root"
+              action="action_agent_proposal" sequence="10"/>
+    <menuitem id="menu_agent_config" name="Configurazione Agenti" parent="menu_agent_root"
+              action="action_agent_config" sequence="90" groups="base.group_system"/>
+    <menuitem id="menu_agent_create_wizard" name="Nuovo Agente (Thor)" parent="menu_agent_root"
+              action="action_agent_create_wizard" sequence="80" groups="base.group_system"/>
+</odoo>

@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_kaizen_detected_signal_user,erpv6.kaizen.detected_signal user,model_erpv6_kaizen_detected_signal,base.group_user,1,0,0,0
+access_kaizen_detected_signal_admin,erpv6.kaizen.detected_signal admin,model_erpv6_kaizen_detected_signal,base.group_system,1,1,1,1
+access_kaizen_manual_report_user,erpv6.kaizen.manual_report user,model_erpv6_kaizen_manual_report,base.group_user,1,1,1,0
+access_kaizen_manual_report_admin,erpv6.kaizen.manual_report admin,model_erpv6_kaizen_manual_report,base.group_system,1,1,1,1

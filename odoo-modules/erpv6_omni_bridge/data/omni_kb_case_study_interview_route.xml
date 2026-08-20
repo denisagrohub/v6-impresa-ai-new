@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Route: generazione domande intervista da documento caso studio
+             (erpv6_production/models/library_document.py, _generate_case_study_interview).
+             Stesso schema OpenAI-compatibile delle altre route KB in questo
+             file (Groq primario), vedi omni_kb_extraction_route.xml per il
+             perche' del solo fallback OpenAI in XML: i fallback reali
+             aggiuntivi (OpenRouter/Gemini) sono aggiunti a mano sul DB del
+             VPS, non tracciati qui. -->
+        <record id="omni_route_kb_case_study_interview" model="erpv6.omni.route.config">
+            <field name="name">Generazione Intervista da Caso Studio</field>
+            <field name="task_type">kb_case_study_interview_generation</field>
+            <field name="primary_provider_id" ref="omni_provider_groq"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai')])]"/>
+            <field name="routing_strategy">balanced</field>
+            <field name="priority">30</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+    </data>
+</odoo>

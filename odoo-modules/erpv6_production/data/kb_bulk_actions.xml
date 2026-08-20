@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Bottone "Valida" in blocco dalla vista lista Knowledge Base (menu
+         "Knowledge Base -> Articoli", dove l'utente naviga davvero le voci
+         KB): segnalato dal vivo dall'utente il 20/08/2026, prima esisteva
+         solo sulla lista tecnica "Validazione (6 Giudici) -> Sessioni",
+         poco naturale da qui. Vedi action_validate_selected in
+         erpv6_production/models/kb_knowledge.py. -->
+    <record id="ir_actions_server_bulk_validate_kb_from_list" model="ir.actions.server">
+        <field name="name">Valida</field>
+        <field name="model_id" ref="erpv6_kb.model_erpv6_kb"/>
+        <field name="binding_model_id" ref="erpv6_kb.model_erpv6_kb"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_validate_selected()</field>
+    </record>
+</odoo>

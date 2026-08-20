@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Categoria 'agent_knowledge' (aggiunta in erpv6_library): documenti
+         che danno conoscenza/istruzioni a un agente specifico. -->
+    <record id="view_library_document_form_agent_knowledge" model="ir.ui.view">
+        <field name="name">erpv6.library.document.form.agent.knowledge</field>
+        <field name="model">erpv6.library.document</field>
+        <field name="inherit_id" ref="erpv6_library.view_library_document_form"/>
+        <field name="arch" type="xml">
+            <field name="category" position="after">
+                <field name="agent_config_id" required="category == 'agent_knowledge'"
+                       invisible="category != 'agent_knowledge'"/>
+            </field>
+            <!-- 'Progetto' non ha senso per un documento di conoscenza
+                 agente (nessun cliente coinvolto): stesso schema gia' usato
+                 da erpv6_production per kb_source/kb_case_study, elencato
+                 di nuovo qui (le due viste sono indipendenti, non possono
+                 estendersi a vicenda): se la lista delle categorie KB
+                 automatiche cambia, va aggiornata in entrambi i posti. -->
+            <field name="project_id" position="attributes">
+                <attribute name="required">category not in ('kb_source', 'kb_case_study', 'agent_knowledge')</attribute>
+            </field>
+            <header position="inside">
+                <button name="action_extract_agent_knowledge" type="object" string="Rielabora Conoscenza"
+                        invisible="category != 'agent_knowledge'"/>
+            </header>
+        </field>
+    </record>
+</odoo>

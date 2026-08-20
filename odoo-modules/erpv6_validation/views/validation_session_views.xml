@@ -75,8 +75,8 @@
                         </page>
                         <page string="Revisione Umana" name="human_review" invisible="status not in ('human_reviewed', 'approved', 'rejected', 'escalated_to_human')">
                             <group>
-                                <field name="human_reviewer_id"/>
-                                <field name="human_reviewed_at"/>
+                                <field name="human_reviewer_id" readonly="1"/>
+                                <field name="human_reviewed_at" readonly="1"/>
                                 <field name="human_notes"/>
                             </group>
                         </page>

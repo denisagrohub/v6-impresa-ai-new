@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Registra Kaizen come primo agente sulla base condivisa
+             erpv6_agent (estratta il 20/08/2026). -->
+        <record id="agent_config_kaizen" model="erpv6.agent.config">
+            <field name="name">Kaizen</field>
+            <field name="code">kaizen</field>
+            <field name="pattern_id" ref="erpv6_agent.agent_pattern_text_proposal"/>
+            <field name="instructions_category_id" ref="kb_category_regole_kaizen"/>
+            <field name="omni_task_type">kaizen_agent_propose</field>
+            <field name="description">Legge il backlog Pareto condiviso e l'aggregato Heinrich, propone in linguaggio naturale cosa fare applicando le regole Kaizen. Non applica mai nulla da solo.</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>

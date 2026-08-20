@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_agent_config_user,erpv6.agent.config user,model_erpv6_agent_config,base.group_user,1,0,0,0
+access_agent_config_admin,erpv6.agent.config admin,model_erpv6_agent_config,base.group_system,1,1,1,1
+access_agent_proposal_user,erpv6.agent.proposal user,model_erpv6_agent_proposal,base.group_user,1,0,0,0
+access_agent_proposal_admin,erpv6.agent.proposal admin,model_erpv6_agent_proposal,base.group_system,1,1,1,1
+access_agent_proposal_accept_wizard_user,erpv6.agent.proposal.accept_wizard user,model_erpv6_agent_proposal_accept_wizard,base.group_user,1,1,1,1
+access_agent_pattern_user,erpv6.agent.pattern user,model_erpv6_agent_pattern,base.group_user,1,0,0,0
+access_agent_pattern_admin,erpv6.agent.pattern admin,model_erpv6_agent_pattern,base.group_system,1,1,1,1
+access_agent_create_wizard_admin,erpv6.agent.create_wizard admin,model_erpv6_agent_create_wizard,base.group_system,1,1,1,1

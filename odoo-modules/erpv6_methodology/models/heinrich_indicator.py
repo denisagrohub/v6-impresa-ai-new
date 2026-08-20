@@ -1,4 +1,4 @@
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 
 class Erpv6HeinrichIndicator(models.Model):
@@ -28,6 +28,34 @@ class Erpv6HeinrichIndicator(models.Model):
     ], string='Cultura Organizzativa', compute='_compute_cultura', store=True)
 
     note = fields.Text(string='Note')
+
+    @api.model
+    def log_signal(self, res_model, res_id, severity, description=None):
+        """Registra UN segnale (near_miss/lieve/grave) sull'indicatore del
+        record collegato, creandolo se non esiste (get-or-create per
+        res_model/res_id, stesso pattern gia' in uso su tutti i motori
+        generici di questo modulo) e incrementando il contatore giusto --
+        pensata per essere chiamata sia a mano (come per il primo caso, il
+        near-miss "delete gia' cancellato" del 20/08/2026) sia in futuro da
+        un cron di rilevamento automatico non ancora costruito: senza questo
+        metodo l'indicatore restava uno scatto singolo mai aggiornabile, non
+        un contatore vivo. severity: 'near_miss' | 'lieve' | 'grave'."""
+        field_by_severity = {
+            'near_miss': 'near_miss_segnalati',
+            'lieve': 'problemi_lievi',
+            'grave': 'eventi_gravi',
+        }
+        if severity not in field_by_severity:
+            raise ValueError(_("Severity non valida: %s (attese: near_miss, lieve, grave)") % severity)
+        indicator = self.search([('res_model', '=', res_model), ('res_id', '=', res_id)], limit=1)
+        if not indicator:
+            indicator = self.create({'res_model': res_model, 'res_id': res_id})
+        field_name = field_by_severity[severity]
+        indicator[field_name] = indicator[field_name] + 1
+        if description:
+            note_line = "[%s] (%s) %s" % (fields.Datetime.now(), severity, description)
+            indicator.note = (indicator.note + "\n" + note_line) if indicator.note else note_line
+        return indicator
 
     @api.depends('near_miss_segnalati', 'problemi_lievi', 'eventi_gravi')
     def _compute_cultura(self):
