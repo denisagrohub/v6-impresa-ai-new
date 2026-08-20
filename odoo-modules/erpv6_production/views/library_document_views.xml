@@ -12,6 +12,51 @@
             <xpath expr="//form" position="inside">
                 <chatter/>
             </xpath>
+            <!-- 'Progetto' resta required=True a livello di campo (serve
+                 sempre un crm.lead per _start_production), ma per le due
+                 categorie automatiche KB il sistema lo compila da solo in
+                 create() (vedi library_document.py): non ha senso
+                 chiederlo all'utente in upload, segnalato dal vivo il
+                 20/08/2026. -->
+            <xpath expr="//field[@name='project_id']" position="attributes">
+                <attribute name="required">category not in ('kb_source', 'kb_case_study')</attribute>
+            </xpath>
+            <!-- Il progetto VERO (con i task di fase) e' un record diverso
+                 da 'Progetto' qui sopra (quello e' un crm.lead, vedi
+                 kb_project_id): senza questo pulsante era irraggiungibile
+                 dal documento, segnalato dal vivo il 20/08/2026. -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_kb_project" type="object"
+                        class="oe_stat_button" icon="fa-tasks"
+                        invisible="not kb_project_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Progetto KB</span>
+                    </div>
+                </button>
+            </xpath>
+            <xpath expr="//field[@name='category']" position="after">
+                <field name="case_study_work_type" invisible="category != 'kb_case_study'"
+                       required="category == 'kb_case_study'"/>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <group string="Caso studio — verifica template" invisible="category != 'kb_case_study'">
+                    <field name="case_study_match_status" readonly="1"/>
+                    <field name="case_study_matched_package_module_id" readonly="1"/>
+                    <field name="case_study_match_reasoning" readonly="1"/>
+                    <field name="case_study_generated_package_module_ids" widget="many2many_tags" readonly="1"/>
+                </group>
+            </xpath>
+            <xpath expr="//header" position="inside">
+                <button name="action_check_existing_template_match" type="object"
+                        string="Verifica template esistenti" class="oe_highlight"
+                        invisible="category != 'kb_case_study' or not case_study_work_type or case_study_match_status not in ('pending',)"/>
+                <button name="action_confirm_reuse_existing_template" type="object"
+                        string="Conferma: resta caso studio" class="oe_highlight"
+                        invisible="case_study_match_status != 'suggested_reuse'"/>
+                <button name="action_confirm_create_new_template" type="object"
+                        string="Conferma: crea nuovo template"
+                        invisible="category != 'kb_case_study' or case_study_match_status not in ('suggested_reuse', 'suggested_new')"/>
+            </xpath>
         </field>
     </record>
 </odoo>

@@ -20,18 +20,30 @@
                     <field name="kb_content_display" nolabel="1" colspan="2"/>
                 </group>
             </div>
+            <!-- Per le sessioni voce KB, i due gate separati (Approva +
+                 Approvazione Supervisore) restano nel codice (audit/storico,
+                 vedi action_validate_kb) ma spariscono dalla UI a favore di
+                 un solo bottone "Valida": segnalato dal vivo dall'utente
+                 il 20/08/2026: il flusso a due click separati portava a
+                 compilare a mano i campi di revisione pensando fosse quello
+                 il modo di validare (vedi commento su action_validate_kb). -->
+            <button name="action_human_approve" position="attributes">
+                <attribute name="invisible">status not in ('converged', 'escalated_to_human') or res_model == 'erpv6.kb'</attribute>
+            </button>
             <button name="action_human_approve" position="after">
+                <button name="action_validate_kb" type="object" string="Valida"
+                        class="oe_highlight"
+                        invisible="status not in ('converged', 'escalated_to_human', 'human_reviewed') or res_model != 'erpv6.kb'"/>
                 <button name="action_supervisor_approve" type="object"
                         string="Approvazione Supervisore KB (finale)"
-                        class="oe_highlight"
-                        invisible="status != 'human_reviewed' or res_model != 'erpv6.kb'"/>
+                        invisible="1"/>
             </button>
             <field name="status" position="attributes">
                 <attribute name="statusbar_visible">draft,in_validation,converged,human_reviewed,approved</attribute>
             </field>
             <field name="human_notes" position="after">
-                <field name="kb_supervisor_id" invisible="res_model != 'erpv6.kb'"/>
-                <field name="kb_supervisor_approved_at" invisible="res_model != 'erpv6.kb'"/>
+                <field name="kb_supervisor_id" readonly="1" invisible="res_model != 'erpv6.kb'"/>
+                <field name="kb_supervisor_approved_at" readonly="1" invisible="res_model != 'erpv6.kb'"/>
             </field>
         </field>
     </record>

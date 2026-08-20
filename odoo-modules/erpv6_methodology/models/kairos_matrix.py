@@ -11,6 +11,7 @@ class Erpv6KairosMatrix(models.Model):
     matrix_type = fields.Selection([
         ('organizzativo', 'Kairós Organizzativo'),
         ('finanziario', 'Matrice Finanziabilità x Prontezza'),
+        ('tecnico', 'Kairós Tecnico (sistema/debito tecnico)'),
     ], string='Tipo Matrice', required=True, default='organizzativo')
     
     name = fields.Char(string='Nome/Descrizione', compute='_compute_name', store=True)
@@ -28,31 +29,36 @@ class Erpv6KairosMatrix(models.Model):
         string='Indicatore 1 (Stato emotivo/Apertura)',
         required=True,
         help="Organizzativo: stato emotivo del titolare (3=aperto, 1=difensivo). "
-             "Finanziario: stesso significato applicato alla leadership decisionale."
+             "Finanziario: stesso significato applicato alla leadership decisionale. "
+             "Tecnico: causa del problema chiara e non contestata (3) o ancora ambigua/in discussione (1)."
     )
     indicatore_2 = fields.Integer(
         string='Indicatore 2 (Energia/Risorse interne)',
         required=True,
         help="Organizzativo: energia e motivazione interna. "
-             "Finanziario: capacità di investimento interno / liquidità disponibile."
+             "Finanziario: capacità di investimento interno / liquidità disponibile. "
+             "Tecnico: fix a basso rischio/additivo (3) o intervento invasivo su logica condivisa (1)."
     )
     indicatore_3 = fields.Integer(
         string='Indicatore 3 (Risorse disponibili)',
         required=True,
         help="Organizzativo: risorse strumentali e umane. "
-             "Finanziario: accesso a finanziamenti esterni / garanzie."
+             "Finanziario: accesso a finanziamenti esterni / garanzie. "
+             "Tecnico: nessuna dipendenza esterna bloccante, es. provider AI (3) o dipendenza critica non disponibile (1)."
     )
     indicatore_4 = fields.Integer(
         string='Indicatore 4 (Pressione esterna)',
         required=True,
         help="Organizzativo: pressione competitiva o di mercato. "
-             "Finanziario: urgenza finanziaria / scadenze imminenti."
+             "Finanziario: urgenza finanziaria / scadenze imminenti. "
+             "Tecnico: quanto il bug blocca utenti/dati reali in questo momento (3=alta urgenza, 1=nessuna)."
     )
     indicatore_5 = fields.Integer(
         string='Indicatore 5 (Storia tentativi precedenti)',
         required=True,
         help="Organizzativo: esperienze pregresse di cambiamento. "
-             "Finanziario: storico relazioni bancarie / finanziamenti passati."
+             "Finanziario: storico relazioni bancarie / finanziamenti passati. "
+             "Tecnico: esperienza pregressa nel risolvere problemi simili su questo stack (3=già fatto, 1=mai)."
     )
 
     prontezza_totale = fields.Integer(string='Prontezza Totale (5-15)', compute='_compute_prontezza', store=True)

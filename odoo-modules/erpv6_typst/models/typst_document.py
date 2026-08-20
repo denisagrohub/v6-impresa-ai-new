@@ -209,10 +209,17 @@ class TypstDocument(models.Model):
                 'res_id': self.id,
             })]
 
+        # SENZA partner_ids: passarlo attiva anche la notifica email
+        # standard di Odoo (un secondo invio, di nuovo dal mittente
+        # sbagliato "OdooBot <odoobot@example.com>" perche' non passa da
+        # mail.default.from) -- l'email vera parte sotto con mail.mail e
+        # il mittente aziendale corretto, questa resta solo una nota nel
+        # chatter/inbox interna. Scoperto testando il certificato
+        # consolidato il 20/08/2026 (stesso bug gia' corretto in
+        # erpv6_kaizen/models/kaizen_detected_signal.py).
         self.message_post(
             body=_("Documento generato: %s") % self.name,
             subject=self.name,
-            partner_ids=user.partner_id.ids,
             attachments=attachments,
         )
 

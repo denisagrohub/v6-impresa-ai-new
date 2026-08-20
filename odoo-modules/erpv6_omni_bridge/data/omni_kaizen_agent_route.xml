@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Route: agente Kaizen, legge backlog Pareto + Heinrich aggregato +
+         le 12 voci KB "Regole Kaizen" e propone in linguaggio naturale cosa
+         fare, SEMPRE con gate umano (erpv6.kaizen.ai_proposal resta
+         status='pending_review' finche' un admin non la revisiona, mai
+         auto-applicata). Compito di ragionamento/sintesi su piu' fonti, non
+         estrazione veloce: routing_strategy='priority' come
+         validation_sesto_uomo (stesso spirito di "confronto critico"), non
+         'cost' come validation_analyst. Nessun primary_provider_id/
+         fallback_provider_ids fissato qui: stesso schema gia' in uso per
+         validation_analyst/validation_sesto_uomo, il motore sceglie tra i
+         provider attivi in base alla strategia. -->
+    <record id="omni_route_kaizen_agent_propose" model="erpv6.omni.route.config">
+        <field name="name">Agente Kaizen - Proposta su Backlog</field>
+        <field name="task_type">kaizen_agent_propose</field>
+        <field name="routing_strategy">priority</field>
+        <field name="description">Route per l'agente Kaizen: legge il backlog Pareto condiviso e l'aggregato Heinrich, propone in linguaggio naturale cosa fare applicando le 10 regole Kaizen (KB dedicata). Non applica mai nulla da sola, resta sempre in attesa di revisione umana.</field>
+    </record>
+</odoo>

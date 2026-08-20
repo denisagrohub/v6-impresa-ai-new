@@ -38,6 +38,7 @@
         'data/kb_admin_lead_data.xml',
         'data/kb_prompt_data.xml',
         'data/validation_session_bulk_actions.xml',
+        'data/kb_bulk_actions.xml',
         'views/production_views.xml',
         'views/production_schedule_views.xml',
         'views/kb_import_wizard_views.xml',

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Route: estrazione conoscenza da documento per un agente (vedi
+         erpv6_agent/models/library_document.py, action_extract_agent_knowledge).
+         Stesso schema delle altre route (nessun primary/fallback fissato
+         qui, allineati a mano sul DB del VPS dopo l'installazione: vedi
+         omni_kb_case_study_route.xml per il perche'). -->
+    <record id="omni_route_agent_knowledge_extraction" model="erpv6.omni.route.config">
+        <field name="name">Estrazione Conoscenza Agente da Documento</field>
+        <field name="task_type">agent_knowledge_extraction</field>
+        <field name="routing_strategy">priority</field>
+        <field name="description">Legge un documento caricato in categoria 'Conoscenza Agente' e lo trasforma in voci KB collegate all'agente e al documento (cascade delete su entrambi).</field>
+    </record>
+</odoo>

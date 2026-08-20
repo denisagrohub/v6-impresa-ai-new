@@ -38,6 +38,8 @@ class LibraryDocument(models.Model):
         ('brand_logo', 'Logo Brand'),
         ('brand_asset', 'Altro Asset Brand'),
         ('kb_source', 'Sorgente KB da elaborare'),
+        ('kb_case_study', 'Caso studio (lavoro già eseguito)'),
+        ('agent_knowledge', 'Conoscenza Agente'),
     ], string='Categoria', required=True)
 
     # Progetto brand collegato (opzionale, per documenti di categoria brand_logo/brand_asset)

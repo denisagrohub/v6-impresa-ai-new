@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Route: confronto AI documento caso studio vs template esistenti
+             (erpv6_production/models/library_document.py, action_check_existing_template_match).
+             Stesso schema OpenAI-compatibile di omni_kb_extraction_route.xml
+             (Groq primario), vedi quel file per il perche' del solo
+             fallback OpenAI in XML: i fallback reali aggiuntivi
+             (OpenRouter/Gemini) sono stati aggiunti a mano sul DB del VPS,
+             non tracciati qui. Da allineare a mano dopo l'installazione,
+             stesso passo gia' fatto per la route di estrazione KB. -->
+        <record id="omni_route_kb_case_study_match" model="erpv6.omni.route.config">
+            <field name="name">Confronto AI Caso Studio vs Template Esistenti</field>
+            <field name="task_type">kb_case_study_match</field>
+            <field name="primary_provider_id" ref="omni_provider_groq"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai')])]"/>
+            <field name="routing_strategy">balanced</field>
+            <field name="priority">30</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+    </data>
+</odoo>

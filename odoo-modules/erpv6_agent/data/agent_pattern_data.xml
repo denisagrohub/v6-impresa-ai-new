@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="agent_pattern_text_proposal" model="erpv6.agent.pattern">
+            <field name="name">Proposta testuale (istruzioni + contesto da KB)</field>
+            <field name="code">text_proposal</field>
+            <field name="requires_context_category" eval="True"/>
+            <field name="description">Legge istruzioni da una categoria KB e contesto/fatti attuali da un'altra categoria KB, chiama l'AI, propone in linguaggio naturale UNA azione concreta, sempre in attesa di gate umano. Nessun codice Python necessario: si configura interamente da Thor (Configurazione Agenti -&gt; Nuovo Agente).</field>
+        </record>
+
+        <!-- Cron condiviso: esegue TUTTI gli agenti pattern 'text_proposal'
+             configurati (context_category_id valorizzato), non uno per
+             agente: un nuovo agente creato da Thor viene eseguito da solo
+             al prossimo giro, senza aggiungere nessun cron XML. -->
+        <record id="cron_run_generic_agents" model="ir.cron">
+            <field name="name">Agenti: Esegui Pattern 'Proposta Testuale' - Ogni giorno</field>
+            <field name="model_id" ref="model_erpv6_agent_config"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_run_generic_agents()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+    </data>
+</odoo>

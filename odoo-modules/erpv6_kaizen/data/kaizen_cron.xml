@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Ogni 30 minuti: le condizioni rilevate richiedono comunque
+             almeno 5 retry falliti (ogni 15 minuti sui rispettivi cron di
+             erpv6_validation/erpv6_production) prima di diventare "stuck",
+             quindi 30 minuti e' abbastanza reattivo senza sovraccaricare
+             un'istanza single-process. -->
+        <record id="cron_kaizen_detect_signals" model="ir.cron">
+            <field name="name">Kaizen: Rileva Segnali Tecnici da Stati Strutturati - Ogni 30 minuti</field>
+            <field name="model_id" ref="model_erpv6_kaizen_detected_signal"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_detect_signals()</field>
+            <field name="interval_number">30</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+            <!-- user_id=administrator (base.user_admin), non il default
+                 OdooBot: OdooBot ha come azienda di default "My Company"
+                 (mai rinominata), quindi ogni email mandata da un cron che
+                 gira come OdooBot arriva con "My Company" come mittente
+                 invece di "V6 Impresa": segnalato dal vivo dall'utente il
+                 20/08/2026. base.user_admin ha gia' company_id="V6 Impresa"
+                 configurata correttamente. -->
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+
+        <!-- Una volta al giorno: resoconto leggibile (email + voce KB) di
+             quello che il cron sopra ha trovato nelle ultime 24 ore, sempre
+             inviato anche nei giorni senza novita': vedi _cron_daily_digest
+             per il perche'. -->
+        <record id="cron_kaizen_daily_digest" model="ir.cron">
+            <field name="name">Kaizen: Resoconto Giornaliero - Ogni 24 ore</field>
+            <field name="model_id" ref="model_erpv6_kaizen_detected_signal"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_daily_digest()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+
+        <!-- Agente Kaizen: una proposta AI al giorno (mai piu' di una per
+             giro, mai automatica ad ogni segnale), sempre in attesa di
+             revisione umana (erpv6.kaizen.ai_proposal). Attivato subito
+             come cron automatico su richiesta esplicita dell'utente il
+             20/08/2026 (in alternativa al bottone manuale, valutato e
+             scartato per partire piu' comodo). -->
+        <record id="cron_kaizen_agent_propose" model="ir.cron">
+            <field name="name">Kaizen: Agente AI - Proposta Giornaliera</field>
+            <field name="model_id" ref="model_erpv6_kaizen_detected_signal"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_kaizen_agent_propose()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+    </data>
+</odoo>

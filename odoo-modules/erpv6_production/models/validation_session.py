@@ -15,6 +15,14 @@ class Erpv6ValidationSession(models.Model):
     # fatto la prima revisione.
     kb_supervisor_id = fields.Many2one('res.users', string='Supervisore KB (secondo gate)')
     kb_supervisor_approved_at = fields.Datetime(string='Approvato dal supervisore KB il')
+    # Il certificato NON viene piu' generato subito all'approvazione (vedi
+    # action_supervisor_approve) ma consolidato una volta all'ora da
+    # _cron_send_consolidated_kb_certificates -- segnalato dal vivo
+    # dall'utente il 20/08/2026: validare in piu' click separati nella
+    # stessa ora produceva piu' certificati per la stessa categoria invece
+    # di uno solo. False finche' non e' stato incluso in un certificato
+    # consolidato.
+    certificate_sent = fields.Boolean(default=False, copy=False)
 
     # context_data (erpv6_validation, generico) e' un campo Json -- nella
     # scheda si vede come editor di codice grezzo, non testo leggibile
@@ -75,6 +83,34 @@ class Erpv6ValidationSession(models.Model):
                     order.evaluate_and_advance(trigger='validation_approved')
         return result
 
+    def action_validate_kb(self):
+        """Bottone unico 'Valida' per le sessioni voce KB: incatena i due
+        gate esistenti (action_human_approve poi action_supervisor_approve)
+        in un solo click -- segnalato dal vivo dall'utente il 20/08/2026
+        provando a validare la KB #28: il flusso a due gate separati (pensato
+        per revisore e supervisore come persone distinte) si e' rivelato solo
+        fonte di confusione quando chi valida e' sempre la stessa persona, al
+        punto che l'utente aveva provato a compilare a mano
+        human_reviewer_id/human_reviewed_at (ora readonly, vedi
+        erpv6_validation/views) pensando fosse quello il modo di validare --
+        il form si salvava (200 OK) ma nessuna logica di approvazione veniva
+        eseguita, la sessione restava ferma. I due metodi/stati sottostanti
+        restano intatti (storico/audit, riusabili se revisore e supervisore
+        torneranno mai a essere persone diverse): qui si limita a
+        incatenarli con i controlli di ciascuno ancora attivi."""
+        for session in self:
+            if session.res_model != 'erpv6.kb':
+                raise UserError(_("Il bottone 'Valida' si applica solo alle sessioni di validazione voce KB."))
+            if session.status not in ('converged', 'escalated_to_human', 'human_reviewed'):
+                raise UserError(_(
+                    "Sessione #%(id)s: si può validare solo dopo la convergenza dei 6 Giudici "
+                    "(o in escalation umana). Stato attuale: %(status)s."
+                ) % {'id': session.id, 'status': session.status})
+        to_first_gate = self.filtered(lambda s: s.status in ('converged', 'escalated_to_human'))
+        if to_first_gate:
+            to_first_gate.action_human_approve()
+        self.action_supervisor_approve()
+
     def action_supervisor_approve(self):
         """Secondo gate, bloccante e finale per le voci KB: SOLO il
         supervisore KB (referente KB globale, vedi
@@ -89,11 +125,13 @@ class Erpv6ValidationSession(models.Model):
         self puo' contenere MOLTE sessioni insieme (approvazione in blocco
         dalla vista lista, vedi data/validation_session_bulk_actions.xml --
         segnalato dal vivo dall'utente: approvare 70+ voci una per una e'
-        impraticabile). Il certificato NON viene generato una volta a
-        sessione (spammerebbe il supervisore di email su un batch grande),
-        ma una volta per CATEGORIA KB coinvolta in questa chiamata (vedi
-        _send_kb_validation_certificates_by_category sotto), dopo aver
-        processato tutte le sessioni."""
+        impraticabile). Il certificato NON viene generato qui (ne' una volta
+        a sessione ne' una volta a chiamata): resta 'certificate_sent=False'
+        e viene consolidato una volta all'ora da
+        _cron_send_consolidated_kb_certificates, cosi' piu' click separati
+        nella stessa ora (es. valido 5 voci ora, altre 3 tra 10 minuti)
+        producono UN solo certificato per categoria invece di uno per ogni
+        click -- segnalato dal vivo dall'utente il 20/08/2026."""
         approved_kbs = self.env['erpv6.kb']
         session_by_kb_id = {}
         for session in self:
@@ -129,27 +167,63 @@ class Erpv6ValidationSession(models.Model):
             kb.write(vals)
             approved_kbs |= kb
             session_by_kb_id[kb.id] = session
+        # Il certificato si genera nel cron consolidato (vedi
+        # _cron_send_consolidated_kb_certificates sotto), non qui.
 
-        if approved_kbs:
-            try:
-                self._send_kb_validation_certificates_by_category(approved_kbs, session_by_kb_id)
-            except Exception:
-                # Stesso principio di _notify_kb_extraction_result
-                # (library_document.py, commit 63f9659): un problema nella
-                # generazione/invio del certificato NON deve far sembrare
-                # fallita un'approvazione riuscita -- le KB sono gia' attive
-                # sopra, il certificato e' un resoconto, non un gate.
-                _logger.exception(
-                    "Generazione/invio certificati validazione fallita per il batch approvato ora, non bloccante.")
+    @api.model
+    def _cron_send_consolidated_kb_certificates(self):
+        """Consolida in UN certificato per categoria tutte le approvazioni
+        KB accumulate dall'ultimo giro (un'ora, vedi data/production_cron.xml)
+        -- sostituisce la generazione sincrona per-chiamata di
+        action_supervisor_approve, che produceva un certificato diverso per
+        ogni click separato anche entro la stessa ora (segnalato dal vivo
+        dall'utente il 20/08/2026)."""
+        sessions = self.search([
+            ('res_model', '=', 'erpv6.kb'),
+            ('status', '=', 'approved'),
+            ('certificate_sent', '=', False),
+        ])
+        if not sessions:
+            return
+        approved_kbs = self.env['erpv6.kb']
+        session_by_kb_id = {}
+        for session in sessions:
+            kb = self.env['erpv6.kb'].browse(session.res_id)
+            if not kb.exists():
+                continue
+            approved_kbs |= kb
+            session_by_kb_id[kb.id] = session
+        if not approved_kbs:
+            return
+        try:
+            self._send_kb_validation_certificates_by_category(approved_kbs, session_by_kb_id)
+        except Exception:
+            # Stesso principio di _notify_kb_extraction_result
+            # (library_document.py, commit 63f9659): un problema nella
+            # generazione/invio del certificato NON deve far sembrare
+            # fallita un'approvazione riuscita -- le KB sono gia' attive,
+            # il certificato e' un resoconto, non un gate. Le sessioni NON
+            # vengono marcate certificate_sent qui sotto in caso di
+            # eccezione, quindi il prossimo giro ritenta lo stesso batch.
+            _logger.exception(
+                "Generazione/invio certificati validazione consolidati fallita, ritento al prossimo giro.")
+            return
+        sessions.write({'certificate_sent': True})
 
     def _send_kb_validation_certificates_by_category(self, kbs, session_by_kb_id):
-        """Un certificato Typst per CATEGORIA KB coinvolta in questo batch di
-        approvazione, non uno per singola voce -- raggruppa per la categoria
-        REALE appena assegnata sopra (non quella di transito, gia' uscita).
-        Invia (notifica in-app + email, erpv6.typst.document.action_notify_user,
-        stesso pattern del resoconto estrazione KB) a tutti i primi revisori
-        e al supervisore coinvolti nelle voci di quella categoria in questo
-        batch. Documento interno (mai client-facing), nessuna certificazione
+        """UN SOLO certificato Typst per l'intero batch (tutte le categorie
+        insieme), non uno per categoria -- corretto il 20/08/2026 dopo che
+        l'utente ha segnalato dal vivo di aver ricevuto "una email per KB"
+        (in pratica una per categoria, che con voci sparse su molte
+        categorie diverse degenera quasi in una per voce): "un certificato
+        unico" nella richiesta originale significava UNO in assoluto, non
+        raggruppato per categoria. La categoria di ciascuna voce resta
+        visibile come colonna nella tabella (vedi
+        _build_kb_validation_certificate_data), non e' sparita, solo non e'
+        piu' il criterio di split del documento. Invia (notifica in-app +
+        email, erpv6.typst.document.action_notify_user) a tutti i primi
+        revisori e al supervisore coinvolti in QUALSIASI voce del batch.
+        Documento interno (mai client-facing), nessuna certificazione
         blockchain (vedi CLAUDE.md, regola pipeline documenti: blockchain
         solo per documenti esterni)."""
         template = self.env.ref(
@@ -157,65 +231,139 @@ class Erpv6ValidationSession(models.Model):
         if not template:
             _logger.warning("Template Typst certificato validazione non trovato — certificati non generati.")
             return
+        if not kbs:
+            return
 
-        by_category = {}
-        for kb in kbs:
-            by_category.setdefault(kb.category_id, self.env['erpv6.kb'])
-            by_category[kb.category_id] |= kb
-
-        for category, category_kbs in by_category.items():
-            typst_doc = self.env['erpv6.typst.engine'].generate_document(
-                template.id, 'erpv6.kb.category', category.id,
-                data=self._build_kb_validation_certificate_data(category, category_kbs, session_by_kb_id),
+        # Nessun singolo record rappresenta "questo batch eterogeneo di
+        # categorie": si ancora il documento generato alla prima sessione
+        # del batch solo per tracciabilita' (res_model/res_id e' il pattern
+        # generico gia' usato ovunque in questo modulo), non ha altro
+        # significato speciale.
+        anchor_session = next(iter(session_by_kb_id.values()))
+        typst_doc = self.env['erpv6.typst.engine'].generate_document(
+            template.id, anchor_session._name, anchor_session.id,
+            data=self._build_kb_validation_certificate_data(kbs, session_by_kb_id),
+        )
+        if typst_doc.status != 'ready':
+            _logger.warning(
+                "Rendering certificato validazione consolidato fallito (typst doc #%s): %s",
+                typst_doc.id, typst_doc.error_message,
             )
-            if typst_doc.status != 'ready':
-                _logger.warning(
-                    "Rendering certificato validazione fallito per categoria #%s (typst doc #%s): %s",
-                    category.id, typst_doc.id, typst_doc.error_message,
-                )
+            return
+
+        recipients = self.env['res.users']
+        for kb in kbs:
+            session = session_by_kb_id.get(kb.id)
+            if session:
+                recipients |= session.human_reviewer_id | session.kb_supervisor_id
+        for user in recipients:
+            typst_doc.action_notify_user(user)
+
+        # Il progetto del documento di origine deve mostrare anche l'esito
+        # finale, non solo email/notifica (stesso principio del resoconto
+        # pre-approvazione, vedi library_document.py._commit_kb_extraction_batch)
+        # -- il batch puo' raggruppare voci nate da documenti/progetti
+        # diversi, quindi si allega a TUTTI i progetti coinvolti (senza
+        # duplicati).
+        projects = self._resolve_projects_from_kbs(kbs)
+        for project in projects:
+            self.env['erpv6.library.document']._attach_typst_document_to_project(
+                project, typst_doc, _("Certificato validazione 6 Giudici consolidato"))
+            self.env['project.task'].sudo().create({
+                'name': _("Validazione 6 Giudici completata"),
+                'project_id': project.id,
+                'description': _("%d voci approvate e attivate in questo giro.") % len(kbs),
+            })
+
+    def _resolve_projects_from_kbs(self, kbs):
+        """Risale ai project.project di origine di un insieme di voci KB,
+        parsando kb.source ('library_document:<id>:<nome>', scritto da
+        kb_extraction_service.create_kb_records) -- unico collegamento oggi
+        disponibile tra una voce KB e il documento/progetto da cui e'
+        nata. Ritorna solo i progetti distinti e gia' esistenti (nessuna
+        creazione qui: se il documento non ha ancora un progetto, es. non e'
+        mai passato da _ensure_kb_project, semplicemente non c'e' nulla a
+        cui allegare)."""
+        projects = self.env['project.project']
+        seen_document_ids = set()
+        for kb in kbs:
+            if not kb.source or not kb.source.startswith('library_document:'):
                 continue
+            try:
+                document_id = int(kb.source.split(':')[1])
+            except (IndexError, ValueError):
+                continue
+            if document_id in seen_document_ids:
+                continue
+            seen_document_ids.add(document_id)
+            document = self.env['erpv6.library.document'].browse(document_id)
+            if not document.exists():
+                continue
+            order = self.env['erpv6.production.order'].search(
+                [('lead_id', '=', document.project_id.id)], limit=1)
+            if order.project_id:
+                projects |= order.project_id
+        return projects
 
-            recipients = self.env['res.users']
-            for kb in category_kbs:
-                session = session_by_kb_id.get(kb.id)
-                if session:
-                    recipients |= session.human_reviewer_id | session.kb_supervisor_id
-            for user in recipients:
-                typst_doc.action_notify_user(user)
-
-    def _build_kb_validation_certificate_data(self, category, kbs, session_by_kb_id):
+    def _build_kb_validation_certificate_data(self, kbs, session_by_kb_id):
         """Dati reali (nessun valore inventato) per il template Typst del
         certificato: una riga per voce KB (findings per-analista NON inclusi
         qui, sarebbero illeggibili su un batch di decine di voci -- restano
         comunque consultabili per singola voce nella sessione stessa, vedi
         kb_content_display/round_ids sulla vista form). Stesso principio gia'
-        seguito in library_document.py._build_kb_extraction_report_data."""
+        seguito in library_document.py._build_kb_extraction_report_data.
+
+        'supervisor'/'supervisor_approved_at' NON sono piu' self.env.user/now()
+        (corretto il 20/08/2026 insieme al certificato consolidato): con la
+        generazione spostata su un cron orario, self.env.user sarebbe
+        l'utente tecnico del cron, non chi ha davvero approvato -- si legge
+        invece kb_supervisor_id/kb_supervisor_approved_at gia' salvati su
+        ciascuna sessione al momento vero dell'approvazione."""
         kb_type_labels = dict(kbs._fields['kb_type'].selection) if kbs else {}
         entries = []
+        supervisors_seen = self.env['res.users']
         for kb in kbs:
             session = session_by_kb_id.get(kb.id)
             last_round = session.round_ids[-1] if session and session.round_ids else None
             providers_used = ', '.join(sorted(filter(None, set(
                 last_round.analysis_ids.mapped('provider_name'))))) if last_round else ''
+            if session and session.kb_supervisor_id:
+                supervisors_seen |= session.kb_supervisor_id
             entries.append({
                 'kb_name': kb.name,
                 'kb_type': kb_type_labels.get(kb.kb_type, kb.kb_type),
+                'category': kb.category_id.name or '-',
                 'rounds_count': len(session.round_ids) if session else 0,
                 'final_issues_found': last_round.issues_found if last_round else 0,
                 'providers_used': providers_used or '-',
-                'analyst_prompt_ref': last_round.analyst_prompt_ref if last_round else '',
-                'sesto_prompt_ref': last_round.sesto_prompt_ref if last_round else '',
+                # 'or ''' non solo 'if last_round else': un campo Char vuoto
+                # su un round REALE si legge come False, non '' (idioma ORM
+                # Odoo) -- passato cosi' com'e' al JSON, Typst lo stampa
+                # letteralmente "false" invece di lasciare vuota la cella
+                # (il fallback default:"-" del template scatta solo se la
+                # chiave manca, non se vale false). Visto dal vivo
+                # sull'utente il 20/08/2026 sul certificato consolidato,
+                # rounds vecchi creati prima che questi due campi venissero
+                # tracciati.
+                'analyst_prompt_ref': (last_round.analyst_prompt_ref or '') if last_round else '',
+                'sesto_prompt_ref': (last_round.sesto_prompt_ref or '') if last_round else '',
                 'first_reviewer': session.human_reviewer_id.name if session and session.human_reviewer_id else '',
                 'first_reviewed_at': (
                     fields.Datetime.to_string(session.human_reviewed_at)
                     if session and session.human_reviewed_at else ''
                 ),
+                'second_gate_reviewer': session.kb_supervisor_id.name if session and session.kb_supervisor_id else '',
+                'second_gate_approved_at': (
+                    fields.Datetime.to_string(session.kb_supervisor_approved_at)
+                    if session and session.kb_supervisor_approved_at else ''
+                ),
             })
+        category_names = sorted(set(kbs.mapped('category_id.name')))
         return {
-            'category_name': category.name,
+            'category_name': ', '.join(category_names) or '-',
             'entries_count': len(kbs),
             'entries': entries,
-            'supervisor': self.env.user.name,
+            'supervisor': ', '.join(supervisors_seen.mapped('name')) or '-',
             'supervisor_approved_at': fields.Datetime.to_string(fields.Datetime.now()),
             'generated_at': fields.Datetime.to_string(fields.Datetime.now()),
         }

@@ -25,5 +25,26 @@
             <field name="interval_type">minutes</field>
             <field name="active">True</field>
         </record>
+
+        <!-- Consolida in UN certificato per categoria tutte le voci KB
+             approvate nell'ultima ora, invece di uno per ogni click separato
+             di "Valida" (vedi
+             validation_session.py/_cron_send_consolidated_kb_certificates,
+             segnalato dal vivo dall'utente il 20/08/2026). -->
+        <record id="cron_send_consolidated_kb_certificates" model="ir.cron">
+            <field name="name">Certificato Validazione KB Consolidato - Ogni ora</field>
+            <field name="model_id" ref="erpv6_production.model_erpv6_validation_session"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_send_consolidated_kb_certificates()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="active">True</field>
+            <!-- user_id=administrator, non il default OdooBot: questo cron
+                 manda email (action_notify_user), e OdooBot ha come azienda
+                 di default "My Company" (mai rinominata): stesso fix di
+                 erpv6_kaizen/data/kaizen_cron.xml, stesso bug segnalato dal
+                 vivo dall'utente il 20/08/2026. -->
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
     </data>
 </odoo>

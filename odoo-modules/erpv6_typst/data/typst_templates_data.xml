@@ -313,15 +313,15 @@
             <field name="category">custom</field>
             <field name="language">it</field>
             <field name="version">1.0</field>
-            <field name="description">Certificato interno (non per il cliente finale) dell'esito della validazione "6 Giudici" (5 Analisti + Sesto Uomo): UNA CATEGORIA KB alla volta, con una riga per ogni voce approvata in quella categoria nello stesso batch di approvazione del supervisore -- non uno per singola voce, per non generare decine di certificati/email quando il supervisore approva in blocco (vedi data/validation_session_bulk_actions.xml). Generato e inviato (notifica in-app + email) da erpv6_production/models/validation_session.py._send_kb_validation_certificates_by_category ai revisori/supervisore coinvolti, alla approvazione finale.</field>
+            <field name="description">Certificato interno (non per il cliente finale) dell'esito della validazione "6 Giudici" (5 Analisti + Sesto Uomo): UN CERTIFICATO UNICO per tutte le voci approvate nel giro del cron consolidato (anche su categorie diverse, indicata per riga), non uno per categoria e non uno per singola voce -- corretto il 20/08/2026, prima raggruppava per categoria e degenerava quasi in un certificato per voce con categorie molto sparse. Generato e inviato (notifica in-app + email) da erpv6_production/models/validation_session.py._send_kb_validation_certificates_by_category (nome storico, ora genera un solo documento per l'intero batch) al cron orario _cron_send_consolidated_kb_certificates.</field>
             <field name="sequence">8</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
             <field name="required_fields">{
-                "category_name": {"type": "string", "description": "Nome della categoria KB certificata"},
-                "entries_count": {"type": "integer", "description": "Numero di voci KB approvate in questa categoria nel batch"},
-                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, rounds_count, final_issues_found, providers_used, analyst_prompt_ref, sesto_prompt_ref, first_reviewer, first_reviewed_at"},
-                "supervisor": {"type": "string", "description": "Utente supervisore KB che ha completato il secondo gate per l'intero batch"},
+                "category_name": {"type": "string", "description": "Elenco delle categorie KB coinvolte in questo certificato, separate da virgola"},
+                "entries_count": {"type": "integer", "description": "Numero totale di voci KB approvate in questo giro"},
+                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, category, rounds_count, final_issues_found, providers_used, analyst_prompt_ref, sesto_prompt_ref, first_reviewer, first_reviewed_at, second_gate_reviewer, second_gate_approved_at"},
+                "supervisor": {"type": "string", "description": "Supervisore/i KB che hanno completato il secondo gate sulle voci di questo certificato"},
                 "supervisor_approved_at": {"type": "string", "description": "Data/ora del secondo gate"},
                 "generated_at": {"type": "string", "description": "Data/ora generazione certificato"}
             }</field>
@@ -333,7 +333,7 @@
 #align(center)[
   #text(size: 20pt, weight: "bold")[Certificato di Validazione — 6 Giudici]
   #v(0.3em)
-  #text(size: 13pt)[Categoria: #data.at("category_name", default: "-")]
+  #text(size: 13pt)[Categorie: #data.at("category_name", default: "-")]
   #v(0.3em)
   #text(size: 11pt, fill: gray)[Generato il #data.at("generated_at", default: "-")]
 ]
@@ -348,12 +348,13 @@
 = Voci Validate (#str(data.at("entries_count", default: 0)))
 
 #table(
-  columns: (1fr, auto, auto, auto, 1fr),
+  columns: (1fr, auto, auto, auto, auto, 1fr),
   stroke: 0.5pt + gray,
   inset: 5pt,
-  [*Nome*], [*Tipo*], [*Round*], [*Problemi residui*], [*Provider AI (ultimo round)*],
+  [*Nome*], [*Categoria*], [*Tipo*], [*Round*], [*Problemi residui*], [*Provider AI (ultimo round)*],
   ..data.at("entries", default: ()).map(e => (
     [#e.at("kb_name", default: "-")],
+    [#e.at("category", default: "-")],
     [#e.at("kb_type", default: "-")],
     [#str(e.at("rounds_count", default: 0))],
     [#str(e.at("final_issues_found", default: 0))],
@@ -365,13 +366,14 @@
 = Tracciabilità — Primo Gate e Prompt Usati
 
 #table(
-  columns: (1fr, 1fr, 1fr, 1fr),
+  columns: (1fr, 1fr, 1fr, 1fr, 1fr),
   stroke: 0.5pt + gray,
   inset: 5pt,
-  [*Nome*], [*Primo gate (revisore, data)*], [*Prompt Analista*], [*Prompt Sesto Uomo*],
+  [*Nome*], [*Primo gate (revisore, data)*], [*Secondo gate (supervisore, data)*], [*Prompt Analista*], [*Prompt Sesto Uomo*],
   ..data.at("entries", default: ()).map(e => (
     [#e.at("kb_name", default: "-")],
     [#e.at("first_reviewer", default: "-") — #e.at("first_reviewed_at", default: "-")],
+    [#e.at("second_gate_reviewer", default: "-") — #e.at("second_gate_approved_at", default: "-")],
     [#e.at("analyst_prompt_ref", default: "-")],
     [#e.at("sesto_prompt_ref", default: "-")],
   )).flatten()
@@ -383,14 +385,14 @@
 
 = Secondo Gate — Approvazione Finale
 
-Confermata l'approvazione finale, successiva e distinta dal primo gate riportato per ciascuna voce sopra:
+Confermata l'approvazione finale, successiva e distinta dal primo gate riportato per ciascuna voce sopra (data/ora di approvazione per singola voce nella tabella di tracciabilita'):
 
 #table(
   columns: (auto, 1fr),
   stroke: none,
   row-gutter: 0.6em,
-  [*Supervisore KB (secondo gate)*], [#data.at("supervisor", default: "-")],
-  [*Data approvazione*], [#data.at("supervisor_approved_at", default: "-")],
+  [*Supervisore/i KB (secondo gate)*], [#data.at("supervisor", default: "-")],
+  [*Data generazione certificato*], [#data.at("generated_at", default: "-")],
 )
 
 #v(1em)
