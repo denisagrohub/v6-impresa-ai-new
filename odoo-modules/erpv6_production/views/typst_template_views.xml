@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Aggiunge chatter + bozza sorgente Typst AI al form di
+         erpv6.typst.template, possibile solo da qui: mail.thread e'
+         mixato in erpv6_production/models/typst_template.py (erpv6_typst,
+         dove vive la vista base, non puo' dipendere da mail/erpv6_omni_bridge
+         per questo scopo senza creare un ciclo: stesso motivo gia' seguito
+         per library_document_views.xml). -->
+    <record id="view_erpv6_typst_template_form_ai_draft" model="ir.ui.view">
+        <field name="name">erpv6.typst.template.form.ai.draft</field>
+        <field name="model">erpv6.typst.template</field>
+        <field name="inherit_id" ref="erpv6_typst.view_erpv6_typst_template_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <chatter/>
+            </xpath>
+            <xpath expr="//header" position="inside">
+                <button name="action_generate_typst_source_draft" type="object"
+                        string="Genera bozza sorgente (AI)" class="oe_highlight"
+                        confirm="L'AI propone una BOZZA di sorgente Typst (mai applicata direttamente): verrà scritta solo su typst_source_draft, da rivedere e promuovere manualmente. Procedere?"/>
+                <button name="action_promote_draft_to_source" type="object"
+                        string="Promuovi bozza a sorgente" class="oe_highlight"
+                        invisible="not typst_source_draft"
+                        confirm="Il sorgente Typst reale (typst_source) verrà sovrascritto con questa bozza, dopo averla ricompilata ora. Procedere?"/>
+            </xpath>
+            <xpath expr="//page[@name='sorgente_typst']" position="after">
+                <page string="Bozza Sorgente (AI)" name="typst_source_draft_page" invisible="not typst_source_draft">
+                    <group>
+                        <group>
+                            <field name="typst_draft_generated_at" readonly="1"/>
+                            <field name="typst_draft_compile_ok" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="typst_draft_compile_error" readonly="1"
+                                   invisible="typst_draft_compile_ok"/>
+                            <field name="typst_draft_unknown_fields" readonly="1"
+                                   invisible="not typst_draft_unknown_fields"/>
+                        </group>
+                    </group>
+                    <field name="typst_source_draft" placeholder="Nessuna bozza generata ancora..." options='{"font": "monospace"}'/>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

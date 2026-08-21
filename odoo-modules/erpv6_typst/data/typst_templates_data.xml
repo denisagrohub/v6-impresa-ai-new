@@ -320,7 +320,7 @@
             <field name="required_fields">{
                 "category_name": {"type": "string", "description": "Elenco delle categorie KB coinvolte in questo certificato, separate da virgola"},
                 "entries_count": {"type": "integer", "description": "Numero totale di voci KB approvate in questo giro"},
-                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, category, rounds_count, final_issues_found, providers_used, analyst_prompt_ref, sesto_prompt_ref, first_reviewer, first_reviewed_at, second_gate_reviewer, second_gate_approved_at"},
+                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, category, rounds_count, final_issues_found, providers_used, analyst_prompt_ref, sesto_prompt_ref, first_reviewer, first_reviewed_at, second_gate_reviewer, second_gate_approved_at, analyst_findings (lista {analyst_index, prompt_ref, findings} dell'ultimo round), sesto_findings (sintesi Sesto Uomo dell'ultimo round)"},
                 "supervisor": {"type": "string", "description": "Supervisore/i KB che hanno completato il secondo gate sulle voci di questo certificato"},
                 "supervisor_approved_at": {"type": "string", "description": "Data/ora del secondo gate"},
                 "generated_at": {"type": "string", "description": "Data/ora generazione certificato"}
@@ -380,6 +380,33 @@
 )
 
 #v(1.5em)
+#line(length: 100%, stroke: 0.5pt + gray)
+#v(1em)
+
+= Ragionamento dei Giudici (ultimo round)
+
+#for e in data.at("entries", default: ()) [
+  == #e.at("kb_name", default: "-")
+
+  #table(
+    columns: (auto, 1.5fr, 3fr),
+    stroke: 0.5pt + gray,
+    inset: 5pt,
+    [*Analista*], [*Prompt usato*], [*Ragionamento*],
+    ..e.at("analyst_findings", default: ()).map(a => (
+      [#a.at("analyst_index", default: "-")],
+      [#a.at("prompt_ref", default: "-")],
+      [#a.at("findings", default: "-")],
+    )).flatten()
+  )
+
+  #v(0.5em)
+  #text(weight: "bold")[Sintesi Sesto Uomo:] #e.at("sesto_findings", default: "-")
+
+  #v(1em)
+]
+
+#v(1em)
 #line(length: 100%, stroke: 0.5pt + gray)
 #v(1em)
 

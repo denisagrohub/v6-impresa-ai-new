@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Route: generazione BOZZA di sorgente Typst (.typ) da uno schema
+             campi (required_fields) + few-shot da template reali esistenti,
+             vedi erpv6_production/models/typst_template.py
+             (action_generate_typst_source_draft). Scrive SOLO
+             typst_source_draft, mai typst_source direttamente: un gate
+             umano esplicito (action_promote_draft_to_source) promuove la
+             bozza dopo revisione. Stesso schema Groq-primario delle altre
+             route KB in questo modulo (vedi
+             omni_kb_case_study_interview_route.xml per il motivo del solo
+             fallback OpenAI qui: i fallback reali aggiuntivi
+             Cerebras/OpenRouter/Gemini sono configurati a mano sul DB del
+             VPS, non tracciati in XML). -->
+        <record id="omni_route_typst_source_generation" model="erpv6.omni.route.config">
+            <field name="name">Generazione Bozza Sorgente Typst</field>
+            <field name="task_type">typst_source_generation</field>
+            <field name="primary_provider_id" ref="omni_provider_groq"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [ref('omni_provider_openai')])]"/>
+            <field name="routing_strategy">balanced</field>
+            <field name="priority">30</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+    </data>
+</odoo>

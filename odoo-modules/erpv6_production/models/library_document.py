@@ -62,6 +62,16 @@ class LibraryDocument(models.Model):
         help="Contatore dei soli tentativi lanciati dal cron (non da un rilancio "
              "manuale) -- oltre KB_EXTRACTION_MAX_AUTO_RETRIES il cron smette di "
              "ritentare questo documento e serve intervento manuale.")
+    kb_awaiting_file = fields.Boolean(
+        string="In attesa del file (KB)", default=False, copy=False,
+        help="True quando create() ha visto una categoria KB (kb_source/kb_case_study) "
+             "senza ancora un file allegato -- il widget file del form web spesso salva "
+             "il record PRIMA (create() senza file) e allega il binario in una write() "
+             "separata poco dopo (verificato dal vivo sul documento #27, creato le "
+             "11:11:27 del 20/08/2026 con l'allegato scritto solo alle 11:12:36): senza "
+             "questo flag il trigger automatico -- cablato solo in create() -- non scatta "
+             "mai, e il documento resta bloccato per sempre senza nessuna traccia (vedi "
+             "write() sotto, che lo consuma non appena il file arriva).")
 
     case_study_work_type = fields.Selection(
         CASE_STUDY_WORK_TYPES, string="Tipo di lavoro",
@@ -136,11 +146,38 @@ class LibraryDocument(models.Model):
                 vals['project_id'] = new_lead.id
         documents = super().create(vals_list)
         for document in documents:
-            if document.category == 'kb_source' and document.file:
-                document._process_kb_source()
-            elif document.category == 'kb_case_study' and document.file:
-                document._process_kb_case_study()
+            if document.category == 'kb_source':
+                if document.file:
+                    document._process_kb_source()
+                else:
+                    document.kb_awaiting_file = True
+            elif document.category == 'kb_case_study':
+                if document.file:
+                    document._process_kb_case_study()
+                else:
+                    document.kb_awaiting_file = True
         return documents
+
+    def write(self, vals):
+        """Vedi kb_awaiting_file: se il file arriva DOPO create() (write()
+        separata del widget form), rilancia qui l'elaborazione automatica che
+        altrimenti non scatterebbe mai. Calcolato PRIMA di super().write()
+        (sui valori attuali dei record, non sui vals in arrivo) cosi' il
+        controllo su kb_awaiting_file/category riflette lo stato pre-scrittura;
+        vals.get('file') vero e' condizione sufficiente perche' un client puo'
+        anche scrivere altri campi nella stessa write() in cui allega il file."""
+        pending = self.browse()
+        if vals.get('file'):
+            pending = self.filtered(
+                lambda d: d.kb_awaiting_file and d.category in ('kb_source', 'kb_case_study'))
+        result = super().write(vals)
+        for document in pending:
+            document.kb_awaiting_file = False
+            if document.category == 'kb_source':
+                document._process_kb_source()
+            elif document.category == 'kb_case_study':
+                document._process_kb_case_study()
+        return result
 
     @api.model
     def _cron_retry_kb_extraction_failures(self):

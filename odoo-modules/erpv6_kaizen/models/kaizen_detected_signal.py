@@ -14,6 +14,15 @@ from odoo import _, api, fields, models
 # tassonomia sprechi della regola Kaizen #10 (KB #308).
 KAIZEN_SHARED_BACKLOG = ('erpv6.kaizen.detected_signal', 0)
 
+# Soglia oltre la quale un caso studio fermo in attesa di decisione umana
+# diventa un segnale Kaizen (vedi _detect_case_study_stalled). 24h perche' i
+# casi reali osservati (documenti #27/#33, 20/08/2026) erano gia' fermi da un
+# giorno pieno quando scoperti manualmente -- un'attivita' to-do puo' essere
+# marcata "completata" senza che la decisione sottostante sia mai stata presa
+# (visto dal vivo sul documento #33), quindi non ci si puo' fidare della sola
+# presenza/assenza dell'attivita' per sapere se serve ancora attenzione.
+CASE_STUDY_STALLED_HOURS = 24
+
 
 class Erpv6KaizenDetectedSignal(models.Model):
     """Registro dei segnali gia' rilevati dal cron Kaizen, per record
@@ -86,6 +95,7 @@ class Erpv6KaizenDetectedSignal(models.Model):
             'validation_recovered': self._detect_validation_recovered_after_retry(),
             'kb_extraction_stuck': self._detect_kb_extraction_stuck(),
             'kb_extraction_recovered': self._detect_kb_extraction_recovered_after_retry(),
+            'case_study_stalled': self._detect_case_study_stalled(),
         }
         if any(new_counts.values()):
             self._log_changelog_summary(new_counts)
@@ -109,6 +119,7 @@ class Erpv6KaizenDetectedSignal(models.Model):
             'validation_recovered': "sessioni di validazione recuperate da sole dopo retry",
             'kb_extraction_stuck': "estrazioni KB appena bloccate oltre il tetto di retry",
             'kb_extraction_recovered': "estrazioni KB recuperate da sole dopo retry",
+            'case_study_stalled': "casi studio fermi da oltre %dh senza decisione umana" % CASE_STUDY_STALLED_HOURS,
         }
         for key, count in new_counts.items():
             if count:
@@ -344,4 +355,52 @@ class Erpv6KaizenDetectedSignal(models.Model):
             )
             self._mark_detected(document._name, document.id, signal_key)
             new_count += 1
+        return new_count
+
+    def _detect_case_study_stalled(self):
+        """Documento categoria 'kb_case_study' fermo da oltre
+        CASE_STUDY_STALLED_HOURS in uno stato che aspetta ancora una
+        decisione umana esplicita: 'pending' (mai nemmeno processato -- es.
+        il bug del file allegato dopo create(), vedi
+        erpv6_production/models/library_document.py write()) oppure
+        'suggested_reuse'/'suggested_new' (l'AI ha gia' suggerito, ma
+        nessuno ha mai chiamato action_confirm_reuse_existing_template /
+        action_confirm_create_new_template). Guarda lo STATO REALE del
+        documento, non se esiste ancora un'attivita' aperta: un'attivita'
+        to-do puo' essere marcata "completata" senza che la decisione
+        sottostante sia mai stata presa (visto dal vivo sul documento #33,
+        20-21/08/2026), quindi la sola assenza di un'attivita' non e' prova
+        che il lavoro sia stato fatto."""
+        threshold = fields.Datetime.now() - timedelta(hours=CASE_STUDY_STALLED_HOURS)
+        stalled = self.env['erpv6.library.document'].search([
+            ('category', '=', 'kb_case_study'),
+            ('case_study_match_status', 'in', ['pending', 'suggested_reuse', 'suggested_new']),
+            ('create_date', '<=', threshold),
+        ])
+        new_count = 0
+        for document in stalled:
+            # La chiave include lo stato attuale: un cambio di stato (es. da
+            # 'pending' a 'suggested_new' dopo un rilancio manuale che poi
+            # resta comunque fermo) e' una situazione nuova, va segnalata di
+            # nuovo invece di restare silenziosamente scartata come duplicato
+            # del vecchio segnale su 'pending'.
+            signal_key = 'case_study_stalled_%s' % document.case_study_match_status
+            if self._already_detected(document._name, document.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                document._name, document.id, 'lieve',
+                description=_(
+                    "Documento caso studio #%(id)s '%(name)s' fermo da oltre %(h)dh nello stato "
+                    "'%(status)s': nessuna decisione umana (riuso template esistente / nuovo "
+                    "template) ancora presa. Se esisteva un'attivita' to-do, verifica se e' "
+                    "stata chiusa senza eseguire l'azione corrispondente."
+                ) % {
+                    'id': document.id, 'name': document.name, 'h': CASE_STUDY_STALLED_HOURS,
+                    'status': document.case_study_match_status,
+                },
+            )
+            self._mark_detected(document._name, document.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Casi studio fermi senza decisione umana"), len(stalled), impatto=3)
         return new_count

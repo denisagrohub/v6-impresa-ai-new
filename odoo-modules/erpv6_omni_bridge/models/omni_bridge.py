@@ -76,21 +76,33 @@ class Erpv6OmniBridge(models.AbstractModel):
                 'error': f'Nessuna route configurata per il task: {task_type}'
             }
         
-        # 2. Lista dei provider da tentare (Primario + Fallbacks)
-        providers_to_try = [route.primary_provider_id] + list(route.fallback_provider_ids)
-        providers_to_try = [p for p in providers_to_try if p]  # Rimuovi None
-        
-        attempted_providers = []
+        # 2-3. Selezione dinamica del provider via route.get_next_provider()
+        # -- prima la lista era statica [primary]+fallback indipendentemente
+        # da routing_strategy (cost/priority/speed mai applicata, dead code:
+        # get_next_provider esisteva ma non veniva mai chiamato). Trovato da
+        # un agente di verifica dedicato il 21/08/2026. excluded_provider_ids
+        # accumula sia i provider davvero tentati (rete) sia quelli scartati
+        # dal circuit breaker, altrimenti get_next_provider riproporrebbe
+        # all'infinito un provider gia' escluso per quel motivo.
+        attempted_providers = []  # id con una VERA chiamata di rete (per max_retries)
+        excluded_provider_ids = []
         last_error = None
-        
-        # 3. Ciclo di tentativo con Fallback
-        for provider in providers_to_try:
+
+        while True:
+            try:
+                provider = route.get_next_provider(attempted_providers=excluded_provider_ids)
+            except UserError:
+                # Nessun candidato rimasto -- stesso esito di "lista esaurita".
+                break
+
             # Verifica circuit breaker
             if not provider.is_available():
                 _logger.info(f"Provider {provider.name} non disponibile (circuit breaker)")
+                excluded_provider_ids.append(provider.id)
                 continue
-            
+
             attempted_providers.append(provider.id)
+            excluded_provider_ids.append(provider.id)
             start_time = time.time()
             
             try:
@@ -204,9 +216,9 @@ class Erpv6OmniBridge(models.AbstractModel):
                     break
         
         # 4. Se arriviamo qui, tutti i provider sono falliti
+        attempted_provider_records = self.env['erpv6.omni.provider'].sudo().browse(attempted_providers)
         return {
             'success': False,
             'error': f'Tutti i provider hanno fallito. Ultimo errore: {last_error}',
-            'attempted_providers': [p.name for p in providers_to_try
-                                   if p.id in attempted_providers]
+            'attempted_providers': attempted_provider_records.mapped('name')
         }

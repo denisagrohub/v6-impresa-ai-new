@@ -37,6 +37,7 @@ Modulo ponte per integrare il sistema OmniRoute con ERPV6.
         'data/omni_kb_case_study_interview_route.xml',
         'data/omni_kaizen_agent_route.xml',
         'data/omni_agent_knowledge_route.xml',
+        'data/omni_typst_source_generation_route.xml',
     ],
     'installable': True,
     'application': False,

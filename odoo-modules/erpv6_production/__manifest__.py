@@ -44,6 +44,7 @@
         'views/kb_import_wizard_views.xml',
         'views/library_document_views.xml',
         'views/validation_session_views.xml',
+        'views/typst_template_views.xml',
     ],
     'installable': True,
     'application': True,

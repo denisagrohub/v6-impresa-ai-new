@@ -203,16 +203,26 @@ class Erpv6ProductionOrder(models.Model):
             return existing
         return Matrix.create(vals)
 
-    def _notify_stall(self, summary):
+    def _notify_stall(self, summary, note=None):
         """Crea un'activity Odoo (visibile in Attivita'/Discuss, non solo
         nel log eventi dell'ordine) quando la produzione resta bloccata o
         va in errore - cosi' un admin/consulente lo vede anche senza aprire
         l'ordine. Non duplica se esiste gia' un'activity aperta identica,
-        per non spammare ad ogni tick del cron (ogni 30 min)."""
+        per non spammare ad ogni tick del cron (ogni 30 min).
+
+        'summary' e' la CHIAVE di deduplicazione: deve restare stabile tra
+        un tentativo e l'altro dello stesso blocco (mai un id di record
+        creato ad ogni retry, es. typst_doc.id, altrimenti il confronto
+        sotto non trova mai il duplicato -- bug reale trovato il 21/08/2026,
+        191 activity duplicate su 3 produzioni in 32 ore per questo motivo).
+        Il dettaglio variabile (es. id dell'ultimo documento fallito) va in
+        'note', che viene aggiornata sull'activity esistente invece di
+        crearne una nuova, cosi' il to-do resta informativo senza spammare."""
         self.ensure_one()
         activity_type = self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
         if not activity_type:
             return
+        note = note or summary
         existing = self.env['mail.activity'].search([
             ('res_model', '=', self._name),
             ('res_id', '=', self.id),
@@ -220,11 +230,12 @@ class Erpv6ProductionOrder(models.Model):
             ('summary', '=', summary),
         ], limit=1)
         if existing:
+            existing.write({'note': note})
             return
         self.activity_schedule(
             'mail.mail_activity_data_todo',
             summary=summary,
-            note=summary,
+            note=note,
             user_id=self.lead_id.user_id.id or self.env.user.id,
         )
 
@@ -252,7 +263,16 @@ class Erpv6ProductionOrder(models.Model):
                 ),
                 'phase_before_id': phase.id,
             })
-            self._notify_stall(f"Fase '{phase.name}' senza template Typst configurato — produzione #{self.id} bloccata.")
+            self._notify_stall(
+                _("Produzione ferma: manca il modello del documento («fase %s») — %s")
+                % (phase.name, self.name),
+                note=_(
+                    "La produzione «%(order)s» è ferma alla fase «%(phase)s» perché "
+                    "nessuno ha ancora caricato/impostato il modello del documento da generare in "
+                    "questa fase. Serve un intervento umano: o si configura il modello mancante, "
+                    "o si carica il documento a mano per questa produzione."
+                ) % {'order': self.name, 'phase': phase.name},
+            )
             return False
 
         typst_doc = self.env['erpv6.typst.engine'].generate_document(
@@ -281,8 +301,17 @@ class Erpv6ProductionOrder(models.Model):
                 'phase_before_id': phase.id,
             })
             self._notify_stall(
-                f"Rendering Typst fallito per produzione #{self.id}, fase '{phase.name}' — "
-                f"vedi typst doc #{typst_doc.id} (status '{typst_doc.status}')."
+                _("Produzione ferma: il documento non si genera («fase %s») — %s")
+                % (phase.name, self.name),
+                note=_(
+                    "La produzione «%(order)s» è ferma alla fase «%(phase)s»: il documento non "
+                    "si riesce a generare. Motivo: %(error)s. Serve un intervento umano per "
+                    "risolvere il motivo indicato (riferimento interno: documento Typst #%(doc)s)."
+                ) % {
+                    'order': self.name, 'phase': phase.name,
+                    'error': typst_doc.error_message or _("nessun dettaglio disponibile"),
+                    'doc': typst_doc.id,
+                },
             )
             return False
 
@@ -373,7 +402,14 @@ class Erpv6ProductionOrder(models.Model):
                     'description': "Errore durante la valutazione di avanzamento — vedi log server. Ordine isolato, gli altri non sono stati impattati.",
                     'phase_before_id': order.phase_id.id,
                 })
-                order._notify_stall(f"Errore durante evaluate_and_advance su produzione #{order.id} — vedi log server Odoo.")
+                order._notify_stall(
+                    _("Produzione ferma per un errore tecnico — %s") % order.name,
+                    note=_(
+                        "La produzione «%s» si è fermata per un errore tecnico imprevisto durante "
+                        "l'avanzamento automatico. Serve un intervento tecnico per capire la causa "
+                        "(dettaglio nel log del server)."
+                    ) % order.name,
+                )
 
         return True
 
@@ -410,8 +446,13 @@ class Erpv6ProductionOrder(models.Model):
                 return
             if last_session.status == 'escalated_to_human':
                 order._notify_stall(
-                    f"Validazione fase '{phase.name}' escalata a revisione umana (max_rounds superato) — "
-                    f"produzione #{order.id} in attesa di action_human_approve/reject."
+                    _("Produzione ferma: serve la tua approvazione («fase %s») — %s")
+                    % (phase.name, order.name),
+                    note=_(
+                        "La produzione «%(order)s» è ferma alla fase «%(phase)s»: la validazione "
+                        "automatica non ha raggiunto un accordo e serve una decisione umana. Vai alla "
+                        "sessione di validazione e scegli se approvare o rifiutare."
+                    ) % {'order': order.name, 'phase': phase.name},
                 )
                 return
             if last_session.status != 'approved':
@@ -426,7 +467,15 @@ class Erpv6ProductionOrder(models.Model):
                 'description': f"Nessuna KB risolvibile per verticale '{order.verticale or 'generico'}' — avanzamento sospeso.",
                 'phase_before_id': phase.id,
             })
-            order._notify_stall(f"Nessuna KB 'metodo_v6' risolvibile per produzione #{order.id} (verticale '{order.verticale or 'generico'}').")
+            order._notify_stall(
+                _("Produzione ferma: manca conoscenza per il settore «%s» — %s")
+                % (order.verticale or _('generico'), order.name),
+                note=_(
+                    "La produzione «%(order)s» è ferma: non è stata trovata nessuna voce della "
+                    "Knowledge Base adatta al settore «%(verticale)s» per continuare. Serve creare/"
+                    "approvare una voce KB adatta a questo settore."
+                ) % {'order': order.name, 'verticale': order.verticale or _('generico')},
+            )
             return
 
         result = self.env['erpv6.kb.engine'].process(kb_id, {

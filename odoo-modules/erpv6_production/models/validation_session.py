@@ -34,19 +34,39 @@ class Erpv6ValidationSession(models.Model):
     kb_content_display = fields.Text(related='kb_id.content', string='Contenuto KB', readonly=True)
     kb_category_display = fields.Char(related='kb_id.category_id.name', string='Categoria KB (attuale)', readonly=True)
 
-    def _get_analyst_prompt_template(self):
+    # 5 voci KB distinte (una per analista, vedi data/kb_prompt_data.xml),
+    # non piu' una condivisa: prima tutti e 5 leggevano
+    # kb_prompt_validation_analyst, stesso identico testo -- bug gemello a
+    # quello gia' corretto in erpv6_validation (template risolto fuori dal
+    # ciclo). Aggiunto il 21/08/2026 da un agente di verifica dedicato.
+    _KB_ANALYST_PROMPT_XMLIDS = {
+        '1': 'erpv6_production.kb_prompt_validation_analyst_1',
+        '2': 'erpv6_production.kb_prompt_validation_analyst_2',
+        '3': 'erpv6_production.kb_prompt_validation_analyst_3',
+        '4': 'erpv6_production.kb_prompt_validation_analyst_4',
+        '5': 'erpv6_production.kb_prompt_validation_analyst_5',
+    }
+
+    def _get_analyst_prompt_template(self, analyst_idx=None):
         """Sovrascrive il default hardcoded di erpv6_validation (motore
         generico, non dipende da erpv6_kb) leggendo il prompt da una voce KB
-        dedicata (kb_type='prompt', vedi data/kb_prompt_data.xml) -- modificabile
-        da un utente senza toccare codice. Ritorna (template, riferimento) con
-        l'id della voce KB usata, tracciato sul round e riportato nel
-        certificato (vedi _build_kb_validation_certificate_data). Torna al
-        default del motore se la voce non esiste ancora (modulo non
-        aggiornato) o e' stata svuotata."""
-        kb = self.env.ref('erpv6_production.kb_prompt_validation_analyst', raise_if_not_found=False)
-        if kb and kb.content:
-            return kb.content, _("KB #%(id)d - %(name)s") % {'id': kb.id, 'name': kb.name}
-        return super()._get_analyst_prompt_template()
+        dedicata PER ANALISTA (kb_type='prompt', vedi data/kb_prompt_data.xml)
+        -- modificabile da un utente senza toccare codice. Ritorna (template,
+        riferimento) con l'id della voce KB usata, tracciato per analista
+        (erpv6.validation.analysis.prompt_ref) e riportato nel certificato
+        (vedi _build_kb_validation_certificate_data). Torna al default del
+        motore se la voce non esiste ancora, e' stata svuotata, o
+        res_model non e' 'erpv6.kb' (le 5 lenti sono scritte esplicitamente
+        per "voce KB estratta da documento", non hanno senso per sessioni
+        erpv6.production.order/Typst -- prima questo override si applicava
+        indiscriminatamente a QUALSIASI res_model, altro bug gemello
+        corretto qui)."""
+        if self.res_model == 'erpv6.kb':
+            xmlid = self._KB_ANALYST_PROMPT_XMLIDS.get(analyst_idx)
+            kb = self.env.ref(xmlid, raise_if_not_found=False) if xmlid else None
+            if kb and kb.content:
+                return kb.content, _("KB #%(id)d - %(name)s") % {'id': kb.id, 'name': kb.name}
+        return super()._get_analyst_prompt_template(analyst_idx=analyst_idx)
 
     def _get_sesto_uomo_prompt_template(self):
         """Come sopra, per il prompt del Sesto Uomo."""
@@ -307,11 +327,15 @@ class Erpv6ValidationSession(models.Model):
 
     def _build_kb_validation_certificate_data(self, kbs, session_by_kb_id):
         """Dati reali (nessun valore inventato) per il template Typst del
-        certificato: una riga per voce KB (findings per-analista NON inclusi
-        qui, sarebbero illeggibili su un batch di decine di voci -- restano
-        comunque consultabili per singola voce nella sessione stessa, vedi
-        kb_content_display/round_ids sulla vista form). Stesso principio gia'
-        seguito in library_document.py._build_kb_extraction_report_data.
+        certificato: una riga per voce KB, PIU' il ragionamento per-analista
+        dell'ultimo round (findings di ciascuno dei 5 analisti + sintesi del
+        Sesto Uomo) -- richiesto esplicitamente dall'utente il 21/08/2026
+        insieme al fix dei 5 prompt differenziati, per rendere visibile nel
+        certificato lo stesso ragionamento che prima restava consultabile
+        solo aprendo la sessione. Solo l'ULTIMO round (non tutto lo storico
+        round-per-round): e' quello che ha portato alla decisione finale,
+        includere anche i round precedenti gonfierebbe il certificato senza
+        aggiungere informazione decisionale.
 
         'supervisor'/'supervisor_approved_at' NON sono piu' self.env.user/now()
         (corretto il 20/08/2026 insieme al certificato consolidato): con la
@@ -329,6 +353,16 @@ class Erpv6ValidationSession(models.Model):
                 last_round.analysis_ids.mapped('provider_name'))))) if last_round else ''
             if session and session.kb_supervisor_id:
                 supervisors_seen |= session.kb_supervisor_id
+            analyst_findings = []
+            sesto_findings = ''
+            if last_round:
+                for analysis in last_round.analysis_ids.filtered(lambda a: a.analyst_index != 'sesto'):
+                    analyst_findings.append({
+                        'analyst_index': analysis.analyst_index,
+                        'prompt_ref': analysis.prompt_ref or '-',
+                        'findings': analysis.findings or '-',
+                    })
+                sesto_findings = last_round.sesto_uomo_notes or last_round.corrected_material or '-'
             entries.append({
                 'kb_name': kb.name,
                 'kb_type': kb_type_labels.get(kb.kb_type, kb.kb_type),
@@ -345,8 +379,17 @@ class Erpv6ValidationSession(models.Model):
                 # sull'utente il 20/08/2026 sul certificato consolidato,
                 # rounds vecchi creati prima che questi due campi venissero
                 # tracciati.
-                'analyst_prompt_ref': (last_round.analyst_prompt_ref or '') if last_round else '',
+                # Aggregato dai prompt_ref per-analista (erpv6.validation.analysis),
+                # non piu' da last_round.analyst_prompt_ref (un solo Char sul
+                # round, coerente quando tutti e 5 leggevano lo stesso prompt --
+                # da quando sono differenziati, quel campo resta vuoto sui round
+                # nuovi: vedi commento in _run_round, erpv6_validation).
+                'analyst_prompt_ref': (', '.join(sorted(set(filter(
+                    None, last_round.analysis_ids.filtered(lambda a: a.analyst_index != 'sesto').mapped('prompt_ref')
+                )))) if last_round else '') or '',
                 'sesto_prompt_ref': (last_round.sesto_prompt_ref or '') if last_round else '',
+                'analyst_findings': analyst_findings,
+                'sesto_findings': sesto_findings,
                 'first_reviewer': session.human_reviewer_id.name if session and session.human_reviewer_id else '',
                 'first_reviewed_at': (
                     fields.Datetime.to_string(session.human_reviewed_at)

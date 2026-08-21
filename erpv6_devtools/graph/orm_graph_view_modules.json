@@ -1,0 +1,3619 @@
+{
+  "generated_at": "2026-08-21",
+  "description": "Vista (a): solo moduli, archi depends_on. Leggibile cosi' com'e'.",
+  "stats": {
+    "nodes": 164,
+    "edges": 459
+  },
+  "nodes": [
+    {
+      "id": "module:sale_management",
+      "label": "sale_management",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:account",
+      "label": "account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:crm",
+      "label": "crm",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website",
+      "label": "website",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:stock",
+      "label": "stock",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:purchase",
+      "label": "purchase",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:point_of_sale",
+      "label": "point_of_sale",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project",
+      "label": "project",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:mrp",
+      "label": "mrp",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:mass_mailing",
+      "label": "mass_mailing",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_api_gateway",
+      "label": "erpv6_api_gateway",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_bandi",
+      "label": "erpv6_bandi",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_core",
+      "label": "erpv6_core",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_deep_source",
+      "label": "erpv6_deep_source",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_kb",
+      "label": "erpv6_kb",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_library",
+      "label": "erpv6_library",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_methodology",
+      "label": "erpv6_methodology",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_production",
+      "label": "erpv6_production",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_saas",
+      "label": "erpv6_saas",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_setup_wizard",
+      "label": "erpv6_setup_wizard",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_sign",
+      "label": "erpv6_sign",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_validation",
+      "label": "erpv6_validation",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:fenice_lead_automation",
+      "label": "fenice_lead_automation",
+      "kind": "module",
+      "origin": "fenice",
+      "status": "production",
+      "installed_on_wrong_instance": true
+    },
+    {
+      "id": "module:fenice_market_intelligence",
+      "label": "fenice_market_intelligence",
+      "kind": "module",
+      "origin": "fenice",
+      "status": "production",
+      "installed_on_wrong_instance": true
+    },
+    {
+      "id": "module:mail",
+      "label": "mail",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:contacts",
+      "label": "contacts",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:calendar",
+      "label": "calendar",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_todo",
+      "label": "project_todo",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:pos_epson_printer",
+      "label": "pos_epson_printer",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:pos_mrp",
+      "label": "pos_mrp",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:pos_sale",
+      "label": "pos_sale",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:stock_account",
+      "label": "stock_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_crm",
+      "label": "website_crm",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_crm_sms",
+      "label": "website_crm_sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_sms",
+      "label": "website_sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:account_add_gln",
+      "label": "account_add_gln",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:account_debit_note",
+      "label": "account_debit_note",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:account_edi_proxy_client",
+      "label": "account_edi_proxy_client",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:account_edi_ubl_cii",
+      "label": "account_edi_ubl_cii",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:account_payment",
+      "label": "account_payment",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:account_qr_code_sepa",
+      "label": "account_qr_code_sepa",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:analytic",
+      "label": "analytic",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:auth_signup",
+      "label": "auth_signup",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:auth_totp",
+      "label": "auth_totp",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:auth_totp_mail",
+      "label": "auth_totp_mail",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:auth_totp_portal",
+      "label": "auth_totp_portal",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:barcodes",
+      "label": "barcodes",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:barcodes_gs1_nomenclature",
+      "label": "barcodes_gs1_nomenclature",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:base",
+      "label": "base",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:base_iban",
+      "label": "base_iban",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:base_import",
+      "label": "base_import",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:base_import_module",
+      "label": "base_import_module",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:base_install_request",
+      "label": "base_install_request",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:base_setup",
+      "label": "base_setup",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:base_vat",
+      "label": "base_vat",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:bus",
+      "label": "bus",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:calendar_sms",
+      "label": "calendar_sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:certificate",
+      "label": "certificate",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:crm_iap_enrich",
+      "label": "crm_iap_enrich",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:crm_iap_mine",
+      "label": "crm_iap_mine",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:crm_sms",
+      "label": "crm_sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:delivery",
+      "label": "delivery",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:digest",
+      "label": "digest",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_accounting",
+      "label": "erpv6_accounting",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_agent",
+      "label": "erpv6_agent",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_blockchain",
+      "label": "erpv6_blockchain",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_booking",
+      "label": "erpv6_booking",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_brand",
+      "label": "erpv6_brand",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_color",
+      "label": "erpv6_color",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_consulting",
+      "label": "erpv6_consulting",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_contract",
+      "label": "erpv6_contract",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_crypto",
+      "label": "erpv6_crypto",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_integrity",
+      "label": "erpv6_integrity",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_kaizen",
+      "label": "erpv6_kaizen",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_marketing",
+      "label": "erpv6_marketing",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_omni_bridge",
+      "label": "erpv6_omni_bridge",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_package",
+      "label": "erpv6_package",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_parent_client",
+      "label": "erpv6_parent_client",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_product_pricing",
+      "label": "erpv6_product_pricing",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_sal_workflow",
+      "label": "erpv6_sal_workflow",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_tracking",
+      "label": "erpv6_tracking",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_typst",
+      "label": "erpv6_typst",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:erpv6_whitelabel",
+      "label": "erpv6_whitelabel",
+      "kind": "module",
+      "origin": "erpv6",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:google_gmail",
+      "label": "google_gmail",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:google_recaptcha",
+      "label": "google_recaptcha",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:html_editor",
+      "label": "html_editor",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:iap",
+      "label": "iap",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:iap_crm",
+      "label": "iap_crm",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:iap_mail",
+      "label": "iap_mail",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:l10n_it",
+      "label": "l10n_it",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:l10n_it_edi",
+      "label": "l10n_it_edi",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:l10n_it_edi_ndd",
+      "label": "l10n_it_edi_ndd",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:l10n_it_edi_ndd_account_dn",
+      "label": "l10n_it_edi_ndd_account_dn",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:l10n_it_edi_sale",
+      "label": "l10n_it_edi_sale",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:l10n_us",
+      "label": "l10n_us",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:l10n_us_account",
+      "label": "l10n_us_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:link_tracker",
+      "label": "link_tracker",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:mail_bot",
+      "label": "mail_bot",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:mass_mailing_crm",
+      "label": "mass_mailing_crm",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:mass_mailing_sale",
+      "label": "mass_mailing_sale",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:mrp_account",
+      "label": "mrp_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:partner_autocomplete",
+      "label": "partner_autocomplete",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:payment",
+      "label": "payment",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:portal_rating",
+      "label": "portal_rating",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:pos_online_payment",
+      "label": "pos_online_payment",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:pos_sms",
+      "label": "pos_sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:privacy_lookup",
+      "label": "privacy_lookup",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:product",
+      "label": "product",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_account",
+      "label": "project_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_mrp",
+      "label": "project_mrp",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_mrp_account",
+      "label": "project_mrp_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_mrp_sale",
+      "label": "project_mrp_sale",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_purchase",
+      "label": "project_purchase",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_sms",
+      "label": "project_sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_stock",
+      "label": "project_stock",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:project_stock_account",
+      "label": "project_stock_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:purchase_edi_ubl_bis3",
+      "label": "purchase_edi_ubl_bis3",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:rating",
+      "label": "rating",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:resource",
+      "label": "resource",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:resource_mail",
+      "label": "resource_mail",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale",
+      "label": "sale",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_async_emails",
+      "label": "sale_async_emails",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_crm",
+      "label": "sale_crm",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_edi_ubl",
+      "label": "sale_edi_ubl",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_mrp",
+      "label": "sale_mrp",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_pdf_quote_builder",
+      "label": "sale_pdf_quote_builder",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_project",
+      "label": "sale_project",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_project_stock",
+      "label": "sale_project_stock",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_project_stock_account",
+      "label": "sale_project_stock_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_service",
+      "label": "sale_service",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_sms",
+      "label": "sale_sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sales_team",
+      "label": "sales_team",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sale_stock",
+      "label": "sale_stock",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:sms",
+      "label": "sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:snailmail",
+      "label": "snailmail",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:snailmail_account",
+      "label": "snailmail_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:social_media",
+      "label": "social_media",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:spreadsheet",
+      "label": "spreadsheet",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:spreadsheet_account",
+      "label": "spreadsheet_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:spreadsheet_dashboard",
+      "label": "spreadsheet_dashboard",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:spreadsheet_dashboard_account",
+      "label": "spreadsheet_dashboard_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:spreadsheet_dashboard_sale",
+      "label": "spreadsheet_dashboard_sale",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:spreadsheet_dashboard_stock_account",
+      "label": "spreadsheet_dashboard_stock_account",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:stock_delivery",
+      "label": "stock_delivery",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:stock_sms",
+      "label": "stock_sms",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:uom",
+      "label": "uom",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:utm",
+      "label": "utm",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:web",
+      "label": "web",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:web_editor",
+      "label": "web_editor",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_crm_iap_reveal",
+      "label": "website_crm_iap_reveal",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_links",
+      "label": "website_links",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_mail",
+      "label": "website_mail",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_mass_mailing",
+      "label": "website_mass_mailing",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_payment",
+      "label": "website_payment",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:website_project",
+      "label": "website_project",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:web_tour",
+      "label": "web_tour",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:web_unsplash",
+      "label": "web_unsplash",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:mass_mailing_themes",
+      "label": "mass_mailing_themes",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:payment_custom",
+      "label": "payment_custom",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:payment_stripe",
+      "label": "payment_stripe",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:portal",
+      "label": "portal",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:onboarding",
+      "label": "onboarding",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:http_routing",
+      "label": "http_routing",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    },
+    {
+      "id": "module:phone_validation",
+      "label": "phone_validation",
+      "kind": "module",
+      "origin": "odoo_core",
+      "status": "production",
+      "installed_on_wrong_instance": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "module:sale_management",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_management",
+      "target": "module:digest",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account",
+      "target": "module:onboarding",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account",
+      "target": "module:product",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account",
+      "target": "module:analytic",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account",
+      "target": "module:digest",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:sales_team",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:calendar",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:resource",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:utm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:web_tour",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:contacts",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:digest",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm",
+      "target": "module:phone_validation",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:digest",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:web_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:html_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:http_routing",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:social_media",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:auth_signup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:google_recaptcha",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website",
+      "target": "module:utm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock",
+      "target": "module:product",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock",
+      "target": "module:barcodes_gs1_nomenclature",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock",
+      "target": "module:digest",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:purchase",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:point_of_sale",
+      "target": "module:stock_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:point_of_sale",
+      "target": "module:barcodes",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:point_of_sale",
+      "target": "module:web_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:point_of_sale",
+      "target": "module:digest",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:point_of_sale",
+      "target": "module:phone_validation",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:analytic",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:rating",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:resource",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:web_tour",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project",
+      "target": "module:digest",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mrp",
+      "target": "module:product",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mrp",
+      "target": "module:stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mrp",
+      "target": "module:resource",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing",
+      "target": "module:contacts",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing",
+      "target": "module:utm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing",
+      "target": "module:link_tracker",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing",
+      "target": "module:web_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing",
+      "target": "module:social_media",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing",
+      "target": "module:web_tour",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing",
+      "target": "module:digest",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_tracking",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_consulting",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_booking",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_omni_bridge",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_bandi",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_methodology",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_validation",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_api_gateway",
+      "target": "module:erpv6_library",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_bandi",
+      "target": "module:erpv6_deep_source",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_bandi",
+      "target": "module:erpv6_consulting",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_bandi",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_bandi",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_bandi",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_bandi",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_core",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_core",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_deep_source",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_deep_source",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_deep_source",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_deep_source",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_deep_source",
+      "target": "module:erpv6_crypto",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_deep_source",
+      "target": "module:erpv6_omni_bridge",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kb",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kb",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kb",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kb",
+      "target": "module:erpv6_crypto",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kb",
+      "target": "module:erpv6_consulting",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_library",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_library",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_library",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_library",
+      "target": "module:erpv6_brand",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_library",
+      "target": "module:erpv6_tracking",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_library",
+      "target": "module:erpv6_blockchain",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_methodology",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_methodology",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_methodology",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_library",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_omni_bridge",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_methodology",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_package",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_validation",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:resource",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_contract",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_production",
+      "target": "module:erpv6_typst",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_saas",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_saas",
+      "target": "module:erpv6_api_gateway",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_saas",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_saas",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_saas",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_setup_wizard",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_setup_wizard",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_sign",
+      "target": "module:erpv6_contract",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_sign",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_sign",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_sign",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_sign",
+      "target": "module:erpv6_typst",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_validation",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_validation",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_validation",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_validation",
+      "target": "module:erpv6_omni_bridge",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:fenice_lead_automation",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:fenice_lead_automation",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:fenice_market_intelligence",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:fenice_market_intelligence",
+      "target": "module:sale_management",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:fenice_market_intelligence",
+      "target": "module:product",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:fenice_market_intelligence",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mail",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mail",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mail",
+      "target": "module:bus",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mail",
+      "target": "module:web_tour",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mail",
+      "target": "module:html_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:contacts",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:contacts",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:calendar",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:calendar",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_todo",
+      "target": "module:project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_epson_printer",
+      "target": "module:point_of_sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_mrp",
+      "target": "module:point_of_sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_mrp",
+      "target": "module:mrp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_sale",
+      "target": "module:point_of_sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_sale",
+      "target": "module:sale_management",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock_account",
+      "target": "module:stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock_account",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_crm",
+      "target": "module:website",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_crm",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_crm_sms",
+      "target": "module:website_sms",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_crm_sms",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_sms",
+      "target": "module:website",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_sms",
+      "target": "module:sms",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_add_gln",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_debit_note",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_edi_proxy_client",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_edi_proxy_client",
+      "target": "module:certificate",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_edi_ubl_cii",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_payment",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_payment",
+      "target": "module:payment",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_qr_code_sepa",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:account_qr_code_sepa",
+      "target": "module:base_iban",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:analytic",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:analytic",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:analytic",
+      "target": "module:uom",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:auth_signup",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:auth_signup",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:auth_signup",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:auth_totp",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:auth_totp_mail",
+      "target": "module:auth_totp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:auth_totp_mail",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:auth_totp_portal",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:auth_totp_portal",
+      "target": "module:auth_totp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:barcodes",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:barcodes_gs1_nomenclature",
+      "target": "module:barcodes",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:barcodes_gs1_nomenclature",
+      "target": "module:uom",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:base_iban",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:base_iban",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:base_import",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:base_import_module",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:base_install_request",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:base_setup",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:base_setup",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:base_vat",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:bus",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:bus",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:calendar_sms",
+      "target": "module:calendar",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:calendar_sms",
+      "target": "module:sms",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:certificate",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm_iap_enrich",
+      "target": "module:iap_crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm_iap_enrich",
+      "target": "module:iap_mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm_iap_mine",
+      "target": "module:iap_crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm_iap_mine",
+      "target": "module:iap_mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm_sms",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:crm_sms",
+      "target": "module:sms",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:delivery",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:digest",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:digest",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:digest",
+      "target": "module:resource",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:purchase",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:contacts",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:product",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_accounting",
+      "target": "module:l10n_it",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_agent",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_agent",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_agent",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_agent",
+      "target": "module:erpv6_omni_bridge",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_agent",
+      "target": "module:erpv6_library",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_agent",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_blockchain",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_blockchain",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_blockchain",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_blockchain",
+      "target": "module:erpv6_crypto",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_booking",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_booking",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_booking",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_booking",
+      "target": "module:erpv6_consulting",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_brand",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_brand",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_brand",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_brand",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_brand",
+      "target": "module:erpv6_omni_bridge",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_color",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_color",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_color",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_color",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_color",
+      "target": "module:erpv6_brand",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_consulting",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_consulting",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_consulting",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_contract",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_contract",
+      "target": "module:erpv6_package",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_contract",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_contract",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_crypto",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_crypto",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_crypto",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_integrity",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_integrity",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kaizen",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kaizen",
+      "target": "module:erpv6_methodology",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kaizen",
+      "target": "module:erpv6_production",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kaizen",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kaizen",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kaizen",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_kaizen",
+      "target": "module:erpv6_agent",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_marketing",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_marketing",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_marketing",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_marketing",
+      "target": "module:erpv6_brand",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_marketing",
+      "target": "module:erpv6_omni_bridge",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_marketing",
+      "target": "module:erpv6_library",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_omni_bridge",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_omni_bridge",
+      "target": "module:erpv6_crypto",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_omni_bridge",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_omni_bridge",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_omni_bridge",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_package",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_package",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_package",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_package",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_package",
+      "target": "module:erpv6_typst",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_package",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_parent_client",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_parent_client",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_product_pricing",
+      "target": "module:product",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_sal_workflow",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_sal_workflow",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_sal_workflow",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_tracking",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_tracking",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_tracking",
+      "target": "module:erpv6_core",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_tracking",
+      "target": "module:erpv6_consulting",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_tracking",
+      "target": "module:erpv6_accounting",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_typst",
+      "target": "module:erpv6_kb",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_typst",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_typst",
+      "target": "module:erpv6_consulting",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_typst",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_typst",
+      "target": "module:erpv6_bandi",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_typst",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_typst",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_whitelabel",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_whitelabel",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_whitelabel",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_whitelabel",
+      "target": "module:auth_signup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_whitelabel",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_whitelabel",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:erpv6_whitelabel",
+      "target": "module:iap",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:google_gmail",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:google_recaptcha",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:html_editor",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:html_editor",
+      "target": "module:bus",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:html_editor",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:iap",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:iap",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:iap_crm",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:iap_crm",
+      "target": "module:iap_mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:iap_mail",
+      "target": "module:iap",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:iap_mail",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it",
+      "target": "module:base_iban",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it",
+      "target": "module:base_vat",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it_edi",
+      "target": "module:l10n_it",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it_edi",
+      "target": "module:account_edi_proxy_client",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it_edi_ndd",
+      "target": "module:l10n_it_edi",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it_edi_ndd_account_dn",
+      "target": "module:l10n_it_edi_ndd",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it_edi_ndd_account_dn",
+      "target": "module:account_debit_note",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it_edi_sale",
+      "target": "module:l10n_it_edi",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_it_edi_sale",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_us",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_us_account",
+      "target": "module:l10n_us",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:l10n_us_account",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:link_tracker",
+      "target": "module:utm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:link_tracker",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mail_bot",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing_crm",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing_crm",
+      "target": "module:mass_mailing",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing_sale",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing_sale",
+      "target": "module:mass_mailing",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mrp_account",
+      "target": "module:mrp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mrp_account",
+      "target": "module:stock_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:partner_autocomplete",
+      "target": "module:iap_mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:payment",
+      "target": "module:onboarding",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:payment",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:portal_rating",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:portal_rating",
+      "target": "module:rating",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_online_payment",
+      "target": "module:point_of_sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_online_payment",
+      "target": "module:account_payment",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_sms",
+      "target": "module:point_of_sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:pos_sms",
+      "target": "module:sms",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:privacy_lookup",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:product",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:product",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:product",
+      "target": "module:uom",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_account",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_account",
+      "target": "module:project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_mrp",
+      "target": "module:mrp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_mrp",
+      "target": "module:project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_mrp_account",
+      "target": "module:mrp_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_mrp_account",
+      "target": "module:project_mrp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_mrp_sale",
+      "target": "module:project_mrp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_mrp_sale",
+      "target": "module:sale_mrp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_mrp_sale",
+      "target": "module:sale_project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_purchase",
+      "target": "module:purchase",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_purchase",
+      "target": "module:project_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_sms",
+      "target": "module:project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_sms",
+      "target": "module:sms",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_stock",
+      "target": "module:stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_stock",
+      "target": "module:project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_stock_account",
+      "target": "module:stock_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:project_stock_account",
+      "target": "module:project_stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:purchase_edi_ubl_bis3",
+      "target": "module:purchase",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:purchase_edi_ubl_bis3",
+      "target": "module:account_edi_ubl_cii",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:rating",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:resource",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:resource",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:resource_mail",
+      "target": "module:resource",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:resource_mail",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale",
+      "target": "module:sales_team",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale",
+      "target": "module:account_payment",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale",
+      "target": "module:utm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_async_emails",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_crm",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_crm",
+      "target": "module:crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_edi_ubl",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_edi_ubl",
+      "target": "module:account_edi_ubl_cii",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_mrp",
+      "target": "module:mrp",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_mrp",
+      "target": "module:sale_stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_pdf_quote_builder",
+      "target": "module:sale_management",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_project",
+      "target": "module:sale_management",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_project",
+      "target": "module:sale_service",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_project",
+      "target": "module:project_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_project_stock",
+      "target": "module:sale_project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_project_stock",
+      "target": "module:sale_stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_project_stock",
+      "target": "module:project_stock_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_project_stock_account",
+      "target": "module:sale_project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_project_stock_account",
+      "target": "module:project_stock_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_service",
+      "target": "module:sale_management",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_sms",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_sms",
+      "target": "module:sms",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sales_team",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sales_team",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_stock",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sale_stock",
+      "target": "module:stock_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sms",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sms",
+      "target": "module:iap_mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sms",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:sms",
+      "target": "module:phone_validation",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:snailmail",
+      "target": "module:iap_mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:snailmail",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:snailmail_account",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:snailmail_account",
+      "target": "module:snailmail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:social_media",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet",
+      "target": "module:bus",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_account",
+      "target": "module:spreadsheet",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_account",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_dashboard",
+      "target": "module:spreadsheet",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_dashboard_account",
+      "target": "module:spreadsheet_dashboard",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_dashboard_account",
+      "target": "module:account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_dashboard_sale",
+      "target": "module:spreadsheet_dashboard",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_dashboard_sale",
+      "target": "module:sale",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_dashboard_stock_account",
+      "target": "module:spreadsheet_dashboard",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:spreadsheet_dashboard_stock_account",
+      "target": "module:stock_account",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock_delivery",
+      "target": "module:sale_stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock_delivery",
+      "target": "module:delivery",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock_sms",
+      "target": "module:stock",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:stock_sms",
+      "target": "module:sms",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:uom",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:utm",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:utm",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:web",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:web_editor",
+      "target": "module:bus",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:web_editor",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:web_editor",
+      "target": "module:html_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_crm_iap_reveal",
+      "target": "module:iap_crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_crm_iap_reveal",
+      "target": "module:iap_mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_crm_iap_reveal",
+      "target": "module:crm_iap_mine",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_crm_iap_reveal",
+      "target": "module:website_crm",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_links",
+      "target": "module:website",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_links",
+      "target": "module:link_tracker",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_mail",
+      "target": "module:website",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_mail",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_mass_mailing",
+      "target": "module:website",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_mass_mailing",
+      "target": "module:mass_mailing",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_mass_mailing",
+      "target": "module:google_recaptcha",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_payment",
+      "target": "module:website",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_payment",
+      "target": "module:account_payment",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_payment",
+      "target": "module:portal",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_project",
+      "target": "module:website",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:website_project",
+      "target": "module:project",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:web_tour",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:web_unsplash",
+      "target": "module:base_setup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:web_unsplash",
+      "target": "module:web_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:web_unsplash",
+      "target": "module:html_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:mass_mailing_themes",
+      "target": "module:mass_mailing",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:payment_custom",
+      "target": "module:payment",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:payment_stripe",
+      "target": "module:payment",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:portal",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:portal",
+      "target": "module:web_editor",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:portal",
+      "target": "module:http_routing",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:portal",
+      "target": "module:mail",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:portal",
+      "target": "module:auth_signup",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:onboarding",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:http_routing",
+      "target": "module:web",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:phone_validation",
+      "target": "module:base",
+      "type": "depends_on"
+    },
+    {
+      "source": "module:phone_validation",
+      "target": "module:mail",
+      "type": "depends_on"
+    }
+  ]
+}

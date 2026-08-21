@@ -89,6 +89,41 @@ KB_BATCH_SIZE = 5
 # categoria reale suggerita dall'AI al momento dell'approvazione.
 KB_STAGING_CATEGORY_NAME = "KB estratte — in attesa di validazione"
 
+# Fase 1C.2 del knowledge graph erpv6 (vedi docs/PLAN_knowledge_graph_phase1.md,
+# sezione 1C.1 "Predicati") -- vocabolario controllato per le triple che l'AI
+# puo' estrarre insieme a ogni voce KB. Ancorato SOLO ai nodi/predicati gia'
+# approvati nel PLAN riconciliato del 21/08/2026 per il layer business
+# (esclude Modulo/Modello/Errore/Fix, che sono livello codice/1B, ed esclude
+# esplicitamente ProfiloDISC, not_yet_populated -- nessun dato). Ogni voce di
+# ALLOWED_TRIPLE_SHAPES e' una tripla (subject_type, predicate, object_type)
+# gia' validata contro il PLAN: qualunque combinazione non presente qui va
+# scartata lato Python (vedi _call_and_parse_chunk), mai creata al volo solo
+# perche' il prompt lo suggerisce -- il prompt e questa lista condividono la
+# stessa fonte cosi' non possono andare fuori sincrono tra loro.
+ALLOWED_TRIPLE_SHAPES = [
+    ('Azienda', 'HAS_SHAREHOLDER', 'Socio'),
+    ('VoceKB', 'RELATED_TO_PRODUCT', 'Prodotto'),
+    ('VoceKB', 'RELATED_TO_CLIENT', 'Azienda'),
+    ('Bando', 'HAS_DEADLINE', 'Valore'),
+    ('Bando', 'HAS_AMOUNT', 'Valore'),
+    ('Bando', 'APPLIES_TO_AREA', 'AreaTerritoriale'),
+    ('Norma', 'APPLIES_TO_AREA', 'AreaTerritoriale'),
+    ('Bando', 'APPLIES_TO_SECTOR', 'Settore'),
+    ('Norma', 'APPLIES_TO_SECTOR', 'Settore'),
+    ('Norma', 'APPLIES_TO_LEGAL_FORM', 'TipoSocieta'),
+    ('Bando', 'REQUIRES_LEGAL_FORM', 'TipoSocieta'),
+]
+ALLOWED_TRIPLE_NODE_TYPES = {s for shape in ALLOWED_TRIPLE_SHAPES for s in (shape[0], shape[2])}
+# Attributi minimi del Socio (PLAN, sezione "Socio -- dettaglio"): SOLO quelli
+# rilevanti per l'idoneita' a bandi, minimizzazione dati esplicita -- nessun
+# altro dato personale del socio va accettato anche se l'AI lo restituisce.
+SHAREHOLDER_ATTRIBUTE_KEYS = {'ownership_percentage', 'age_range', 'birth_year', 'gender', 'source'}
+# Descrizione leggibile delle triple ammesse, generata dalla stessa lista sopra
+# (non duplicata a mano nel prompt) per evitare che prompt e validazione Python
+# divergano nel tempo.
+_ALLOWED_TRIPLE_SHAPES_TEXT = "; ".join(
+    f"{s} -{p}-> {o}" for s, p, o in ALLOWED_TRIPLE_SHAPES)
+
 EXTRACTION_SYSTEM_PROMPT = """Sei un motore di estrazione dati per la Knowledge Base aziendale di V6 Impresa.
 Ti viene fornito il contenuto grezzo di un documento (tabellare o testuale) caricato da un consulente.
 Estrai le voci di conoscenza strutturate SENZA inventare contenuto che non è presente nel testo fornito.
@@ -101,6 +136,16 @@ Per ogni voce identificabile produci un oggetto JSON con questi campi:
   Se il contenuto non è chiaramente riconducibile a nessuno di questi, usa "metodo_v6".
 - "category": nome breve di categoria (es. "IVA agricola", "Comunicazione DISC")
 - "content": il testo completo della voce, fedele all'originale, non riassunto se non necessario
+- "triples": array di relazioni ESPLICITAMENTE presenti nel testo (vuoto se non ce ne sono, non forzarle).
+  Ogni tripla è un oggetto con:
+  - "subject_type": uno tra questi tipi di nodo: {node_types}
+  - "subject": nome/etichetta del soggetto così come compare nel testo (es. "Azienda Rossi SRL"). Se subject_type è "VoceKB" usa sempre la stringa "(questa voce)"
+  - "predicate": il predicato
+  - "object_type": uno tra gli stessi tipi di nodo
+  - "object": nome/etichetta/valore dell'oggetto così come compare nel testo
+  - "attributes": oggetto opzionale, SOLO per predicate="HAS_SHAREHOLDER" e SOLO con questi campi se presenti esplicitamente nel testo: "ownership_percentage", "age_range" oppure "birth_year", "gender" (solo se il testo lo lega esplicitamente a un requisito di bando, mai altrimenti), "source" (valorizza "visura_camerale" solo se il testo lo indica come tale). Nessun altro dato personale del socio, mai.
+  USA SOLO queste combinazioni esatte (subject_type -predicate-> object_type), non inventarne altre: {allowed_shapes}
+  Se nel testo trovi una relazione reale che non rientra in nessuna di queste combinazioni, NON forzarla dentro "triples": descrivila invece come stringa libera in un campo separato "proposed_new_predicates" (array di stringhe, es. "Cliente-HA_CONSULENTE_ESTERNO->Persona: ..."), mai aggiunta a "triples".
 
 {extra_notes}
 
@@ -442,8 +487,75 @@ class Erpv6KbExtractionService(models.AbstractModel):
                 'kb_type': kb_type,
                 'category': entry.get('category') or _('Generale'),
                 'content': entry.get('content') or '',
+                'triples': self._clean_triples(entry.get('triples'), chunk_label, entry.get('name')),
             })
+            self._log_proposed_triple_extensions(entry.get('proposed_new_predicates'), chunk_label, entry.get('name'))
         return cleaned
+
+    @api.model
+    def _clean_triples(self, raw_triples, chunk_label, entry_name=None):
+        """Filtra le triple proposte dall'AI per una voce sul vocabolario
+        controllato ALLOWED_TRIPLE_SHAPES (Fase 1C.2, vedi
+        docs/PLAN_knowledge_graph_phase1.md) -- MAI fidarsi solo del prompt:
+        qualunque combinazione (subject_type, predicate, object_type) non
+        presente nella lista viene scartata qui, con un log per tracciabilita'
+        (non un errore bloccante: una tripla rifiutata non deve far fallire
+        l'intera estrazione della voce, che resta comunque valida)."""
+        if not isinstance(raw_triples, list):
+            return []
+        cleaned_triples = []
+        for triple in raw_triples:
+            if not isinstance(triple, dict):
+                continue
+            subject_type = triple.get('subject_type')
+            predicate = triple.get('predicate')
+            object_type = triple.get('object_type')
+            subject = triple.get('subject')
+            obj = triple.get('object')
+            if not all(isinstance(v, str) and v.strip() for v in (subject_type, predicate, object_type, subject, obj)):
+                _logger.warning(
+                    "Estrazione KB (%s, voce '%s'): tripla scartata, campi mancanti/non testuali: %r",
+                    chunk_label, entry_name, triple)
+                continue
+            if (subject_type, predicate, object_type) not in ALLOWED_TRIPLE_SHAPES:
+                _logger.warning(
+                    "Estrazione KB (%s, voce '%s'): tripla scartata, combinazione fuori vocabolario "
+                    "controllato: %s -%s-> %s (mai creata al volo)",
+                    chunk_label, entry_name, subject_type, predicate, object_type)
+                continue
+            cleaned = {
+                'subject_type': subject_type, 'subject': subject.strip(),
+                'predicate': predicate, 'object_type': object_type, 'object': obj.strip(),
+            }
+            if predicate == 'HAS_SHAREHOLDER' and isinstance(triple.get('attributes'), dict):
+                # Minimizzazione dati esplicita (PLAN, "Socio -- dettaglio"):
+                # solo le chiavi whitelisted, tutto il resto scartato anche
+                # se l'AI lo restituisce.
+                attrs = {k: v for k, v in triple['attributes'].items()
+                          if k in SHAREHOLDER_ATTRIBUTE_KEYS and isinstance(v, (str, int, float))}
+                if attrs:
+                    cleaned['attributes'] = attrs
+            cleaned_triples.append(cleaned)
+        return cleaned_triples
+
+    @api.model
+    def _log_proposed_triple_extensions(self, proposed, chunk_label, entry_name=None):
+        """Le proposte di predicati/tipi-nodo fuori dal vocabolario controllato
+        (campo "proposed_new_predicates" del prompt, vedi EXTRACTION_SYSTEM_PROMPT)
+        non vengono MAI create al volo ne' persistite in questa fase -- solo
+        loggate per visibilita' durante il campione reale, cosi' l'utente puo'
+        decidere se estendere ALLOWED_TRIPLE_SHAPES in futuro con dati reali
+        alla mano invece che a memoria."""
+        if not proposed:
+            return
+        if not isinstance(proposed, list):
+            return
+        for item in proposed:
+            if isinstance(item, str) and item.strip():
+                _logger.info(
+                    "Estrazione KB (%s, voce '%s'): predicato/tipo fuori vocabolario proposto "
+                    "dall'AI (NON creato, solo segnalato): %s",
+                    chunk_label, entry_name, item.strip())
 
     @api.model
     def _extract_chunk_with_split_retry(self, system_prompt, chunk_text, model, chunk_label, call_state,
@@ -555,6 +667,8 @@ class Erpv6KbExtractionService(models.AbstractModel):
         extra_notes = f"Note aggiuntive dell'utente: {notes}" if notes else ""
         system_prompt = EXTRACTION_SYSTEM_PROMPT.format(
             kb_types=", ".join(f'"{k}"' for k, _label in KB_TYPE_SELECTION),
+            node_types=", ".join(f'"{t}"' for t in sorted(ALLOWED_TRIPLE_NODE_TYPES)),
+            allowed_shapes=_ALLOWED_TRIPLE_SHAPES_TEXT,
             extra_notes=extra_notes,
         )
         model = self._resolve_route_and_model()
@@ -632,6 +746,12 @@ class Erpv6KbExtractionService(models.AbstractModel):
                 # erpv6_production/models/validation_session.py, dove
                 # action_human_approve() la riattiva su res_model='erpv6.kb'.
                 'is_active': False,
+                # Fase 1C.2 knowledge graph (vedi ALLOWED_TRIPLE_SHAPES sopra):
+                # gia' filtrate sul vocabolario controllato in _clean_triples,
+                # mai scritte fuori da questo campo -- nessun nodo/arco reale
+                # creato, solo dati che viaggiano con la voce KB stessa e che
+                # i 6 Giudici vedranno via kb_validation_gate.
+                'extracted_triples': entry.get('triples') or [],
             })
             created |= kb
         return created

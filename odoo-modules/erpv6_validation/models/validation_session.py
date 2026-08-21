@@ -129,14 +129,21 @@ class Erpv6ValidationSession(models.Model):
             session.status = 'in_validation'
             session._run_round()
 
-    def _get_analyst_prompt_template(self):
+    def _get_analyst_prompt_template(self, analyst_idx=None):
         """Ritorna (template, riferimento_tracciabile) -- placeholder .format()
         nel template: destinatario, scopo, context_json. Hook riscrivibile:
         erpv6_production lo sovrascrive per leggere il prompt da una voce
         erpv6.kb (kb_type='prompt') invece del default hardcoded qui, e
-        ritornare un riferimento tipo "KB #<id> - <nome>" (tracciato sul round
-        e riportato nel certificato) -- questo modulo (motore generico) non
-        dipende da erpv6_kb, quindi non puo' leggerla direttamente."""
+        ritornare un riferimento tipo "KB #<id> - <nome>" (tracciato per
+        analista e riportato nel certificato) -- questo modulo (motore
+        generico) non dipende da erpv6_kb, quindi non puo' leggerla
+        direttamente. analyst_idx ('1'..'5') opzionale: il motore generico
+        lo ignora e ritorna sempre lo stesso default per tutti (nessun
+        multi-prospettiva qui, quello e' specifico erpv6_production/KB) --
+        parametro aggiunto il 21/08/2026 dopo che un agente di verifica
+        dedicato ha trovato che i 5 analisti ricevevano lo stesso identico
+        prompt (il vecchio codice risolveva il template una sola volta
+        FUORI dal ciclo per-analista, vedi _run_round)."""
         return DEFAULT_ANALYST_PROMPT_TEMPLATE, 'default motore (nessuna voce KB)'
 
     def _get_sesto_uomo_prompt_template(self):
@@ -196,12 +203,17 @@ class Erpv6ValidationSession(models.Model):
 
             # Prepara i dati per i prompt
             context_json = json.dumps(session.context_data, ensure_ascii=False)
-            analyst_template, analyst_prompt_ref = session._get_analyst_prompt_template()
-            validation_round.analyst_prompt_ref = analyst_prompt_ref
 
             # Esegui analisi per ogni analista (1-5 o solo sesto)
             analysis_findings = []
             for analyst_idx in analyst_indices[:-1]:  # Tutti tranne il sesto
+                # Risoluzione DENTRO il ciclo, non prima: prima del fix del
+                # 21/08/2026 il template veniva letto UNA volta fuori dal
+                # ciclo, quindi tutti e 5 gli analisti ricevevano lo stesso
+                # identico prompt -- trovato da un agente di verifica
+                # dedicato, non solo teorico (verificato sui dati reali:
+                # stesso analyst_prompt_ref per tutti e 5 in ogni round).
+                analyst_template, analyst_prompt_ref = session._get_analyst_prompt_template(analyst_idx=analyst_idx)
                 prompt_analista = analyst_template.format(
                     destinatario=session.destinatario,
                     scopo=session.scopo,
@@ -224,6 +236,7 @@ class Erpv6ValidationSession(models.Model):
                 self.env['erpv6.validation.analysis'].create({
                     'round_id': validation_round.id,
                     'analyst_index': analyst_idx,
+                    'prompt_ref': analyst_prompt_ref,
                     'omni_call_log_id': result.get('call_log_id'),
                     'findings': findings,
                     'claims_checked': parsed.get('claims_checked', []),

@@ -93,7 +93,7 @@ class Erpv6AgentConfig(models.Model):
             AGENT_MEMORY_CATEGORY_NAME, 'metodo_v6', is_transversal=True)
         tag = self._get_memory_tag()
         return self.env['erpv6.kb'].search(
-            [('category_id', '=', category.id), ('tag_ids', 'in', tag.id)],
+            [('category_id', '=', category.id), ('tag_ids', 'in', tag.id), ('is_active', '=', True)],
             order='create_date desc', limit=AGENT_MEMORY_MAX_ENTRIES)
 
     def _write_memory(self, summary):
@@ -141,13 +141,17 @@ class Erpv6AgentConfig(models.Model):
         contesto (stesso principio gia' seguito per il certificato
         consolidato e per l'agente Kaizen: niente spam)."""
         self.ensure_one()
+        # is_active=True esplicito su entrambe le ricerche: senza, una voce
+        # KB disattivata (es. una regola ritirata) resterebbe comunque letta
+        # e applicata dall'agente -- bug reale trovato da un agente di
+        # verifica dedicato il 20/08/2026, non solo teorico.
         instructions_kbs = self.env['erpv6.kb'].search(
-            [('category_id', '=', self.instructions_category_id.id)], order='name')
+            [('category_id', '=', self.instructions_category_id.id), ('is_active', '=', True)], order='name')
         if not instructions_kbs:
             _logger.warning("Agente %s: nessuna voce KB di istruzioni, nessuna proposta generata.", self.code)
             return
         context_kbs = self.env['erpv6.kb'].search(
-            [('category_id', '=', self.context_category_id.id)], order='name')
+            [('category_id', '=', self.context_category_id.id), ('is_active', '=', True)], order='name')
         if not context_kbs:
             _logger.info("Agente %s: nessuna voce KB di contesto, nessuna proposta da generare.", self.code)
             return
