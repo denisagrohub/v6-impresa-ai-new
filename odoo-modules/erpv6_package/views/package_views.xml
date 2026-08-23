@@ -24,4 +24,72 @@
         <field name="res_model">erpv6.package.custom</field>
         <field name="view_mode">list,form</field>
     </record>
+
+    <!-- erpv6.package.module non aveva nessuna vista finora (record creati
+         solo da codice, es. flusso caso studio->template in
+         erpv6_production) - aggiunta 23/08/2026 insieme al collegamento
+         product_id, per renderli davvero raggiungibili/verificabili. -->
+    <record id="view_package_module_list" model="ir.ui.view">
+        <field name="name">erpv6.package.module.list</field>
+        <field name="model">erpv6.package.module</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="price"/>
+                <field name="typst_template_id"/>
+                <field name="product_id"/>
+                <field name="is_active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_package_module_form" model="ir.ui.view">
+        <field name="name">erpv6.package.module.form</field>
+        <field name="model">erpv6.package.module</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="price"/>
+                            <field name="currency_id"/>
+                            <field name="is_active"/>
+                        </group>
+                        <group>
+                            <field name="product_id"/>
+                            <field name="typst_template_id"/>
+                            <field name="generation_prompt_kb_id"/>
+                        </group>
+                    </group>
+                    <group string="Descrizione">
+                        <field name="description" nolabel="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Intervista">
+                            <field name="interview_questions"/>
+                            <field name="required_fields"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_package_module" model="ir.actions.act_window">
+        <field name="name">Moduli di Servizio (Prodotti)</field>
+        <field name="res_model">erpv6.package.module</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_package_root" name="Pacchetti" parent="erpv6_core.menu_erpv6_root" sequence="25"/>
+    <menuitem id="menu_package_module" name="Moduli di Servizio" parent="menu_package_root"
+              action="action_package_module" sequence="10"/>
+    <menuitem id="menu_package_custom" name="Pacchetti Personalizzati" parent="menu_package_root"
+              action="action_package_custom" sequence="20"/>
 </odoo>

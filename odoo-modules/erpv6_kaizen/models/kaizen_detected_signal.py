@@ -23,6 +23,17 @@ KAIZEN_SHARED_BACKLOG = ('erpv6.kaizen.detected_signal', 0)
 # presenza/assenza dell'attivita' per sapere se serve ancora attenzione.
 CASE_STUDY_STALLED_HOURS = 24
 
+# Prefisso condiviso per i signal_key generati da una segnalazione manuale
+# (erpv6.kaizen.manual_report._create_detected_signal, kaizen_manual_report.py)
+# -- include SEMPRE l'id della segnalazione (mai un solo 'manual_report'
+# fisso): una segnalazione manuale e' per costruzione un evento singolo, non
+# una classe ripetibile come 'validation_recovered_N', quindi la chiave deve
+# essere unica per segnalazione fin da subito, non solo quando si ripete.
+# Usato sia per il dispatch della Regola 4 sia per il filtro del cron di
+# valutazione a 12 regole (kaizen_rule_engine.py, RULE4_LIVE_CHECK_HANDLER_NAMES
+# + questo prefisso = l'intera "famiglia" coperta da quel motore).
+MANUAL_REPORT_SIGNAL_PREFIX = 'manual_report_'
+
 
 class Erpv6KaizenDetectedSignal(models.Model):
     """Registro dei segnali gia' rilevati dal cron Kaizen, per record
@@ -45,6 +56,21 @@ class Erpv6KaizenDetectedSignal(models.Model):
              "registrato di nuovo invece di essere scartato come duplicato."
     )
     detected_at = fields.Datetime(default=fields.Datetime.now)
+    origin = fields.Selection([
+        ('sensore_automatico', 'Sensore Automatico'),
+        ('segnalazione_manuale', 'Segnalazione Manuale'),
+    ], string='Origine', default='sensore_automatico', required=True, index=True,
+        help="Distingue un segnale trovato da un cron di rilevamento (_cron_detect_signals e "
+             "affini, o il futuro sensore 'copertura grafo') da uno generato da una segnalazione "
+             "umana (erpv6.kaizen.manual_report) -- aggiunto il 22/08/2026 su richiesta esplicita: "
+             "le segnalazioni manuali devono seguire ESATTAMENTE lo stesso ciclo delle 12 Regole, "
+             "distinguibili solo per provenienza, mai un ciclo parallelo.")
+    manual_report_id = fields.Many2one(
+        'erpv6.kaizen.manual_report', string='Segnalazione Manuale di Origine', readonly=True, copy=False,
+        help="Valorizzato solo quando origin='segnalazione_manuale': la segnalazione umana che ha "
+             "generato questo segnale (vedi erpv6.kaizen.manual_report._create_detected_signal). "
+             "Usato dalla Regola 4 del motore (kaizen_rule_engine.py) per riverificare dal vivo il "
+             "contenuto originale, mai riassunto/reinterpretato.")
 
     _sql_constraints = [
         ('uniq_signal', 'UNIQUE(res_model, res_id, signal_key)',

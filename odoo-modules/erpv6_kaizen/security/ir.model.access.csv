@@ -3,3 +3,6 @@ access_kaizen_detected_signal_user,erpv6.kaizen.detected_signal user,model_erpv6
 access_kaizen_detected_signal_admin,erpv6.kaizen.detected_signal admin,model_erpv6_kaizen_detected_signal,base.group_system,1,1,1,1
 access_kaizen_manual_report_user,erpv6.kaizen.manual_report user,model_erpv6_kaizen_manual_report,base.group_user,1,1,1,0
 access_kaizen_manual_report_admin,erpv6.kaizen.manual_report admin,model_erpv6_kaizen_manual_report,base.group_system,1,1,1,1
+access_kaizen_rule_answer_user,erpv6.kaizen.rule.answer user,model_erpv6_kaizen_rule_answer,base.group_user,1,0,0,0
+access_kaizen_rule_answer_admin,erpv6.kaizen.rule.answer admin,model_erpv6_kaizen_rule_answer,base.group_system,1,1,1,1
+access_kaizen_neo4j_client_admin,erpv6.kaizen.neo4j.client admin,model_erpv6_kaizen_neo4j_client,base.group_system,1,1,1,1

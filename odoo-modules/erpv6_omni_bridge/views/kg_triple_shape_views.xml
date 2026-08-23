@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vocabolario Triple KG: Form View -->
+    <record id="view_kg_triple_shape_form" model="ir.ui.view">
+        <field name="name">erpv6.kg.triple.shape.form</field>
+        <field name="model">erpv6.kg.triple.shape</field>
+        <field name="arch" type="xml">
+            <form string="Shape Tripla Knowledge Graph">
+                <header>
+                    <button name="action_activate" type="object" string="Attiva"
+                            class="btn-primary" icon="fa-check"
+                            invisible="is_active"/>
+                    <button name="action_deactivate" type="object" string="Disattiva"
+                            class="btn-secondary" icon="fa-ban"
+                            invisible="not is_active"/>
+                    <field name="is_active" widget="boolean_toggle" statusbar="1"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="subject_type" placeholder="es: Bando"/>
+                            <span> — </span>
+                            <field name="predicate" placeholder="es: HAS_DEADLINE"/>
+                            <span> → </span>
+                            <field name="object_type" placeholder="es: Valore"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Origine">
+                            <field name="source"/>
+                            <field name="proposed_at" readonly="1"/>
+                        </group>
+                        <group string="Attivazione (click umano — mai automatica)">
+                            <field name="activated_at" readonly="1"/>
+                            <field name="activated_by" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Note">
+                        <field name="notes" nolabel="1" placeholder="Contesto, provenienza, dati reali osservati..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vocabolario Triple KG: List View -->
+    <record id="view_kg_triple_shape_list" model="ir.ui.view">
+        <field name="name">erpv6.kg.triple.shape.list</field>
+        <field name="model">erpv6.kg.triple.shape</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="not is_active" decoration-info="source == 'discovery_proposal' and not is_active">
+                <field name="subject_type"/>
+                <field name="predicate"/>
+                <field name="object_type"/>
+                <field name="source"/>
+                <field name="is_active" widget="boolean_toggle"/>
+                <field name="proposed_at"/>
+                <field name="activated_by"/>
+                <button name="action_activate" type="object" string="Attiva" icon="fa-check"
+                        invisible="is_active"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Filtro rapido: proposte pendenti del rilevatore -->
+    <record id="view_kg_triple_shape_search" model="ir.ui.view">
+        <field name="name">erpv6.kg.triple.shape.search</field>
+        <field name="model">erpv6.kg.triple.shape</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="subject_type"/>
+                <field name="predicate"/>
+                <field name="object_type"/>
+                <filter name="filter_active" string="Attive" domain="[('is_active', '=', True)]"/>
+                <filter name="filter_pending_proposals" string="Proposte da rivedere"
+                        domain="[('is_active', '=', False), ('source', '=', 'discovery_proposal')]"/>
+                <group expand="0" string="Raggruppa per">
+                    <filter name="group_by_source" string="Origine" context="{'group_by': 'source'}"/>
+                    <filter name="group_by_active" string="Stato" context="{'group_by': 'is_active'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_kg_triple_shape" model="ir.actions.act_window">
+        <field name="name">Vocabolario Triple Knowledge Graph</field>
+        <field name="res_model">erpv6.kg.triple.shape</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_kg_triple_shape_search"/>
+        <field name="context">{'search_default_filter_pending_proposals': 0}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nessuna shape di tripla ancora definita
+            </p>
+            <p>
+                Vocabolario controllato (subject_type -predicate-&gt; object_type) usato
+                dall'estrazione KB del Knowledge Graph. Le proposte del rilevatore
+                automatico nascono sempre disattivate: attivale qui a mano solo dopo
+                averle riviste.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_omni_kg_triple_shapes"
+              name="Vocabolario Triple KG"
+              parent="menu_omni_config"
+              action="action_kg_triple_shape"
+              sequence="3"/>
+</odoo>

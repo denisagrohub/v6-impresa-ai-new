@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Migrazione 22/08/2026 di ALLOWED_TRIPLE_SHAPES (kb_extraction_service.py)
+         dalla lista Python hardcodata a questa tabella, vedi
+         erpv6.kg.triple.shape. Tutte le righe qui erano gia' is_active=True
+         nel codice sostituito, quindi nascono attive: nessuna e' una nuova
+         proposta, sono lo stato ESISTENTE del vocabolario portato in tabella
+         senza cambiarne il comportamento.
+         noupdate="1": un futuro aggiornamento del modulo non deve
+         sovrascrivere is_active se Denis lo ha disattivato a mano dopo la
+         migrazione, questi record sono il seed iniziale, non uno stato da
+         reimporre a ogni upgrade. -->
+    <data noupdate="1">
+
+        <!-- Layer Bandi (PLAN sezione 1C.1 "Predicati") -->
+        <record id="kg_shape_azienda_has_shareholder_socio" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Azienda</field>
+            <field name="predicate">HAS_SHAREHOLDER</field>
+            <field name="object_type">Socio</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_vocekb_related_to_product_prodotto" model="erpv6.kg.triple.shape">
+            <field name="subject_type">VoceKB</field>
+            <field name="predicate">RELATED_TO_PRODUCT</field>
+            <field name="object_type">Prodotto</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_vocekb_related_to_client_azienda" model="erpv6.kg.triple.shape">
+            <field name="subject_type">VoceKB</field>
+            <field name="predicate">RELATED_TO_CLIENT</field>
+            <field name="object_type">Azienda</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_bando_has_deadline_valore" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Bando</field>
+            <field name="predicate">HAS_DEADLINE</field>
+            <field name="object_type">Valore</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_bando_has_amount_valore" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Bando</field>
+            <field name="predicate">HAS_AMOUNT</field>
+            <field name="object_type">Valore</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_bando_applies_to_area_areaterritoriale" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Bando</field>
+            <field name="predicate">APPLIES_TO_AREA</field>
+            <field name="object_type">AreaTerritoriale</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_norma_applies_to_area_areaterritoriale" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Norma</field>
+            <field name="predicate">APPLIES_TO_AREA</field>
+            <field name="object_type">AreaTerritoriale</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_bando_applies_to_sector_settore" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Bando</field>
+            <field name="predicate">APPLIES_TO_SECTOR</field>
+            <field name="object_type">Settore</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_norma_applies_to_sector_settore" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Norma</field>
+            <field name="predicate">APPLIES_TO_SECTOR</field>
+            <field name="object_type">Settore</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_norma_applies_to_legal_form_tiposocieta" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Norma</field>
+            <field name="predicate">APPLIES_TO_LEGAL_FORM</field>
+            <field name="object_type">TipoSocieta</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <record id="kg_shape_bando_requires_legal_form_tiposocieta" model="erpv6.kg.triple.shape">
+            <field name="subject_type">Bando</field>
+            <field name="predicate">REQUIRES_LEGAL_FORM</field>
+            <field name="object_type">TipoSocieta</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_bandi</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py).</field>
+        </record>
+
+        <!-- Layer Vendita/Comunicazione (PLAN sezione 1C.1-bis, confermato
+             da Denis il 22/08/2026) -->
+        <record id="kg_shape_vocekb_applies_in_phase_fasevendita" model="erpv6.kg.triple.shape">
+            <field name="subject_type">VoceKB</field>
+            <field name="predicate">APPLIES_IN_PHASE</field>
+            <field name="object_type">FaseVendita</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_vendita</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py). Oggetto vincolato al vocabolario chiuso FASE_VENDITA_CANONICAL.</field>
+        </record>
+
+        <record id="kg_shape_vocekb_based_on_frameworkteorico" model="erpv6.kg.triple.shape">
+            <field name="subject_type">VoceKB</field>
+            <field name="predicate">BASED_ON</field>
+            <field name="object_type">FrameworkTeorico</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_vendita</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py). Vocabolario APERTO per l'oggetto (nome teoria/autore).</field>
+        </record>
+
+        <record id="kg_shape_vocekb_typical_of_profile_profilodisctipo" model="erpv6.kg.triple.shape">
+            <field name="subject_type">VoceKB</field>
+            <field name="predicate">TYPICAL_OF_PROFILE</field>
+            <field name="object_type">ProfiloDISCTipo</field>
+            <field name="is_active" eval="True"/>
+            <field name="source">seed_vendita</field>
+            <field name="notes">Migrata da ALLOWED_TRIPLE_SHAPES il 22/08/2026 (kb_extraction_service.py). Nessuna istanza reale osservata al momento della migrazione.</field>
+        </record>
+
+    </data>
+</odoo>

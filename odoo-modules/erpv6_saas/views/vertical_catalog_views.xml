@@ -16,6 +16,7 @@
                         <group string="Informazioni">
                             <field name="verticale"/>
                             <field name="is_active"/>
+                            <field name="parent_id"/>
                         </group>
                         <group string="Moduli">
                             <field name="module_names"/>
@@ -24,6 +25,17 @@
                     <group string="Descrizione">
                         <field name="description" nolabel="1"/>
                     </group>
+                    <notebook invisible="parent_id">
+                        <page string="Varianti">
+                            <field name="child_ids">
+                                <list>
+                                    <field name="verticale"/>
+                                    <field name="name"/>
+                                    <field name="is_active"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>
@@ -37,6 +49,7 @@
             <list string="Catalogo Verticali">
                 <field name="verticale"/>
                 <field name="name"/>
+                <field name="parent_id"/>
                 <field name="module_names"/>
                 <field name="is_active"/>
             </list>

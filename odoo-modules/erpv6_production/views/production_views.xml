@@ -108,8 +108,31 @@
         <field name="view_mode">list</field>
     </record>
 
+    <!-- KAIROS SCORING RULE (audit "motore vs conoscenza" 23/08/2026): prima
+         dizionari Python in production_order.py, ora righe di questo
+         modello, modificabili qui da un admin senza promote del modulo. -->
+    <record id="view_kairos_scoring_rule_list" model="ir.ui.view">
+        <field name="name">erpv6.kairos.scoring.rule.list</field>
+        <field name="model">erpv6.kairos.scoring.rule</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="indicator"/>
+                <field name="answer_label"/>
+                <field name="score"/>
+                <field name="sequence" widget="handle"/>
+                <field name="active" invisible="1"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_kairos_scoring_rule" model="ir.actions.act_window">
+        <field name="name">Punteggi Kairós (intervista)</field>
+        <field name="res_model">erpv6.kairos.scoring.rule</field>
+        <field name="view_mode">list</field>
+    </record>
+
     <!-- MENU -->
     <menuitem id="menu_production_root" name="Produzione" parent="erpv6_core.menu_erpv6_root" sequence="26"/>
     <menuitem id="menu_production_order" name="Produzioni" parent="menu_production_root" action="action_production_order" sequence="10"/>
     <menuitem id="menu_production_phase" name="Fasi (catalogo)" parent="menu_production_root" action="action_production_phase" sequence="20"/>
+    <menuitem id="menu_kairos_scoring_rule" name="Punteggi Kairós" parent="menu_production_root" action="action_kairos_scoring_rule" sequence="30"/>
 </odoo>

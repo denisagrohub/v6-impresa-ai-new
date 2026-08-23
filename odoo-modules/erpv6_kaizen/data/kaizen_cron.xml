@@ -55,5 +55,27 @@
             <field name="active">True</field>
             <field name="user_id" ref="base.user_admin"/>
         </record>
+
+        <!-- Applicazione sistematica delle 12 Regole Kaizen (vedi
+             docs/KAIZEN_rule_application_worked_example.md e
+             docs/PLAN_knowledge_graph_phase1.md, sezione "Estensione - Motore
+             Kaizen 'copertura grafo'"): un cron DEDICATO, separato da quello
+             di rilevamento (30 min, gratuito) e da quello dell'agente
+             proposte (1/giorno, 1 sola chiamata AI): questo fa PIU'
+             chiamate AI per segnale (regole procedurali + scoring), quindi
+             costa di piu' e gira su base giornaliera come l'agente, non ogni
+             30 minuti. Idempotente per costruzione: valuta solo i segnali
+             con rules_evaluated_at vuoto (vedi evaluate_12_rules, Regola 10,
+             mai rifare un lavoro gia' fatto). -->
+        <record id="cron_kaizen_evaluate_rules" model="ir.cron">
+            <field name="name">Kaizen: Applica le 12 Regole ai Segnali Rilevati - Giornaliero</field>
+            <field name="model_id" ref="model_erpv6_kaizen_detected_signal"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_evaluate_kaizen_rules()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
     </data>
 </odoo>

@@ -12,10 +12,20 @@
             <field name="sequence">5</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
-            <field name="required_fields">{
-                "basic": {"type": "object", "description": "Risposte base intervista (nome, email, azienda, settore, fatturato, dipendenti, tipoProgetto, destinatario, tempistiche, budget, obiettivi...)"},
-                "assessment": {"type": "object", "description": "Opzionale: score, recommendedLevel, estimatedPrice, summary, strengths[], weaknesses[], nextSteps[]"}
-            }</field>
+            <!-- eval= (letterale Python), non testo semplice: un <field> senza
+                 type="..." viene letto come CHAR grezzo dal loader XML
+                 (odoo/tools/convert.py _eval_xml, default type='char'), non
+                 esiste una gestione speciale per i field Json: il valore
+                 finirebbe salvato come STRINGA JSON-incapsulata due volte
+                 invece che come oggetto vero (bug reale trovato e corretto
+                 il 21/08/2026, vedi erpv6_production/models/typst_template.py
+                 _resolve_required_fields). eval valuta un'espressione Python:
+                 un dict letterale con solo stringhe come valori e' identico
+                 a JSON per questi campi, nessuna perdita di informazione. -->
+            <field name="required_fields" eval="{
+                'basic': {'type': 'object', 'description': 'Risposte base intervista (nome, email, azienda, settore, fatturato, dipendenti, tipoProgetto, destinatario, tempistiche, budget, obiettivi...)'},
+                'assessment': {'type': 'object', 'description': 'Opzionale: score, recommendedLevel, estimatedPrice, summary, strengths[], weaknesses[], nextSteps[]'}
+            }"/>
             <field name="typst_source"><![CDATA[#let data = json("data.json")
 
 #set page(paper: "a4", margin: 2.5cm)
@@ -167,15 +177,19 @@
             <field name="sequence">6</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
-            <field name="required_fields">{
+            <!-- eval= (vedi commento sul primo required_fields sopra nel file, stesso motivo).
+                 Delimitatore attributo in apice singolo (eval='...') per poter
+                 lasciare le stringhe JSON con doppi apici invariate all'interno;
+                 i rari apostrofi nel testo italiano sono entita' &apos;. -->
+            <field name="required_fields" eval='{
                 "source_document": {"type": "string", "description": "Nome del documento erpv6.library.document sorgente"},
                 "file_name": {"type": "string", "description": "Nome del file caricato"},
                 "generated_at": {"type": "string", "description": "Data/ora generazione resoconto"},
                 "entries_count": {"type": "integer", "description": "Numero di voci KB estratte"},
                 "entries": {"type": "array", "description": "Elenco voci estratte: name, kb_type, category"},
-                "error": {"type": "string", "description": "Messaggio di errore, se l'estrazione e' fallita"},
-                "advice": {"type": "string", "description": "Suggerimento pratico associato all'errore, se presente"}
-            }</field>
+                "error": {"type": "string", "description": "Messaggio di errore, se l&apos;estrazione e&apos; fallita"},
+                "advice": {"type": "string", "description": "Suggerimento pratico associato all&apos;errore, se presente"}
+            }'/>
             <field name="typst_source"><![CDATA[#let data = json("data.json")
 
 #set page(paper: "a4", margin: 2.5cm)
@@ -248,13 +262,14 @@
             <field name="sequence">7</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
-            <field name="required_fields">{
+            <!-- eval= (vedi commento sul primo required_fields nel file, stesso motivo). -->
+            <field name="required_fields" eval='{
                 "source_document": {"type": "string", "description": "Nome del documento erpv6.library.document sorgente"},
                 "file_name": {"type": "string", "description": "Nome del file caricato"},
                 "generated_at": {"type": "string", "description": "Data/ora generazione resoconto"},
                 "entries_count": {"type": "integer", "description": "Numero di voci KB analizzate in questo batch"},
                 "entries": {"type": "array", "description": "Voci: kb_name, kb_type, status, rounds_count, final_issues_found, sesto_uomo_summary, providers_used"}
-            }</field>
+            }'/>
             <field name="typst_source"><![CDATA[#let data = json("data.json")
 
 #set page(paper: "a4", margin: 2.5cm)
@@ -317,14 +332,15 @@
             <field name="sequence">8</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
-            <field name="required_fields">{
+            <!-- eval= (vedi commento sul primo required_fields nel file, stesso motivo). -->
+            <field name="required_fields" eval='{
                 "category_name": {"type": "string", "description": "Elenco delle categorie KB coinvolte in questo certificato, separate da virgola"},
                 "entries_count": {"type": "integer", "description": "Numero totale di voci KB approvate in questo giro"},
-                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, category, rounds_count, final_issues_found, providers_used, analyst_prompt_ref, sesto_prompt_ref, first_reviewer, first_reviewed_at, second_gate_reviewer, second_gate_approved_at, analyst_findings (lista {analyst_index, prompt_ref, findings} dell'ultimo round), sesto_findings (sintesi Sesto Uomo dell'ultimo round)"},
+                "entries": {"type": "array", "description": "Voci: kb_name, kb_type, category, rounds_count, final_issues_found, providers_used, analyst_prompt_ref, sesto_prompt_ref, first_reviewer, first_reviewed_at, second_gate_reviewer, second_gate_approved_at, analyst_findings (lista {analyst_index, prompt_ref, findings} dell&apos;ultimo round), sesto_findings (sintesi Sesto Uomo dell&apos;ultimo round)"},
                 "supervisor": {"type": "string", "description": "Supervisore/i KB che hanno completato il secondo gate sulle voci di questo certificato"},
                 "supervisor_approved_at": {"type": "string", "description": "Data/ora del secondo gate"},
                 "generated_at": {"type": "string", "description": "Data/ora generazione certificato"}
-            }</field>
+            }'/>
             <field name="typst_source"><![CDATA[#let data = json("data.json")
 
 #set page(paper: "a4", margin: 2.5cm)
@@ -437,12 +453,13 @@ Confermata l'approvazione finale, successiva e distinta dal primo gate riportato
             <field name="sequence">10</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
-            <field name="required_fields">{
-                "executive_summary": {"type": "object"},
-                "market_analysis": {"type": "object"},
-                "financial_plan": {"type": "object"},
-                "swot_analysis": {"type": "object"}
-            }</field>
+            <!-- eval= (vedi commento sul primo required_fields nel file, stesso motivo). -->
+            <field name="required_fields" eval="{
+                'executive_summary': {'type': 'object'},
+                'market_analysis': {'type': 'object'},
+                'financial_plan': {'type': 'object'},
+                'swot_analysis': {'type': 'object'}
+            }"/>
         </record>
 
         <!-- Template Report Finanziario -->
@@ -456,12 +473,13 @@ Confermata l'approvazione finale, successiva e distinta dal primo gate riportato
             <field name="sequence">20</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
-            <field name="required_fields">{
-                "period": {"type": "string"},
-                "income_statement": {"type": "object"},
-                "balance_sheet": {"type": "object"},
-                "cash_flow": {"type": "object"}
-            }</field>
+            <!-- eval= (vedi commento sul primo required_fields nel file, stesso motivo). -->
+            <field name="required_fields" eval="{
+                'period': {'type': 'string'},
+                'income_statement': {'type': 'object'},
+                'balance_sheet': {'type': 'object'},
+                'cash_flow': {'type': 'object'}
+            }"/>
         </record>
 
         <!-- Template Candidatura Bando -->
@@ -475,12 +493,13 @@ Confermata l'approvazione finale, successiva e distinta dal primo gate riportato
             <field name="sequence">30</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
-            <field name="required_fields">{
-                "bando_info": {"type": "object"},
-                "project_description": {"type": "string"},
-                "budget": {"type": "object"},
-                "timeline": {"type": "array"}
-            }</field>
+            <!-- eval= (vedi commento sul primo required_fields nel file, stesso motivo). -->
+            <field name="required_fields" eval="{
+                'bando_info': {'type': 'object'},
+                'project_description': {'type': 'string'},
+                'budget': {'type': 'object'},
+                'timeline': {'type': 'array'}
+            }"/>
         </record>
 
         <!-- Template Proposta Commerciale -->
@@ -494,12 +513,13 @@ Confermata l'approvazione finale, successiva e distinta dal primo gate riportato
             <field name="sequence">40</field>
             <field name="page_size">a4</field>
             <field name="orientation">portrait</field>
-            <field name="required_fields">{
-                "client_info": {"type": "object"},
-                "service_details": {"type": "array"},
-                "pricing": {"type": "object"},
-                "roi_analysis": {"type": "object"}
-            }</field>
+            <!-- eval= (vedi commento sul primo required_fields nel file, stesso motivo). -->
+            <field name="required_fields" eval="{
+                'client_info': {'type': 'object'},
+                'service_details': {'type': 'array'},
+                'pricing': {'type': 'object'},
+                'roi_analysis': {'type': 'object'}
+            }"/>
         </record>
     </data>
 </odoo>

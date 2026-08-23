@@ -1,0 +1,90 @@
+# PROPOSTA — 1D del knowledge graph erpv6 (vedi docs/PLAN_knowledge_graph_phase1.md).
+#
+# NON AVVIATO. Questo file e' una proposta scritta/mostrata a Denis, non un
+# deploy reale -- "docker compose up" su questo file richiede un secondo via
+# libera esplicito separato, indipendente dall'approvazione della proposta
+# stessa (vedi vincoli permanenti in cima al task).
+#
+# Isolato di proposito da /opt/erpv6/docker-compose.yml (mai toccato quel
+# file): rete Docker propria, volumi dedicati, nessuna porta pubblicata su
+# 0.0.0.0 (solo 127.0.0.1, coerente con il resto dello stack che non espone
+# nulla pubblicamente tranne Caddy su 80/443).
+#
+# Implementa l'OPZIONE A del PLAN (un'istanza Neo4j Community, un solo
+# database standard -- Community Edition non ne supporta due attive
+# contemporaneamente, verificato via ricerca, vedi PLAN sezione 1D per le
+# fonti). I due grafi logici (codice 1A, business 1B+1C.1) convivono nello
+# stesso database, separati da un namespace di label applicato dal codice di
+# import (non da questo file): prefisso "Code_" per i nodi del grafo ORM
+# (Code_Modulo, Code_Modello) e "Kb_" per i nodi del grafo business
+# (Kb_Bando, Kb_Azienda, Kb_Socio, ...). Nessun dato viene scritto da questo
+# file -- l'import reale delle triple resta un passo separato, non coperto
+# da questa proposta.
+#
+# Per passare all'OPZIONE B (due istanze fisicamente separate, isolamento
+# reale non solo logico): duplicare il blocco "neo4j:" sotto con un secondo
+# nome/porta (es. neo4j_kb con 127.0.0.1:7475:7474 e 127.0.0.1:7688:7687),
+# un secondo volume, e assegnare ciascuna istanza a un solo dominio (codice
+# o business). Nessuna riscrittura strutturale necessaria.
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: erpv6_kg_neo4j
+    restart: unless-stopped
+    environment:
+      # Password letta da .env locale, MAI committata qui in chiaro -- vedi
+      # .env.example accanto a questo file. Stesso principio gia' in uso per
+      # le altre credenziali del progetto (vedi skill erpv6-odoo).
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD}"
+      # Risorse dimensionate sulle risorse reali host verificate il
+      # 21/08/2026 (4 vCPU, 7.8GiB RAM totali, ~3.9GiB disponibili, stack
+      # esistente ~1.05GB RAM realmente allocati) -- margine ampio, il grafo
+      # atteso e' dell'ordine di poche migliaia di nodi/archi, non milioni.
+      NEO4J_dbms_memory_heap_initial__size: "512m"
+      NEO4J_dbms_memory_heap_max__size: "1G"
+      NEO4J_dbms_memory_pagecache_size: "512m"
+      # Nessun plugin extra (APOC/GDS) finche' non emerge un bisogno reale --
+      # stesso principio "non aggiungere infrastruttura non richiesta".
+      NEO4J_PLUGINS: "[]"
+      # Disattiva la telemetria verso Neo4j Inc. -- nessun dato di questo
+      # progetto deve uscire verso terzi senza una decisione esplicita.
+      NEO4J_dbms_usage__report_enabled: "false"
+    ports:
+      # Solo localhost, mai 0.0.0.0 -- coerente con la postura del resto
+      # dello stack (nulla esposto pubblicamente tranne Caddy+TLS su
+      # 80/443, verificato via `docker compose ps` il 21/08/2026). Un
+      # accesso futuro alla UI Browser richiederebbe un tunnel SSH o un
+      # reverse proxy Caddy dedicato con autenticazione -- da decidere
+      # quando/se serve davvero, non incluso in questa proposta.
+      - "127.0.0.1:7474:7474"   # HTTP Browser UI
+      - "127.0.0.1:7687:7687"   # Bolt (driver applicativo/cypher-shell)
+    volumes:
+      - erpv6_kg_neo4j_data:/data
+      - erpv6_kg_neo4j_logs:/logs
+    networks:
+      - erpv6_kg_net
+      - erpv6_default
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:7474"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  erpv6_kg_neo4j_data:
+  erpv6_kg_neo4j_logs:
+
+networks:
+  erpv6_kg_net:
+    driver: bridge
+  # Rete gia' esistente, creata da /opt/erpv6/docker-compose.yml (dove gira
+  # Odoo) -- external:true perche' questo file NON deve crearla ne'
+  # possederla, solo agganciarsi cosi' Odoo/Kaizen possano raggiungere
+  # Neo4j per nome container (erpv6_kg_neo4j), aggiunta il 22/08/2026 per
+  # permettere la scrittura reale dei nodi Fix dal motore Kaizen. Neo4j
+  # resta comunque isolato dall'esterno (porte solo su 127.0.0.1), questo
+  # aggiunge solo un ponte interno tra i due stack Docker locali.
+  erpv6_default:
+    external: true

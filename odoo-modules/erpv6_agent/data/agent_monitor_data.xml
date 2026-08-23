@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- noupdate="0" deliberato (a differenza degli altri file dati di
+         questo modulo): _ensure_seed_rules() e' idempotente (get-or-create
+         su signal_key) e deve poter girare di nuovo ad ogni upgrade, per
+         esempio se Sabrina viene ricreata dopo essere stata rimossa a mano
+         (non ha un XML id stabile, vedi commento in agent_monitor.py). -->
+    <data>
+        <function model="erpv6.agent.monitor.rule" name="_ensure_seed_rules"/>
+
+        <!-- Compito 1 (23/08/2026): cron condiviso del motore di
+             monitoraggio attivo generico, esegue TUTTE le regole di
+             TUTTI gli agenti, non uno per agente (stesso principio degli
+             altri cron generici di questo modulo). Ogni 20 minuti: le
+             query sono leggere (un domain per regola), la parte costosa
+             (chiamata AI per formulare l'avviso) avviene solo per i
+             record davvero nuovi trovati in questo giro, mai a vuoto. -->
+        <record id="cron_run_agent_monitor_rules" model="ir.cron">
+            <field name="name">Agenti: Motore di Monitoraggio Attivo (per dominio) - Ogni 20 minuti</field>
+            <field name="model_id" ref="model_erpv6_agent_monitor_rule"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_run_all()</field>
+            <field name="interval_number">20</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+    </data>
+</odoo>

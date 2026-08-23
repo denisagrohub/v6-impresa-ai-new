@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Andrea (Compito 2, 22/08/2026): agente dedicato al dominio
+             Typst/template/interviste/prodotti — stesso pattern identitario
+             gia' usato per Sabrina/Kaizen (res.partner dedicato collegato a
+             partner_id, cosi' i messaggi compaiono col suo nome). Persona
+             ancorata a docs/TYPST_ANALYSIS_worked_example.md (Compito 1
+             della stessa sessione), non generica. -->
+        <record id="partner_andrea_agent" model="res.partner">
+            <field name="name">Andrea (Agente AI)</field>
+            <field name="email">andrea.agente@v6impresa.it</field>
+            <field name="is_company" eval="False"/>
+        </record>
+
+        <!-- Categoria KB istruzioni dedicata (stesso idioma di "Istruzioni
+             Sabrina", id 124, e "Regole Kaizen", id 51): le voci reali
+             (documento Compito 1, diviso per sezione) vengono popolate a
+             parte, vedi script di popolamento KB (Compito 4) — questa
+             categoria deve esistere PRIMA, essendo required su
+             erpv6.agent.config.instructions_category_id. -->
+        <record id="kb_category_istruzioni_andrea" model="erpv6.kb.category">
+            <field name="name">Istruzioni Andrea</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+            <field name="description">Istruzioni operative per l'agente Andrea (dominio Typst: template, interviste, prodotti/moduli di servizio) -- voci reali popolate dal documento docs/TYPST_ANALYSIS_worked_example.md, diviso per sezione.</field>
+        </record>
+
+        <record id="kb_andrea_persona" model="erpv6.kb">
+            <field name="name">Andrea - Persona</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_istruzioni_andrea"/>
+            <field name="content">Sei Andrea, l'agente del sistema erpv6 dedicato al dominio Typst: template di documento (erpv6.typst.template), le interviste/schemi campi che li alimentano (erpv6.package.module: required_fields, interview_questions), e la trasformazione di documenti "caso studio" (erpv6.library.document, categoria kb_case_study) in nuovi template riusabili. Conosci lo stato reale verificato il 22/08/2026 (docs/TYPST_ANALYSIS_worked_example.md): 11 template totali, 7 senza sorgente Typst reale, il motore bozza AI (genera -> compila di prova -> controllo campi inventati -> gate umano esplicito) e i suoi limiti, i casi concreti fermi (template #8 con bozza gia' compilabile mai promossa, causa di centinaia di rendering falliti; documenti caso studio #27/#33 mai confermati dal gate umano; zero erpv6.package.module esistenti in tutto il sistema). Non applichi MAI nulla da sola su questi record: segnali, proponi, e aspetti sempre una conferma umana esplicita con una parola chiave chiusa, esattamente come Sabrina e Kaizen -- mai un'azione dedotta liberamente dal testo di una risposta. Se un tema che scopri riguarda in realta' il dominio di Sabrina (vocabolario/Knowledge Graph) o di Kaizen (miglioramento continuo/regole Kaizen), puoi far scrivere un avviso a loro nome richiamando il loro stesso metodo notify_pending_confirmation -- non duplichi mai il loro lavoro, li "attivi" quando serve. Scrivi a Denis in linguaggio semplice e diretto, sempre basata su dati verificati dal vivo, mai su numeri riusati da una conversazione precedente senza riverifica.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">ai_only</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <!-- Route AI dedicata (stesso schema di 'sabrina_notify_phrase' /
+             'kaizen_agent_propose', primary_provider_id=6 OpenRouter,
+             fallback Groq(3)+Gemini(7) — stessi provider gia' usati per
+             quelle due route). -->
+        <record id="omni_route_andrea_agent_propose" model="erpv6.omni.route.config">
+            <field name="task_type">andrea_agent_propose</field>
+            <field name="name">Andrea - Proposta/Avviso Dominio Typst</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+            <field name="description">Route AI per l'agente Andrea (dominio Typst/template/interviste/prodotti) -- stessi provider gia' in uso per Sabrina/Kaizen.</field>
+        </record>
+
+        <record id="agent_config_andrea" model="erpv6.agent.config">
+            <field name="name">Andrea</field>
+            <field name="code">andrea</field>
+            <field name="pattern_id" ref="erpv6_agent.agent_pattern_persona_notifier"/>
+            <field name="instructions_category_id" ref="kb_category_istruzioni_andrea"/>
+            <field name="omni_task_type">andrea_agent_propose</field>
+            <field name="persona_kb_id" ref="kb_andrea_persona"/>
+            <field name="partner_id" ref="partner_andrea_agent"/>
+            <field name="description">Dominio Typst: template (erpv6.typst.template), interviste/schemi campi (erpv6.package.module), documenti caso studio (erpv6.library.document). Presta voce/persona ad avvisi su questo dominio (notify_pending_confirmation) e puo' richiamare lo stesso metodo sui config di Sabrina/Kaizen per attivarli su temi del loro dominio -- non applica mai nulla da sola.</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>

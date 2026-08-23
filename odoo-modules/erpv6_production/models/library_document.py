@@ -14,22 +14,6 @@ _logger = logging.getLogger(__name__)
 # resta True, ma la ricerca del cron esclude i documenti che l'hanno raggiunto).
 KB_EXTRACTION_MAX_AUTO_RETRIES = 5
 
-# Stessi valori di erpv6.typst.template.category (erpv6_typst) -- duplicati
-# qui (non importati) per non far dipendere questo Selection da un import
-# cross-modulo solo per una lista di tuple; da tenere allineato a mano se
-# la lista in typst_template.py cambia.
-CASE_STUDY_WORK_TYPES = [
-    ('business_plan', 'Business Plan'),
-    ('financial_report', 'Report Finanziario'),
-    ('bando_application', 'Candidatura Bando'),
-    ('proposal', 'Proposta Commerciale'),
-    ('contract', 'Contratto'),
-    ('relazione', 'Relazione'),
-    ('manuale', 'Manuale'),
-    ('custom', 'Personalizzato'),
-]
-
-
 class LibraryDocument(models.Model):
     """Estende erpv6.library.document (definito in erpv6_library, che NON
     puo' dipendere da erpv6_omni_bridge/erpv6_validation senza creare un
@@ -74,10 +58,12 @@ class LibraryDocument(models.Model):
              "write() sotto, che lo consuma non appena il file arriva).")
 
     case_study_work_type = fields.Selection(
-        CASE_STUDY_WORK_TYPES, string="Tipo di lavoro",
+        selection='_selection_case_study_work_type', string="Tipo di lavoro",
         help="Solo per categoria 'Caso studio (lavoro già eseguito)': tipo di "
-             "documento, usato per cercare template esistenti compatibili "
-             "(stessi valori di erpv6.typst.template.category).")
+             "documento, usato per cercare template esistenti compatibili. Le opzioni "
+             "sono le stesse di erpv6.typst.template.category, lette da li' a runtime "
+             "(vedi _selection_case_study_work_type) -- non piu' una lista duplicata a "
+             "mano qui: non possono piu' disallinearsi.")
     case_study_match_status = fields.Selection([
         ('pending', 'Da verificare'),
         ('suggested_reuse', 'AI: template esistente compatibile'),
@@ -98,6 +84,18 @@ class LibraryDocument(models.Model):
              "'Progetto' qui sopra (project_id, che e' un crm.lead usato solo come contenitore "
              "interno). Segnalato dal vivo dall'utente il 20/08/2026: senza questo campo il "
              "progetto reale non era raggiungibile dal documento in nessun modo.")
+
+    @api.model
+    def _selection_case_study_work_type(self):
+        """Opzioni di case_study_work_type derivate DAL vero Selection di
+        erpv6.typst.template.category (erpv6_typst, gia' una dipendenza di
+        questo modulo) -- corretto il 23/08/2026 (audit "motore vs
+        conoscenza"): prima era una lista Python separata (CASE_STUDY_WORK_TYPES)
+        duplicata a mano, con il rischio di disallineamento gia' segnalato
+        dall'autore originale nel commento. Nessuna duplicazione ora: se
+        typst_template.py aggiunge/toglie una categoria, questo Selection
+        la vede al giro successivo senza bisogno di toccare questo file."""
+        return self.env['erpv6.typst.template']._fields['category'].selection
 
     @api.depends('project_id')
     def _compute_kb_project_id(self):
@@ -559,7 +557,14 @@ class LibraryDocument(models.Model):
         self.ensure_one()
         PackageModule = self.env['erpv6.package.module']
         candidates = PackageModule.search([('typst_template_id.category', '=', self.case_study_work_type)])
-        work_type_label = dict(self._fields['case_study_work_type'].selection).get(self.case_study_work_type)
+        # dict(self._fields[...].selection) NON basta piu' qui: da quando
+        # case_study_work_type usa selection='_selection_case_study_work_type'
+        # (metodo, non lista statica -- vedi sopra), .selection sul campo e'
+        # il NOME del metodo, non le opzioni gia' risolte. dict(self.fields_get(...))
+        # e' il modo corretto per ottenere le opzioni risolte per QUESTO record.
+        work_type_label = dict(
+            self.fields_get(['case_study_work_type'])['case_study_work_type']['selection']
+        ).get(self.case_study_work_type)
         if not candidates:
             self.case_study_match_status = 'suggested_new'
             self.message_post(body=_(

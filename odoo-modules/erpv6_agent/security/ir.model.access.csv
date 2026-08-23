@@ -7,3 +7,13 @@ access_agent_proposal_accept_wizard_user,erpv6.agent.proposal.accept_wizard user
 access_agent_pattern_user,erpv6.agent.pattern user,model_erpv6_agent_pattern,base.group_user,1,0,0,0
 access_agent_pattern_admin,erpv6.agent.pattern admin,model_erpv6_agent_pattern,base.group_system,1,1,1,1
 access_agent_create_wizard_admin,erpv6.agent.create_wizard admin,model_erpv6_agent_create_wizard,base.group_system,1,1,1,1
+access_agent_confirmation_user,erpv6.agent.confirmation user,model_erpv6_agent_confirmation,base.group_user,1,0,0,0
+access_agent_confirmation_admin,erpv6.agent.confirmation admin,model_erpv6_agent_confirmation,base.group_system,1,1,1,1
+access_agent_telegram_config_admin,erpv6.agent.telegram.config admin,model_erpv6_agent_telegram_config,base.group_system,1,1,1,1
+access_agent_telegram_config_user,erpv6.agent.telegram.config user,model_erpv6_agent_telegram_config,base.group_user,1,0,0,0
+access_agent_communication_user,erpv6.agent.communication user,model_erpv6_agent_communication,base.group_user,1,0,0,0
+access_agent_communication_admin,erpv6.agent.communication admin,model_erpv6_agent_communication,base.group_system,1,1,1,1
+access_agent_monitor_rule_user,erpv6.agent.monitor.rule user,model_erpv6_agent_monitor_rule,base.group_user,1,0,0,0
+access_agent_monitor_rule_admin,erpv6.agent.monitor.rule admin,model_erpv6_agent_monitor_rule,base.group_system,1,1,1,1
+access_agent_monitor_signal_user,erpv6.agent.monitor.signal user,model_erpv6_agent_monitor_signal,base.group_user,1,0,0,0
+access_agent_monitor_signal_admin,erpv6.agent.monitor.signal admin,model_erpv6_agent_monitor_signal,base.group_system,1,1,1,1

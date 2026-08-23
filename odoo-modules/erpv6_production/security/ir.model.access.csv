@@ -9,3 +9,13 @@ access_production_schedule_user,erpv6.production.schedule user,model_erpv6_produ
 access_production_schedule_admin,erpv6.production.schedule admin,model_erpv6_production_schedule,base.group_system,1,1,1,1
 access_kb_import_wizard_user,erpv6.kb.import.wizard user,model_erpv6_kb_import_wizard,base.group_user,1,1,1,1
 access_kb_import_wizard_line_user,erpv6.kb.import.wizard.line user,model_erpv6_kb_import_wizard_line,base.group_user,1,1,1,1
+access_kairos_scoring_rule_user,erpv6.kairos.scoring.rule user,model_erpv6_kairos_scoring_rule,base.group_user,1,0,0,0
+access_kairos_scoring_rule_admin,erpv6.kairos.scoring.rule admin,model_erpv6_kairos_scoring_rule,base.group_system,1,1,1,1
+access_interview_question_user,erpv6.interview.question user,model_erpv6_interview_question,base.group_user,1,0,0,0
+access_interview_question_admin,erpv6.interview.question admin,model_erpv6_interview_question,base.group_system,1,1,1,1
+access_interview_question_option_user,erpv6.interview.question.option user,model_erpv6_interview_question_option,base.group_user,1,0,0,0
+access_interview_question_option_admin,erpv6.interview.question.option admin,model_erpv6_interview_question_option,base.group_system,1,1,1,1
+access_interview_session_user,erpv6.interview.session user,model_erpv6_interview_session,base.group_user,1,1,1,0
+access_interview_session_admin,erpv6.interview.session admin,model_erpv6_interview_session,base.group_system,1,1,1,1
+access_interview_answer_user,erpv6.interview.answer user,model_erpv6_interview_answer,base.group_user,1,1,1,0
+access_interview_answer_admin,erpv6.interview.answer admin,model_erpv6_interview_answer,base.group_system,1,1,1,1

@@ -79,8 +79,9 @@ class Erpv6KnowledgeBase(models.Model):
              "lista di relazioni {subject_type, subject, predicate, object_type, object, "
              "attributes} trovate dall'AI nel testo sorgente al momento dell'estrazione "
              "(erpv6_omni_bridge/models/kb_extraction_service.py), gia' filtrate lato Python "
-             "sul vocabolario controllato (ALLOWED_TRIPLE_SHAPES) -- mai un tipo/predicato "
-             "fuori lista. Vuoto per voci create manualmente o estratte prima di questa fase. "
+             "sul vocabolario controllato (erpv6.kg.triple.shape, erpv6_omni_bridge) -- mai un "
+             "tipo/predicato fuori dalle shape attive. Vuoto per voci create manualmente o "
+             "estratte prima di questa fase. "
              "Nessuna scrittura su nodi/archi reali del grafo: viaggia solo dentro questo "
              "record erpv6.kb, che resta is_active=False finche' non passa dal gate "
              "erpv6_validation (6 Giudici) come qualsiasi altra voce estratta.")

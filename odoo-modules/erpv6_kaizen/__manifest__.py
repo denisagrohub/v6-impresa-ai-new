@@ -21,6 +21,7 @@
         'security/ir.model.access.csv',
         'data/kaizen_cron.xml',
         'data/kaizen_agent_config.xml',
+        'data/kaizen_plain_language_data.xml',
         'views/kaizen_views.xml',
         'views/dashboard_views.xml',
     ],

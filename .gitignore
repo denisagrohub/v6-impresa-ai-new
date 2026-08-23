@@ -74,3 +74,7 @@ node_modules
 
 # Claude Code worktrees (admin/local data, mai da tracciare)
 .claude/worktrees/
+
+# Proposta Neo4j knowledge graph (1D, docs/PLAN_knowledge_graph_phase1.md)
+# -- mai committare una password reale, solo .env.example resta tracciato.
+erpv6_devtools/graph/neo4j/.env
