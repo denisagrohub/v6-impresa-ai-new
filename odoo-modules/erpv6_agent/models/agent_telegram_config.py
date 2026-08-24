@@ -352,17 +352,19 @@ class Erpv6AgentTelegramConfig(models.Model):
     def _handle_proposal_decision(self, decision, proposal_id):
         """Approva/rifiuta DAVVERO una erpv6.agent.proposal da un comando
         Telegram esplicito ('approva N'/'rifiuta N') - vedi PROPOSAL_DECISION_RE.
-        Scope limitato alla proposta di QUESTO agente (non un altro,
-        anche se l'id esiste): un comando su Telegram non deve poter
-        decidere proposte di canali diversi solo perche' l'id combacia.
-        Sempre una risposta chiara, mai un silenzio anche in caso di
-        errore/ambiguita' -- Denis deve sempre sapere se e' stato ascoltato."""
+        Scope limitato alla proposta di QUESTO agente, TRANNE Susanna
+        (24/08/2026, richiesto esplicitamente: "Susanna mi scrive la
+        proposta di Kaizen, io approvo o rifiuto come sempre") - lei e'
+        l'orchestratrice, autorizzata a far decidere Denis su proposte di
+        qualunque agente, non solo le sue. Sempre una risposta chiara, mai
+        un silenzio anche in caso di errore/ambiguita' -- Denis deve
+        sempre sapere se e' stato ascoltato."""
         self.ensure_one()
         proposal = self.env['erpv6.agent.proposal'].sudo().browse(proposal_id)
         if not proposal.exists():
             self.send_message(_("Non trovo nessuna proposta #%d.") % proposal_id)
             return
-        if proposal.agent_config_id.id != self.agent_config_id.id:
+        if proposal.agent_config_id.id != self.agent_config_id.id and self.agent_config_id.code != 'susanna':
             self.send_message(_(
                 "La proposta #%(id)d non è di %(agent)s (questo canale) — non la tocco da qui."
             ) % {'id': proposal_id, 'agent': self.agent_config_id.name})
@@ -377,9 +379,32 @@ class Erpv6AgentTelegramConfig(models.Model):
             proposal.sudo().write({
                 'status': 'accepted', 'reviewer_id': reviewer.id, 'reviewed_at': fields.Datetime.now(),
             })
+            # Se non e' gia' una proposta di Claudio, incatena SUBITO una
+            # proposta di verifica/applicazione per lui, gia' accettata
+            # (Denis ha appena approvato qui) - cosi' il ciclo automatico
+            # di Claudio (watch_proposals.py, che guarda solo le SUE
+            # proposte accettate) la trova al giro successivo senza
+            # nessun altro intervento. Stesso schema Kaizen->Claudio->Denis
+            # gia' concordato, solo automatizzato all'atto dell'approvazione.
+            if proposal.agent_config_id.code != 'claudio':
+                claudio = self.env['erpv6.agent.config'].search([('code', '=', 'claudio')], limit=1)
+                if claudio:
+                    self.env['erpv6.agent.proposal'].sudo().create({
+                        'agent_config_id': claudio.id,
+                        'name': _("Verifica e applica: %s") % proposal.name,
+                        'proposal_text': _(
+                            "Denis ha approvato questa proposta di %(agent)s: %(text)s\n\n"
+                            "Verifica sul codice reale se e come applicarla correttamente, poi "
+                            "applicala davvero."
+                        ) % {'agent': proposal.agent_config_id.name, 'text': proposal.proposal_text},
+                        'parent_proposal_id': proposal.id,
+                        'status': 'accepted',
+                        'reviewer_id': reviewer.id,
+                        'reviewed_at': fields.Datetime.now(),
+                    })
             self.send_message(_(
                 "✅ Proposta #%d approvata. %s se ne occupa a breve, ti avviso quando è fatto."
-            ) % (proposal_id, self.agent_config_id.name))
+            ) % (proposal_id, self.agent_config_id.name if proposal.agent_config_id.code == 'claudio' else 'Claudio'))
         else:
             # NON action_reject(): quel metodo usa self.env.user, che qui e'
             # l'utente tecnico del cron/shell che ha ricevuto l'update

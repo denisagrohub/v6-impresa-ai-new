@@ -23,6 +23,16 @@ KAIZEN_SHARED_BACKLOG = ('erpv6.kaizen.detected_signal', 0)
 # presenza/assenza dell'attivita' per sapere se serve ancora attenzione.
 CASE_STUDY_STALLED_HOURS = 24
 
+# Soglie per i due nuovi domini aperti il 24/08/2026 (richiesto
+# esplicitamente da Denis: "apri i domini di controllo di Kaizen, sì
+# quelli [bozze Typst] ed anche il log [Claudio/Argus]"). Nessun testo
+# libero interrogato per il "log": stesso principio non negoziabile gia'
+# in _cron_detect_signals ("zero rischio di classificazione fragile su
+# testo libero") - si guarda lo stato STRUTTURATO delle proposte di
+# Claudio/Argus (accepted da troppo senza mai diventare actioned), non il
+# contenuto testuale del registro.
+CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS = 2
+
 # Prefisso condiviso per i signal_key generati da una segnalazione manuale
 # (erpv6.kaizen.manual_report._create_detected_signal, kaizen_manual_report.py)
 # -- include SEMPRE l'id della segnalazione (mai un solo 'manual_report'
@@ -122,6 +132,9 @@ class Erpv6KaizenDetectedSignal(models.Model):
             'kb_extraction_stuck': self._detect_kb_extraction_stuck(),
             'kb_extraction_recovered': self._detect_kb_extraction_recovered_after_retry(),
             'case_study_stalled': self._detect_case_study_stalled(),
+            'typst_draft_not_compiling': self._detect_typst_draft_not_compiling(),
+            'claudio_argus_proposal_stuck': self._detect_claudio_argus_proposal_stuck(),
+            'frontend_error': self._detect_frontend_errors(),
         }
         if any(new_counts.values()):
             self._log_changelog_summary(new_counts)
@@ -146,6 +159,9 @@ class Erpv6KaizenDetectedSignal(models.Model):
             'kb_extraction_stuck': "estrazioni KB appena bloccate oltre il tetto di retry",
             'kb_extraction_recovered': "estrazioni KB recuperate da sole dopo retry",
             'case_study_stalled': "casi studio fermi da oltre %dh senza decisione umana" % CASE_STUDY_STALLED_HOURS,
+            'typst_draft_not_compiling': "bozze Typst AI che non compilano",
+            'claudio_argus_proposal_stuck': "proposte di Claudio/Argus approvate ma mai attuate",
+            'frontend_error': "errori JavaScript reali catturati nel browser",
         }
         for key, count in new_counts.items():
             if count:
@@ -436,4 +452,95 @@ class Erpv6KaizenDetectedSignal(models.Model):
             new_count += 1
         self._log_shared_backlog_class(
             _("Casi studio fermi senza decisione umana"), len(stalled), impatto=3)
+        return new_count
+
+    def _detect_typst_draft_not_compiling(self):
+        """Dominio aperto il 24/08/2026 (gia' segnalato come buco reale il
+        24/08/2026 dopo aver letto il sensore: "Kaizen NON vede bozze
+        Typst che non compilano"). Template con una bozza AI generata
+        (typst_source_draft valorizzato) ma typst_draft_compile_ok=False -
+        oggi scopribile solo aprendo il template a mano."""
+        broken = self.env['erpv6.typst.template'].search([
+            ('typst_source_draft', '!=', False),
+            ('typst_draft_compile_ok', '=', False),
+        ])
+        new_count = 0
+        for template in broken:
+            signal_key = 'typst_draft_not_compiling'
+            if self._already_detected(template._name, template.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                template._name, template.id, 'lieve',
+                description=_(
+                    "Template Typst #%(id)s '%(name)s': la bozza AI generata non compila "
+                    "(typst_draft_compile_ok=False). Errore reale: %(err)s"
+                ) % {'id': template.id, 'name': template.name,
+                     'err': (template.typst_draft_compile_error or '')[:300]},
+            )
+            self._mark_detected(template._name, template.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Bozze Typst AI che non compilano"), len(broken), impatto=3)
+        return new_count
+
+    def _detect_claudio_argus_proposal_stuck(self):
+        """Dominio aperto il 24/08/2026. SOLO stato strutturato (status,
+        create_date), MAI il contenuto testuale del registro Claudio/Argus
+        - stesso principio non negoziabile di _cron_detect_signals. Una
+        proposta di Claudio/Argus 'accepted' da piu' di
+        CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS senza mai diventare 'actioned'
+        significa che il ciclo automatico (watch_proposals.py) non l'ha
+        presa in carico o e' bloccato - va segnalato, non lasciato
+        silenzioso in coda per sempre."""
+        threshold = fields.Datetime.now() - timedelta(hours=CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS)
+        stuck = self.env['erpv6.agent.proposal'].search([
+            ('agent_config_id.code', 'in', ['claudio', 'argus']),
+            ('status', '=', 'accepted'),
+            ('reviewed_at', '<=', threshold),
+        ])
+        new_count = 0
+        for proposal in stuck:
+            signal_key = 'claudio_argus_proposal_stuck'
+            if self._already_detected(proposal._name, proposal.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                proposal._name, proposal.id, 'lieve',
+                description=_(
+                    "Proposta #%(id)s ('%(name)s') di %(agent)s approvata da oltre %(h)dh ma mai "
+                    "diventata 'attuata' - il ciclo automatico potrebbe non averla presa in "
+                    "carico (processo fermo?) o essere bloccato su un errore."
+                ) % {'id': proposal.id, 'name': proposal.name, 'agent': proposal.agent_config_id.name,
+                     'h': CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS},
+            )
+            self._mark_detected(proposal._name, proposal.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Proposte di Claudio/Argus approvate ma mai attuate"), len(stuck), impatto=4)
+        return new_count
+
+    def _detect_frontend_errors(self):
+        """Dominio aperto il 24/08/2026 (richiesto esplicitamente: "se apro
+        una pagina e appare un errore"). Legge SOLO i campi strutturati di
+        erpv6.frontend.error (message/url), mai testo libero di log
+        server - il dato arriva gia' strutturato dal browser tramite
+        erpv6_core/static/src/js/error_reporter.js + l'endpoint pubblico
+        dedicato, stesso principio non negoziabile del resto del sensore."""
+        if 'erpv6.frontend.error' not in self.env:
+            return 0
+        errors = self.env['erpv6.frontend.error'].search([], limit=50, order='occurred_at desc')
+        new_count = 0
+        for error in errors:
+            signal_key = 'frontend_error'
+            if self._already_detected(error._name, error.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                error._name, error.id, 'near_miss',
+                description=_(
+                    "Errore JavaScript reale nel browser su %(url)s: %(msg)s"
+                ) % {'url': error.url or '(pagina sconosciuta)', 'msg': error.message},
+            )
+            self._mark_detected(error._name, error.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Errori JavaScript reali nel browser"), len(errors), impatto=2)
         return new_count

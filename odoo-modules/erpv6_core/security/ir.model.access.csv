@@ -1,3 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_erpv6_base_user,erpv6.base user,model_erpv6_base,base.group_user,1,0,0,0
 access_erpv6_base_manager,erpv6.base manager,model_erpv6_base,base.group_system,1,1,1,1
+access_frontend_error_user,erpv6.frontend.error user,model_erpv6_frontend_error,base.group_user,1,0,0,0
+access_frontend_error_admin,erpv6.frontend.error admin,model_erpv6_frontend_error,base.group_system,1,1,1,1
