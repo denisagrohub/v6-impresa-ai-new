@@ -165,10 +165,10 @@ class Erpv6AgentConfirmation(models.Model):
             if self.decision_type == 'phase_decision':
                 decision = PHASE_DECISION_KEYWORDS.get(text)
                 if decision:
-                    self._do_phase_decision(msg, decision)
+                    self._do_phase_decision(msg.author_id.user_ids[:1], decision, message=msg)
                     return
             elif text in AGENT_CONFIRM_KEYWORDS:
-                self._do_confirm(msg)
+                self._do_confirm(msg.author_id.user_ids[:1], message=msg)
                 return
             self._reply_conversationally(msg)
         # Nessuna parola chiave trovata in questo giro: tutti i candidati
@@ -225,19 +225,27 @@ class Erpv6AgentConfirmation(models.Model):
             record, AgentConfig._default_notify_partner_ids(),
             _("Re: %s") % self.name, answer.replace("\n", "<br/>"), author_id)
 
-    def _do_confirm(self, message):
+    def _do_confirm(self, user, message=None):
         """Esegue l'azione predefinita se agganciata, altrimenti registra
         la conferma con stato 'confirmed_no_action' (placeholder esplicito
         -- vedi docstring della classe). Un errore nell'azione non viene
         mai inghiottito in silenzio: stato 'action_error' + log + nota nel
-        thread, cosi' un umano lo vede."""
+        thread, cosi' un umano lo vede.
+
+        user/message separati (24/08/2026, per i bottoni Telegram su
+        erpv6.agent.confirmation): un click Telegram non ha un mail.message
+        Discuss dietro, ma DEVE comunque tracciare chi ha confermato --
+        message resta opzionale (solo il canale Discuss lo valorizza).
+        Ritorna ack_text: il chiamante Telegram lo rimanda come conferma
+        del bottone, il chiamante Discuss lo posta gia' da solo sotto."""
         self.ensure_one()
         vals = {
             'state': 'confirmed',
-            'confirmed_by': message.author_id.user_ids[:1].id,
+            'confirmed_by': user.id if user else False,
             'confirmed_at': fields.Datetime.now(),
-            'confirmed_message_id': message.id,
         }
+        if message:
+            vals['confirmed_message_id'] = message.id
         ack_text = None
         if self.action_model and self.action_res_id and self.action_method:
             try:
@@ -274,8 +282,9 @@ class Erpv6AgentConfirmation(models.Model):
             AgentConfig._notify_or_post(
                 record, AgentConfig._default_notify_partner_ids(),
                 _("Confermato: %s") % self.name, ack_text, author_id)
+        return ack_text
 
-    def _do_phase_decision(self, message, decision):
+    def _do_phase_decision(self, user, decision, message=None):
         """Esegue l'esito di una decisione di fase (Compito 5, 23/08/2026) --
         parallelo di _do_confirm ma con TRE esiti invece di uno solo:
         - 'procedi': chiama l'azione predefinita (action_model/action_res_id/
@@ -291,10 +300,11 @@ class Erpv6AgentConfirmation(models.Model):
         self.ensure_one()
         vals = {
             'decision_result': decision,
-            'confirmed_by': message.author_id.user_ids[:1].id,
+            'confirmed_by': user.id if user else False,
             'confirmed_at': fields.Datetime.now(),
-            'confirmed_message_id': message.id,
         }
+        if message:
+            vals['confirmed_message_id'] = message.id
         if decision == 'procedi':
             if self.action_model and self.action_res_id and self.action_method:
                 try:
@@ -345,6 +355,29 @@ class Erpv6AgentConfirmation(models.Model):
                 _logger.exception(
                     "_on_phase_decision fallito per %s#%s dopo la decisione '%s' (conferma #%s) -- "
                     "la decisione resta comunque registrata sopra.", self.res_model, self.res_id, decision, self.id)
+        return ack_text
+
+    def _telegram_reply_markup(self):
+        """Bottoni Telegram per QUESTA conferma (24/08/2026, richiesto
+        esplicitamente da Denis: "anche loro devono avere accetta rifiuta"
+        -- Sabrina/Andrea/Susanna oggi ne erano prive, a differenza delle
+        proposte). decision_type determina il set: un solo esito per
+        'confirm', tre per 'phase_decision' -- stesso vocabolario chiuso di
+        PHASE_DECISION_KEYWORDS sopra, mai testo libero."""
+        self.ensure_one()
+        if self.decision_type == 'phase_decision':
+            return {
+                'inline_keyboard': [[
+                    {'text': '▶️ Procedi', 'callback_data': 'procedi:%d' % self.id},
+                    {'text': '📅 Pianifica', 'callback_data': 'pianifica:%d' % self.id},
+                    {'text': '⏹️ Fermati', 'callback_data': 'fermati:%d' % self.id},
+                ]],
+            }
+        return {
+            'inline_keyboard': [[
+                {'text': '✅ Confermo', 'callback_data': 'conferma:%d' % self.id},
+            ]],
+        }
 
     @api.model
     def request_phase_decision(self, agent_config, title, facts, res_model, res_id,
@@ -491,7 +524,8 @@ class Erpv6AgentConfirmation(models.Model):
         # canale Discuss/email sopra e' gia' andato a buon fine in ogni caso:
         # un fallimento qui non deve mai propagarsi.
         try:
-            self.env['erpv6.agent.telegram.config'].send_message_for_agent(susanna, body)
+            self.env['erpv6.agent.telegram.config'].send_message_for_agent(
+                susanna, body, reply_markup=self._telegram_reply_markup())
         except Exception:
             _logger.exception(
                 "Invio Telegram (best-effort) fallito per l'escalation #%s -- il promemoria Discuss/"

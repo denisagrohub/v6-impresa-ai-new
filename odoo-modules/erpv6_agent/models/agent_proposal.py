@@ -57,6 +57,54 @@ class Erpv6AgentProposal(models.Model):
     reviewed_at = fields.Datetime(string='Revisionata il', tracking=True)
     review_notes = fields.Text(string='Note del revisore')
 
+    def write(self, vals):
+        """Bug reale trovato il 24/08/2026 (proposta #18 di Kaizen,
+        approvata da Denis nell'interfaccia Odoo, MAI arrivata a Claudio):
+        la catena automatica verso Claudio viveva SOLO dentro il gestore
+        dei bottoni Telegram (_handle_proposal_decision), non
+        nell'accettazione vera e propria -- quindi approvare da Odoo
+        (wizard _do_accept) o da qualunque altra via futura non la faceva
+        mai scattare. Spostata qui, a livello di modello: qualunque
+        scrittura che porta status a 'accepted' la fa scattare, sempre,
+        indipendentemente da chi/come ha approvato."""
+        was_pending = {p.id: p.status for p in self} if 'status' in vals else {}
+        result = super().write(vals)
+        if vals.get('status') == 'accepted':
+            for proposal in self:
+                if was_pending.get(proposal.id) == 'accepted':
+                    continue  # gia' accettata prima di questa write, non ricatenare
+                proposal._chain_to_claudio_if_needed()
+        return result
+
+    def _chain_to_claudio_if_needed(self):
+        """Crea (se non esiste gia') una proposta di verifica/applicazione
+        per Claudio, incatenata e gia' accettata, per QUALUNQUE proposta
+        approvata che non sia gia' di Claudio stesso -- cosi' il ciclo
+        automatico (watch_proposals.py, che guarda solo le proposte
+        accettate di Claudio) la trova al giro successivo senza altro
+        intervento umano oltre all'approvazione originale."""
+        self.ensure_one()
+        if self.agent_config_id.code == 'claudio':
+            return
+        if self.child_proposal_ids.filtered(lambda c: c.agent_config_id.code == 'claudio'):
+            return  # gia' incatenata (es. scritta da _handle_proposal_decision in passato)
+        claudio = self.env['erpv6.agent.config'].sudo().search([('code', '=', 'claudio')], limit=1)
+        if not claudio:
+            return
+        reviewer = self.reviewer_id or self.env.ref('base.user_admin', raise_if_not_found=False) or self.env.user
+        self.env['erpv6.agent.proposal'].sudo().create({
+            'agent_config_id': claudio.id,
+            'name': _("Verifica e applica: %s") % self.name,
+            'proposal_text': _(
+                "Denis ha approvato questa proposta di %(agent)s: %(text)s\n\n"
+                "Verifica sul codice reale se e come applicarla correttamente, poi applicala davvero."
+            ) % {'agent': self.agent_config_id.name, 'text': self.proposal_text},
+            'parent_proposal_id': self.id,
+            'status': 'accepted',
+            'reviewer_id': reviewer.id,
+            'reviewed_at': fields.Datetime.now(),
+        })
+
     def action_accept(self):
         """Apre il popup di assegnazione invece di accettare direttamente:
         "chi accetta" (fa il gate umano) non e' detto sia "chi esegue" il

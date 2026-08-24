@@ -21,6 +21,15 @@ TELEGRAM_HTTP_TIMEOUT = 15
 # dedotta da un messaggio ambiguo).
 PROPOSAL_DECISION_RE = re.compile(r'^\s*(approva|rifiuta)\s+(\d+)\s*$', re.IGNORECASE)
 
+# Stesso principio, per erpv6.agent.confirmation (24/08/2026, richiesto
+# esplicitamente da Denis dopo aver scoperto che Sabrina/Andrea non avevano
+# bottoni come le proposte: "anche loro devono avere accetta/rifiuta").
+# Vocabolario chiuso separato da AGENT_CONFIRM_KEYWORDS/PHASE_DECISION_KEYWORDS
+# (agent_confirmation.py) apposta: qui e' un comando esplicito con id, non
+# una parola libera nel thread Discuss -- 'conferma' e' l'unico esito per
+# decision_type='confirm', gli altri tre per 'phase_decision'.
+CONFIRMATION_DECISION_RE = re.compile(r'^\s*(conferma|procedi|pianifica|fermati)\s+(\d+)\s*$', re.IGNORECASE)
+
 
 class Erpv6AgentTelegramConfig(models.Model):
     """Predisposizione COMPLETA (Compito 6, 23/08/2026) -- non piu' un
@@ -193,20 +202,44 @@ class Erpv6AgentTelegramConfig(models.Model):
             return False
 
     @api.model
-    def send_message_for_agent(self, agent_config, text):
+    def send_message_for_agent(self, agent_config, text, reply_markup=None):
         """Punto di ingresso usato dal resto del sistema (es.
         erpv6.agent.confirmation._escalate, Compito 3): invia via Telegram
         SOLO se esiste una configurazione attiva collegata a quell'agente
         -- silenzioso (nessuna eccezione, nessun log di errore, solo debug)
         se non esiste, perche' e' il caso normale oggi (nessun token reale
         ancora fornito). Chiamare sempre dentro un try/except lato
-        chiamante comunque, per difesa in profondita'."""
+        chiamante comunque, per difesa in profondita'.
+
+        reply_markup (24/08/2026): passato cosi' com'e' a send_message --
+        vedi erpv6.agent.confirmation._telegram_reply_markup per i bottoni
+        Conferma/Procedi/Pianifica/Fermati.
+
+        Fallback su Susanna (24/08/2026, richiesto esplicitamente da Denis:
+        "Andrea e Sabrina se non hanno bot mi scrivono in Telegram tramite
+        Susanna" -- oggi solo Susanna e Claudio hanno un bot Telegram reale
+        configurato, verificato sul DB). Un agente senza bot proprio non
+        resta piu' silenzioso: il messaggio parte comunque, dal bot di
+        Susanna, con un prefisso che dice chi scrive davvero -- Susanna
+        stessa non fa mai da fallback per se stessa (evita un loop se
+        anche lei fosse priva di bot)."""
         config = self.search([
             ('agent_config_id', '=', agent_config.id), ('is_active', '=', True), ('bot_token', '!=', False),
         ], limit=1)
-        if not config:
+        if config:
+            return config.send_message(text, reply_markup=reply_markup)
+        if agent_config.code == 'susanna':
             return False
-        return config.send_message(text)
+        susanna = self.env['erpv6.agent.config'].sudo().search([('code', '=', 'susanna')], limit=1)
+        if not susanna:
+            return False
+        susanna_config = self.search([
+            ('agent_config_id', '=', susanna.id), ('is_active', '=', True), ('bot_token', '!=', False),
+        ], limit=1)
+        if not susanna_config:
+            return False
+        relayed_text = _("[%s, tramite Susanna]\n%s") % (agent_config.name, text)
+        return susanna_config.send_message(relayed_text, reply_markup=reply_markup)
 
     # ------------------------------------------------------------------
     # Ricezione (Compito 6, 23/08/2026) -- polling, non webhook (vedi
@@ -312,10 +345,14 @@ class Erpv6AgentTelegramConfig(models.Model):
                     "%s -- ignorato.", chat_id, self.name)
                 return
             data = (callback_query.get('data') or '').strip()
-            match = PROPOSAL_DECISION_RE.match(data.replace(':', ' ', 1))
+            normalized = data.replace(':', ' ', 1)
+            match = PROPOSAL_DECISION_RE.match(normalized)
+            confirmation_match = CONFIRMATION_DECISION_RE.match(normalized)
             self._answer_callback_query(callback_query.get('id'))
             if match and self.agent_config_id:
                 self._handle_proposal_decision(match.group(1).lower(), int(match.group(2)))
+            elif confirmation_match and self.agent_config_id:
+                self._handle_confirmation_decision(confirmation_match.group(1).lower(), int(confirmation_match.group(2)))
             else:
                 _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
             return
@@ -340,13 +377,24 @@ class Erpv6AgentTelegramConfig(models.Model):
         if decision_match:
             self._handle_proposal_decision(decision_match.group(1).lower(), int(decision_match.group(2)))
             return
+        confirmation_match = CONFIRMATION_DECISION_RE.match(text)
+        if confirmation_match:
+            self._handle_confirmation_decision(confirmation_match.group(1).lower(), int(confirmation_match.group(2)))
+            return
+        # Storico REALE persistito (24/08/2026, richiesto esplicitamente da
+        # Denis: "le chat dovrebbero essere salvate, l'agente ha memoria
+        # della comunicazione, e si possono imparare errori") - prima
+        # thread_history era sempre '' (limite noto, mai risolto). chat_key
+        # = chat_id Telegram: una conversazione per chat, mai mescolata con
+        # altre chat sullo stesso bot.
+        ChatLog = self.env['erpv6.agent.chat.log']
+        thread_history = ChatLog.log_and_get_history(self.env, self.agent_config_id.id, str(self.chat_id), text)
         answer = self.agent_config_id.answer_conversationally(
             title=_("Telegram — %s") % self.agent_config_id.name,
-            thread_history='',  # Compito 6: nessuno storico multi-turno persistito per Telegram
-                                 # ancora (limite noto, vedi report finale) -- ogni messaggio e'
-                                 # risposto indipendentemente, come un primo turno.
+            thread_history=thread_history,
             question_text=text,
         )
+        ChatLog.log_reply(self.env, self.agent_config_id.id, str(self.chat_id), answer)
         self.send_message(answer)
 
     def _handle_proposal_decision(self, decision, proposal_id):
@@ -376,32 +424,14 @@ class Erpv6AgentTelegramConfig(models.Model):
             return
         reviewer = self.env.ref('base.user_admin', raise_if_not_found=False) or self.env.user
         if decision == 'approva':
+            # La catena verso Claudio (se questa non e' gia' una sua
+            # proposta) scatta DENTRO write() su erpv6.agent.proposal
+            # stesso, non qui - corretto il 24/08/2026 dopo aver trovato
+            # che approvare da Odoo (non da Telegram) non la faceva mai
+            # scattare, perche' viveva solo in questo metodo.
             proposal.sudo().write({
                 'status': 'accepted', 'reviewer_id': reviewer.id, 'reviewed_at': fields.Datetime.now(),
             })
-            # Se non e' gia' una proposta di Claudio, incatena SUBITO una
-            # proposta di verifica/applicazione per lui, gia' accettata
-            # (Denis ha appena approvato qui) - cosi' il ciclo automatico
-            # di Claudio (watch_proposals.py, che guarda solo le SUE
-            # proposte accettate) la trova al giro successivo senza
-            # nessun altro intervento. Stesso schema Kaizen->Claudio->Denis
-            # gia' concordato, solo automatizzato all'atto dell'approvazione.
-            if proposal.agent_config_id.code != 'claudio':
-                claudio = self.env['erpv6.agent.config'].search([('code', '=', 'claudio')], limit=1)
-                if claudio:
-                    self.env['erpv6.agent.proposal'].sudo().create({
-                        'agent_config_id': claudio.id,
-                        'name': _("Verifica e applica: %s") % proposal.name,
-                        'proposal_text': _(
-                            "Denis ha approvato questa proposta di %(agent)s: %(text)s\n\n"
-                            "Verifica sul codice reale se e come applicarla correttamente, poi "
-                            "applicala davvero."
-                        ) % {'agent': proposal.agent_config_id.name, 'text': proposal.proposal_text},
-                        'parent_proposal_id': proposal.id,
-                        'status': 'accepted',
-                        'reviewer_id': reviewer.id,
-                        'reviewed_at': fields.Datetime.now(),
-                    })
             self.send_message(_(
                 "✅ Proposta #%d approvata. %s se ne occupa a breve, ti avviso quando è fatto."
             ) % (proposal_id, self.agent_config_id.name if proposal.agent_config_id.code == 'claudio' else 'Claudio'))
@@ -416,6 +446,45 @@ class Erpv6AgentTelegramConfig(models.Model):
                 'status': 'rejected', 'reviewer_id': reviewer.id, 'reviewed_at': fields.Datetime.now(),
             })
             self.send_message(_("❌ Proposta #%d rifiutata, non verrà applicata.") % proposal_id)
+
+    def _handle_confirmation_decision(self, decision, confirmation_id):
+        """Parallelo di _handle_proposal_decision per erpv6.agent.confirmation
+        (24/08/2026, richiesto esplicitamente da Denis dopo aver scoperto
+        che le conferme di Sabrina/Andrea non erano cliccabili come le
+        proposte: "anche loro devono avere accetta rifiuta"). Stesso scope
+        (solo l'agente proprietario, TRANNE Susanna) e stesso principio
+        (parola chiave chiusa + id, mai testo libero). Chiama DAVVERO
+        _do_confirm/_do_phase_decision (stesso codice gia' usato dal
+        gestore Discuss, vedi agent_confirmation.py._check_for_confirmation)
+        -- non un secondo meccanismo parallelo che potrebbe disallinearsi."""
+        self.ensure_one()
+        confirmation = self.env['erpv6.agent.confirmation'].sudo().browse(confirmation_id)
+        if not confirmation.exists():
+            self.send_message(_("Non trovo nessuna conferma #%d.") % confirmation_id)
+            return
+        if confirmation.agent_config_id.id != self.agent_config_id.id and self.agent_config_id.code != 'susanna':
+            self.send_message(_(
+                "La conferma #%(id)d non è di %(agent)s (questo canale) — non la tocco da qui."
+            ) % {'id': confirmation_id, 'agent': self.agent_config_id.name})
+            return
+        if confirmation.state != 'pending':
+            self.send_message(_(
+                "La conferma #%(id)d non è più in attesa (stato attuale: %(state)s) — nessuna azione."
+            ) % {'id': confirmation_id, 'state': confirmation.state})
+            return
+        is_phase = decision in ('procedi', 'pianifica', 'fermati')
+        expected_type = 'phase_decision' if is_phase else 'confirm'
+        if confirmation.decision_type != expected_type:
+            self.send_message(_(
+                "La conferma #%(id)d non accetta '%(decision)s' (è di tipo %(type)s) — nessuna azione."
+            ) % {'id': confirmation_id, 'decision': decision, 'type': confirmation.decision_type})
+            return
+        reviewer = self.env.ref('base.user_admin', raise_if_not_found=False) or self.env.user
+        if is_phase:
+            ack_text = confirmation._do_phase_decision(reviewer, decision)
+        else:
+            ack_text = confirmation._do_confirm(reviewer)
+        self.send_message(ack_text)
 
     @api.model
     def _cron_poll_telegram_updates(self):

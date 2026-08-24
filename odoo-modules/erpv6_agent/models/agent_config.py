@@ -74,6 +74,14 @@ class Erpv6AgentConfig(models.Model):
              "si usa l'utente che esegue il codice (di solito l'admin del cron). Aggiunto il "
              "22/08/2026 per l'agente Sabrina, generico per qualunque agente futuro.",
     )
+    notify_partner_ids = fields.Many2many(
+        'res.partner', string='Destinatari notifiche',
+        help="A CHI scrive questo agente (vedi notify_pending_confirmation) - vuoto = ricade "
+             "sull'admin/Denis (comportamento di sempre). Aggiunto il 24/08/2026 su richiesta "
+             "esplicita di Denis, pensando ad agenti futuri con un pubblico diverso da lui (es. "
+             "'Anna la commercialista' scriverebbe a chi in azienda fa il lavoro contabile, non a "
+             "Denis): un dato configurabile per agente, mai un contatto fisso scritto nel codice.",
+    )
     active = fields.Boolean(default=True)
     description = fields.Text(string='Descrizione')
     escalation_minutes = fields.Integer(
@@ -147,17 +155,19 @@ class Erpv6AgentConfig(models.Model):
             'is_active': True,
         })
 
-    @api.model
     def _default_notify_partner_ids(self):
         """Destinatario di default per una notifica REALE (message_notify,
         non solo chatter) quando il chiamante non specifica esplicitamente
-        notify_partner_ids -- oggi sempre l'admin/Denis (unico utente
-        umano reale del sistema). Centralizzato qui (non duplicato in ogni
-        chiamante) cosi' un domani con piu' destinatari basta cambiare un
-        punto solo -- usato sia da notify_pending_confirmation sia da
-        erpv6.agent.confirmation (risposta conversazionale, conferma
-        eseguita) per la stessa correzione del bug 'notifica invisibile'
-        del 22/08/2026."""
+        notify_partner_ids. Non piu' @api.model dal 24/08/2026 (richiesto
+        esplicitamente da Denis: contatti configurabili per agente, non
+        fissi su di lui - pensando ad agenti futuri come "Anna la
+        commercialista" che scriverebbe a chi fa contabilita', non a
+        Denis): se questo agente ha notify_partner_ids valorizzato, quello
+        vince; altrimenti ricade sull'admin/Denis come sempre (record
+        vuoto, es. chiamato su self.env['erpv6.agent.config'] senza un
+        agente specifico, si comporta esattamente come prima)."""
+        if self and self.notify_partner_ids:
+            return self.notify_partner_ids.ids
         admin_user = self.env.ref('base.user_admin', raise_if_not_found=False)
         return admin_user.partner_id.ids if admin_user else []
 
@@ -655,7 +665,11 @@ class Erpv6AgentConfig(models.Model):
             notify_partner_ids = self._default_notify_partner_ids()
         message = self._notify_or_post(
             record, notify_partner_ids, title, body.replace("\n", "<br/>"), author_id)
-        return self.env['erpv6.agent.confirmation'].create({
+        # Creata QUI (prima del blocco Telegram sotto, non piu' alla fine
+        # del metodo, 24/08/2026): il bottone Telegram deve incorporare
+        # l'id reale della conferma nel callback_data, vedi
+        # erpv6.agent.confirmation._telegram_reply_markup.
+        confirmation = self.env['erpv6.agent.confirmation'].create({
             'agent_config_id': self.id,
             'name': title,
             'res_model': res_model,
@@ -666,6 +680,29 @@ class Erpv6AgentConfig(models.Model):
             'action_method': action_method or False,
             'state': 'pending',
         })
+        # Instradamento per presenza (24/08/2026, richiesto esplicitamente
+        # da Denis: "se sono collegato manda la chat, se non rispondo manda
+        # Telegram, se non sono collegato manda direttamente Telegram" -
+        # dopo che la proposta #18 e' rimasta invisibile perche' nessun
+        # canale l'aveva mai spinta attivamente). Qui si copre SOLO il
+        # terzo caso (non connesso -> Telegram subito): il secondo caso
+        # (connesso ma non risponde -> Telegram dopo un'attesa) e' gia'
+        # gestito da erpv6.agent.confirmation._cron_check_escalations,
+        # escalation_minutes dopo. im_status e' il campo nativo di Odoo
+        # (bus.presence), non un dato inventato qui. Bottoni cliccabili
+        # (24/08/2026, richiesto esplicitamente: "anche loro devono avere
+        # accetta rifiuta") -- stesso meccanismo gia' in uso per le proposte.
+        for partner in self.env['res.partner'].browse(notify_partner_ids):
+            user = partner.user_ids[:1]
+            if user and user.im_status != 'online':
+                try:
+                    self.env['erpv6.agent.telegram.config'].send_message_for_agent(
+                        self, body, reply_markup=confirmation._telegram_reply_markup())
+                except Exception:
+                    _logger.exception(
+                        "Invio Telegram immediato (utente non online) fallito per %s -- il "
+                        "canale Discuss/email sopra resta comunque valido.", self.code)
+        return confirmation
 
     # ------------------------------------------------------------------
     # Canale Discuss SEMPRE presente (Compito 2, 23/08/2026): "non
