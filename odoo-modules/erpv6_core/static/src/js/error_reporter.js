@@ -34,12 +34,27 @@
         }
     }
 
+    // "blocking" (24/08/2026, richiesto esplicitamente da Denis dopo aver
+    // visto un errore reale classificato solo 'near_miss': "un problema che
+    // mi blocca l'accesso ad una pagina non e' un near miss"). Segnale
+    // STRUTTURATO, non testo interpretato: OwlError e' la classe fissa che
+    // il framework Owl stesso usa quando il rendering/lifecycle di un
+    // componente fallisce (vedi odoo/addons/web/static/lib/owl/owl.js,
+    // "An error occured in the owl lifecycle") - questo tipicamente lascia
+    // l'intera vista/azione non renderizzata, non un errore secondario su
+    // una pagina gia' caricata. Controllare .name (la classe dell'errore),
+    // mai il testo del messaggio.
+    function is_blocking(err) {
+        return !!(err && err.name === "OwlError");
+    }
+
     window.addEventListener("error", function (event) {
         send({
             message: event.message || "Errore JS sconosciuto",
             url: window.location.href,
             stack: event.error && event.error.stack ? String(event.error.stack).slice(0, 4000) : "",
             user_agent: navigator.userAgent,
+            blocking: is_blocking(event.error),
         });
     });
 
@@ -50,6 +65,7 @@
             url: window.location.href,
             stack: reason && reason.stack ? String(reason.stack).slice(0, 4000) : "",
             user_agent: navigator.userAgent,
+            blocking: is_blocking(reason),
         });
     });
 })();

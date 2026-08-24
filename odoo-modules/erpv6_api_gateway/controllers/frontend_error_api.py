@@ -41,6 +41,7 @@ class FrontendErrorAPIController(APIBaseController):
             'stack': data.get('stack') or '',
             'user_agent': (data.get('user_agent') or '')[:300],
             'user_id': request.session.uid if request.session.uid else False,
+            'blocking': bool(data.get('blocking')),
         })
 
         self._log_api_call('/api/v1/frontend-error', 'POST', None, 201, start_time)

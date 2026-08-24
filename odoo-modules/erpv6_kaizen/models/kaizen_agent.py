@@ -179,3 +179,21 @@ class Erpv6KaizenAgent(models.Model):
                 mail_values['email_from'] = '"%s" <%s>' % (self.env.company.name, default_from)
             self.env['mail.mail'].sudo().create(mail_values).send()
             proposal.message_post(body=_("Proposta inviata via email a %s per revisione.") % supervisor.name)
+            # Telegram se non online (24/08/2026, richiesto esplicitamente
+            # da Denis: "controlla che anche Kaizen... scriva sempre
+            # tramite Susanna" -- questa proposta usava SOLO email, mai
+            # Telegram, stesso buco gia' trovato e corretto altrove
+            # stanotte per erpv6.agent.confirmation). Kaizen non ha un bot
+            # proprio (verificato sul DB): send_message_for_agent ricade
+            # da solo sul bot di Susanna, vedi agent_telegram_config.py.
+            if supervisor.im_status != 'online':
+                try:
+                    self.env['erpv6.agent.telegram.config'].send_message_for_agent(
+                        agent_config,
+                        _("[Kaizen] Nuova proposta: %(title)s\n\n%(text)s") % {
+                            'title': proposal.name, 'text': proposal.proposal_text},
+                    )
+                except Exception:
+                    _logger.exception(
+                        "Invio Telegram (utente non online) fallito per la proposta Kaizen #%s -- "
+                        "l'email sopra resta comunque valida.", proposal.id)

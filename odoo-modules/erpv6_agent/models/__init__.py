@@ -10,3 +10,4 @@ from . import agent_create_wizard
 from . import kb_knowledge
 from . import library_document
 from . import agent_neo4j_client
+from . import agent_chat_log

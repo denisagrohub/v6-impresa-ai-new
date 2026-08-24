@@ -18,3 +18,5 @@ access_agent_monitor_rule_admin,erpv6.agent.monitor.rule admin,model_erpv6_agent
 access_agent_monitor_signal_user,erpv6.agent.monitor.signal user,model_erpv6_agent_monitor_signal,base.group_user,1,0,0,0
 access_agent_monitor_signal_admin,erpv6.agent.monitor.signal admin,model_erpv6_agent_monitor_signal,base.group_system,1,1,1,1
 access_agent_neo4j_client_admin,erpv6.agent.neo4j.client admin,model_erpv6_agent_neo4j_client,base.group_system,1,1,1,1
+access_agent_chat_log_user,erpv6.agent.chat.log user,model_erpv6_agent_chat_log,base.group_user,1,0,0,0
+access_agent_chat_log_admin,erpv6.agent.chat.log admin,model_erpv6_agent_chat_log,base.group_system,1,1,1,1

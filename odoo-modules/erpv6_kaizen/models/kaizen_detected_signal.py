@@ -529,12 +529,20 @@ class Erpv6KaizenDetectedSignal(models.Model):
             return 0
         errors = self.env['erpv6.frontend.error'].search([], limit=50, order='occurred_at desc')
         new_count = 0
+        found_grave = False
         for error in errors:
             signal_key = 'frontend_error'
             if self._already_detected(error._name, error.id, signal_key):
                 continue
+            # Severita' su 'blocking' (24/08/2026, richiesto esplicitamente
+            # da Denis: "un problema che mi blocca l'accesso ad una pagina
+            # non e' un near miss") - campo strutturato calcolato lato
+            # client su error.name === 'OwlError' (vedi error_reporter.js),
+            # mai dedotto qui dal testo del messaggio.
+            severity = 'grave' if error.blocking else 'near_miss'
+            found_grave = found_grave or error.blocking
             self.env['erpv6.heinrich.indicator'].log_signal(
-                error._name, error.id, 'near_miss',
+                error._name, error.id, severity,
                 description=_(
                     "Errore JavaScript reale nel browser su %(url)s: %(msg)s"
                 ) % {'url': error.url or '(pagina sconosciuta)', 'msg': error.message},
@@ -543,4 +551,15 @@ class Erpv6KaizenDetectedSignal(models.Model):
             new_count += 1
         self._log_shared_backlog_class(
             _("Errori JavaScript reali nel browser"), len(errors), impatto=2)
+        if found_grave:
+            # "Il sistema deve essere attivo, e sistemare" (24/08/2026,
+            # richiesto esplicitamente da Denis): senza questo, un segnale
+            # 'grave' aspetterebbe comunque il cron GIORNALIERO di
+            # _cron_kaizen_agent_propose (interval=1days, indipendente dal
+            # cron di rilevamento ogni 30 minuti) prima che Kaizen ne
+            # scrivesse una proposta -- fino a 24h di ritardo su un
+            # problema che blocca davvero una pagina. Chiamata diretta,
+            # UNA sola volta per giro (non per errore), stesso limite
+            # "al massimo una proposta a giro" gia' documentato li'.
+            self._cron_kaizen_agent_propose()
         return new_count
