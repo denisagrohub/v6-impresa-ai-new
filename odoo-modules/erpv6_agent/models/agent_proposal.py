@@ -27,6 +27,26 @@ class Erpv6AgentProposal(models.Model):
     based_on = fields.Text(string='Basata su', help="Riepilogo dei dati usati per generare la proposta.")
     rule_applied = fields.Char(string='Regola applicata', help="Riferimento alla voce KB di istruzioni citata dall'AI.")
     provider_name = fields.Char(string='Provider AI', readonly=True)
+    # Aggiunti il 24/08/2026 per la catena Kaizen -> Claudio -> Argus
+    # (piano "Claudio+Argus", riconciliato con l'architettura esistente:
+    # niente formato di relazione a parte, il testo integrale verificato
+    # vive qui come documento, la sintesi/instradamento resta su
+    # erpv6.agent.communication). technical_report_id per il caso lungo
+    # (comandi eseguiti, output reale, non solo la sintesi in proposal_text);
+    # parent_proposal_id per incatenare una proposta alla precedente che sta
+    # verificando/correggendo/controllando.
+    technical_report_id = fields.Many2one(
+        'erpv6.library.document', string='Relazione Tecnica Completa',
+        help="Documento (categoria 'agent_knowledge') con la relazione tecnica integrale: "
+             "cosa verificato (file:riga, comando, output reale), cosa concluso e perche', "
+             "cosa proposto. Opzionale: solo per proposte con verifica lunga/dettagliata, "
+             "la sintesi resta comunque in proposal_text/based_on.")
+    parent_proposal_id = fields.Many2one(
+        'erpv6.agent.proposal', string='Proposta precedente nella catena', ondelete='set null',
+        help="Collega la proposta di verifica/correzione (es. Claudio) a quella originale "
+             "che sta controllando (es. Kaizen), o quella di verifica finale (es. Argus) a "
+             "quella applicata che sta controllando.")
+    child_proposal_ids = fields.One2many('erpv6.agent.proposal', 'parent_proposal_id', string='Proposte successive nella catena')
     status = fields.Selection([
         ('pending_review', 'In attesa di revisione'),
         ('accepted', 'Accettata'),

@@ -97,6 +97,7 @@ class SignAPIController(APIBaseController):
         except Exception as e:
             self._log_api_call('/api/v1/sign/request', 'POST', user.id if user else None, 500, start_time)
             return self._json_response({'error': str(e)}, status=500)
+            # Nota: stesso pattern hasattr(request.env) gia' corretto qui, vedi module_kb/known_errors/hasattr_request_env.md.
 
     @http.route('/api/v1/sign/<int:request_id>/status', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_sign_status(self, request_id, **kwargs):  # pylint: disable=unused-argument

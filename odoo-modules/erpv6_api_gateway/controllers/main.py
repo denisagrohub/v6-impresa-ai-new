@@ -1,3 +1,4 @@
+# TEST ARGUS: verifica posizionamento esatto
 # pylint: disable=import-error
 import json
 import logging

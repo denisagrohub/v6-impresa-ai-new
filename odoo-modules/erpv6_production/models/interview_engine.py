@@ -1,6 +1,6 @@
 import logging
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -254,12 +254,8 @@ class Erpv6InterviewAnswer(models.Model):
     vive sulla sessione.
 
     is_altro=True e' il segnale del motore vocabolario ("il lead ha scritto
-    qualcosa che non conosciamo"): l'hook _notify_altro_candidate e'
-    predisposto ma deliberatamente inerte - la logica di cosa succede dopo
-    (soglia, chi notifica, cosa diventa il termine) e' in disegno con Denis
-    separatamente, vedi conversazione dedicata del 23/08/2026. Non scrivere
-    qui logica di promozione a vocabolario finche' quella spec non e'
-    chiusa."""
+    qualcosa che non conosciamo"): vedi _notify_altro_candidate e
+    erpv6.vocabulary.entry, spec chiusa con Denis il 23/08/2026."""
     _name = 'erpv6.interview.answer'
     _description = 'Intervista - Risposta'
 
@@ -268,6 +264,8 @@ class Erpv6InterviewAnswer(models.Model):
     option_id = fields.Many2one('erpv6.interview.question.option', ondelete='set null')
     value_text = fields.Char(string='Risposta (testo libero)')
     is_altro = fields.Boolean(string='Da campo "altro"', default=False, index=True)
+    vocabulary_entry_id = fields.Many2one('erpv6.vocabulary.entry', string='Termine vocabolario',
+                                           ondelete='set null', copy=False)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -280,15 +278,134 @@ class Erpv6InterviewAnswer(models.Model):
         return answers
 
     def _notify_altro_candidate(self, answer):
-        """STUB predisposto, non ancora attivo: logga soltanto. Per
-        definizione, quando questo hook scatta e' la prima occorrenza di un
-        termine non documentato (nessuna promozione automatica possibile,
-        confermato con Denis il 23/08/2026) - al massimo un candidato per
-        revisione umana, mai una scrittura diretta a erpv6.vertical.catalog
-        o erpv6.kb.category. Implementare qui quando la spec di design e'
-        chiusa (soglia/notifica/instradamento)."""
-        _logger.info(
-            "Candidato vocabolario (campo 'altro'): sessione #%s, domanda '%s', testo='%s' - "
-            "nessuna azione automatica (hook in attesa di spec).",
-            answer.session_id.id, answer.question_id.name, answer.value_text,
+        """Per definizione, quando questo hook scatta e' la prima occorrenza
+        di un termine non documentato (nessuna promozione automatica
+        possibile, confermato con Denis il 23/08/2026) - al massimo un
+        candidato per revisione umana, mai una scrittura diretta a
+        erpv6.vertical.catalog. Trova/crea la erpv6.vocabulary.entry
+        condivisa per il termine, collega questa risposta, e se l'entry e'
+        nuova tenta il deep source e notifica Sabrina UNA volta sola (vedi
+        erpv6.vocabulary.entry._process_new_entry)."""
+        term = (answer.value_text or '').strip().lower()
+        if not term:
+            return
+        Entry = self.env['erpv6.vocabulary.entry'].sudo()
+        entry = Entry.search([('term', '=', term)], limit=1)
+        is_new = not entry
+        if not entry:
+            entry = Entry.create({'term': term})
+        answer.vocabulary_entry_id = entry.id
+        if is_new:
+            entry._process_new_entry(answer)
+
+
+class Erpv6VocabularyEntry(models.Model):
+    """Biblioteca condivisa dei termini scritti nel campo libero "altro"
+    dell'intervista, non legata a un lead specifico (piu' lead possono
+    scrivere lo stesso termine, es. "elicicoltura"). Nasce sempre da una
+    risposta reale, mai inventata. La promozione a riga vera in
+    erpv6.vertical.catalog (promoted_verticale_id) e' SEMPRE un click umano
+    con scelta esplicita del padre (parent_id) - mai dedotta in automatico,
+    anche quando il deep source suggerisce un settore plausibile."""
+    _name = 'erpv6.vocabulary.entry'
+    _description = 'Intervista - Termine vocabolario candidato'
+    _inherit = ['erpv6.core.tracked']
+
+    term = fields.Char(string='Termine', required=True, index=True)
+    answer_ids = fields.One2many('erpv6.interview.answer', 'vocabulary_entry_id', string='Risposte collegate')
+    state = fields.Selection([
+        ('new', 'Nuovo'),
+        ('deep_source_in_corso', 'Deep source in corso'),
+        ('deep_source_fallito', 'Deep source fallito'),
+        ('in_revisione', 'In revisione'),
+        ('promosso', 'Promosso'),
+        ('scartato', 'Scartato'),
+    ], default='new', required=True, tracking=True)
+    deep_source_text = fields.Text(string='Testo deep source')
+    deep_source_url = fields.Char(string='URL deep source')
+    deep_source_fetched_at = fields.Datetime(string='Deep source recuperato il')
+    promoted_verticale_id = fields.Many2one('erpv6.vertical.catalog', string='Promosso a prodotto/variante',
+                                             copy=False,
+                                             help="Valorizzato SOLO alla conferma umana, con padre scelto a mano.")
+    notified_at = fields.Datetime(string='Notificato il', copy=False,
+                                   help="Valorizzato la prima volta che Sabrina notifica questo termine - "
+                                        "evita ri-notifiche per occorrenze successive dello stesso termine.")
+
+    _sql_constraints = [
+        ('term_unique', 'unique(term)', 'Questo termine e\' gia\' in biblioteca vocabolario.'),
+    ]
+
+    def _process_new_entry(self, answer):
+        """Chiamato UNA volta sola, quando l'entry viene creata: prova il
+        deep source (mai bloccante - un fallimento non deve impedire la
+        notifica) poi notifica sempre Sabrina, una volta sola per termine
+        (vedi notified_at)."""
+        self.ensure_one()
+        try:
+            self._run_deep_source()
+        except Exception:
+            _logger.exception("Deep source fallito per il termine vocabolario '%s' (entry #%s).",
+                               self.term, self.id)
+            self.state = 'deep_source_fallito'
+        self._notify_sabrina(answer)
+
+    def _run_deep_source(self):
+        """Chiama direttamente lo scraper generico (erpv6.deep.source.engine
+        ._call_scraper_service), SENZA passare da erpv6.deep.source.config
+        (richiede kb_category_id obbligatorio, che qui non ha senso - scelta
+        confermata con Denis il 23/08/2026). URL costruito da un parametro
+        dato (non hardcoded), placeholder di primo passo: da rivedere in una
+        sessione dedicata (Denis ha citato ISMEA/Confagricoltura come fonti
+        alternative da valutare, non implementate ora)."""
+        self.ensure_one()
+        self.state = 'deep_source_in_corso'
+        template = self.env['ir.config_parameter'].sudo().get_param(
+            'erpv6_production.vocabulary_deep_source_url_template',
+            default='https://it.wikipedia.org/wiki/{term}',
         )
+        url = template.format(term=self.term)
+        engine = self.env['erpv6.deep.source.engine']
+        html = engine._call_scraper_service(url)
+        self.write({
+            'state': 'in_revisione',
+            'deep_source_text': html,
+            'deep_source_url': url,
+            'deep_source_fetched_at': fields.Datetime.now(),
+        })
+
+    def _notify_sabrina(self, answer):
+        """Notifica una tantum (notified_at) - se il termine ricompare da
+        un'altra risposta mentre l'entry e' gia' stata notificata, l'answer
+        si collega comunque (vedi Erpv6InterviewAnswer._notify_altro_candidate)
+        ma non si ri-notifica ne' si ri-tenta il deep source. Nessuna azione
+        automatica collegata (action_model/action_method): la promozione
+        richiede la scelta umana del padre, non e' un metodo a zero
+        argomenti - stesso schema di notify_pending_confirmation gia' usato
+        per la scoperta triple KG (kb_extraction_service._raise_triple_discovery_signal),
+        ma qui deliberatamente senza action_*."""
+        self.ensure_one()
+        if self.notified_at:
+            return
+        sabrina = self.env['erpv6.agent.config'].sudo().search([('code', '=', 'sabrina')], limit=1)
+        if not sabrina:
+            _logger.warning(
+                "Vocabolario intervista: agente Sabrina non trovato (erpv6.agent.config code='sabrina'), "
+                "termine '%s' (entry #%s) resta senza notifica.", self.term, self.id)
+            return
+        facts = [
+            _("Termine scritto nel campo libero \"altro\" dell'intervista: \"%s\".") % self.term,
+            _("Lead collegato: %s.") % (answer.session_id.lead_id.name or answer.session_id.lead_id.id),
+        ]
+        if self.state == 'in_revisione':
+            facts.append(_("Deep source riuscito: %s") % self.deep_source_url)
+        else:
+            facts.append(_("Deep source non disponibile (servizio scraper non raggiungibile) - "
+                            "nessun testo di supporto, valuta a mano."))
+        facts.append(_("Nessuna promozione automatica: per attivarlo in erpv6.vertical.catalog serve "
+                        "una scelta umana esplicita del prodotto generico padre."))
+        sabrina.notify_pending_confirmation(
+            title=_("Nuovo termine dall'intervista: \"%s\"") % self.term,
+            facts=facts,
+            res_model='erpv6.vocabulary.entry', res_id=self.id,
+        )
+        self.notified_at = fields.Datetime.now()

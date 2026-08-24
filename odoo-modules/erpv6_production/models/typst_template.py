@@ -43,6 +43,13 @@ class TypstTemplate(models.Model):
              "produrre un documento sbagliato/incompleto nel contenuto), solo un primo "
              "filtro automatico che non fallisce mai in silenzio.")
     typst_draft_compile_error = fields.Text(string="Bozza: errore compilazione", copy=False)
+    typst_source_promoted_at = fields.Datetime(
+        string="Sorgente promosso il", copy=False, readonly=True,
+        help="Valorizzato ad ogni promozione riuscita (action_promote_draft_to_source) -- "
+             "segnala visivamente che typst_source e' gia' stato scritto almeno una volta, "
+             "cosi' un secondo click sul pulsante (es. dopo aver rigenerato una nuova bozza) "
+             "e' una scelta consapevole di sovrascrivere, non un incidente. Segnalato da Denis "
+             "il 24/08/2026: il pulsante restava cliccabile senza nessuna indicazione.")
     typst_draft_unknown_fields = fields.Char(
         string="Bozza: chiavi non in required_fields", copy=False,
         help="Controllo statico (non affidato all'AI): chiavi lette con data.at(\"...\") nella "
@@ -287,13 +294,25 @@ class TypstTemplate(models.Model):
             'typst_source': self.typst_source_draft,
             'typst_draft_compile_ok': True,
             'typst_draft_compile_error': False,
+            'typst_source_promoted_at': fields.Datetime.now(),
         })
         self.message_post(body=_(
             "Sorgente Typst promosso dalla bozza AI (ricompilato con successo al momento "
             "della promozione). Da ora il motore di rendering (action_render) usa questo "
             "sorgente."
         ))
-        return True
+        # Ritorna un reload esplicito della scheda (segnalato da Denis il
+        # 24/08/2026: da app mobile il form non si aggiornava da solo dopo
+        # il click, il pulsante restava cliccabile senza nessun segnale
+        # visivo che l'azione fosse gia' avvenuta).
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': self._name,
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+            'target': 'main',
+        }
 
     def _static_check_unknown_fields(self, source, required_fields):
         """Controllo deterministico, non affidato alla buona volonta'

@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import requests
 
@@ -10,6 +11,15 @@ _logger = logging.getLogger(__name__)
 
 TELEGRAM_API_BASE = 'https://api.telegram.org/bot%s'
 TELEGRAM_HTTP_TIMEOUT = 15
+
+# Comando esplicito per approvare/rifiutare una erpv6.agent.proposal da
+# Telegram (24/08/2026, richiesto da Denis dopo aver scoperto che oggi una
+# risposta su Telegram non cambiava nulla: "se non approvo lui non deve
+# continuare, solo se approvo lui continua"). Solo parola chiave esplicita +
+# id, MAI interpretazione libera del testo -- stesso principio non
+# negoziabile gia' seguito per Sabrina/Andrea/Susanna (nessuna azione
+# dedotta da un messaggio ambiguo).
+PROPOSAL_DECISION_RE = re.compile(r'^\s*(approva|rifiuta)\s+(\d+)\s*$', re.IGNORECASE)
 
 
 class Erpv6AgentTelegramConfig(models.Model):
@@ -139,12 +149,19 @@ class Erpv6AgentTelegramConfig(models.Model):
     # perche' nessun record ha is_active=True + bot_token reale.
     # ------------------------------------------------------------------
 
-    def send_message(self, text):
+    def send_message(self, text, reply_markup=None):
         """Invia un messaggio di testo alla chat configurata (sendMessage).
         Ritorna True/False -- non solleva mai un'eccezione al chiamante
         (stesso principio gia' seguito ovunque per i canali di notifica: un
         canale che fallisce non deve mai far fallire l'intero flusso che lo
-        chiama), logga per intero l'errore reale."""
+        chiama), logga per intero l'errore reale.
+
+        reply_markup (opzionale, 24/08/2026): dict Telegram nativo
+        (es. {'inline_keyboard': [[{'text': '...', 'callback_data': '...'}]]})
+        per bottoni cliccabili -- richiesto da Denis dopo aver visto il
+        comando testuale 'approva N'/'rifiuta N' ("possibile che siano
+        cliccabili?"). Vedi send_proposal_decision() per il caso d'uso
+        concreto (proposte erpv6.agent.proposal)."""
         self.ensure_one()
         if not self.is_active or not self.bot_token or not self.chat_id:
             _logger.debug(
@@ -157,9 +174,12 @@ class Erpv6AgentTelegramConfig(models.Model):
             _logger.warning("Configurazione Telegram %s: bot_token non decifrabile, invio saltato.", self.name)
             return False
         try:
+            body = {'chat_id': self.chat_id, 'text': text}
+            if reply_markup:
+                body['reply_markup'] = reply_markup
             response = requests.post(
                 (TELEGRAM_API_BASE % token) + '/sendMessage',
-                json={'chat_id': self.chat_id, 'text': text},
+                json=body,
                 timeout=TELEGRAM_HTTP_TIMEOUT,
             )
             response.raise_for_status()
@@ -239,14 +259,66 @@ class Erpv6AgentTelegramConfig(models.Model):
         if max_update_id != self.last_update_id:
             self.last_update_id = max_update_id
 
-    def _process_update(self, update):
-        """UN update in ingresso: solo messaggi testuali dalla chat_id
-        configurata vengono elaborati (nessun'altra chat, nessun contenuto
-        non testuale -- foto/documenti/sticker restano fuori perimetro).
-        Genera sempre e solo una risposta conversazionale via
-        agent_config_id.answer_conversationally, MAI un'azione: stesso
-        vincolo non negoziabile gia' applicato ai canali Discuss."""
+    def send_proposal_decision(self, proposal_id, text):
+        """send_message con due bottoni cliccabili (Approva/Rifiuta) invece
+        del solo comando testuale 'approva N'/'rifiuta N' -- richiesto da
+        Denis il 24/08/2026 ("possibile che siano cliccabili?"). callback_data
+        resta comunque 'azione:id', stesso formato stretto del comando
+        testuale (mai testo libero interpretato): il click e' solo un modo
+        piu' comodo di mandare lo stesso comando esplicito."""
         self.ensure_one()
+        reply_markup = {
+            'inline_keyboard': [[
+                {'text': '✅ Approva', 'callback_data': 'approva:%d' % proposal_id},
+                {'text': '❌ Rifiuta', 'callback_data': 'rifiuta:%d' % proposal_id},
+            ]],
+        }
+        return self.send_message(text, reply_markup=reply_markup)
+
+    def _answer_callback_query(self, callback_query_id):
+        """Toglie lo stato 'in caricamento' dal bottone su Telegram dopo il
+        click -- non influisce sulla logica (il comando e' gia' stato
+        eseguito da _handle_proposal_decision), solo UX: senza questo il
+        bottone resterebbe visivamente in sospeso. Best-effort, mai
+        bloccante."""
+        token = self.get_decrypted_bot_token()
+        if not token:
+            return
+        try:
+            requests.post(
+                (TELEGRAM_API_BASE % token) + '/answerCallbackQuery',
+                json={'callback_query_id': callback_query_id},
+                timeout=TELEGRAM_HTTP_TIMEOUT,
+            )
+        except Exception:
+            _logger.exception("answerCallbackQuery fallito (non bloccante) per %s.", self.name)
+
+    def _process_update(self, update):
+        """UN update in ingresso: solo messaggi testuali O click sui
+        bottoni Approva/Rifiuta dalla chat_id configurata vengono elaborati
+        (nessun'altra chat, nessun contenuto non testuale -- foto/documenti/
+        sticker restano fuori perimetro). Genera sempre e solo una risposta
+        conversazionale via agent_config_id.answer_conversationally (o
+        un'approvazione/rifiuto SOLO per comando/click esplicito, mai
+        un'azione dedotta dal testo libero) -- stesso vincolo non
+        negoziabile gia' applicato ai canali Discuss."""
+        self.ensure_one()
+        callback_query = update.get('callback_query')
+        if callback_query:
+            chat_id = str(((callback_query.get('message') or {}).get('chat') or {}).get('id', ''))
+            if not chat_id or chat_id != str(self.chat_id):
+                _logger.warning(
+                    "Telegram: click bottone da una chat NON configurata (%s) sulla configurazione "
+                    "%s -- ignorato.", chat_id, self.name)
+                return
+            data = (callback_query.get('data') or '').strip()
+            match = PROPOSAL_DECISION_RE.match(data.replace(':', ' ', 1))
+            self._answer_callback_query(callback_query.get('id'))
+            if match and self.agent_config_id:
+                self._handle_proposal_decision(match.group(1).lower(), int(match.group(2)))
+            else:
+                _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
+            return
         message = update.get('message') or update.get('edited_message')
         if not message:
             return
@@ -264,6 +336,10 @@ class Erpv6AgentTelegramConfig(models.Model):
                 "Configurazione Telegram %s non collegata a nessun agente -- messaggio ricevuto ma "
                 "nessuna risposta possibile.", self.name)
             return
+        decision_match = PROPOSAL_DECISION_RE.match(text)
+        if decision_match:
+            self._handle_proposal_decision(decision_match.group(1).lower(), int(decision_match.group(2)))
+            return
         answer = self.agent_config_id.answer_conversationally(
             title=_("Telegram — %s") % self.agent_config_id.name,
             thread_history='',  # Compito 6: nessuno storico multi-turno persistito per Telegram
@@ -272,6 +348,49 @@ class Erpv6AgentTelegramConfig(models.Model):
             question_text=text,
         )
         self.send_message(answer)
+
+    def _handle_proposal_decision(self, decision, proposal_id):
+        """Approva/rifiuta DAVVERO una erpv6.agent.proposal da un comando
+        Telegram esplicito ('approva N'/'rifiuta N') - vedi PROPOSAL_DECISION_RE.
+        Scope limitato alla proposta di QUESTO agente (non un altro,
+        anche se l'id esiste): un comando su Telegram non deve poter
+        decidere proposte di canali diversi solo perche' l'id combacia.
+        Sempre una risposta chiara, mai un silenzio anche in caso di
+        errore/ambiguita' -- Denis deve sempre sapere se e' stato ascoltato."""
+        self.ensure_one()
+        proposal = self.env['erpv6.agent.proposal'].sudo().browse(proposal_id)
+        if not proposal.exists():
+            self.send_message(_("Non trovo nessuna proposta #%d.") % proposal_id)
+            return
+        if proposal.agent_config_id.id != self.agent_config_id.id:
+            self.send_message(_(
+                "La proposta #%(id)d non è di %(agent)s (questo canale) — non la tocco da qui."
+            ) % {'id': proposal_id, 'agent': self.agent_config_id.name})
+            return
+        if proposal.status != 'pending_review':
+            self.send_message(_(
+                "La proposta #%(id)d non è più in attesa (stato attuale: %(status)s) — nessuna azione."
+            ) % {'id': proposal_id, 'status': proposal.status})
+            return
+        reviewer = self.env.ref('base.user_admin', raise_if_not_found=False) or self.env.user
+        if decision == 'approva':
+            proposal.sudo().write({
+                'status': 'accepted', 'reviewer_id': reviewer.id, 'reviewed_at': fields.Datetime.now(),
+            })
+            self.send_message(_(
+                "✅ Proposta #%d approvata. %s se ne occupa a breve, ti avviso quando è fatto."
+            ) % (proposal_id, self.agent_config_id.name))
+        else:
+            # NON action_reject(): quel metodo usa self.env.user, che qui e'
+            # l'utente tecnico del cron/shell che ha ricevuto l'update
+            # Telegram, non Denis - scoperto il 24/08/2026 controllando il
+            # reviewer_id reale dopo un rifiuto vero (risultava #1,
+            # OdooBot/tecnico, non l'admin). write() esplicito con lo stesso
+            # 'reviewer' gia' usato per l'approvazione, per coerenza.
+            proposal.sudo().write({
+                'status': 'rejected', 'reviewer_id': reviewer.id, 'reviewed_at': fields.Datetime.now(),
+            })
+            self.send_message(_("❌ Proposta #%d rifiutata, non verrà applicata.") % proposal_id)
 
     @api.model
     def _cron_poll_telegram_updates(self):

@@ -20,11 +20,19 @@
                         confirm="L'AI propone una BOZZA di sorgente Typst (mai applicata direttamente): verrà scritta solo su typst_source_draft, da rivedere e promuovere manualmente. Procedere?"/>
                 <button name="action_promote_draft_to_source" type="object"
                         string="Promuovi bozza a sorgente" class="oe_highlight"
-                        invisible="not typst_source_draft"
+                        invisible="not typst_source_draft or typst_source_promoted_at"
                         confirm="Il sorgente Typst reale (typst_source) verrà sovrascritto con questa bozza, dopo averla ricompilata ora. Procedere?"/>
+                <button name="action_promote_draft_to_source" type="object"
+                        string="Ripromuovi bozza a sorgente (sovrascrive)" class="btn-secondary"
+                        invisible="not typst_source_draft or not typst_source_promoted_at"
+                        confirm="ATTENZIONE: un sorgente era già stato promosso in precedenza (vedi data sopra) ed è già in uso dal motore di rendering. Questo click lo sovrascrive di nuovo con la bozza attuale, dopo averla ricompilata ora. Procedere?"/>
             </xpath>
             <xpath expr="//page[@name='sorgente_typst']" position="after">
                 <page string="Bozza Sorgente (AI)" name="typst_source_draft_page" invisible="not typst_source_draft">
+                    <div class="alert alert-success" role="alert" invisible="not typst_source_promoted_at">
+                        Sorgente già promosso a produzione il <field name="typst_source_promoted_at" readonly="1" nolabel="1"/>.
+                        Un nuovo click sovrascriverebbe quello attualmente in uso.
+                    </div>
                     <group>
                         <group>
                             <field name="typst_draft_generated_at" readonly="1"/>

@@ -88,10 +88,38 @@ class Erpv6ValidationSession(models.Model):
     # in escalation per intervento umano davvero (non solo tecnico).
     ai_failure_retry_count = fields.Integer(string='Tentativi automatici di retry (fallimento AI)', default=0)
 
+    # Semaforo sul DISACCORDO DI CONTENUTO reale tra i giudici (mai su un
+    # fallimento tecnico, quello resta silenzioso/auto-ritentato, vedi
+    # _cron_retry_escalated_ai_failures) -- deciso con Denis il 24/08/2026:
+    # verde solo se davvero convergenti (issues_found=0, 'validato' non deve
+    # mai voler dire altro), giallo fino a 2 discrepanze trovate dal Sesto
+    # Uomo nell'ultimo round, rosso da 3 in su. 'none' quando non c'e' ancora
+    # un esito di contenuto significativo (draft/in_validation) o quando
+    # l'escalation e' tecnica (last_round.is_ai_failure), che non e' un
+    # disaccordo di contenuto e non deve accendere nessun colore qui.
+    content_flag = fields.Selection([
+        ('none', 'N/D'),
+        ('verde', 'Verde — validato'),
+        ('giallo', 'Giallo — lieve disaccordo'),
+        ('rosso', 'Rosso — disaccordo serio'),
+    ], string='Semaforo contenuto', compute='_compute_content_flag', store=True, default='none')
+
     @api.depends('round_ids')
     def _compute_current_round(self):
         for session in self:
             session.current_round_number = len(session.round_ids)
+
+    @api.depends('status', 'round_ids.issues_found', 'round_ids.is_ai_failure')
+    def _compute_content_flag(self):
+        for session in self:
+            last_round = session.round_ids[-1] if session.round_ids else False
+            if session.status == 'converged':
+                session.content_flag = 'verde'
+            elif session.status == 'escalated_to_human' and last_round and not last_round.is_ai_failure:
+                issues = last_round.issues_found or 0
+                session.content_flag = 'rosso' if issues >= 3 else 'giallo'
+            else:
+                session.content_flag = 'none'
 
     @api.model
     def _cron_retry_escalated_ai_failures(self):
@@ -206,6 +234,7 @@ class Erpv6ValidationSession(models.Model):
 
             # Esegui analisi per ogni analista (1-5 o solo sesto)
             analysis_findings = []
+            any_analyst_failed = False
             for analyst_idx in analyst_indices[:-1]:  # Tutti tranne il sesto
                 # Risoluzione DENTRO il ciclo, non prima: prima del fix del
                 # 21/08/2026 il template veniva letto UNA volta fuori dal
@@ -230,6 +259,15 @@ class Erpv6ValidationSession(models.Model):
                     _logger.warning(
                         "Analista %s (sessione #%s, round %d) fallito: %s",
                         analyst_idx, session.id, round_number, error)
+                    # Buco trovato il 24/08/2026: prima solo un fallimento del
+                    # Sesto Uomo marcava is_ai_failure sul round. Se falliva
+                    # invece uno dei 5 analisti, l'errore diventava testo
+                    # "[ERRORE ANALISI: ...]" dentro findings, passato al Sesto
+                    # Uomo come se fosse un parere vero -- la sessione poteva
+                    # finire "in disaccordo" quando in realta' un analista non
+                    # aveva proprio risposto. Tracciato qui, applicato sotto al
+                    # round insieme a error_sesto.
+                    any_analyst_failed = True
                 findings = parsed.get('findings', '') if not error else _("[ERRORE ANALISI: %s]") % error
 
                 # Crea il record di analisi
@@ -293,7 +331,7 @@ class Erpv6ValidationSession(models.Model):
                 # di un'eventuale escalation, vedi
                 # _cron_retry_escalated_ai_failures: ritenta automaticamente
                 # solo quelle marcate qui, mai un'escalation per contenuto.
-                'is_ai_failure': bool(error_sesto),
+                'is_ai_failure': bool(error_sesto) or any_analyst_failed,
             })
 
             # Crea il record di analisi per il sesto uomo

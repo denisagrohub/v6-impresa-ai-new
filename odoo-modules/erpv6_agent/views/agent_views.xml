@@ -116,6 +116,11 @@
                             <field name="reviewed_at" readonly="1"/>
                         </group>
                     </group>
+                    <group string="Catena Kaizen → Claudio → Argus">
+                        <field name="parent_proposal_id" readonly="1"/>
+                        <field name="child_proposal_ids" readonly="1" widget="many2many_tags"/>
+                        <field name="technical_report_id" readonly="1"/>
+                    </group>
                     <group string="Proposta">
                         <field name="proposal_text" nolabel="1" readonly="1"/>
                     </group>

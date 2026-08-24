@@ -5,6 +5,7 @@ from odoo.http import request
 from .main import APIBaseController
 
 
+# hasattr(request.env, ...) sostituito con "in request.env": vedi module_kb/known_errors/hasattr_request_env.md per il motivo.
 class SaasVerticalAPIController(APIBaseController):
     """API per gestione Verticali SaaS.
 
@@ -27,7 +28,7 @@ class SaasVerticalAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.vertical.catalog'):
+            if 'erpv6.vertical.catalog' not in request.env:
                 self._log_api_call('/api/v1/saas/verticals', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'SaaS module not installed'}, status=501)
 
@@ -68,7 +69,7 @@ class SaasVerticalAPIController(APIBaseController):
             return error_response
 
         try:
-            if not hasattr(request.env, 'erpv6.vertical.catalog'):
+            if 'erpv6.vertical.catalog' not in request.env:
                 self._log_api_call(f'/api/v1/saas/verticals/{verticale}/modules', 'GET', user.id, 501, start_time)
                 return self._json_response({'error': 'SaaS module not installed'}, status=501)
 

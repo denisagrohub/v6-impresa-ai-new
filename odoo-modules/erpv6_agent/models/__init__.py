@@ -9,3 +9,4 @@ from . import agent_proposal_accept_wizard
 from . import agent_create_wizard
 from . import kb_knowledge
 from . import library_document
+from . import agent_neo4j_client

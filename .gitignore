@@ -78,3 +78,13 @@ node_modules
 # Proposta Neo4j knowledge graph (1D, docs/PLAN_knowledge_graph_phase1.md)
 # -- mai committare una password reale, solo .env.example resta tracciato.
 erpv6_devtools/graph/neo4j/.env
+
+# Chiavi API Claudio/Argus (24/08/2026) - gia' coperte dal pattern globale
+# ".env"/"*.env.*" sopra (riga 40/42), righe esplicite solo per chiarezza.
+erpv6_devtools/claudio/.env
+erpv6_devtools/argus/.env
+.aider*
+
+# Stato locale del ciclo automatico di Claudio (elenco proposte gia'
+# elaborate su QUESTO VPS) - non codice, non va nel repo.
+erpv6_devtools/claudio/dispatched_proposals.json

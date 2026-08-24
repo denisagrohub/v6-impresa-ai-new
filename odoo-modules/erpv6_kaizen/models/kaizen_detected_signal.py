@@ -291,10 +291,17 @@ class Erpv6KaizenDetectedSignal(models.Model):
         # questo modulo da un dettaglio interno di un altro solo per una
         # costante. Se cambia la' va aggiornata anche qui a mano.
         VALIDATION_MAX_AI_FAILURE_RETRIES = 5
-        stuck = self.env['erpv6.validation.session'].search([
+        candidates = self.env['erpv6.validation.session'].search([
             ('status', '=', 'escalated_to_human'),
             ('ai_failure_retry_count', '>=', VALIDATION_MAX_AI_FAILURE_RETRIES),
         ])
+        # Ristretto il 24/08/2026 (decisione con Denis): questo segnale deve
+        # restare SOLO tecnico -- se lo storico ha accumulato retry per
+        # fallimenti AI ma l'ultimo round e' un disaccordo di contenuto vero
+        # (last_round.is_ai_failure=False), non e' un problema sistemico per
+        # Kaizen, e' una decisione per Denis (vedi content_flag su
+        # erpv6.validation.session e la vista "Da decidere").
+        stuck = candidates.filtered(lambda s: s.round_ids and s.round_ids[-1].is_ai_failure)
         new_count = 0
         for session in stuck:
             if self._already_detected(session._name, session.id, 'validation_escalation_stuck'):

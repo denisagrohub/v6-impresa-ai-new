@@ -43,6 +43,7 @@
         'data/validation_session_bulk_actions.xml',
         'data/kb_bulk_actions.xml',
         'data/interview_question_data.xml',
+        'data/vocabulary_deep_source_data.xml',
         'views/production_views.xml',
         'views/production_schedule_views.xml',
         'views/kb_import_wizard_views.xml',

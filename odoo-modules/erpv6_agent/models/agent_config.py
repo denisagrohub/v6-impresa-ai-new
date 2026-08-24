@@ -271,6 +271,135 @@ class Erpv6AgentConfig(models.Model):
             return fallback
         return message
 
+    def _compute_live_briefing(self):
+        """Dati REALI (mai inventati/riassunti a memoria) su piu' domini
+        dell'attivita' di Denis, SOLO per Susanna (24/08/2026, richiesto
+        esplicitamente: "deve vedere tutto di me essendo la mia assistente"
+        -- non accesso grezzo, capacita' di rispondere subito su dove
+        stanno le cose, stesso ruolo di una vera segretaria/EA). Ogni
+        agente futuro che ne avesse bisogno puo' estendere qui (dispatch su
+        self.code, stesso pattern gia' in uso altrove in questo file) --
+        non un meccanismo per-agente separato duplicato. Sola lettura,
+        sempre: nessuna scrittura, nessuna azione, solo query dirette al
+        momento della domanda cosi' il dato e' sempre fresco."""
+        self.ensure_one()
+        if self.code != 'susanna':
+            return ''
+        sections = []
+
+        admin = self.env.ref('base.user_admin', raise_if_not_found=False)
+        if admin:
+            activities = self.env['mail.activity'].sudo().search(
+                [('user_id', '=', admin.id)], limit=10, order='date_deadline')
+            if activities:
+                lines = ["- %s (%s, scadenza %s)" % (
+                    a.summary or a.res_name or ('%s #%d' % (a.res_model, a.res_id)),
+                    a.res_model, a.date_deadline) for a in activities]
+                sections.append("ATTIVITÀ APERTE DI DENIS (%d):\n%s" % (len(activities), "\n".join(lines)))
+            else:
+                sections.append("ATTIVITÀ APERTE DI DENIS: nessuna.")
+
+        leads = self.env['crm.lead'].sudo().search(
+            [('type', '=', 'opportunity'), ('active', '=', True)], limit=8, order='write_date desc')
+        if leads:
+            lines = ["- #%d %s (fase: %s)" % (l.id, l.name, l.stage_id.name if l.stage_id else '?') for l in leads]
+            sections.append("OPPORTUNITÀ ATTIVE RECENTI (%d mostrate):\n%s" % (len(leads), "\n".join(lines)))
+
+        if 'erpv6.production.order' in self.env:
+            productions = self.env['erpv6.production.order'].sudo().search(
+                [], limit=8, order='write_date desc')
+            if productions:
+                lines = ["- #%d %s (fase: %s)" % (
+                    p.id, p.lead_id.name or '?', p.phase_id.name if p.phase_id else '?') for p in productions]
+                sections.append("PRODUZIONI RECENTI (%d mostrate):\n%s" % (len(productions), "\n".join(lines)))
+
+        proposals = self.env['erpv6.agent.proposal'].sudo().search(
+            [('status', '=', 'pending_review')], limit=10, order='create_date desc')
+        if proposals:
+            lines = ["- #%d [%s] %s" % (p.id, p.agent_config_id.name, p.name) for p in proposals]
+            sections.append("PROPOSTE IN ATTESA DI DECISIONE (%d):\n%s" % (len(proposals), "\n".join(lines)))
+        else:
+            sections.append("PROPOSTE IN ATTESA DI DECISIONE: nessuna.")
+
+        comms = self.env['erpv6.agent.communication'].sudo().search(
+            [], limit=8, order='create_date desc')
+        if comms:
+            lines = ["- #%d %s (%s, agente %s)" % (
+                c.id, c.name, c.routing_state, c.agent_config_id.name) for c in comms]
+            sections.append("COMUNICAZIONI RECENTI DEGLI AGENTI (%d mostrate):\n%s" % (len(comms), "\n".join(lines)))
+
+        log_kb = self.env['erpv6.kb'].sudo().search(
+            [('name', '=', 'Registro Attività Agenti Esterni (sync automatico)')], limit=1)
+        if log_kb and log_kb.content:
+            # Solo le ultime righe (il file cresce nel tempo, non serve
+            # tutto lo storico in ogni singola risposta di Susanna).
+            tail = "\n".join(log_kb.content.strip().splitlines()[-15:])
+            sections.append("ULTIME ATTIVITÀ DI CLAUDIO/ARGUS (coda del registro):\n%s" % tail)
+
+        return "\n\n".join(sections)
+
+    # Parole chiave per il recupero dati diretto (24/08/2026, richiesto
+    # esplicitamente da Denis: "Susanna dovrebbe girare in Odoo senza
+    # consumare troppe chiamate AI, i dati sono dentro Odoo") - stesso
+    # principio non negoziabile del match per parola chiave esplicita, MAI
+    # un giudizio "sembra una domanda sui dati": se nessuna di queste
+    # compare, si passa comunque all'AI, mai un rifiuto silenzioso.
+    DIRECT_DATA_KEYWORDS = (
+        'notifiche', 'appuntamenti', 'programma', 'attività', 'attivita',
+        'proposte', 'in sospeso', 'in attesa', 'aggiornami', 'situazione',
+    )
+
+    def _try_direct_data_answer(self, question_text):
+        """SOLO per Susanna: se la domanda e' chiaramente un recupero dati
+        (parola chiave esplicita, vedi DIRECT_DATA_KEYWORDS), risponde
+        DIRETTAMENTE col briefing live gia' calcolato -- ZERO chiamate AI,
+        zero rischio di 429/rate limit, dato sempre fresco perche' letto
+        ora. Solo per domande genuinamente aperte (serve capire/formulare,
+        non solo recuperare) si passa all'AI in answer_conversationally.
+        Ritorna None (mai stringa vuota) se non e' il caso, cosi' il
+        chiamante sa distinguere "bypass non applicabile" da "bypass
+        applicato ma senza contenuto"."""
+        self.ensure_one()
+        if self.code != 'susanna':
+            return None
+        text_lower = question_text.lower()
+        if not any(kw in text_lower for kw in self.DIRECT_DATA_KEYWORDS):
+            return None
+        briefing = self._compute_live_briefing()
+        if not briefing:
+            return _("Non ho trovato dati da mostrarti al momento.")
+        return _("Ecco la situazione reale, appena controllata:\n\n%s") % briefing
+
+    def _consult_other_agent(self, question_text):
+        """SOLO per Susanna (24/08/2026, richiesto esplicitamente: "quando
+        attiva gli altri agenti gli altri devono risponderle subito e lei
+        deve comunicarmi la risposta"). Riconoscimento per NOME esplicito
+        menzionato nella domanda (mai interpretazione libera di quale
+        agente "potrebbe" essere pertinente -- stesso principio non
+        negoziabile gia' seguito per ogni azione degli agenti stasera):
+        se Denis nomina un altro agente attivo per nome, quell'agente
+        risponde DAVVERO (stessa answer_conversationally, sincrona, subito)
+        e la sua risposta reale viene passata a Susanna per essere
+        comunicata -- mai una risposta inventata a nome di un altro
+        agente."""
+        self.ensure_one()
+        if self.code != 'susanna':
+            return None
+        others = self.env['erpv6.agent.config'].search([('code', '!=', 'susanna'), ('active', '=', True)])
+        text_lower = question_text.lower()
+        for other in others:
+            if other.name and other.name.lower() in text_lower:
+                try:
+                    answer = other.answer_conversationally(
+                        title=_("Richiesta di Denis via Susanna"),
+                        thread_history='', question_text=question_text,
+                    )
+                except Exception:
+                    _logger.exception("Consultazione di %s da parte di Susanna fallita.", other.code)
+                    continue
+                return (other, answer)
+        return None
+
     def answer_conversationally(self, title, thread_history, question_text):
         """Genera una risposta conversazionale GENUINA (dialogo vero, non un
         template) a un messaggio umano scritto in un thread dove QUESTO
@@ -295,6 +424,9 @@ class Erpv6AgentConfig(models.Model):
             "Ho ricevuto il tuo messaggio ma non sono riuscita a generare una risposta in questo "
             "momento -- riprova o chiedi di nuovo."
         )
+        direct_answer = self._try_direct_data_answer(question_text)
+        if direct_answer is not None:
+            return direct_answer
         if not self.omni_task_type:
             return fallback
         persona_text = self._get_persona_text()
@@ -302,6 +434,17 @@ class Erpv6AgentConfig(models.Model):
             [('category_id', '=', self.instructions_category_id.id), ('is_active', '=', True)], order='name') \
             if self.instructions_category_id else self.env['erpv6.kb']
         instructions_text = "\n\n".join("### %s\n%s" % (kb.name, kb.content) for kb in instructions_kbs)
+        live_briefing = self._compute_live_briefing()
+        if live_briefing:
+            instructions_text += "\n\n### Stato attuale (dati reali, interrogati ora)\n%s" % live_briefing
+        consulted = self._consult_other_agent(question_text)
+        if consulted:
+            other, other_answer = consulted
+            instructions_text += (
+                "\n\n### Risposta REALE di %(agent)s, appena consultato per questa domanda\n"
+                "%(answer)s\n\n(Riporta questa risposta a Denis attribuendola chiaramente a "
+                "%(agent)s, nel tuo tono, senza inventare nulla in più.)"
+            ) % {'agent': other.name, 'answer': other_answer}
         system_prompt = (
             "Sei l'agente '%(name)s' del sistema erpv6.%(persona)s Un umano ti ha scritto un messaggio "
             "in una conversazione con te (contesto/titolo, se applicabile: '%(title)s' -- puo' essere "

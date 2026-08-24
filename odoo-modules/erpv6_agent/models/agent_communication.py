@@ -226,6 +226,22 @@ class Erpv6AgentCommunication(models.Model):
             facts=facts, res_model=self.res_model, res_id=self.res_id,
         )
         self.write({'routing_state': 'sent_direct', 'confirmation_id': confirmation.id})
+        # Telegram diretto dall'agente stesso (non da Susanna) per i casi
+        # gravi - richiesto esplicitamente da Denis il 24/08/2026: "voglio
+        # che Claudio scriva e che Susanna controlli". Susanna resta
+        # comunque in copia sul thread Discuss sotto (il suo ruolo di
+        # controllo/supervisione), ma l'avviso urgente parte dal canale
+        # dell'agente che l'ha originato, non instradato tramite lei.
+        # Best-effort: mai bloccare il resto se il bot dell'agente non e'
+        # configurato/attivo (caso normale finche' Denis non fornisce un
+        # token per quell'agente specifico).
+        try:
+            telegram_body = "%s\n\n%s" % (self.name, "\n".join(facts))
+            self.env['erpv6.agent.telegram.config'].send_message_for_agent(self.agent_config_id, telegram_body)
+        except Exception:
+            _logger.exception(
+                "Invio Telegram diretto (best-effort) fallito per comunicazione #%s -- il "
+                "canale Discuss/email sopra resta comunque valido.", self.id)
         susanna = self.env['erpv6.agent.config'].search([('code', '=', 'susanna'), ('active', '=', True)], limit=1)
         if susanna and susanna.partner_id:
             record = self.env[self.res_model].browse(self.res_id)
@@ -272,6 +288,19 @@ class Erpv6AgentCommunication(models.Model):
             facts=facts, res_model=self.res_model, res_id=self.res_id,
         )
         self.write({'routing_state': 'sent_via_susanna', 'confirmation_id': confirmation.id})
+        # Telegram SUBITO, non solo dopo l'escalation a 5 minuti (richiesto
+        # esplicitamente da Denis il 24/08/2026: "quando scrivono Susanna
+        # deve scrivermi su telegram") - prima Telegram partiva solo da
+        # _escalate() qui sotto, dopo il silenzio. Stesso principio
+        # best-effort: un fallimento qui non deve mai bloccare il routing
+        # Discuss/email gia' andato a buon fine sopra.
+        try:
+            telegram_body = "%s\n\n%s" % (self.name, "\n".join(facts))
+            self.env['erpv6.agent.telegram.config'].send_message_for_agent(susanna, telegram_body)
+        except Exception:
+            _logger.exception(
+                "Invio Telegram immediato (best-effort) fallito per comunicazione #%s -- il "
+                "routing Discuss/email sopra resta comunque valido.", self.id)
 
     @api.model
     def create_and_route(self, vals):
