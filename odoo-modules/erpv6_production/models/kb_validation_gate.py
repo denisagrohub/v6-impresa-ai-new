@@ -25,6 +25,7 @@ class Erpv6KbValidationGate(models.AbstractModel):
         motivazione, da confermare con l'utente se non convince.
         """
         Session = self.env['erpv6.validation.session']
+        KbModel = self.env['erpv6.kb']
         sessions = Session.browse()
         access_level_labels = dict(kb_records._fields['access_level'].selection) if kb_records else {}
         for kb in kb_records:
@@ -34,6 +35,24 @@ class Erpv6KbValidationGate(models.AbstractModel):
                 f"'{kb.name}' (tipo '{kb.kb_type}') prima di attivarla per l'uso da parte "
                 f"del motore (find_best_for/erpv6.kb.engine)."
             )
+            # Per la lente #4 (Analista 4, "coerenza con la KB gia' attiva"):
+            # voci gia' attive nella stessa categoria, escludendo se stessa.
+            # Limitate a 5 e al contenuto troncato per non gonfiare il
+            # context_data con testo che l'analista non ha bisogno di leggere
+            # per intero per rilevare una contraddizione palese.
+            related_active_kb_entries = []
+            if kb.category_id:
+                related = KbModel.search([
+                    ('category_id', '=', kb.category_id.id),
+                    ('is_active', '=', True),
+                    ('id', '!=', kb.id),
+                ], limit=5)
+                for r in related:
+                    related_active_kb_entries.append({
+                        'kb_id': r.id,
+                        'kb_name': r.name,
+                        'content': (r.content[:1000] if r.content and not r.is_encrypted else '(contenuto cifrato o assente)'),
+                    })
             context_data = {
                 'kb_id': kb.id,
                 'kb_name': kb.name,
@@ -41,6 +60,14 @@ class Erpv6KbValidationGate(models.AbstractModel):
                 'category': kb.category_id.name,
                 'source': kb.source,
                 'content': kb.content if not kb.is_encrypted else '(contenuto cifrato, non incluso)',
+                'related_active_kb_entries': related_active_kb_entries,
+                # Fase 1C.2 knowledge graph (vedi docs/PLAN_knowledge_graph_phase1.md):
+                # triple gia' filtrate sul vocabolario controllato al momento
+                # dell'estrazione (kb_extraction_service.py, ALLOWED_TRIPLE_SHAPES) --
+                # passate ai Giudici solo come contesto in piu' per la lente di
+                # accuratezza, non validate qui una seconda volta ne' scritte
+                # da nessuna parte come nodi/archi reali.
+                'extracted_triples': kb.extracted_triples or [],
             }
             session = Session.create({
                 'res_model': 'erpv6.kb',

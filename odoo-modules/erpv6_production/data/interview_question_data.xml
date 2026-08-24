@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- noupdate="1": seme iniziale del ramo generico dell'intervista (si
+         applica a qualunque prodotto scelto come radice, verticale_id
+         vuoto), un admin puo' modificarlo/estenderlo da Impostazioni senza
+         che un upgrade del modulo lo sovrascriva - stessa convenzione di
+         kairos_scoring_rule_data.xml. Le stringhe di 'budget' e
+         'tempistiche' devono restare IDENTICHE a erpv6.kairos.scoring.rule
+         (vedi kairos_scoring_rule_data.xml) e a
+         apps/impresa/src/app/intervista/page.tsx: vincolo tecnico reale
+         gia' documentato in _compute_kairos_matrix. -->
+    <data noupdate="1">
+
+        <record id="interview_q_tipo_progetto" model="erpv6.interview.question">
+            <field name="name">tipo_progetto</field>
+            <field name="question_text">Che tipo di progetto ti interessa?</field>
+            <field name="field_key">tipo_progetto</field>
+            <field name="answer_type">select</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_tipo_progetto_opt1" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tipo_progetto"/>
+            <field name="value">Business Plan base</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_tipo_progetto_opt2" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tipo_progetto"/>
+            <field name="value">Piano industriale</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="interview_q_tipo_progetto_opt3" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tipo_progetto"/>
+            <field name="value">Project Finance / M&amp;A</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="interview_q_tipo_progetto_opt4" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tipo_progetto"/>
+            <field name="value">Passaggio generazionale</field>
+            <field name="sequence">40</field>
+        </record>
+        <record id="interview_q_tipo_progetto_opt5" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tipo_progetto"/>
+            <field name="value">Ristrutturazione debito</field>
+            <field name="sequence">50</field>
+        </record>
+
+        <record id="interview_q_destinatario" model="erpv6.interview.question">
+            <field name="name">destinatario</field>
+            <field name="question_text">A chi è destinato questo documento?</field>
+            <field name="parent_id" ref="interview_q_tipo_progetto"/>
+            <field name="field_key">destinatario</field>
+            <field name="answer_type">select</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_destinatario_opt1" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_destinatario"/>
+            <field name="value">Banca</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_destinatario_opt2" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_destinatario"/>
+            <field name="value">Investitore</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="interview_q_destinatario_opt3" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_destinatario"/>
+            <field name="value">Partner</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="interview_q_destinatario_opt4" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_destinatario"/>
+            <field name="value">Interno</field>
+            <field name="sequence">40</field>
+        </record>
+
+        <record id="interview_q_tempistiche" model="erpv6.interview.question">
+            <field name="name">tempistiche</field>
+            <field name="question_text">In che tempi vorresti realizzarlo?</field>
+            <field name="parent_id" ref="interview_q_destinatario"/>
+            <field name="field_key">tempistiche</field>
+            <field name="answer_type">select</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_tempistiche_opt1" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tempistiche"/>
+            <field name="value">Immediata (&lt; 1 mese)</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_tempistiche_opt2" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tempistiche"/>
+            <field name="value">Breve (1-3 mesi)</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="interview_q_tempistiche_opt3" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tempistiche"/>
+            <field name="value">Media (3-6 mesi)</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="interview_q_tempistiche_opt4" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_tempistiche"/>
+            <field name="value">Lunga (&gt; 6 mesi)</field>
+            <field name="sequence">40</field>
+        </record>
+
+        <record id="interview_q_budget" model="erpv6.interview.question">
+            <field name="name">budget</field>
+            <field name="question_text">Che budget hai a disposizione?</field>
+            <field name="parent_id" ref="interview_q_tempistiche"/>
+            <field name="field_key">budget</field>
+            <field name="answer_type">select</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_budget_opt1" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_budget"/>
+            <field name="value">&lt; €5.000</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_budget_opt2" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_budget"/>
+            <field name="value">€5.000 - €10.000</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="interview_q_budget_opt3" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_budget"/>
+            <field name="value">€10.000 - €25.000</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="interview_q_budget_opt4" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_budget"/>
+            <field name="value">&gt; €25.000</field>
+            <field name="sequence">40</field>
+        </record>
+
+        <record id="interview_q_fatturato" model="erpv6.interview.question">
+            <field name="name">fatturato</field>
+            <field name="question_text">Qual è il fatturato annuo della tua azienda?</field>
+            <field name="parent_id" ref="interview_q_budget"/>
+            <field name="field_key">fatturato</field>
+            <field name="answer_type">select</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_fatturato_opt1" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_fatturato"/>
+            <field name="value">&lt; 1M€</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_fatturato_opt2" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_fatturato"/>
+            <field name="value">1M€ - 5M€</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="interview_q_fatturato_opt3" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_fatturato"/>
+            <field name="value">5M€ - 10M€</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="interview_q_fatturato_opt4" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_fatturato"/>
+            <field name="value">&gt; 10M€</field>
+            <field name="sequence">40</field>
+        </record>
+
+        <record id="interview_q_obiettivi" model="erpv6.interview.question">
+            <field name="name">obiettivi</field>
+            <field name="question_text">Raccontaci in breve quali sono i tuoi obiettivi principali</field>
+            <field name="parent_id" ref="interview_q_fatturato"/>
+            <field name="answer_type">textarea</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">10</field>
+        </record>
+
+    </data>
+</odoo>

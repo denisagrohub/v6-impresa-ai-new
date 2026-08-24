@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_interview_question_tree" model="ir.ui.view">
+        <field name="name">erpv6.interview.question.tree</field>
+        <field name="model">erpv6.interview.question</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="question_text"/>
+                <field name="parent_id"/>
+                <field name="verticale_id"/>
+                <field name="field_key"/>
+                <field name="answer_type"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_interview_question_form" model="ir.ui.view">
+        <field name="name">erpv6.interview.question.form</field>
+        <field name="model">erpv6.interview.question</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="question_text"/>
+                            <field name="parent_id"/>
+                            <field name="verticale_id"/>
+                        </group>
+                        <group>
+                            <field name="field_key"/>
+                            <field name="answer_type"/>
+                            <field name="always_show_altro"/>
+                            <field name="kb_category_id"/>
+                            <field name="sequence"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Opzioni" invisible="answer_type != 'select'">
+                            <field name="option_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="value"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Domande successive">
+                            <field name="child_ids">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="question_text"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_interview_question" model="ir.actions.act_window">
+        <field name="name">Domande Intervista</field>
+        <field name="res_model">erpv6.interview.question</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('parent_id', '=', False)]</field>
+        <field name="context">{'default_answer_type': 'select'}</field>
+    </record>
+
+    <record id="view_interview_answer_tree_embed" model="ir.ui.view">
+        <field name="name">erpv6.interview.answer.tree.embed</field>
+        <field name="model">erpv6.interview.answer</field>
+        <field name="arch" type="xml">
+            <list create="false" edit="false" delete="false">
+                <field name="question_id"/>
+                <field name="option_id"/>
+                <field name="value_text"/>
+                <field name="is_altro"/>
+                <field name="create_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_interview_session_tree" model="ir.ui.view">
+        <field name="name">erpv6.interview.session.tree</field>
+        <field name="model">erpv6.interview.session</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="lead_id"/>
+                <field name="verticale_id"/>
+                <field name="state"/>
+                <field name="started_date"/>
+                <field name="completed_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_interview_session_form" model="ir.ui.view">
+        <field name="name">erpv6.interview.session.form</field>
+        <field name="model">erpv6.interview.session</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Completata" invisible="state != 'completed'"/>
+                    <group>
+                        <group>
+                            <field name="lead_id"/>
+                            <field name="verticale_id"/>
+                            <field name="state"/>
+                        </group>
+                        <group>
+                            <field name="current_question_id"/>
+                            <field name="started_date"/>
+                            <field name="completed_date"/>
+                            <field name="kairos_matrix_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Risposte">
+                            <field name="answer_ids" readonly="1">
+                                <list create="false" edit="false" delete="false">
+                                    <field name="question_id"/>
+                                    <field name="option_id"/>
+                                    <field name="value_text"/>
+                                    <field name="is_altro"/>
+                                    <field name="create_date"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_interview_session" model="ir.actions.act_window">
+        <field name="name">Sessioni Intervista</field>
+        <field name="res_model">erpv6.interview.session</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_vocabulary_entry_tree" model="ir.ui.view">
+        <field name="name">erpv6.vocabulary.entry.tree</field>
+        <field name="model">erpv6.vocabulary.entry</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="term"/>
+                <field name="state"/>
+                <field name="deep_source_url"/>
+                <field name="notified_at"/>
+                <field name="promoted_verticale_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_vocabulary_entry_form" model="ir.ui.view">
+        <field name="name">erpv6.vocabulary.entry.form</field>
+        <field name="model">erpv6.vocabulary.entry</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="term"/>
+                            <field name="state"/>
+                            <field name="promoted_verticale_id"/>
+                        </group>
+                        <group>
+                            <field name="deep_source_url"/>
+                            <field name="deep_source_fetched_at"/>
+                            <field name="notified_at"/>
+                        </group>
+                    </group>
+                    <group string="Testo deep source">
+                        <field name="deep_source_text" nolabel="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Risposte collegate">
+                            <field name="answer_ids" readonly="1">
+                                <list create="false" edit="false" delete="false">
+                                    <field name="session_id"/>
+                                    <field name="question_id"/>
+                                    <field name="create_date"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_vocabulary_entry" model="ir.actions.act_window">
+        <field name="name">Vocabolario Candidato</field>
+        <field name="res_model">erpv6.vocabulary.entry</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_interview_root" name="Intervista" parent="menu_production_root" sequence="40"/>
+    <menuitem id="menu_interview_question" name="Domande (albero)" parent="menu_interview_root"
+              action="action_interview_question" sequence="10"/>
+    <menuitem id="menu_interview_session" name="Sessioni" parent="menu_interview_root"
+              action="action_interview_session" sequence="20"/>
+    <menuitem id="menu_vocabulary_entry" name="Vocabolario Candidato" parent="menu_interview_root"
+              action="action_vocabulary_entry" sequence="30"/>
+
+</odoo>

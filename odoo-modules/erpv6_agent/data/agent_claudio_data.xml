@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Claudio (24/08/2026): interfaccia Odoo/Discuss dell'agente
+             "Claudio" (motore reale: Aider + modelli free-tier, gira FUORI
+             da Odoo sul VPS, vedi erpv6_devtools/claudio/): stesso
+             pattern identitario di Sabrina/Andrea/Susanna (res.partner
+             dedicato). Il "pensiero" vero di Claudio non passa da
+             omni_bridge come gli altri agenti: questa route/persona
+             servono per quando Claudio scrive/notifica DENTRO Odoo
+             (erpv6.agent.proposal, erpv6.agent.communication), non per
+             generare le sue analisi tecniche (quelle le fa Aider,
+             leggendo module_kb/ + CLAUDE.md, vedi .aider.conf.yml alla
+             root del repo). -->
+        <record id="partner_claudio_agent" model="res.partner">
+            <field name="name">Claudio (Agente AI)</field>
+            <field name="email">claudio.agente@v6impresa.it</field>
+            <field name="is_company" eval="False"/>
+        </record>
+
+        <record id="kb_category_istruzioni_claudio" model="erpv6.kb.category">
+            <field name="name">Istruzioni Claudio</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+            <field name="description">Istruzioni operative per l'agente Claudio (secondo controllo tecnico su proposte Kaizen, verifica sul codice reale, corregge o conferma).</field>
+        </record>
+
+        <record id="kb_claudio_persona" model="erpv6.kb">
+            <field name="name">Claudio - Persona</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_istruzioni_claudio"/>
+            <field name="content">Sei Claudio, il secondo controllo tecnico del sistema erpv6: ricevi le proposte di Kaizen (e di altri agenti) e le verifichi DAVVERO sul codice reale del repo (file:riga, comando eseguito, output reale -- mai una sintesi plausibile senza verifica). Il tuo motore vero (Aider) gira sul VPS, non dentro Odoo: leggi sempre module_kb/known_errors/*.md e module_kb/stato_reale_vs_git.md prima di agire (vedi .aider.conf.yml), e la memoria di Claude Code (MEMORY.md) per sapere se un lavoro con lui e' gia' in corso o si e' interrotto. Ogni tua proposta si incatena a quella di Kaizen che stai verificando (parent_proposal_id su erpv6.agent.proposal) e porta, se la verifica e' lunga, un documento tecnico completo collegato (technical_report_id, erpv6.library.document categoria agent_knowledge) -- la sintesi va comunque sempre anche su erpv6.agent.communication, stesso schema strutturato di tutti gli altri agenti. Hai accesso ampio a VPS/DB/docker (deciso da Denis il 24/08/2026), ma qualunque comando con effetto reale passa SEMPRE da erpv6_devtools/claudio/safe_exec.sh, che rifiuta tecnicamente (non solo per istruzione) qualunque cosa tocchi fattorie_della_fenice, qualunque push diretto su main/master, qualunque comando distruttivo generico, e qualunque promote_module.sh senza una erpv6.agent.proposal gia' approvata da Denis collegata. Non fai MAI il merge di una tua PR da solo: arrivi fino ad aprirla, il merge finale resta sempre di Denis. Dopo un apply, non dichiari mai "risolto" da solo: quella conferma indipendente spetta ad Argus, che verifica lo stato reale post-apply, mai il tuo resoconto.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">ai_only</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <record id="omni_route_claudio_agent_propose" model="erpv6.omni.route.config">
+            <field name="task_type">claudio_agent_propose</field>
+            <field name="name">Claudio - Proposta/Avviso Tecnico</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+            <field name="description">Route AI per l'agente Claudio quando scrive/notifica dentro Odoo -- stessi provider gia' in uso per Sabrina/Andrea/Kaizen. Le verifiche tecniche vere le fa Aider fuori da Odoo.</field>
+        </record>
+
+        <record id="agent_config_claudio" model="erpv6.agent.config">
+            <field name="name">Claudio</field>
+            <field name="code">claudio</field>
+            <field name="pattern_id" ref="erpv6_agent.agent_pattern_persona_notifier"/>
+            <field name="instructions_category_id" ref="kb_category_istruzioni_claudio"/>
+            <field name="omni_task_type">claudio_agent_propose</field>
+            <field name="persona_kb_id" ref="kb_claudio_persona"/>
+            <field name="partner_id" ref="partner_claudio_agent"/>
+            <field name="description">Secondo controllo tecnico su proposte Kaizen: verifica sul codice reale (Aider, fuori da Odoo, vedi erpv6_devtools/claudio/), conferma o corregge, incatena la sua proposta a quella originale. Accesso ampio VPS/DB/docker, sempre tramite safe_exec.sh. Non fa mai merge da solo.</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>

@@ -14,22 +14,6 @@ _logger = logging.getLogger(__name__)
 # resta True, ma la ricerca del cron esclude i documenti che l'hanno raggiunto).
 KB_EXTRACTION_MAX_AUTO_RETRIES = 5
 
-# Stessi valori di erpv6.typst.template.category (erpv6_typst) -- duplicati
-# qui (non importati) per non far dipendere questo Selection da un import
-# cross-modulo solo per una lista di tuple; da tenere allineato a mano se
-# la lista in typst_template.py cambia.
-CASE_STUDY_WORK_TYPES = [
-    ('business_plan', 'Business Plan'),
-    ('financial_report', 'Report Finanziario'),
-    ('bando_application', 'Candidatura Bando'),
-    ('proposal', 'Proposta Commerciale'),
-    ('contract', 'Contratto'),
-    ('relazione', 'Relazione'),
-    ('manuale', 'Manuale'),
-    ('custom', 'Personalizzato'),
-]
-
-
 class LibraryDocument(models.Model):
     """Estende erpv6.library.document (definito in erpv6_library, che NON
     puo' dipendere da erpv6_omni_bridge/erpv6_validation senza creare un
@@ -62,12 +46,24 @@ class LibraryDocument(models.Model):
         help="Contatore dei soli tentativi lanciati dal cron (non da un rilancio "
              "manuale) -- oltre KB_EXTRACTION_MAX_AUTO_RETRIES il cron smette di "
              "ritentare questo documento e serve intervento manuale.")
+    kb_awaiting_file = fields.Boolean(
+        string="In attesa del file (KB)", default=False, copy=False,
+        help="True quando create() ha visto una categoria KB (kb_source/kb_case_study) "
+             "senza ancora un file allegato -- il widget file del form web spesso salva "
+             "il record PRIMA (create() senza file) e allega il binario in una write() "
+             "separata poco dopo (verificato dal vivo sul documento #27, creato le "
+             "11:11:27 del 20/08/2026 con l'allegato scritto solo alle 11:12:36): senza "
+             "questo flag il trigger automatico -- cablato solo in create() -- non scatta "
+             "mai, e il documento resta bloccato per sempre senza nessuna traccia (vedi "
+             "write() sotto, che lo consuma non appena il file arriva).")
 
     case_study_work_type = fields.Selection(
-        CASE_STUDY_WORK_TYPES, string="Tipo di lavoro",
+        selection='_selection_case_study_work_type', string="Tipo di lavoro",
         help="Solo per categoria 'Caso studio (lavoro già eseguito)': tipo di "
-             "documento, usato per cercare template esistenti compatibili "
-             "(stessi valori di erpv6.typst.template.category).")
+             "documento, usato per cercare template esistenti compatibili. Le opzioni "
+             "sono le stesse di erpv6.typst.template.category, lette da li' a runtime "
+             "(vedi _selection_case_study_work_type) -- non piu' una lista duplicata a "
+             "mano qui: non possono piu' disallinearsi.")
     case_study_match_status = fields.Selection([
         ('pending', 'Da verificare'),
         ('suggested_reuse', 'AI: template esistente compatibile'),
@@ -88,6 +84,18 @@ class LibraryDocument(models.Model):
              "'Progetto' qui sopra (project_id, che e' un crm.lead usato solo come contenitore "
              "interno). Segnalato dal vivo dall'utente il 20/08/2026: senza questo campo il "
              "progetto reale non era raggiungibile dal documento in nessun modo.")
+
+    @api.model
+    def _selection_case_study_work_type(self):
+        """Opzioni di case_study_work_type derivate DAL vero Selection di
+        erpv6.typst.template.category (erpv6_typst, gia' una dipendenza di
+        questo modulo) -- corretto il 23/08/2026 (audit "motore vs
+        conoscenza"): prima era una lista Python separata (CASE_STUDY_WORK_TYPES)
+        duplicata a mano, con il rischio di disallineamento gia' segnalato
+        dall'autore originale nel commento. Nessuna duplicazione ora: se
+        typst_template.py aggiunge/toglie una categoria, questo Selection
+        la vede al giro successivo senza bisogno di toccare questo file."""
+        return self.env['erpv6.typst.template']._fields['category'].selection
 
     @api.depends('project_id')
     def _compute_kb_project_id(self):
@@ -136,11 +144,38 @@ class LibraryDocument(models.Model):
                 vals['project_id'] = new_lead.id
         documents = super().create(vals_list)
         for document in documents:
-            if document.category == 'kb_source' and document.file:
-                document._process_kb_source()
-            elif document.category == 'kb_case_study' and document.file:
-                document._process_kb_case_study()
+            if document.category == 'kb_source':
+                if document.file:
+                    document._process_kb_source()
+                else:
+                    document.kb_awaiting_file = True
+            elif document.category == 'kb_case_study':
+                if document.file:
+                    document._process_kb_case_study()
+                else:
+                    document.kb_awaiting_file = True
         return documents
+
+    def write(self, vals):
+        """Vedi kb_awaiting_file: se il file arriva DOPO create() (write()
+        separata del widget form), rilancia qui l'elaborazione automatica che
+        altrimenti non scatterebbe mai. Calcolato PRIMA di super().write()
+        (sui valori attuali dei record, non sui vals in arrivo) cosi' il
+        controllo su kb_awaiting_file/category riflette lo stato pre-scrittura;
+        vals.get('file') vero e' condizione sufficiente perche' un client puo'
+        anche scrivere altri campi nella stessa write() in cui allega il file."""
+        pending = self.browse()
+        if vals.get('file'):
+            pending = self.filtered(
+                lambda d: d.kb_awaiting_file and d.category in ('kb_source', 'kb_case_study'))
+        result = super().write(vals)
+        for document in pending:
+            document.kb_awaiting_file = False
+            if document.category == 'kb_source':
+                document._process_kb_source()
+            elif document.category == 'kb_case_study':
+                document._process_kb_case_study()
+        return result
 
     @api.model
     def _cron_retry_kb_extraction_failures(self):
@@ -522,7 +557,14 @@ class LibraryDocument(models.Model):
         self.ensure_one()
         PackageModule = self.env['erpv6.package.module']
         candidates = PackageModule.search([('typst_template_id.category', '=', self.case_study_work_type)])
-        work_type_label = dict(self._fields['case_study_work_type'].selection).get(self.case_study_work_type)
+        # dict(self._fields[...].selection) NON basta piu' qui: da quando
+        # case_study_work_type usa selection='_selection_case_study_work_type'
+        # (metodo, non lista statica -- vedi sopra), .selection sul campo e'
+        # il NOME del metodo, non le opzioni gia' risolte. dict(self.fields_get(...))
+        # e' il modo corretto per ottenere le opzioni risolte per QUESTO record.
+        work_type_label = dict(
+            self.fields_get(['case_study_work_type'])['case_study_work_type']['selection']
+        ).get(self.case_study_work_type)
         if not candidates:
             self.case_study_match_status = 'suggested_new'
             self.message_post(body=_(

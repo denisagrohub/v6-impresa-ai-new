@@ -22,6 +22,13 @@
                             <field name="omni_task_type"/>
                         </group>
                     </group>
+                    <group string="Identità">
+                        <field name="persona_kb_id"/>
+                        <field name="partner_id"/>
+                    </group>
+                    <group string="Escalation">
+                        <field name="escalation_minutes"/>
+                    </group>
                     <group string="Descrizione">
                         <field name="description" nolabel="1"/>
                     </group>
@@ -109,6 +116,11 @@
                             <field name="reviewed_at" readonly="1"/>
                         </group>
                     </group>
+                    <group string="Catena Kaizen → Claudio → Argus">
+                        <field name="parent_proposal_id" readonly="1"/>
+                        <field name="child_proposal_ids" readonly="1" widget="many2many_tags"/>
+                        <field name="technical_report_id" readonly="1"/>
+                    </group>
                     <group string="Proposta">
                         <field name="proposal_text" nolabel="1" readonly="1"/>
                     </group>
@@ -164,11 +176,184 @@
         </field>
     </record>
 
+    <!-- Telegram: PLACEHOLDER (Compito 3, 22/08/2026) — vedi
+         agent_telegram_config.py, nessun canale reale attivo oggi. -->
+    <record id="view_agent_telegram_config_form" model="ir.ui.view">
+        <field name="name">erpv6.agent.telegram.config.form</field>
+        <field name="model">erpv6.agent.telegram.config</field>
+        <field name="arch" type="xml">
+            <form string="Configurazione Telegram (placeholder)">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        Nessun canale Telegram reale è attivo. Questa scheda è solo un placeholder
+                        pronto a essere completato quando arriverà un vero Bot Token.
+                    </div>
+                    <div class="oe_title"><h1><field name="name" placeholder="Nome configurazione..."/></h1></div>
+                    <group>
+                        <group>
+                            <field name="agent_config_id"/>
+                            <field name="is_active" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="bot_token" password="True" placeholder="(non ancora fornito)"/>
+                            <field name="chat_id"/>
+                        </group>
+                    </group>
+                    <group string="Nota">
+                        <field name="note_placeholder" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_agent_telegram_config_list" model="ir.ui.view">
+        <field name="name">erpv6.agent.telegram.config.list</field>
+        <field name="model">erpv6.agent.telegram.config</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="agent_config_id"/>
+                <field name="chat_id"/>
+                <field name="is_active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_agent_telegram_config" model="ir.actions.act_window">
+        <field name="name">Telegram (placeholder)</field>
+        <field name="res_model">erpv6.agent.telegram.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Comunicazioni strutturate (Compito 4, 23/08/2026): schema standard
+         obbligatorio, piu' routing Heinrich (Compito 3), vedi
+         agent_communication.py. Sola lettura in vista (i campi si
+         valorizzano da codice, mai a mano da form): serve per ispezionare
+         cosa e' stato instradato/bloccato, non per crearne di nuove qui. -->
+    <record id="view_agent_communication_list" model="ir.ui.view">
+        <field name="name">erpv6.agent.communication.list</field>
+        <field name="model">erpv6.agent.communication</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="occurred_at"/>
+                <field name="agent_config_id"/>
+                <field name="heinrich_severity" widget="badge"/>
+                <field name="routing_state" widget="badge"/>
+                <field name="assignee_user_id"/>
+                <field name="assignee_agent_id"/>
+                <field name="reviewer_user_id"/>
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_agent_communication_form" model="ir.ui.view">
+        <field name="name">erpv6.agent.communication.form</field>
+        <field name="model">erpv6.agent.communication</field>
+        <field name="arch" type="xml">
+            <form string="Comunicazione Agente">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="agent_config_id"/>
+                            <field name="occurred_at"/>
+                            <field name="heinrich_severity" widget="badge"/>
+                            <field name="routing_state" widget="badge"/>
+                        </group>
+                        <group>
+                            <field name="assignee_user_id"/>
+                            <field name="assignee_agent_id"/>
+                            <field name="reviewer_user_id"/>
+                            <field name="confirmation_id"/>
+                        </group>
+                    </group>
+                    <group string="Cosa stava facendo / problema">
+                        <field name="action_in_progress" nolabel="1"/>
+                        <field name="problem_description" nolabel="1"/>
+                    </group>
+                    <group string="Valutazione">
+                        <field name="pareto_analysis_id"/>
+                        <field name="kairos_matrix_id"/>
+                        <field name="heinrich_indicator_id"/>
+                        <field name="evaluation_notes" nolabel="1"/>
+                    </group>
+                    <group string="Esito / rischio / miglioria">
+                        <field name="outcome_if_resolved" nolabel="1"/>
+                        <field name="risk_if_nothing_done" nolabel="1"/>
+                        <field name="proposed_improvement" nolabel="1"/>
+                    </group>
+                    <group string="Instradamento" invisible="routing_state != 'incomplete'">
+                        <field name="missing_fields_note" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_agent_communication" model="ir.actions.act_window">
+        <field name="name">Comunicazioni Strutturate</field>
+        <field name="res_model">erpv6.agent.communication</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Motore di monitoraggio attivo (Compito 1, 23/08/2026): elenco
+         regole per dominio, condivise da tutti gli agenti. -->
+    <record id="view_agent_monitor_rule_list" model="ir.ui.view">
+        <field name="name">erpv6.agent.monitor.rule.list</field>
+        <field name="model">erpv6.agent.monitor.rule</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="agent_config_id"/>
+                <field name="name"/>
+                <field name="res_model"/>
+                <field name="heinrich_severity" widget="badge"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_agent_monitor_rule_form" model="ir.ui.view">
+        <field name="name">erpv6.agent.monitor.rule.form</field>
+        <field name="model">erpv6.agent.monitor.rule</field>
+        <field name="arch" type="xml">
+            <form string="Regola di Monitoraggio">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="agent_config_id"/>
+                            <field name="res_model"/>
+                            <field name="domain"/>
+                            <field name="signal_key"/>
+                        </group>
+                        <group>
+                            <field name="heinrich_severity"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group string="Testi (usati nella comunicazione strutturata generata)">
+                        <field name="outcome_hint"/>
+                        <field name="risk_hint"/>
+                        <field name="improvement_hint"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_agent_monitor_rule" model="ir.actions.act_window">
+        <field name="name">Motore di Monitoraggio (regole)</field>
+        <field name="res_model">erpv6.agent.monitor.rule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
     <menuitem id="menu_agent_root" name="Agenti AI" parent="erpv6_core.menu_erpv6_root" sequence="16"/>
+    <menuitem id="menu_agent_communication" name="Comunicazioni Strutturate" parent="menu_agent_root"
+              action="action_agent_communication" sequence="15"/>
+    <menuitem id="menu_agent_monitor_rule" name="Motore di Monitoraggio" parent="menu_agent_root"
+              action="action_agent_monitor_rule" sequence="17" groups="base.group_system"/>
     <menuitem id="menu_agent_proposal" name="Proposte" parent="menu_agent_root"
               action="action_agent_proposal" sequence="10"/>
     <menuitem id="menu_agent_config" name="Configurazione Agenti" parent="menu_agent_root"
               action="action_agent_config" sequence="90" groups="base.group_system"/>
     <menuitem id="menu_agent_create_wizard" name="Nuovo Agente (Thor)" parent="menu_agent_root"
               action="action_agent_create_wizard" sequence="80" groups="base.group_system"/>
+    <menuitem id="menu_agent_telegram_config" name="Telegram (placeholder)" parent="menu_agent_root"
+              action="action_agent_telegram_config" sequence="95" groups="base.group_system"/>
 </odoo>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Corretto il 23/08/2026 (audit "motore vs conoscenza" su
+             CLAUDE.md): queste 2 regole di monitoraggio (Compito 1,
+             seminate la sera del 23/08/2026) erano dizionari Python in
+             agent_monitor.py._DEFAULT_RULES, come il resto del modulo
+             preferisce <record> dichiarativi: vivono qui perche' Andrea
+             e Susanna hanno un erpv6.agent.config con xml id stabile
+             (agent_config_andrea/agent_config_susanna, ref() sotto).
+
+             La regola di Sabrina NON e' qui: il suo erpv6.agent.config non
+             ha un xml id stabile (creato a mano/da un'altra sessione, mai
+             passato da un <record> XML, verificato dal vivo: nessuna
+             riga in ir_model_data per erpv6.agent.config code='sabrina'),
+             quindi resta seminata da agent_monitor.py._ensure_seed_rules()
+             (vedi il <function> in agent_monitor_data.xml), che la trova
+             per code invece che per xml id. -->
+        <record id="agent_monitor_rule_andrea_missing_template" model="erpv6.agent.monitor.rule">
+            <field name="name">Andrea — fase di produzione senza template Typst configurato</field>
+            <field name="agent_config_id" ref="erpv6_agent.agent_config_andrea"/>
+            <field name="res_model">erpv6.production.phase</field>
+            <field name="domain">[('requires_output', '=', True), ('typst_template_id', '=', False), ('active', '=', True)]</field>
+            <field name="signal_key">andrea_phase_missing_template</field>
+            <field name="heinrich_severity">lieve</field>
+            <field name="outcome_hint">Ogni produzione che attraversa questa fase può generare davvero il suo documento, invece di restare ferma in attesa di caricamento manuale.</field>
+            <field name="risk_hint">Ogni produzione che raggiunge questa fase resta bloccata (vedi erpv6.production.order._generate_phase_output) finché qualcuno non carica un documento a mano.</field>
+            <field name="improvement_hint">Configura un erpv6.typst.template per questa fase (o conferma esplicitamente che questa fase userà sempre un caricamento manuale).</field>
+        </record>
+
+        <record id="agent_monitor_rule_susanna_incomplete_communication" model="erpv6.agent.monitor.rule">
+            <field name="name">Susanna — comunicazione incompleta bloccata, nessuno l'ha completata</field>
+            <field name="agent_config_id" ref="erpv6_agent.agent_config_susanna"/>
+            <field name="res_model">erpv6.agent.communication</field>
+            <field name="domain">[('routing_state', '=', 'incomplete')]</field>
+            <field name="signal_key">susanna_incomplete_communication</field>
+            <field name="heinrich_severity">lieve</field>
+            <field name="outcome_hint">La comunicazione viene completata (campi mancanti valorizzati) e re-instradata: Denis riceve finalmente una richiesta pulita.</field>
+            <field name="risk_hint">L'agente di origine ha rilevato qualcosa di reale ma nessuno lo sta più seguendo: resta bloccato in silenzio, invisibile a Denis.</field>
+            <field name="improvement_hint">Completa i campi mancanti (vedi missing_fields_note) sulla comunicazione originale e richiama route() di nuovo.</field>
+        </record>
+    </data>
+</odoo>

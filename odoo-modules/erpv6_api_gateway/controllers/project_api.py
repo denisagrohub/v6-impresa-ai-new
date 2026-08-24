@@ -5,6 +5,7 @@ from odoo.http import request
 from .main import APIBaseController
 
 
+# hasattr(request.env, ...) sostituito con "in request.env": vedi module_kb/known_errors/hasattr_request_env.md per il motivo.
 class ProjectAPIController(APIBaseController):
 
     @http.route('/api/v1/projects', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
@@ -57,7 +58,7 @@ class ProjectAPIController(APIBaseController):
                 return self._json_response({'error': 'Access denied'}, status=403)
             
             document_count = 0
-            if hasattr(request.env, 'erpv6.library.document'):
+            if 'erpv6.library.document' in request.env:
                 document_count = request.env['erpv6.library.document'].sudo().search_count([
                     ('project_id', '=', project.id)
                 ])

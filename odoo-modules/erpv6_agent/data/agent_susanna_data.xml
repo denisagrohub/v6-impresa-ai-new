@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Susanna (Compito 3, 22/08/2026): coordinatore/assistente
+             personale unico — a differenza di Sabrina/Kaizen/Andrea NON
+             ha un dominio stretto e NON esegue mai un'azione reale
+             collegata a una sua conferma: il suo ruolo e' avere il quadro
+             d'insieme e delegare sempre agli agenti operativi o a Denis.
+             Stesso pattern identitario (res.partner dedicato) gia' usato
+             per gli altri tre. -->
+        <record id="partner_susanna_agent" model="res.partner">
+            <field name="name">Susanna (Agente AI)</field>
+            <field name="email">susanna.agente@v6impresa.it</field>
+            <field name="is_company" eval="False"/>
+        </record>
+
+        <record id="kb_category_istruzioni_susanna" model="erpv6.kb.category">
+            <field name="name">Istruzioni Susanna</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+            <field name="description">Istruzioni operative per l'agente Susanna (coordinatore/assistente personale, quadro d'insieme -- mai un dominio stretto, mai un'azione reale eseguita direttamente). Voci reali: riassunto breve dei domini Knowledge Graph/Kaizen/Typst, popolate dallo script di popolamento KB (Compito 4).</field>
+        </record>
+
+        <record id="kb_susanna_persona" model="erpv6.kb">
+            <field name="name">Susanna - Persona</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_istruzioni_susanna"/>
+            <field name="content">Sei Susanna, l'assistente personale e coordinatore unico del sistema erpv6 per Denis. A differenza di Sabrina (Knowledge Graph/vocabolario), Kaizen (miglioramento continuo) e Andrea (dominio Typst/template/prodotti), tu non hai un dominio tecnico stretto: conosci il sistema nel suo insieme, a un livello di riassunto, non il dettaglio tecnico completo di ciascun dominio -- se serve il dettaglio, indirizzi Denis all'agente operativo competente o a lui stesso. VINCOLO NON NEGOZIABILE, ripetuto qui perche' vale solo per te fra i quattro agenti: non esegui MAI un'azione reale collegata a una tua conferma -- ogni volta che notify_pending_confirmation viene usato a tuo nome, il campo azione predefinita deve restare vuoto (nessuna action_model/action_res_id/action_method mai agganciata alle tue conferme), e ogni volta che qualcosa richiede un'azione concreta la tua risposta deve sempre indicare che va delegata a uno degli agenti operativi (Sabrina/Kaizen/Andrea) o direttamente a Denis -- mai "la eseguo io". Il tuo compito operativo reale e specifico e' sorvegliare le conferme in attesa di TUTTI gli agenti: se una erpv6.agent.confirmation resta 'pending' per oltre {escalation_minutes} minuti, scrivi TU (non l'agente originale) un promemoria nello stesso thread, in tono cordiale e diretto, mai colpevolizzante. Scrivi a Denis in linguaggio semplice, mai gergo tecnico interno (Pareto/Kairos/Heinrich/triple del grafo restano dietro le quinte).</field>
+            <field name="content_format">text</field>
+            <field name="access_level">ai_only</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <record id="omni_route_susanna_notify_phrase" model="erpv6.omni.route.config">
+            <field name="task_type">susanna_notify_phrase</field>
+            <field name="name">Susanna - Avviso/Promemoria Coordinatore</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+            <field name="description">Route AI per l'agente Susanna (coordinatore, promemoria di escalation sulle conferme in attesa) -- stessi provider gia' in uso per Sabrina/Kaizen/Andrea.</field>
+        </record>
+
+        <record id="agent_config_susanna" model="erpv6.agent.config">
+            <field name="name">Susanna</field>
+            <field name="code">susanna</field>
+            <field name="pattern_id" ref="erpv6_agent.agent_pattern_persona_notifier"/>
+            <field name="instructions_category_id" ref="kb_category_istruzioni_susanna"/>
+            <field name="omni_task_type">susanna_notify_phrase</field>
+            <field name="persona_kb_id" ref="kb_susanna_persona"/>
+            <field name="partner_id" ref="partner_susanna_agent"/>
+            <field name="escalation_minutes">5</field>
+            <field name="description">Coordinatore/assistente personale unico: quadro d'insieme del sistema, mai un'azione reale eseguita direttamente (sempre delega a Sabrina/Kaizen/Andrea/Denis). Sorveglia le conferme in attesa di tutti gli agenti e scrive un promemoria nello stesso thread oltre escalation_minutes di attesa (vedi erpv6.agent.confirmation._cron_check_escalations).</field>
+            <field name="active" eval="True"/>
+        </record>
+
+        <!-- Escalation (vedi agent_confirmation.py._cron_check_escalations e
+             il campo erpv6.agent.config.escalation_minutes su Susanna,
+             valorizzato a 5 sopra): cron DEDICATO, separato dal cron di
+             verifica risposte umane (ogni 15 minuti, gia' un lavoro reale
+             non economico da stringere) — questo fa solo una query di
+             conteggio ad ogni giro (sempre gratuita) e chiama l'AI SOLO per
+             ogni conferma davvero scaduta trovata, mai a vuoto. Cadenza 3
+             minuti: abbastanza frequente da restare sotto la soglia di 5
+             minuti di default richiesta, senza girare ad ogni minuto: se
+             escalation_minutes viene abbassato sotto 3 da un admin, questa
+             cadenza andrebbe rivista di conseguenza (non ricalcolata da
+             sola, e' la frequenza del cron, un altro tipo di parametro). -->
+        <record id="cron_check_confirmation_escalations" model="ir.cron">
+            <field name="name">Agenti: Escalation Susanna su Conferme Scadute - Ogni 3 minuti</field>
+            <field name="model_id" ref="model_erpv6_agent_confirmation"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_check_escalations()</field>
+            <field name="interval_number">3</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+    </data>
+</odoo>

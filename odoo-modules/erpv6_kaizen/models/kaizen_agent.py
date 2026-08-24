@@ -44,8 +44,13 @@ class Erpv6KaizenAgent(models.Model):
             _logger.info("Agente Kaizen: backlog Pareto vuoto, nessuna proposta da generare.")
             return
 
+        # is_active=True esplicito: senza, disattivare una regola KB (es.
+        # per ritirarla) non avrebbe impedito all'agente di continuare a
+        # leggerla e applicarla -- bug reale trovato da un agente di
+        # verifica dedicato il 20/08/2026, innocuo solo per coincidenza
+        # (nessuna voce era mai stata disattivata finora).
         rules_kbs = self.env['erpv6.kb'].search(
-            [('category_id', '=', agent_config.instructions_category_id.id)], order='name')
+            [('category_id', '=', agent_config.instructions_category_id.id), ('is_active', '=', True)], order='name')
         if not rules_kbs:
             _logger.warning("Agente Kaizen: nessuna voce KB nella categoria istruzioni configurata, nessuna proposta generata.")
             return

@@ -14,6 +14,36 @@ from odoo import _, api, fields, models
 # tassonomia sprechi della regola Kaizen #10 (KB #308).
 KAIZEN_SHARED_BACKLOG = ('erpv6.kaizen.detected_signal', 0)
 
+# Soglia oltre la quale un caso studio fermo in attesa di decisione umana
+# diventa un segnale Kaizen (vedi _detect_case_study_stalled). 24h perche' i
+# casi reali osservati (documenti #27/#33, 20/08/2026) erano gia' fermi da un
+# giorno pieno quando scoperti manualmente -- un'attivita' to-do puo' essere
+# marcata "completata" senza che la decisione sottostante sia mai stata presa
+# (visto dal vivo sul documento #33), quindi non ci si puo' fidare della sola
+# presenza/assenza dell'attivita' per sapere se serve ancora attenzione.
+CASE_STUDY_STALLED_HOURS = 24
+
+# Soglie per i due nuovi domini aperti il 24/08/2026 (richiesto
+# esplicitamente da Denis: "apri i domini di controllo di Kaizen, sì
+# quelli [bozze Typst] ed anche il log [Claudio/Argus]"). Nessun testo
+# libero interrogato per il "log": stesso principio non negoziabile gia'
+# in _cron_detect_signals ("zero rischio di classificazione fragile su
+# testo libero") - si guarda lo stato STRUTTURATO delle proposte di
+# Claudio/Argus (accepted da troppo senza mai diventare actioned), non il
+# contenuto testuale del registro.
+CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS = 2
+
+# Prefisso condiviso per i signal_key generati da una segnalazione manuale
+# (erpv6.kaizen.manual_report._create_detected_signal, kaizen_manual_report.py)
+# -- include SEMPRE l'id della segnalazione (mai un solo 'manual_report'
+# fisso): una segnalazione manuale e' per costruzione un evento singolo, non
+# una classe ripetibile come 'validation_recovered_N', quindi la chiave deve
+# essere unica per segnalazione fin da subito, non solo quando si ripete.
+# Usato sia per il dispatch della Regola 4 sia per il filtro del cron di
+# valutazione a 12 regole (kaizen_rule_engine.py, RULE4_LIVE_CHECK_HANDLER_NAMES
+# + questo prefisso = l'intera "famiglia" coperta da quel motore).
+MANUAL_REPORT_SIGNAL_PREFIX = 'manual_report_'
+
 
 class Erpv6KaizenDetectedSignal(models.Model):
     """Registro dei segnali gia' rilevati dal cron Kaizen, per record
@@ -36,6 +66,21 @@ class Erpv6KaizenDetectedSignal(models.Model):
              "registrato di nuovo invece di essere scartato come duplicato."
     )
     detected_at = fields.Datetime(default=fields.Datetime.now)
+    origin = fields.Selection([
+        ('sensore_automatico', 'Sensore Automatico'),
+        ('segnalazione_manuale', 'Segnalazione Manuale'),
+    ], string='Origine', default='sensore_automatico', required=True, index=True,
+        help="Distingue un segnale trovato da un cron di rilevamento (_cron_detect_signals e "
+             "affini, o il futuro sensore 'copertura grafo') da uno generato da una segnalazione "
+             "umana (erpv6.kaizen.manual_report) -- aggiunto il 22/08/2026 su richiesta esplicita: "
+             "le segnalazioni manuali devono seguire ESATTAMENTE lo stesso ciclo delle 12 Regole, "
+             "distinguibili solo per provenienza, mai un ciclo parallelo.")
+    manual_report_id = fields.Many2one(
+        'erpv6.kaizen.manual_report', string='Segnalazione Manuale di Origine', readonly=True, copy=False,
+        help="Valorizzato solo quando origin='segnalazione_manuale': la segnalazione umana che ha "
+             "generato questo segnale (vedi erpv6.kaizen.manual_report._create_detected_signal). "
+             "Usato dalla Regola 4 del motore (kaizen_rule_engine.py) per riverificare dal vivo il "
+             "contenuto originale, mai riassunto/reinterpretato.")
 
     _sql_constraints = [
         ('uniq_signal', 'UNIQUE(res_model, res_id, signal_key)',
@@ -86,6 +131,10 @@ class Erpv6KaizenDetectedSignal(models.Model):
             'validation_recovered': self._detect_validation_recovered_after_retry(),
             'kb_extraction_stuck': self._detect_kb_extraction_stuck(),
             'kb_extraction_recovered': self._detect_kb_extraction_recovered_after_retry(),
+            'case_study_stalled': self._detect_case_study_stalled(),
+            'typst_draft_not_compiling': self._detect_typst_draft_not_compiling(),
+            'claudio_argus_proposal_stuck': self._detect_claudio_argus_proposal_stuck(),
+            'frontend_error': self._detect_frontend_errors(),
         }
         if any(new_counts.values()):
             self._log_changelog_summary(new_counts)
@@ -109,6 +158,10 @@ class Erpv6KaizenDetectedSignal(models.Model):
             'validation_recovered': "sessioni di validazione recuperate da sole dopo retry",
             'kb_extraction_stuck': "estrazioni KB appena bloccate oltre il tetto di retry",
             'kb_extraction_recovered': "estrazioni KB recuperate da sole dopo retry",
+            'case_study_stalled': "casi studio fermi da oltre %dh senza decisione umana" % CASE_STUDY_STALLED_HOURS,
+            'typst_draft_not_compiling': "bozze Typst AI che non compilano",
+            'claudio_argus_proposal_stuck': "proposte di Claudio/Argus approvate ma mai attuate",
+            'frontend_error': "errori JavaScript reali catturati nel browser",
         }
         for key, count in new_counts.items():
             if count:
@@ -254,10 +307,17 @@ class Erpv6KaizenDetectedSignal(models.Model):
         # questo modulo da un dettaglio interno di un altro solo per una
         # costante. Se cambia la' va aggiornata anche qui a mano.
         VALIDATION_MAX_AI_FAILURE_RETRIES = 5
-        stuck = self.env['erpv6.validation.session'].search([
+        candidates = self.env['erpv6.validation.session'].search([
             ('status', '=', 'escalated_to_human'),
             ('ai_failure_retry_count', '>=', VALIDATION_MAX_AI_FAILURE_RETRIES),
         ])
+        # Ristretto il 24/08/2026 (decisione con Denis): questo segnale deve
+        # restare SOLO tecnico -- se lo storico ha accumulato retry per
+        # fallimenti AI ma l'ultimo round e' un disaccordo di contenuto vero
+        # (last_round.is_ai_failure=False), non e' un problema sistemico per
+        # Kaizen, e' una decisione per Denis (vedi content_flag su
+        # erpv6.validation.session e la vista "Da decidere").
+        stuck = candidates.filtered(lambda s: s.round_ids and s.round_ids[-1].is_ai_failure)
         new_count = 0
         for session in stuck:
             if self._already_detected(session._name, session.id, 'validation_escalation_stuck'):
@@ -344,4 +404,143 @@ class Erpv6KaizenDetectedSignal(models.Model):
             )
             self._mark_detected(document._name, document.id, signal_key)
             new_count += 1
+        return new_count
+
+    def _detect_case_study_stalled(self):
+        """Documento categoria 'kb_case_study' fermo da oltre
+        CASE_STUDY_STALLED_HOURS in uno stato che aspetta ancora una
+        decisione umana esplicita: 'pending' (mai nemmeno processato -- es.
+        il bug del file allegato dopo create(), vedi
+        erpv6_production/models/library_document.py write()) oppure
+        'suggested_reuse'/'suggested_new' (l'AI ha gia' suggerito, ma
+        nessuno ha mai chiamato action_confirm_reuse_existing_template /
+        action_confirm_create_new_template). Guarda lo STATO REALE del
+        documento, non se esiste ancora un'attivita' aperta: un'attivita'
+        to-do puo' essere marcata "completata" senza che la decisione
+        sottostante sia mai stata presa (visto dal vivo sul documento #33,
+        20-21/08/2026), quindi la sola assenza di un'attivita' non e' prova
+        che il lavoro sia stato fatto."""
+        threshold = fields.Datetime.now() - timedelta(hours=CASE_STUDY_STALLED_HOURS)
+        stalled = self.env['erpv6.library.document'].search([
+            ('category', '=', 'kb_case_study'),
+            ('case_study_match_status', 'in', ['pending', 'suggested_reuse', 'suggested_new']),
+            ('create_date', '<=', threshold),
+        ])
+        new_count = 0
+        for document in stalled:
+            # La chiave include lo stato attuale: un cambio di stato (es. da
+            # 'pending' a 'suggested_new' dopo un rilancio manuale che poi
+            # resta comunque fermo) e' una situazione nuova, va segnalata di
+            # nuovo invece di restare silenziosamente scartata come duplicato
+            # del vecchio segnale su 'pending'.
+            signal_key = 'case_study_stalled_%s' % document.case_study_match_status
+            if self._already_detected(document._name, document.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                document._name, document.id, 'lieve',
+                description=_(
+                    "Documento caso studio #%(id)s '%(name)s' fermo da oltre %(h)dh nello stato "
+                    "'%(status)s': nessuna decisione umana (riuso template esistente / nuovo "
+                    "template) ancora presa. Se esisteva un'attivita' to-do, verifica se e' "
+                    "stata chiusa senza eseguire l'azione corrispondente."
+                ) % {
+                    'id': document.id, 'name': document.name, 'h': CASE_STUDY_STALLED_HOURS,
+                    'status': document.case_study_match_status,
+                },
+            )
+            self._mark_detected(document._name, document.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Casi studio fermi senza decisione umana"), len(stalled), impatto=3)
+        return new_count
+
+    def _detect_typst_draft_not_compiling(self):
+        """Dominio aperto il 24/08/2026 (gia' segnalato come buco reale il
+        24/08/2026 dopo aver letto il sensore: "Kaizen NON vede bozze
+        Typst che non compilano"). Template con una bozza AI generata
+        (typst_source_draft valorizzato) ma typst_draft_compile_ok=False -
+        oggi scopribile solo aprendo il template a mano."""
+        broken = self.env['erpv6.typst.template'].search([
+            ('typst_source_draft', '!=', False),
+            ('typst_draft_compile_ok', '=', False),
+        ])
+        new_count = 0
+        for template in broken:
+            signal_key = 'typst_draft_not_compiling'
+            if self._already_detected(template._name, template.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                template._name, template.id, 'lieve',
+                description=_(
+                    "Template Typst #%(id)s '%(name)s': la bozza AI generata non compila "
+                    "(typst_draft_compile_ok=False). Errore reale: %(err)s"
+                ) % {'id': template.id, 'name': template.name,
+                     'err': (template.typst_draft_compile_error or '')[:300]},
+            )
+            self._mark_detected(template._name, template.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Bozze Typst AI che non compilano"), len(broken), impatto=3)
+        return new_count
+
+    def _detect_claudio_argus_proposal_stuck(self):
+        """Dominio aperto il 24/08/2026. SOLO stato strutturato (status,
+        create_date), MAI il contenuto testuale del registro Claudio/Argus
+        - stesso principio non negoziabile di _cron_detect_signals. Una
+        proposta di Claudio/Argus 'accepted' da piu' di
+        CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS senza mai diventare 'actioned'
+        significa che il ciclo automatico (watch_proposals.py) non l'ha
+        presa in carico o e' bloccato - va segnalato, non lasciato
+        silenzioso in coda per sempre."""
+        threshold = fields.Datetime.now() - timedelta(hours=CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS)
+        stuck = self.env['erpv6.agent.proposal'].search([
+            ('agent_config_id.code', 'in', ['claudio', 'argus']),
+            ('status', '=', 'accepted'),
+            ('reviewed_at', '<=', threshold),
+        ])
+        new_count = 0
+        for proposal in stuck:
+            signal_key = 'claudio_argus_proposal_stuck'
+            if self._already_detected(proposal._name, proposal.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                proposal._name, proposal.id, 'lieve',
+                description=_(
+                    "Proposta #%(id)s ('%(name)s') di %(agent)s approvata da oltre %(h)dh ma mai "
+                    "diventata 'attuata' - il ciclo automatico potrebbe non averla presa in "
+                    "carico (processo fermo?) o essere bloccato su un errore."
+                ) % {'id': proposal.id, 'name': proposal.name, 'agent': proposal.agent_config_id.name,
+                     'h': CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS},
+            )
+            self._mark_detected(proposal._name, proposal.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Proposte di Claudio/Argus approvate ma mai attuate"), len(stuck), impatto=4)
+        return new_count
+
+    def _detect_frontend_errors(self):
+        """Dominio aperto il 24/08/2026 (richiesto esplicitamente: "se apro
+        una pagina e appare un errore"). Legge SOLO i campi strutturati di
+        erpv6.frontend.error (message/url), mai testo libero di log
+        server - il dato arriva gia' strutturato dal browser tramite
+        erpv6_core/static/src/js/error_reporter.js + l'endpoint pubblico
+        dedicato, stesso principio non negoziabile del resto del sensore."""
+        if 'erpv6.frontend.error' not in self.env:
+            return 0
+        errors = self.env['erpv6.frontend.error'].search([], limit=50, order='occurred_at desc')
+        new_count = 0
+        for error in errors:
+            signal_key = 'frontend_error'
+            if self._already_detected(error._name, error.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                error._name, error.id, 'near_miss',
+                description=_(
+                    "Errore JavaScript reale nel browser su %(url)s: %(msg)s"
+                ) % {'url': error.url or '(pagina sconosciuta)', 'msg': error.message},
+            )
+            self._mark_detected(error._name, error.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Errori JavaScript reali nel browser"), len(errors), impatto=2)
         return new_count

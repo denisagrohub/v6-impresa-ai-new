@@ -88,10 +88,38 @@ class Erpv6ValidationSession(models.Model):
     # in escalation per intervento umano davvero (non solo tecnico).
     ai_failure_retry_count = fields.Integer(string='Tentativi automatici di retry (fallimento AI)', default=0)
 
+    # Semaforo sul DISACCORDO DI CONTENUTO reale tra i giudici (mai su un
+    # fallimento tecnico, quello resta silenzioso/auto-ritentato, vedi
+    # _cron_retry_escalated_ai_failures) -- deciso con Denis il 24/08/2026:
+    # verde solo se davvero convergenti (issues_found=0, 'validato' non deve
+    # mai voler dire altro), giallo fino a 2 discrepanze trovate dal Sesto
+    # Uomo nell'ultimo round, rosso da 3 in su. 'none' quando non c'e' ancora
+    # un esito di contenuto significativo (draft/in_validation) o quando
+    # l'escalation e' tecnica (last_round.is_ai_failure), che non e' un
+    # disaccordo di contenuto e non deve accendere nessun colore qui.
+    content_flag = fields.Selection([
+        ('none', 'N/D'),
+        ('verde', 'Verde — validato'),
+        ('giallo', 'Giallo — lieve disaccordo'),
+        ('rosso', 'Rosso — disaccordo serio'),
+    ], string='Semaforo contenuto', compute='_compute_content_flag', store=True, default='none')
+
     @api.depends('round_ids')
     def _compute_current_round(self):
         for session in self:
             session.current_round_number = len(session.round_ids)
+
+    @api.depends('status', 'round_ids.issues_found', 'round_ids.is_ai_failure')
+    def _compute_content_flag(self):
+        for session in self:
+            last_round = session.round_ids[-1] if session.round_ids else False
+            if session.status == 'converged':
+                session.content_flag = 'verde'
+            elif session.status == 'escalated_to_human' and last_round and not last_round.is_ai_failure:
+                issues = last_round.issues_found or 0
+                session.content_flag = 'rosso' if issues >= 3 else 'giallo'
+            else:
+                session.content_flag = 'none'
 
     @api.model
     def _cron_retry_escalated_ai_failures(self):
@@ -129,14 +157,21 @@ class Erpv6ValidationSession(models.Model):
             session.status = 'in_validation'
             session._run_round()
 
-    def _get_analyst_prompt_template(self):
+    def _get_analyst_prompt_template(self, analyst_idx=None):
         """Ritorna (template, riferimento_tracciabile) -- placeholder .format()
         nel template: destinatario, scopo, context_json. Hook riscrivibile:
         erpv6_production lo sovrascrive per leggere il prompt da una voce
         erpv6.kb (kb_type='prompt') invece del default hardcoded qui, e
-        ritornare un riferimento tipo "KB #<id> - <nome>" (tracciato sul round
-        e riportato nel certificato) -- questo modulo (motore generico) non
-        dipende da erpv6_kb, quindi non puo' leggerla direttamente."""
+        ritornare un riferimento tipo "KB #<id> - <nome>" (tracciato per
+        analista e riportato nel certificato) -- questo modulo (motore
+        generico) non dipende da erpv6_kb, quindi non puo' leggerla
+        direttamente. analyst_idx ('1'..'5') opzionale: il motore generico
+        lo ignora e ritorna sempre lo stesso default per tutti (nessun
+        multi-prospettiva qui, quello e' specifico erpv6_production/KB) --
+        parametro aggiunto il 21/08/2026 dopo che un agente di verifica
+        dedicato ha trovato che i 5 analisti ricevevano lo stesso identico
+        prompt (il vecchio codice risolveva il template una sola volta
+        FUORI dal ciclo per-analista, vedi _run_round)."""
         return DEFAULT_ANALYST_PROMPT_TEMPLATE, 'default motore (nessuna voce KB)'
 
     def _get_sesto_uomo_prompt_template(self):
@@ -196,12 +231,18 @@ class Erpv6ValidationSession(models.Model):
 
             # Prepara i dati per i prompt
             context_json = json.dumps(session.context_data, ensure_ascii=False)
-            analyst_template, analyst_prompt_ref = session._get_analyst_prompt_template()
-            validation_round.analyst_prompt_ref = analyst_prompt_ref
 
             # Esegui analisi per ogni analista (1-5 o solo sesto)
             analysis_findings = []
+            any_analyst_failed = False
             for analyst_idx in analyst_indices[:-1]:  # Tutti tranne il sesto
+                # Risoluzione DENTRO il ciclo, non prima: prima del fix del
+                # 21/08/2026 il template veniva letto UNA volta fuori dal
+                # ciclo, quindi tutti e 5 gli analisti ricevevano lo stesso
+                # identico prompt -- trovato da un agente di verifica
+                # dedicato, non solo teorico (verificato sui dati reali:
+                # stesso analyst_prompt_ref per tutti e 5 in ogni round).
+                analyst_template, analyst_prompt_ref = session._get_analyst_prompt_template(analyst_idx=analyst_idx)
                 prompt_analista = analyst_template.format(
                     destinatario=session.destinatario,
                     scopo=session.scopo,
@@ -218,12 +259,22 @@ class Erpv6ValidationSession(models.Model):
                     _logger.warning(
                         "Analista %s (sessione #%s, round %d) fallito: %s",
                         analyst_idx, session.id, round_number, error)
+                    # Buco trovato il 24/08/2026: prima solo un fallimento del
+                    # Sesto Uomo marcava is_ai_failure sul round. Se falliva
+                    # invece uno dei 5 analisti, l'errore diventava testo
+                    # "[ERRORE ANALISI: ...]" dentro findings, passato al Sesto
+                    # Uomo come se fosse un parere vero -- la sessione poteva
+                    # finire "in disaccordo" quando in realta' un analista non
+                    # aveva proprio risposto. Tracciato qui, applicato sotto al
+                    # round insieme a error_sesto.
+                    any_analyst_failed = True
                 findings = parsed.get('findings', '') if not error else _("[ERRORE ANALISI: %s]") % error
 
                 # Crea il record di analisi
                 self.env['erpv6.validation.analysis'].create({
                     'round_id': validation_round.id,
                     'analyst_index': analyst_idx,
+                    'prompt_ref': analyst_prompt_ref,
                     'omni_call_log_id': result.get('call_log_id'),
                     'findings': findings,
                     'claims_checked': parsed.get('claims_checked', []),
@@ -280,7 +331,7 @@ class Erpv6ValidationSession(models.Model):
                 # di un'eventuale escalation, vedi
                 # _cron_retry_escalated_ai_failures: ritenta automaticamente
                 # solo quelle marcate qui, mai un'escalation per contenuto.
-                'is_ai_failure': bool(error_sesto),
+                'is_ai_failure': bool(error_sesto) or any_analyst_failed,
             })
 
             # Crea il record di analisi per il sesto uomo

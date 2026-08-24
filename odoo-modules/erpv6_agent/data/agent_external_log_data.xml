@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Categoria condivisa (24/08/2026): dove Claudio e Argus (Aider
+             da terminale, fuori da Odoo) copiano il registro di cosa hanno
+             fatto davvero - vedi erpv6_devtools/agent_log_sync.py e la
+             memoria di Claude Code project_claudio_argus_activity_log.md.
+             Cosi' il lavoro fatto da terminale resta visibile anche a
+             Denis/Sabrina dall'interfaccia Odoo, non solo su file. -->
+        <record id="kb_category_agent_external_log" model="erpv6.kb.category">
+            <field name="name">Registro Attività Agenti Esterni</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+            <field name="description">Copia in Odoo del registro di attività reale di Claudio e Argus (Aider da terminale sul VPS) - una voce per lavoro completato, sincronizzata da erpv6_devtools/agent_log_sync.py.</field>
+        </record>
+    </data>
+</odoo>

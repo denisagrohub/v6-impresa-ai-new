@@ -68,9 +68,65 @@
         <field name="res_model">erpv6.pareto.analysis</field>
         <field name="view_mode">list,form</field>
     </record>
+    <record id="view_kaizen_detected_signal_form" model="ir.ui.view">
+        <field name="name">erpv6.kaizen.detected_signal.form</field>
+        <field name="model">erpv6.kaizen.detected_signal</field>
+        <field name="arch" type="xml">
+            <form string="Segnale Kaizen">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="res_model"/>
+                            <field name="res_id"/>
+                            <field name="signal_key"/>
+                        </group>
+                        <group>
+                            <field name="detected_at"/>
+                            <field name="rules_evaluated_at"/>
+                            <field name="fix_kb_id"/>
+                            <field name="fix_document_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Risposte alle 12 Regole">
+                            <field name="rule_answer_ids" readonly="1">
+                                <list>
+                                    <field name="rule_number"/>
+                                    <field name="rule_name"/>
+                                    <field name="answer_text"/>
+                                    <field name="verified_live" widget="boolean_toggle"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <record id="action_kaizen_detected_signal" model="ir.actions.act_window">
         <field name="name">Segnali Rilevati Automaticamente</field>
         <field name="res_model">erpv6.kaizen.detected_signal</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_kaizen_rule_answer_list" model="ir.ui.view">
+        <field name="name">erpv6.kaizen.rule.answer.list</field>
+        <field name="model">erpv6.kaizen.rule.answer</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="signal_id"/>
+                <field name="rule_number"/>
+                <field name="rule_name"/>
+                <field name="answer_text"/>
+                <field name="verified_live" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_kaizen_rule_answer" model="ir.actions.act_window">
+        <field name="name">Risposte alle 12 Regole</field>
+        <field name="res_model">erpv6.kaizen.rule.answer</field>
         <field name="view_mode">list</field>
     </record>
 
@@ -88,4 +144,6 @@
               action="action_kaizen_pareto" sequence="30"/>
     <menuitem id="menu_kaizen_detected_signal" name="Segnali Automatici" parent="menu_kaizen_root"
               action="action_kaizen_detected_signal" sequence="40"/>
+    <menuitem id="menu_kaizen_rule_answer" name="Risposte alle 12 Regole" parent="menu_kaizen_root"
+              action="action_kaizen_rule_answer" sequence="50"/>
 </odoo>

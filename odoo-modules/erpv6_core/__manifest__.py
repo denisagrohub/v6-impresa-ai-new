@@ -11,6 +11,11 @@
         'views/core_views.xml',
         'security/ir.model.access.csv',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'erpv6_core/static/src/js/error_reporter.js',
+        ],
+    },
     'installable': True,
     'application': True,
 }

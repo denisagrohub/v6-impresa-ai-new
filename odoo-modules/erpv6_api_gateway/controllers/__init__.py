@@ -3,6 +3,8 @@ from . import kb_api
 from . import booking_api
 from . import ai_api  # 🔗 Aggiunto per integrazione AI
 from . import lead_api
+from . import interview_api
+from . import frontend_error_api
 
 # API Trasversali
 from . import user_api

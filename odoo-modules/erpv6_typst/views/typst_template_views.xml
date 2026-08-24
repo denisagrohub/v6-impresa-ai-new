@@ -56,10 +56,10 @@
                         <page string="Descrizione">
                             <field name="description" placeholder="Descrizione del template..."/>
                         </page>
-                        <page string="Sorgente Typst">
+                        <page string="Sorgente Typst" name="sorgente_typst">
                             <field name="typst_source" placeholder="#let data = json(&quot;data.json&quot;)..." options='{"font": "monospace"}'/>
                         </page>
-                        <page string="Campi Richiesti">
+                        <page string="Campi Richiesti" name="campi_richiesti">
                             <field name="required_fields" widget="json" options='{"mode": "editor"}'/>
                         </page>
                     </notebook>

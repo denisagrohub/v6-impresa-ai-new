@@ -5,3 +5,5 @@ access_omni_route_config_admin,erpv6.omni.route.config.admin,model_erpv6_omni_ro
 access_omni_route_config_user,erpv6.omni.route.config.user,model_erpv6_omni_route_config,base.group_user,1,0,0,0
 access_omni_call_log_admin,erpv6.omni.call.log.admin,model_erpv6_omni_call_log,base.group_system,1,1,1,1
 access_omni_call_log_consultant,erpv6.omni.call.log.consultant,model_erpv6_omni_call_log,base.group_user,1,0,0,0
+access_kg_triple_shape_admin,erpv6.kg.triple.shape.admin,model_erpv6_kg_triple_shape,base.group_system,1,1,1,1
+access_kg_triple_shape_user,erpv6.kg.triple.shape.user,model_erpv6_kg_triple_shape,base.group_user,1,0,0,0

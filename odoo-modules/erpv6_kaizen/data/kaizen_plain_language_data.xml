@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Corretto il 23/08/2026 (audit "motore vs conoscenza" su CLAUDE.md):
+         prima quadrante_plain/severity_plain erano dizionari Python
+         hardcoded dentro kaizen_rule_engine.py._plain_language_outcome.
+
+         Restano voci KB DETERMINISTICHE (mai generate/riformulate
+         dall'AI): il principio anti-allucinazione gia' documentato nel
+         progetto (vedi _compose_notice_text) vuole che i FATTI passati a
+         un agente siano gia' corretti prima che l'AI scelga solo
+         tono/parole: questi stessi fatti passano gia' per
+         notify_pending_confirmation -> _compose_notice_text un livello
+         sopra (vedi _notify_kaizen_evaluation_complete), che li riformula
+         nella voce di Kaizen. Delegare ANCHE la traduzione tecnico ->
+         semplice all'AI (invece che il solo tono) rischierebbe di farle
+         inventare un significato sbagliato per un concetto interno
+         (es. scambiare "quick_win" per urgente). Spostarle qui (invece
+         che in dizionari Python) le rende comunque modificabili da un
+         admin a runtime, senza promote del modulo: stesso principio del
+         punto 1 dell'audit (erpv6.kairos.scoring.rule), forma diversa
+         perche' qui il valore e' testo libero, non un intero. -->
+    <data noupdate="1">
+        <record id="kb_category_kaizen_quadrante_plain" model="erpv6.kb.category">
+            <field name="name">Kaizen - Quadrante Kairós in Linguaggio Semplice</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+            <field name="description">Traduzione di ogni quadrante Kairós (erpv6.kairos.matrix.quadrante) in una frase comprensibile senza gergo tecnico -- usata da erpv6_kaizen/models/kaizen_rule_engine.py._plain_language_outcome. Il nome (name) di ogni voce deve corrispondere ESATTAMENTE a un valore del Selection quadrante.</field>
+        </record>
+        <record id="kb_category_kaizen_severity_plain" model="erpv6.kb.category">
+            <field name="name">Kaizen - Gravità Heinrich in Linguaggio Semplice</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+            <field name="description">Traduzione di ogni gravità Heinrich (erpv6.heinrich.indicator.severity) in una frase comprensibile senza gergo tecnico -- usata da erpv6_kaizen/models/kaizen_rule_engine.py._plain_language_outcome. Il nome (name) di ogni voce deve corrispondere ESATTAMENTE a un valore del Selection severity.</field>
+        </record>
+
+        <record id="kb_kaizen_quadrante_plain_kairos_autentico" model="erpv6.kb">
+            <field name="name">kairos_autentico</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_kaizen_quadrante_plain"/>
+            <field name="content">è importante ed è il momento giusto per occuparsene.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">admin</field>
+            <field name="is_active" eval="True"/>
+        </record>
+        <record id="kb_kaizen_quadrante_plain_prepara_condizioni" model="erpv6.kb">
+            <field name="name">prepara_condizioni</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_kaizen_quadrante_plain"/>
+            <field name="content">è importante, ma prima vanno preparate le condizioni per risolverlo bene.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">admin</field>
+            <field name="is_active" eval="True"/>
+        </record>
+        <record id="kb_kaizen_quadrante_plain_quick_win" model="erpv6.kb">
+            <field name="name">quick_win</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_kaizen_quadrante_plain"/>
+            <field name="content">è una cosa semplice e veloce da sistemare: vale la pena farla presto.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">admin</field>
+            <field name="is_active" eval="True"/>
+        </record>
+        <record id="kb_kaizen_quadrante_plain_parcheggio" model="erpv6.kb">
+            <field name="name">parcheggio</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_kaizen_quadrante_plain"/>
+            <field name="content">non è urgente, può aspettare senza problemi.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">admin</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <record id="kb_kaizen_severity_plain_near_miss" model="erpv6.kb">
+            <field name="name">near_miss</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_kaizen_severity_plain"/>
+            <field name="content">Per fortuna ce ne siamo accorti PRIMA che causasse un danno vero.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">admin</field>
+            <field name="is_active" eval="True"/>
+        </record>
+        <record id="kb_kaizen_severity_plain_lieve" model="erpv6.kb">
+            <field name="name">lieve</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_kaizen_severity_plain"/>
+            <field name="content">Ha causato solo un piccolo fastidio o una perdita di tempo, nessun danno permanente.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">admin</field>
+            <field name="is_active" eval="True"/>
+        </record>
+        <record id="kb_kaizen_severity_plain_grave" model="erpv6.kb">
+            <field name="name">grave</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_kaizen_severity_plain"/>
+            <field name="content">Ha bloccato dati o funzionalità per un utente reale.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">admin</field>
+            <field name="is_active" eval="True"/>
+        </record>
+    </data>
+</odoo>

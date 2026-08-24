@@ -23,6 +23,22 @@ class Erpv6VerticalCatalog(models.Model):
     description = fields.Text(string='Descrizione')
     is_active = fields.Boolean(string='Attivo', default=True)
 
+    # Albero prodotto generico -> variante (aggiunto 23/08/2026 per
+    # l'intervista intelligente, erpv6_production/models/interview_engine.py):
+    # un padre (parent_id vuoto) rappresenta il "prodotto generico" scelto
+    # come radice dell'intervista (es. "Produzioni Agricole Vegetali"), i
+    # figli le varianti specifiche di settore (es. "Cerealicole",
+    # "Orticole") che condividono lo stesso template/analisi ma cambiano il
+    # contenuto raccolto. Riusa questa tabella (gia' la tassonomia
+    # verticale/KB) invece di crearne una parallela -- principio "motore vs
+    # conoscenza" di CLAUDE.md.
+    parent_id = fields.Many2one(
+        'erpv6.vertical.catalog', string='Prodotto generico (padre)',
+        domain="[('parent_id', '=', False)]", ondelete='restrict',
+        help="Vuoto = questo record E' un prodotto generico (radice). Valorizzato = questa e' una "
+             "variante specifica di settore del prodotto generico indicato.")
+    child_ids = fields.One2many('erpv6.vertical.catalog', 'parent_id', string='Varianti')
+
     @api.model
     def get_modules_for_verticale(self, verticale):
         """

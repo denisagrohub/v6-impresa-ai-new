@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- noupdate="1": placeholder di primo passo (Wikipedia IT), da rivedere
+         in una sessione dedicata - Denis ha citato ISMEA/Confagricoltura
+         come fonti alternative da valutare, non implementate ora. Un admin
+         puo' cambiarlo da Impostazioni Tecniche senza promote del modulo,
+         stesso pattern di kairos_neutro_score_param. -->
+    <data noupdate="1">
+        <record id="vocabulary_deep_source_url_template_param" model="ir.config_parameter">
+            <field name="key">erpv6_production.vocabulary_deep_source_url_template</field>
+            <field name="value">https://it.wikipedia.org/wiki/{term}</field>
+        </record>
+    </data>
+</odoo>

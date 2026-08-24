@@ -8,6 +8,24 @@
             <field name="description">Legge istruzioni da una categoria KB e contesto/fatti attuali da un'altra categoria KB, chiama l'AI, propone in linguaggio naturale UNA azione concreta, sempre in attesa di gate umano. Nessun codice Python necessario: si configura interamente da Thor (Configurazione Agenti -&gt; Nuovo Agente).</field>
         </record>
 
+        <!-- Compito 2 (23/08/2026): garantisce che ogni agente attivo abbia
+             un canale Discuss diretto SEMPRE presente per Denis (pinnato,
+             non cercabile/da scoprire), vedi agent_config.py,
+             _ensure_discuss_channel/_cron_ensure_agent_discuss_channels.
+             Ogni 30 minuti: e' un'operazione idempotente e leggera (una
+             query +, solo per gli agenti nuovi, una create), nessun bisogno
+             di girare piu' spesso di cosi'. -->
+        <record id="cron_ensure_agent_discuss_channels" model="ir.cron">
+            <field name="name">Agenti: Garantisci Canale Discuss per Ogni Agente - Ogni 30 minuti</field>
+            <field name="model_id" ref="model_erpv6_agent_config"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_ensure_agent_discuss_channels()</field>
+            <field name="interval_number">30</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+
         <!-- Cron condiviso: esegue TUTTI gli agenti pattern 'text_proposal'
              configurati (context_category_id valorizzato), non uno per
              agente: un nuovo agente creato da Thor viene eseguito da solo
@@ -19,6 +37,54 @@
             <field name="code">model._cron_run_generic_agents()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+
+        <!-- Pattern "solo persona": un agente con questo pattern non gira
+             su un cron periodico a leggere una categoria di contesto, e'
+             invocato da un altro pezzo di codice (es. il rilevatore
+             vocabolario insufficiente in erpv6_omni_bridge) tramite
+             erpv6.agent.config.notify_pending_confirmation, e presta solo
+             la propria identita'/voce a un avviso gia' pronto. Anticipato
+             nel docstring di agent_pattern.py il 20/08/2026 (esempio
+             "Sabrina sul flusso kb_case_study"), realizzato il 22/08/2026
+             per Sabrina sul flusso Knowledge Graph/vocabolario. -->
+        <record id="agent_pattern_persona_notifier" model="erpv6.agent.pattern">
+            <field name="name">Persona su avviso esistente</field>
+            <field name="code">persona_notifier</field>
+            <field name="requires_context_category" eval="False"/>
+            <field name="description">Non gira su un cron periodico proprio: presta identita'/voce (partner_id) e capacita' di formulazione (persona + istruzioni via AI) a un avviso che un altro flusso Odoo gia' esistente richiama tramite erpv6.agent.config.notify_pending_confirmation, legato a una conferma umana specifica (erpv6.agent.confirmation). Nessun codice Python nuovo per il flusso che chiama: solo per il flusso che invoca questo metodo la prima volta.</field>
+        </record>
+
+        <!-- Cron condiviso: verifica TUTTE le conferme in attesa di
+             qualunque agente (erpv6.agent.confirmation), stesso principio
+             di cron_run_generic_agents sopra: un nuovo agente che usa
+             notify_pending_confirmation viene coperto da solo. -->
+        <record id="cron_check_pending_confirmations" model="ir.cron">
+            <field name="name">Agenti: Verifica Conferme Umane in Attesa - Ogni 15 minuti</field>
+            <field name="model_id" ref="model_erpv6_agent_confirmation"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_check_pending_confirmations()</field>
+            <field name="interval_number">15</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+
+        <!-- Canale AGGIUNTIVO (22/08/2026, richiesta esplicita: "voglio poter
+             scrivere per primo a qualunque agente"), separato dal cron sopra:
+             qui non c'e' nessun avviso agente ne' nessuna azione da
+             confermare, solo una chat diretta Discuss (discuss.channel,
+             channel_type='chat') tra un umano e il partner_id di un agente,
+             vedi erpv6.agent.config._cron_check_agent_direct_messages. -->
+        <record id="cron_check_agent_direct_messages" model="ir.cron">
+            <field name="name">Agenti: Verifica Messaggi Diretti (Chat) - Ogni 15 minuti</field>
+            <field name="model_id" ref="model_erpv6_agent_config"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_check_agent_direct_messages()</field>
+            <field name="interval_number">15</field>
+            <field name="interval_type">minutes</field>
             <field name="active">True</field>
             <field name="user_id" ref="base.user_admin"/>
         </record>

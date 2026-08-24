@@ -1,0 +1,60 @@
+# PROPOSTA — motore deep source (erpv6_deep_source), scelta da Denis il
+# 24/08/2026: "servizio su misura che combacia col codice esistente"
+# (non un'immagine pronta tipo browserless/chrome con contratto diverso).
+#
+# NON AVVIATO IN PRODUZIONE. Questo file e' isolato di proposito da
+# /opt/erpv6/docker-compose.yml (mai toccato quel file): rete propria,
+# nessuna porta pubblicata su 0.0.0.0. "docker compose up" su questo file
+# richiede un via libera esplicito separato di Denis, indipendente
+# dall'aver scritto/testato il codice - stesso schema gia' seguito per
+# erpv6_devtools/graph/neo4j/docker-compose.yml.
+#
+# Per attivarlo per davvero in produzione: aggiungere il blocco YAML
+# "scraper:" (vedi sotto, sezione commentata) dentro
+# /opt/erpv6/docker-compose.yml, sulla rete erpv6_default (gia' esistente,
+# quella su cui gira anche Odoo) - Odoo lo raggiunge per nome container
+# 'scraper' sulla porta 8090, esattamente il default gia' atteso da
+# erpv6.deep.source.engine._call_scraper_service (nessuna modifica a
+# ir.config_parameter deep_source.scraper_url necessaria SE il nome
+# servizio resta 'scraper' e la porta resta 8090).
+
+services:
+  scraper:
+    build: .
+    container_name: erpv6_scraper_test
+    restart: "no"
+    environment:
+      SCRAPER_PORT: "8090"
+    ports:
+      # Solo per il test isolato locale, porta diversa da quella reale
+      # (8090) per non creare confusione con un eventuale servizio futuro -
+      # in produzione questa sezione "ports" non va replicata: Odoo
+      # raggiunge il container per nome sulla rete Docker interna, nessuna
+      # porta deve essere pubblicata sull'host.
+      - "127.0.0.1:18090:8090"
+    networks:
+      - scraper_test_net
+
+networks:
+  scraper_test_net:
+    driver: bridge
+
+# ------------------------------------------------------------------------
+# Blocco da aggiungere a /opt/erpv6/docker-compose.yml per la produzione
+# reale (SOLO dopo il via libera esplicito di Denis - non applicato qui):
+#
+# services:
+#   scraper:
+#     build: /home/erpv6admin/erpv6-src/erpv6_devtools/scraper
+#     container_name: erpv6_scraper
+#     restart: unless-stopped
+#     environment:
+#       SCRAPER_PORT: "8090"
+#     networks:
+#       - erpv6_default
+#     # NESSUNA sezione "ports": raggiungibile solo dagli altri container
+#     # sulla stessa rete Docker (Odoo), mai esposto sull'host.
+#
+# (la rete erpv6_default e' gia' definita "external: true" nel compose di
+# produzione esistente, stessa convenzione gia' usata per Neo4j)
+# ------------------------------------------------------------------------

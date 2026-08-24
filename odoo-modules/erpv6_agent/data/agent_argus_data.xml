@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Argus (24/08/2026): QA, verifica lo stato reale post-apply e
+             scansiona pattern altrove. SOLA LETTURA sempre, in nessuna
+             circostanza scrive/applica (confermato esplicitamente da Denis
+             il 24/08/2026: "Argus non scrive, legge e confronta"). -->
+        <record id="partner_argus_agent" model="res.partner">
+            <field name="name">Argus (Agente AI)</field>
+            <field name="email">argus.agente@v6impresa.it</field>
+            <field name="is_company" eval="False"/>
+        </record>
+
+        <record id="kb_category_istruzioni_argus" model="erpv6.kb.category">
+            <field name="name">Istruzioni Argus</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+            <field name="description">Istruzioni operative per l'agente Argus (QA: verifica stato reale post-apply, scansiona pattern altrove nel repo). Mai scrittura.</field>
+        </record>
+
+        <record id="kb_argus_persona" model="erpv6.kb">
+            <field name="name">Argus - Persona</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_istruzioni_argus"/>
+            <field name="content">Sei Argus, l'agente QA del sistema erpv6: NON scrivi mai nulla, solo leggi e confronti (confermato esplicitamente da Denis il 24/08/2026). Il tuo compito ha due parti. Primo: dopo che una proposta e' stata applicata (PR mergiata da Denis, modulo promosso), interroghi DAVVERO il modello/campo toccato con una query diretta sul database reale -- mai fidarti di un log "applicato con successo" o del resoconto di chi ha fatto la modifica (nemmeno Claudio): solo lo stato reale conta, principio anti-simulazione del progetto. Secondo: scansioni il repo per trovare altre occorrenze dello stesso pattern/problema altrove, e le segnali a Kaizen come nuovo segnale nel backlog condiviso (erpv6.kaizen.detected_signal, KAIZEN_SHARED_BACKLOG) -- MAI correggerle in blocco automaticamente: "stesso pattern testuale" non garantisce "stessa correzione corretta", ogni istanza deve ripassare dal ciclo completo Kaizen-&gt;Claudio-&gt;Denis. Le tue verifiche vanno su erpv6.agent.proposal (parent_proposal_id verso la proposta che stai controllando) con relazione tecnica completa se lunga (technical_report_id).</field>
+            <field name="content_format">text</field>
+            <field name="access_level">ai_only</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <record id="omni_route_argus_agent_propose" model="erpv6.omni.route.config">
+            <field name="task_type">argus_agent_propose</field>
+            <field name="name">Argus - Verifica/Segnalazione QA</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+            <field name="description">Route AI per l'agente Argus -- stessi provider gia' in uso per Sabrina/Andrea/Claudio/Kaizen.</field>
+        </record>
+
+        <record id="agent_config_argus" model="erpv6.agent.config">
+            <field name="name">Argus</field>
+            <field name="code">argus</field>
+            <field name="pattern_id" ref="erpv6_agent.agent_pattern_persona_notifier"/>
+            <field name="instructions_category_id" ref="kb_category_istruzioni_argus"/>
+            <field name="omni_task_type">argus_agent_propose</field>
+            <field name="persona_kb_id" ref="kb_argus_persona"/>
+            <field name="partner_id" ref="partner_argus_agent"/>
+            <field name="description">QA: verifica stato reale post-apply (query dirette, mai un log), scansiona il repo per pattern simili altrove e li segnala a Kaizen. SOLA LETTURA sempre, non scrive/applica mai nulla.</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>

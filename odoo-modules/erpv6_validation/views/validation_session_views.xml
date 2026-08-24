@@ -23,6 +23,8 @@
                             <field name="res_model" readonly="1"/> - <field name="res_id" readonly="1"/>
                         </h1>
                     </div>
+                    <widget name="web_ribbon" title="Fallimento tecnico (Kaizen)"
+                            invisible="content_flag != 'none' or status != 'escalated_to_human'"/>
                     <group>
                         <group>
                             <field name="destinatario" readonly="status not in ('draft', 'rejected')"/>
@@ -32,6 +34,7 @@
                             <field name="validation_mode" readonly="status != 'draft'"/>
                             <field name="max_rounds" readonly="status != 'draft'"/>
                             <field name="current_round_number"/>
+                            <field name="content_flag" widget="badge"/>
                         </group>
                     </group>
                     <field name="context_data" readonly="status not in ('draft', 'rejected')"/>
@@ -95,7 +98,10 @@
         <field name="name">erpv6.validation.session.tree</field>
         <field name="model">erpv6.validation.session</field>
         <field name="arch" type="xml">
-            <list string="Sessioni di Validazione">
+            <list string="Sessioni di Validazione"
+                  decoration-success="content_flag == 'verde'"
+                  decoration-warning="content_flag == 'giallo'"
+                  decoration-danger="content_flag == 'rosso'">
                 <field name="res_model"/>
                 <field name="res_id"/>
                 <field name="destinatario"/>
@@ -103,6 +109,7 @@
                 <field name="validation_mode"/>
                 <field name="status"/>
                 <field name="current_round_number"/>
+                <field name="content_flag" widget="badge"/>
             </list>
         </field>
     </record>
@@ -121,9 +128,13 @@
                 <filter string="Escalation Umana" name="escalated" domain="[('status', '=', 'escalated_to_human')]"/>
                 <filter string="Approvato" name="approved" domain="[('status', '=', 'approved')]"/>
                 <filter string="Rifiutato" name="rejected" domain="[('status', '=', 'rejected')]"/>
+                <separator/>
+                <filter string="Da decidere (disaccordo di contenuto)" name="content_pending"
+                        domain="[('content_flag', 'in', ['giallo', 'rosso'])]"/>
                 <group expand="0" string="Raggruppa per">
                     <filter string="Stato" name="group_status" context="{'group_by': 'status'}"/>
                     <filter string="Modalità" name="group_mode" context="{'group_by': 'validation_mode'}"/>
+                    <filter string="Semaforo contenuto" name="group_content_flag" context="{'group_by': 'content_flag'}"/>
                 </group>
             </search>
         </field>
@@ -145,15 +156,46 @@
         </field>
     </record>
 
+    <!-- Azione "Da decidere": SOLO disaccordi di contenuto reali (giallo/rosso).
+         I fallimenti tecnici esauriti (content_flag='none' su una sessione
+         escalated) non compaiono qui: quelli sono un segnale sistemico per
+         Kaizen (vedi erpv6_kaizen/models/kaizen_detected_signal.py,
+         _detect_validation_escalations_stuck ristretto il 24/08/2026), mai una
+         decisione di Denis. Deciso con Denis il 24/08/2026. -->
+    <record id="action_erpv6_validation_session_pending" model="ir.actions.act_window">
+        <field name="name">Validazione — Da decidere</field>
+        <field name="res_model">erpv6.validation.session</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('content_flag', 'in', ['giallo', 'rosso'])]</field>
+        <field name="search_view_id" ref="view_erpv6_validation_session_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Nessuna sessione in attesa di una tua decisione
+            </p>
+            <p>
+                Qui compaiono solo le sessioni dove i giudici hanno risposto ma non sono
+                d'accordo nel contenuto — giallo fino a 2 discrepanze, rosso da 3 in su.
+                I fallimenti tecnici (chiamate AI non riuscite) non arrivano qui: vengono
+                ritentati in automatico, e se restano bloccati diventano un segnale per Kaizen.
+            </p>
+        </field>
+    </record>
+
     <!-- Menu -->
     <menuitem id="menu_erpv6_validation_root"
               name="Validazione (6 Giudici)"
               parent="erpv6_core.menu_erpv6_root"
               sequence="50"/>
-    
+
     <menuitem id="menu_erpv6_validation_sessions"
               name="Sessioni"
               parent="menu_erpv6_validation_root"
               action="action_erpv6_validation_session"
               sequence="10"/>
+
+    <menuitem id="menu_erpv6_validation_session_pending"
+              name="Da decidere"
+              parent="menu_erpv6_validation_root"
+              action="action_erpv6_validation_session_pending"
+              sequence="5"/>
 </odoo>

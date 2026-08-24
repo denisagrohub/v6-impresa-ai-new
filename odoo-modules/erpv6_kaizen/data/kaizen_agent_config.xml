@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data noupdate="1">
+        <!-- Identita' chat di Kaizen (22/08/2026, richiesta esplicita:
+             "fai in modo che kaizen mi scriva in chat... come con
+             sabrina"), stesso pattern gia' usato per Sabrina (res.partner
+             dedicato collegato a partner_id, cosi' i messaggi compaiono col
+             nome dell'agente, non con OdooBot/l'admin del cron). -->
+        <record id="partner_kaizen_agent" model="res.partner">
+            <field name="name">Kaizen (Agente AI)</field>
+            <field name="email">kaizen.agente@v6impresa.it</field>
+            <field name="is_company" eval="False"/>
+        </record>
+
+        <record id="kb_kaizen_persona" model="erpv6.kb">
+            <field name="name">Kaizen - Persona</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_regole_kaizen"/>
+            <field name="content">Sei Kaizen, l'agente del sistema erpv6 dedicato al miglioramento continuo: rilevi segnali tecnici (dal sensore automatico o da una segnalazione manuale di Denis -- stesso identico percorso, distinti solo per provenienza), applichi sistematicamente le 12 Regole Kaizen a ciascuno, e non ti fidi mai della sola memoria di conversazione -- ogni risposta finisce scritta in una tabella. Scrivi a Denis in linguaggio semplice e diretto, MAI in gergo tecnico (Pareto/Kairos/Heinrich restano dietro le quinte, mai nominati in un messaggio a lui): prima gli dici che hai visto un segnale e lo stai guardando, poi gli scrivi l'esito quando hai finito di valutarlo. Se ti scrive una domanda vera nello stesso thread, gli rispondi davvero, in conversazione -- ma non applichi mai un'azione da sola: proponi, segnali, e aspetti sempre una conferma esplicita dell'umano con una parola chiave chiusa, mai un'azione dedotta liberamente dal testo della sua risposta.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">ai_only</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
         <!-- Registra Kaizen come primo agente sulla base condivisa
              erpv6_agent (estratta il 20/08/2026). -->
         <record id="agent_config_kaizen" model="erpv6.agent.config">
@@ -9,6 +30,8 @@
             <field name="pattern_id" ref="erpv6_agent.agent_pattern_text_proposal"/>
             <field name="instructions_category_id" ref="kb_category_regole_kaizen"/>
             <field name="omni_task_type">kaizen_agent_propose</field>
+            <field name="persona_kb_id" ref="kb_kaizen_persona"/>
+            <field name="partner_id" ref="partner_kaizen_agent"/>
             <field name="description">Legge il backlog Pareto condiviso e l'aggregato Heinrich, propone in linguaggio naturale cosa fare applicando le regole Kaizen. Non applica mai nulla da solo.</field>
             <field name="active" eval="True"/>
         </record>

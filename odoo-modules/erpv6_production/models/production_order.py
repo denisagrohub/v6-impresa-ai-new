@@ -66,6 +66,27 @@ class Erpv6ProductionOrder(models.Model):
     event_ids = fields.One2many('erpv6.production.event', 'order_id', string='Eventi')
     schedule_ids = fields.One2many('erpv6.production.schedule', 'order_id', string='Pianificazione Risorse')
 
+    # Gate "procedi/pianifica/fermati" (Compito 5, 23/08/2026): quando una
+    # fase e' pronta per avanzare, l'avanzamento NON e' piu' automatico --
+    # si ferma qui in attesa di una decisione umana esplicita con vocabolario
+    # chiuso (vedi erpv6.agent.confirmation.PHASE_DECISION_KEYWORDS/
+    # request_phase_decision). phase_gate_confirmation_id resta valorizzato
+    # finche' la decisione non arriva (state='pending') o e' 'fermati'/
+    # 'pianifica' (nessun avanzamento, ma la conferma resta l'ultima traccia
+    # della decisione presa) -- viene svuotato SOLO da _on_phase_decision
+    # quando decision='procedi' ha effettivamente fatto avanzare la fase.
+    phase_gate_confirmation_id = fields.Many2one(
+        'erpv6.agent.confirmation', string='Decisione di Fase in Attesa', readonly=True, copy=False,
+        help="Gate 'procedi/pianifica/fermati' aperto sull'avanzamento verso phase_gate_next_phase_id. "
+             "Vuoto = nessuna decisione di fase in attesa in questo momento.")
+    phase_gate_next_phase_id = fields.Many2one(
+        'erpv6.production.phase', string='Prossima Fase (in attesa di decisione)', readonly=True, copy=False)
+    phase_gate_task_id = fields.Many2one(
+        'project.task', string='Task Fase (tracciabilità)', readonly=True, copy=False,
+        help="UN project.task per fase attraversata (non uno per singola chiamata a metodo interna -- "
+             "quelle restano nel log erpv6.production.event, gia' esistente): visibilita' in Project "
+             "di quando questa fase e' stata aperta/decisa, senza moltiplicare i gate di conferma.")
+
     # Non un vero One2many: erpv6_library non dipende da erpv6_production
     # (e' vero il contrario), quindi niente Many2one production_order_id su
     # erpv6.library.document - riusiamo i campi polimorfici gia' esistenti
@@ -137,46 +158,42 @@ class Erpv6ProductionOrder(models.Model):
             'verticale': self.verticale or '',
         }
 
-    # Mapping da risposte grezze dell'intervista (stringhe esatte delle
-    # opzioni in apps/impresa/src/app/intervista/page.tsx) a punteggi
-    # erpv6.kairos.matrix. Solo budget/tempistiche hanno un segnale diretto
-    # nell'intervista attuale; gli altri 3 indicatori (apertura, risorse
-    # interne diverse dal budget, storico) restano al valore neutro 2 -
-    # deciso esplicitamente con l'utente, mai inventato un segnale che
-    # l'intervista non raccoglie davvero.
-    _KAIROS_BUDGET_TO_IMPATTO = {
-        '< €5.000': 2, '€5.000 - €10.000': 3, '€10.000 - €25.000': 4, '> €25.000': 5,
-    }
-    _KAIROS_BUDGET_TO_LIQUIDITA = {
-        '< €5.000': 1, '€5.000 - €10.000': 2, '€10.000 - €25.000': 2, '> €25.000': 3,
-    }
-    _KAIROS_TEMPISTICHE_TO_URGENZA = {
-        'Immediata (< 1 mese)': 3, 'Breve (1-3 mesi)': 3, 'Media (3-6 mesi)': 2, 'Lunga (> 6 mesi)': 1,
-    }
-    _KAIROS_NEUTRO = 2
-
     def _compute_kairos_matrix(self):
         """Crea/aggiorna una erpv6.kairos.matrix (matrix_type='finanziario',
         motore generico di erpv6_methodology, non reimplementato qui) per
         capire se vale la pena chiamare subito questo lead o nutrirlo prima.
         Richiede budget+tempistiche dall'intervista: se mancano (es. lead da
         form contatti, non dall'intervista) non crea nulla - mai una matrice
-        fabbricata su dati che non ci sono."""
+        fabbricata su dati che non ci sono.
+
+        Il mapping risposta intervista -> punteggio (budget/tempistiche
+        hanno un segnale diretto nell'intervista attuale; gli altri 3
+        indicatori restano al valore neutro, deciso esplicitamente con
+        l'utente, mai inventato un segnale che l'intervista non raccoglie
+        davvero) vive in erpv6.kairos.scoring.rule, non piu' in dizionari
+        Python qui -- corretto il 23/08/2026 (audit "motore vs conoscenza"):
+        sono regole di business reali, un admin deve poterle correggere
+        senza un promote del modulo. Le chiavi letterali (le stringhe
+        opzione) restano invece accoppiate ad apps/impresa/src/app/intervista/page.tsx,
+        vincolo tecnico reale, non spostato."""
         self.ensure_one()
         budget = (self.interview_budget or '').strip()
         tempistiche = (self.interview_tempistiche or '').strip()
         if not budget or not tempistiche:
             return False
 
-        impatto = self._KAIROS_BUDGET_TO_IMPATTO.get(budget)
-        liquidita = self._KAIROS_BUDGET_TO_LIQUIDITA.get(budget)
-        urgenza = self._KAIROS_TEMPISTICHE_TO_URGENZA.get(tempistiche)
+        Scoring = self.env['erpv6.kairos.scoring.rule']
+        impatto = Scoring.get_score('budget_impatto', budget)
+        liquidita = Scoring.get_score('budget_liquidita', budget)
+        urgenza = Scoring.get_score('tempistiche_urgenza', tempistiche)
         if impatto is None or urgenza is None:
             _logger.warning(
-                "Kairos: budget '%s' o tempistiche '%s' non riconosciuti (opzioni intervista cambiate?) "
+                "Kairos: budget '%s' o tempistiche '%s' non riconosciuti (opzioni intervista cambiate, "
+                "o erpv6.kairos.scoring.rule non ancora configurata per questa opzione?) "
                 "per produzione #%s - matrice non calcolata.", budget, tempistiche, self.id,
             )
             return False
+        neutro = Scoring.get_neutro_score()
 
         Matrix = self.env['erpv6.kairos.matrix'].sudo()
         vals = {
@@ -184,11 +201,11 @@ class Erpv6ProductionOrder(models.Model):
             'res_id': self.id,
             'matrix_type': 'finanziario',
             'impatto_score': impatto,
-            'indicatore_1': self._KAIROS_NEUTRO,
-            'indicatore_2': liquidita,
-            'indicatore_3': self._KAIROS_NEUTRO,
+            'indicatore_1': neutro,
+            'indicatore_2': liquidita if liquidita is not None else neutro,
+            'indicatore_3': neutro,
             'indicatore_4': urgenza,
-            'indicatore_5': self._KAIROS_NEUTRO,
+            'indicatore_5': neutro,
             'notes': (
                 "Calcolato automaticamente da budget/tempistiche dell'intervista "
                 "(_compute_kairos_matrix). Indicatori 1/3/5 = valore neutro: "
@@ -203,16 +220,26 @@ class Erpv6ProductionOrder(models.Model):
             return existing
         return Matrix.create(vals)
 
-    def _notify_stall(self, summary):
+    def _notify_stall(self, summary, note=None):
         """Crea un'activity Odoo (visibile in Attivita'/Discuss, non solo
         nel log eventi dell'ordine) quando la produzione resta bloccata o
         va in errore - cosi' un admin/consulente lo vede anche senza aprire
         l'ordine. Non duplica se esiste gia' un'activity aperta identica,
-        per non spammare ad ogni tick del cron (ogni 30 min)."""
+        per non spammare ad ogni tick del cron (ogni 30 min).
+
+        'summary' e' la CHIAVE di deduplicazione: deve restare stabile tra
+        un tentativo e l'altro dello stesso blocco (mai un id di record
+        creato ad ogni retry, es. typst_doc.id, altrimenti il confronto
+        sotto non trova mai il duplicato -- bug reale trovato il 21/08/2026,
+        191 activity duplicate su 3 produzioni in 32 ore per questo motivo).
+        Il dettaglio variabile (es. id dell'ultimo documento fallito) va in
+        'note', che viene aggiornata sull'activity esistente invece di
+        crearne una nuova, cosi' il to-do resta informativo senza spammare."""
         self.ensure_one()
         activity_type = self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
         if not activity_type:
             return
+        note = note or summary
         existing = self.env['mail.activity'].search([
             ('res_model', '=', self._name),
             ('res_id', '=', self.id),
@@ -220,11 +247,12 @@ class Erpv6ProductionOrder(models.Model):
             ('summary', '=', summary),
         ], limit=1)
         if existing:
+            existing.write({'note': note})
             return
         self.activity_schedule(
             'mail.mail_activity_data_todo',
             summary=summary,
-            note=summary,
+            note=note,
             user_id=self.lead_id.user_id.id or self.env.user.id,
         )
 
@@ -252,7 +280,16 @@ class Erpv6ProductionOrder(models.Model):
                 ),
                 'phase_before_id': phase.id,
             })
-            self._notify_stall(f"Fase '{phase.name}' senza template Typst configurato — produzione #{self.id} bloccata.")
+            self._notify_stall(
+                _("Produzione ferma: manca il modello del documento («fase %s») — %s")
+                % (phase.name, self.name),
+                note=_(
+                    "La produzione «%(order)s» è ferma alla fase «%(phase)s» perché "
+                    "nessuno ha ancora caricato/impostato il modello del documento da generare in "
+                    "questa fase. Serve un intervento umano: o si configura il modello mancante, "
+                    "o si carica il documento a mano per questa produzione."
+                ) % {'order': self.name, 'phase': phase.name},
+            )
             return False
 
         typst_doc = self.env['erpv6.typst.engine'].generate_document(
@@ -281,8 +318,17 @@ class Erpv6ProductionOrder(models.Model):
                 'phase_before_id': phase.id,
             })
             self._notify_stall(
-                f"Rendering Typst fallito per produzione #{self.id}, fase '{phase.name}' — "
-                f"vedi typst doc #{typst_doc.id} (status '{typst_doc.status}')."
+                _("Produzione ferma: il documento non si genera («fase %s») — %s")
+                % (phase.name, self.name),
+                note=_(
+                    "La produzione «%(order)s» è ferma alla fase «%(phase)s»: il documento non "
+                    "si riesce a generare. Motivo: %(error)s. Serve un intervento umano per "
+                    "risolvere il motivo indicato (riferimento interno: documento Typst #%(doc)s)."
+                ) % {
+                    'order': self.name, 'phase': phase.name,
+                    'error': typst_doc.error_message or _("nessun dettaglio disponibile"),
+                    'doc': typst_doc.id,
+                },
             )
             return False
 
@@ -373,7 +419,14 @@ class Erpv6ProductionOrder(models.Model):
                     'description': "Errore durante la valutazione di avanzamento — vedi log server. Ordine isolato, gli altri non sono stati impattati.",
                     'phase_before_id': order.phase_id.id,
                 })
-                order._notify_stall(f"Errore durante evaluate_and_advance su produzione #{order.id} — vedi log server Odoo.")
+                order._notify_stall(
+                    _("Produzione ferma per un errore tecnico — %s") % order.name,
+                    note=_(
+                        "La produzione «%s» si è fermata per un errore tecnico imprevisto durante "
+                        "l'avanzamento automatico. Serve un intervento tecnico per capire la causa "
+                        "(dettaglio nel log del server)."
+                    ) % order.name,
+                )
 
         return True
 
@@ -410,8 +463,13 @@ class Erpv6ProductionOrder(models.Model):
                 return
             if last_session.status == 'escalated_to_human':
                 order._notify_stall(
-                    f"Validazione fase '{phase.name}' escalata a revisione umana (max_rounds superato) — "
-                    f"produzione #{order.id} in attesa di action_human_approve/reject."
+                    _("Produzione ferma: serve la tua approvazione («fase %s») — %s")
+                    % (phase.name, order.name),
+                    note=_(
+                        "La produzione «%(order)s» è ferma alla fase «%(phase)s»: la validazione "
+                        "automatica non ha raggiunto un accordo e serve una decisione umana. Vai alla "
+                        "sessione di validazione e scegli se approvare o rifiutare."
+                    ) % {'order': order.name, 'phase': phase.name},
                 )
                 return
             if last_session.status != 'approved':
@@ -426,7 +484,15 @@ class Erpv6ProductionOrder(models.Model):
                 'description': f"Nessuna KB risolvibile per verticale '{order.verticale or 'generico'}' — avanzamento sospeso.",
                 'phase_before_id': phase.id,
             })
-            order._notify_stall(f"Nessuna KB 'metodo_v6' risolvibile per produzione #{order.id} (verticale '{order.verticale or 'generico'}').")
+            order._notify_stall(
+                _("Produzione ferma: manca conoscenza per il settore «%s» — %s")
+                % (order.verticale or _('generico'), order.name),
+                note=_(
+                    "La produzione «%(order)s» è ferma: non è stata trovata nessuna voce della "
+                    "Knowledge Base adatta al settore «%(verticale)s» per continuare. Serve creare/"
+                    "approvare una voce KB adatta a questo settore."
+                ) % {'order': order.name, 'verticale': order.verticale or _('generico')},
+            )
             return
 
         result = self.env['erpv6.kb.engine'].process(kb_id, {
@@ -457,12 +523,130 @@ class Erpv6ProductionOrder(models.Model):
             'metodo_ultima_analisi_date': fields.Datetime.now(),
         })
 
-        vals = dict(event_vals or {})
-        vals.setdefault('event_type', event_type)
-        vals.setdefault('decision_method', 'deterministico')
-        vals.setdefault('description', 'Avanzamento automatico valutato da evaluate_and_advance')
-        order.advance_phase(next_phase.id, event_vals=vals)
-        order._notify_consultant_update(next_phase, document_generated)
+        # Gate "procedi/pianifica/fermati" (Compito 5, 23/08/2026): il
+        # risultato e' pronto (output generato, validazione approvata se
+        # richiesta, il metodo ha risposto) -- ma NON avanza piu' da solo.
+        # Se un gate e' gia' aperto per QUESTA stessa transizione, non ne
+        # apre un secondo (evita spam ad ogni giro del cron): resta in
+        # attesa, o -- se la decisione presa e' 'fermati' -- resta fermo
+        # finche' un umano non lo riapre esplicitamente (nessun campo di
+        # "riprova" automatico, per design: 'fermati' e' una scelta, non
+        # un errore tecnico da ritentare).
+        existing_gate = order.phase_gate_confirmation_id
+        if existing_gate and order.phase_gate_next_phase_id.id == next_phase.id:
+            if existing_gate.state == 'pending':
+                return
+            if existing_gate.decision_result == 'fermati':
+                return
+            # 'pianifica' senza ancora un nuovo esito: riapre lo stesso gate
+            # (stesso schema di "not existing_gate" sotto, non duplicato).
+        order._open_phase_gate(phase, next_phase)
+        return
+
+    def _open_phase_gate(self, phase, next_phase):
+        """Apre il gate 'procedi/pianifica/fermati' (Compito 5) per la
+        transizione phase -> next_phase: un project.task per tracciabilita'
+        (vedi phase_gate_task_id, UNA per fase, non per singolo step interno)
+        + una erpv6.agent.confirmation con decision_type='phase_decision'
+        (vedi erpv6.agent.confirmation.request_phase_decision). L'azione
+        'procedi' agganciata e' _do_advance_after_gate (no-arg, legge
+        phase_gate_next_phase_id/advance_event_vals gia' salvati sull'ordine
+        -- il meccanismo di conferma chiama sempre un metodo senza
+        argomenti, mai con parametri custom)."""
+        self.ensure_one()
+        project = self.project_id
+        task_name = _("Fase: %(from)s → %(to)s — decisione richiesta") % {
+            'from': phase.name, 'to': next_phase.name}
+        task = False
+        if project:
+            task = self.env['project.task'].sudo().create({
+                'name': task_name,
+                'project_id': project.id,
+                'description': _(
+                    "Il risultato della fase «%(from)s» è pronto (output/validazione già superati). "
+                    "In attesa di una decisione esplicita su «%(order)s»: procedi, pianifica o fermati."
+                ) % {'from': phase.name, 'order': self.name},
+            })
+        # advance_event_vals (il dict passato da _evaluate_and_advance_one)
+        # non viene salvato su nessun campo: e' un dettaglio del giro cron
+        # che lo ha proposto, mai un dato Python complesso persistito su un
+        # record Odoo. Al momento di 'procedi' (_do_advance_after_gate)
+        # viene ricostruito con gli stessi valori di default -- l'unica
+        # informazione che deve sopravvivere fino ad allora e' QUALE fase,
+        # gia' persistita sotto in phase_gate_next_phase_id.
+        self.write({
+            'phase_gate_next_phase_id': next_phase.id,
+            'phase_gate_task_id': task.id if task else False,
+        })
+
+        AgentConfig = self.env['erpv6.agent.config']
+        andrea = AgentConfig.search([('code', '=', 'andrea'), ('active', '=', True)], limit=1)
+        susanna = AgentConfig.search([('code', '=', 'susanna'), ('active', '=', True)], limit=1)
+        # Andrea (dominio Typst/template/produzione) se attivo, altrimenti
+        # Susanna (coordinatore, sempre presente) -- mai bloccare l'intero
+        # gate solo perche' un agente specifico non e' configurato.
+        speaking_agent = andrea or susanna
+        if not speaking_agent:
+            _logger.warning(
+                "Nessun agente attivo (andrea/susanna) per aprire il gate di fase su produzione #%s -- "
+                "avanzamento sospeso SENZA notifica strutturata (solo log).", self.id)
+            return False
+
+        facts = [
+            _("Fase attuale: «%(from)s». Prossima fase proposta: «%(to)s».") % {
+                'from': phase.name, 'to': next_phase.name},
+            _("Il risultato di questa fase è pronto: output generato (se richiesto) e validazione "
+              "6 Giudici approvata (se richiesta) — questo NON è un blocco tecnico, è il normale "
+              "punto di decisione dopo un risultato pronto."),
+            _("Rispondi in QUESTO thread con UNA di queste parole chiave (nessun'altra formulazione "
+              "viene riconosciuta): 'procedi' o 'ok' per avanzare subito alla fase successiva; "
+              "'pianifica' per non avanzare ora ma tenerlo aperto per una decisione successiva; "
+              "'fermati' o 'stop' per bloccare esplicitamente l'avanzamento."),
+        ]
+        confirmation = self.env['erpv6.agent.confirmation'].request_phase_decision(
+            agent_config=speaking_agent,
+            title=_("Produzione «%(order)s»: fase «%(phase)s» pronta — procedi, pianifica o fermati?") % {
+                'order': self.name, 'phase': phase.name},
+            facts=facts,
+            res_model=self._name, res_id=self.id,
+            action_model=self._name, action_res_id=self.id, action_method='_do_advance_after_gate',
+        )
+        self.phase_gate_confirmation_id = confirmation.id
+        return confirmation
+
+    def _do_advance_after_gate(self):
+        """Azione 'procedi' agganciata al gate (vedi _open_phase_gate) --
+        no-arg per costruzione (erpv6.agent.confirmation puo' chiamare solo
+        metodi senza argomenti): legge phase_gate_next_phase_id gia' salvato
+        sull'ordine, chiama advance_phase() (l'unico scrittore finale della
+        fase, invariato) e chiude il task di tracciabilita'."""
+        self.ensure_one()
+        next_phase = self.phase_gate_next_phase_id
+        if not next_phase:
+            raise UserError(_("Nessuna fase in attesa di decisione su questa produzione."))
+        vals = {
+            'event_type': 'interazione_consulente',
+            'decision_method': 'deterministico',
+            'description': _("Avanzamento confermato dalla decisione 'procedi' sul gate di fase."),
+        }
+        self.advance_phase(next_phase.id, event_vals=vals)
+        if self.phase_gate_task_id:
+            self.phase_gate_task_id.sudo().write({'state': '1_done'})
+        self._notify_consultant_update(next_phase)
+
+    def _on_phase_decision(self, decision, confirmation):
+        """Hook chiamato genericamente da erpv6.agent.confirmation._do_phase_decision
+        dopo OGNI esito (procedi/pianifica/fermati) -- qui puliamo/aggiorniamo
+        i campi propri di produzione (agent_confirmation non li conosce, e'
+        generico per costruzione). Per 'procedi' l'avanzamento vero e'
+        gia' avvenuto (_do_advance_after_gate, chiamato PRIMA di questo hook
+        dal meccanismo di conferma): qui restano solo da svuotare i campi di
+        gate. Per 'pianifica'/'fermati' i campi di gate restano valorizzati
+        apposta (nessun avanzamento, il gate resta "l'ultima decisione
+        nota" finche' non arriva un 'procedi')."""
+        self.ensure_one()
+        if decision == 'procedi':
+            self.write({'phase_gate_confirmation_id': False, 'phase_gate_next_phase_id': False})
 
     def _notify_consultant_update(self, new_phase, document_generated=None):
         """Aggiorna il consulente (venditore assegnato sul lead) ogni volta

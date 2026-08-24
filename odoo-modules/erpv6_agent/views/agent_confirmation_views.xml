@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tracciabilita' minima delle conferme in attesa/risolte legate agli
+         avvisi scritti da un agente (erpv6.agent.config.notify_pending_confirmation),
+         costruita il 22/08/2026 per Sabrina, generica per qualunque agente. -->
+    <record id="view_agent_confirmation_form" model="ir.ui.view">
+        <field name="name">erpv6.agent.confirmation.form</field>
+        <field name="model">erpv6.agent.confirmation</field>
+        <field name="arch" type="xml">
+            <form string="Conferma Avviso Agente">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,confirmed,confirmed_no_action,action_error"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="agent_config_id" readonly="1"/>
+                            <field name="res_model" readonly="1"/>
+                            <field name="res_id" readonly="1"/>
+                            <field name="notice_message_id" readonly="1"/>
+                            <field name="last_seen_message_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="action_model" readonly="1"/>
+                            <field name="action_res_id" readonly="1"/>
+                            <field name="action_method" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Esito">
+                        <field name="confirmed_by" readonly="1"/>
+                        <field name="confirmed_at" readonly="1"/>
+                        <field name="confirmed_message_id" readonly="1"/>
+                        <field name="confirmation_notes"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_agent_confirmation_list" model="ir.ui.view">
+        <field name="name">erpv6.agent.confirmation.list</field>
+        <field name="model">erpv6.agent.confirmation</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="create_date"/>
+                <field name="agent_config_id"/>
+                <field name="name"/>
+                <field name="res_model"/>
+                <field name="state" widget="badge"/>
+                <field name="confirmed_by"/>
+                <field name="confirmed_at"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_agent_confirmation" model="ir.actions.act_window">
+        <field name="name">Conferme in Attesa</field>
+        <field name="res_model">erpv6.agent.confirmation</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_agent_confirmation" name="Conferme in Attesa" parent="menu_agent_root"
+              action="action_agent_confirmation" sequence="20"/>
+</odoo>
