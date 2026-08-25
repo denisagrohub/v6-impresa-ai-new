@@ -130,7 +130,12 @@
             <field name="inherit_id" ref="base.view_users_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//notebook" position="inside">
-                    <page string="Consulente V6 Impresa" name="erpv6_consulente" groups="erpv6_core.group_consulente">
+                    <!-- Nessun groups="" qui apposta: questo form (Impostazioni > Utenti) e'
+                         gia' raggiungibile solo da chi ha base.group_system (Admin/Responsabile
+                         IT) - restringere la pagina al gruppo group_consulente impedirebbe
+                         proprio all'Admin di configurare competenza/zona sugli ALTRI utenti
+                         (un consulente non gestisce comunque la propria scheda utente da qui). -->
+                    <page string="Consulente V6 Impresa" name="erpv6_consulente">
                         <group>
                             <field name="competenza_verticale_ids" widget="many2many_tags"/>
                             <field name="zona_competenza_state_ids" widget="many2many_tags"/>
