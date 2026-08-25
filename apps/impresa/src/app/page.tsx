@@ -56,7 +56,7 @@ export default function Home() {
             <div className="mt-8">
               <Link href="/intervista">
                 <Button size="lg" className="shadow-lg hover:shadow-xl">
-                  Prenota una call gratuita
+                  Fai l&rsquo;analisi gratuita
                   <ArrowRight size={18} className="ml-2" aria-hidden="true" />
                 </Button>
               </Link>
@@ -153,12 +153,13 @@ export default function Home() {
             Pronto a portare il tuo progetto in banca?
           </h2>
           <p className="mt-4 text-lg text-stone-300">
-            Parliamo del tuo progetto in una call gratuita di 30 minuti.
+            Rispondi a poche domande sul tuo progetto e ricevi subito una
+            prima analisi gratuita.
           </p>
           <div className="mt-8">
             <Link href="/intervista">
               <Button size="lg" className="shadow-lg hover:shadow-xl">
-                Prenota una call gratuita
+                Fai l&rsquo;analisi gratuita
                 <ArrowRight size={18} className="ml-2" aria-hidden="true" />
               </Button>
             </Link>

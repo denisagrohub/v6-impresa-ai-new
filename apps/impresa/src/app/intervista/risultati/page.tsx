@@ -193,7 +193,7 @@ function RisultatiContent() {
               fullWidth
               onClick={() => router.push('/contatti')}
             >
-              📞 Prenota Call Consulente
+              📞 Richiedi Consulenza
             </Button>
           </div>
           
