@@ -1,16 +1,31 @@
 import { SYSTEM_CONFIG, isOdooEnabled } from '@/config/system';
 
 export interface OdooConfig {
+    url?: string;
+    db?: string;
+    apiKey?: string;
+    // Override opzionale del timeout (ms), default SYSTEM_CONFIG.ODOO.TIMEOUT.
+    // Aggiunto per /api/interview-tree/answer: la risposta "altro" su un
+    // termine mai visto fa scattare erpv6.vocabulary.entry._run_deep_source
+    // (fetch sincrono a Wikipedia lato Odoo, vedi interview_engine.py),
+    // misurato oltre i 5s di default la prima volta - i chiamanti esistenti
+    // che non passano timeout restano sul default invariato.
+    timeout?: number;
+}
+
+interface ResolvedOdooConfig {
     url: string;
     db: string;
     apiKey: string;
+    timeout: number;
 }
 
-function resolveConfig(config?: OdooConfig): OdooConfig {
+function resolveConfig(config?: OdooConfig): ResolvedOdooConfig {
     return {
         url: config?.url || SYSTEM_CONFIG.ODOO.URL,
         db: config?.db || SYSTEM_CONFIG.ODOO.DB,
         apiKey: config?.apiKey || SYSTEM_CONFIG.ODOO.API_KEY,
+        timeout: config?.timeout || SYSTEM_CONFIG.ODOO.TIMEOUT,
     };
 }
 
@@ -27,14 +42,24 @@ export async function callOdooAPI(endpoint: string, payload?: any, config?: Odoo
         return { success: true, data: { id: 'mock_id' } };
     }
 
-    const { url, apiKey } = resolveConfig(config);
+    const { url, apiKey, timeout } = resolveConfig(config);
     const target = `${url.replace(/\/$/, '')}${endpoint}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), SYSTEM_CONFIG.ODOO.TIMEOUT);
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     const method = payload?.method || 'POST';
-    const body = payload?.body !== undefined ? payload.body : (payload !== undefined ? JSON.stringify(payload) : undefined);
+    // GET/HEAD non possono avere un body (fetch lancia "Request with
+    // GET/HEAD method cannot have body"): senza questo guard, chiamate come
+    // callOdooAPI(url, { method: 'GET' }) - pattern gia' in uso in
+    // /api/verticals/route.ts - finivano per serializzare l'intero
+    // payload {method:'GET'} come body e fallire sempre in modalita' Odoo
+    // reale, silenziosamente inghiottite dal fallback try/catch del
+    // chiamante.
+    const isBodyless = method === 'GET' || method === 'HEAD';
+    const body = isBodyless
+        ? undefined
+        : (payload?.body !== undefined ? payload.body : (payload !== undefined ? JSON.stringify(payload) : undefined));
 
     let response: Response;
     try {
@@ -51,7 +76,7 @@ export async function callOdooAPI(endpoint: string, payload?: any, config?: Odoo
     } catch (error: any) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
-            throw new Error(`Odoo API ${endpoint} non ha risposto entro ${SYSTEM_CONFIG.ODOO.TIMEOUT}ms (${target})`);
+            throw new Error(`Odoo API ${endpoint} non ha risposto entro ${timeout}ms (${target})`);
         }
         throw new Error(`Odoo non raggiungibile su ${target}: ${error.message}`);
     }

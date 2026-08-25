@@ -79,12 +79,16 @@ node_modules
 # -- mai committare una password reale, solo .env.example resta tracciato.
 erpv6_devtools/graph/neo4j/.env
 
-# Chiavi API Claudio/Argus (24/08/2026) - gia' coperte dal pattern globale
-# ".env"/"*.env.*" sopra (riga 40/42), righe esplicite solo per chiarezza.
+# Chiavi API Claudio/Argus/Alessandro (24/08/2026, Alessandro 25/08/2026) -
+# gia' coperte dal pattern globale ".env"/"*.env.*" sopra (riga 40/42),
+# righe esplicite solo per chiarezza.
 erpv6_devtools/claudio/.env
 erpv6_devtools/argus/.env
+erpv6_devtools/alessandro/.env
 .aider*
 
-# Stato locale del ciclo automatico di Claudio (elenco proposte gia'
-# elaborate su QUESTO VPS) - non codice, non va nel repo.
+# Stato locale del ciclo automatico di Claudio/Alessandro (elenco proposte
+# gia' elaborate su QUESTO VPS, una lista per agente) - non codice, non va
+# nel repo.
 erpv6_devtools/claudio/dispatched_proposals.json
+erpv6_devtools/alessandro/dispatched_proposals.json

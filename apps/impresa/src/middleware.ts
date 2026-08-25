@@ -20,6 +20,10 @@ const PUBLIC_PATHS = [
   '/api/kb',
   '/api/booking',
   '/api/consultant/public-slots',
+  // Proxy pubblici dell'intervista ad albero (/intervista/guidata, gia'
+  // pagina pubblica) verso erpv6.interview.session lato Odoo - visitatori
+  // anonimi, stesso schema di /api/leads POST qui sotto.
+  '/api/interview-tree',
 ];
 
 export function middleware(request: NextRequest) {

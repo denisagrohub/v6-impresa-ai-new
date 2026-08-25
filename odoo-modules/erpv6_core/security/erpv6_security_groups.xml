@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Gruppo Consulente (25/08/2026, richiesto esplicitamente da
+             Denis): "colui che segue la parte di vendita e commerciale...
+             verso i clienti" - commerciale e delivery della propria
+             cartella clienti, un solo campo (user_id, il venditore
+             assegnato sul crm.lead, ereditato da li' su
+             erpv6.production.order) decide sia l'accesso che il possesso.
+             Le record rule vere e proprie vivono in erpv6_production
+             (dove erpv6.production.order e la dipendenza da crm gia'
+             esistono), non qui: questo modulo resta la base condivisa,
+             il gruppo e' definito qui perche' e' un concetto trasversale
+             riusabile da qualunque modulo futuro. -->
+        <record id="group_consulente" model="res.groups">
+            <field name="name">Consulente V6 Impresa</field>
+            <field name="comment">Segue la parte commerciale e di delivery verso i propri clienti (crm.lead/produzioni dove e' il venditore assegnato, campo user_id) - vede solo la propria cartella clienti, non quella degli altri consulenti.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+    </data>
+</odoo>

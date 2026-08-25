@@ -223,6 +223,28 @@ class Erpv6InterviewSession(models.Model):
                 except Exception:
                     _logger.exception("Sessione intervista #%s: calcolo Kairos fallito.", self.id)
 
+        # Promozione a opportunita' su qualificazione BANT (25/08/2026,
+        # richiesto esplicitamente da Denis dopo aver ragionato sul funnel:
+        # "quando risponde a BANT diventa opportunita'"). BANT = tipo di
+        # progetto (bisogno), budget, tempistiche -- gli STESSI tre
+        # field_key gia' raccolti sopra, nessun nuovo dato da inventare.
+        # Verificato il 25/08/2026: il vecchio quiz statico (/intervista)
+        # chiamava gia' questa promozione al suo submit finale
+        # (PUT /api/leads/[id], qualified=true -> _promote_to_opportunity);
+        # l'intervista ad albero (questo metodo) non lo faceva mai --
+        # scollegamento reale, non voluto. hasattr: _promote_to_opportunity
+        # vive in questo stesso modulo (erpv6_production/models/crm_lead.py),
+        # ma erpv6_api_gateway ha un fallback minimo senza, stesso pattern
+        # di guardia gia' usato sopra per _start_production.
+        bant_fields = ('tipo_progetto', 'budget', 'tempistiche')
+        if all(kwargs.get(f) for f in bant_fields) and hasattr(self.lead_id, '_promote_to_opportunity'):
+            try:
+                self.lead_id.sudo()._promote_to_opportunity()
+            except Exception:
+                _logger.exception(
+                    "Sessione intervista #%s: promozione a opportunita' (BANT) fallita "
+                    "per lead #%s.", self.id, self.lead_id.id)
+
         self.message_post(body="Intervista completata (%d risposte)." % len(self.answer_ids))
 
     def get_next_question_payload(self):
