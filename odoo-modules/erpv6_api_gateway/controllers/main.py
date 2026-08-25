@@ -93,12 +93,69 @@ class HealthController(APIBaseController):
     def health(self, **kwargs):  # pylint: disable=unused-argument
         return self._json_response({'status': 'healthy', 'version': '1.0.0'})
 
-    @http.route('/api/v1/auth/login', type='json', auth='none', methods=['POST'], csrf=False)
-    def login(self, **kwargs):
+    @http.route('/api/v1/auth/login', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
+    def login(self, **kwargs):  # pylint: disable=unused-argument
+        # Login reale contro Odoo (Denis, 25/08/2026 - collegamento del
+        # frontend V6 Impresa a un consulente vero, es. Stefano Puglisi/
+        # Martina Garbin). Prima di questa fix l'endpoint era type='json'
+        # (si aspettava una busta JSON-RPC, mai come chiamano gli altri
+        # controller di questo gateway) e chiamava
+        # request.session.authenticate(db, login, password) con la firma
+        # Odoo <17 - su Odoo 18 authenticate() prende (dbname, credential,
+        # ...) con credential come dict {'type','login','password'}: la
+        # vecchia chiamata avrebbe sempre sollevato TypeError, mai stato
+        # eseguito con successo. Verificato leggendo la firma reale in
+        # odoo.http.Session.authenticate dentro il container (18/08).
         start_time = time.time()
-        uid = request.session.authenticate(request.db, kwargs.get('login'), kwargs.get('password'))
+        try:
+            data = json.loads(request.httprequest.data or b'{}')
+        except json.JSONDecodeError:
+            return self._json_response({'error': 'JSON non valido'}, 400)
+
+        login = (data.get('login') or '').strip()
+        password = data.get('password') or ''
+        if not login or not password:
+            return self._json_response({'error': 'login e password sono obbligatori'}, 400)
+
+        try:
+            auth_info = request.session.authenticate(
+                request.db, {'type': 'password', 'login': login, 'password': password})
+            uid = auth_info.get('uid') if auth_info else False
+        except Exception:
+            uid = False
         if not uid:
-            return self._json_response({'error': 'Invalid credentials'}, 401)
-        user = request.env['res.users'].browse(uid)
+            self._log_api_call('/api/v1/auth/login', 'POST', None, 401, start_time)
+            return self._json_response({'error': 'Credenziali non valide'}, 401)
+
+        user = request.env['res.users'].sudo().browse(uid)
+        # Ruolo per instradare il frontend (stesso schema gia' in uso su
+        # pi_session: admin/consultant/client) - MAI dedotto da un default,
+        # solo dai gruppi reali dell'utente. Nessun gruppo "cliente"
+        # dedicato esiste ancora: chi non e' ne' Responsabile/Admin ne'
+        # Consulente ricade su 'client' (portal/altro utente interno).
+        if user.has_group('base.group_system') or user.has_group('sales_team.group_sale_manager'):
+            role = 'admin'
+        elif user.has_group('erpv6_core.group_consulente'):
+            role = 'consultant'
+        else:
+            role = 'client'
+
+        token = self._generate_jwt(user)
+        # consultant_id (erpv6.consulting.consultant, non res.users) serve
+        # subito al frontend per il link pubblico di prenotazione
+        # (/booking/<consultant_id>) - evita un secondo giro su
+        # /api/v1/users/me solo per questo (stesso dato esposto li').
+        consultant = request.env['erpv6.consulting.consultant'].sudo().search(
+            [('partner_id', '=', user.partner_id.id)], limit=1)
         self._log_api_call('/api/v1/auth/login', 'POST', user.id, 200, start_time)
-        return self._json_response({'token': self._generate_jwt(user), 'user': {'id': user.id, 'name': user.name}})
+        return self._json_response({
+            'token': token,
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email or user.login,
+                'partner_id': user.partner_id.id,
+                'consultant_id': consultant.id if consultant else None,
+                'role': role,
+            },
+        })

@@ -15,31 +15,53 @@ export default function UnifiedLoginPage() {
         setError("");
         setLoading(true);
 
-        setTimeout(() => {
-            let sessionData = "";
-            let redirectUrl = "/login";
+        // Login reale contro Odoo (25/08/2026): niente piu' credenziali
+        // hardcoded nel frontend. /api/auth/login verifica email+password
+        // contro erpv6_api_gateway (/api/v1/auth/login), che a sua volta
+        // autentica sul database Odoo vero e restituisce il ruolo reale
+        // dell'utente (admin/consultant/client) in base ai suoi gruppi -
+        // mai un ruolo dedotto lato frontend.
+        try {
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+            const result = await res.json();
 
-            if (email === "admin@progettoimpresa.it" && password === "admin123") {
-                sessionData = JSON.stringify({ role: "admin", name: "Amministratore", clientId: "admin_001", token: Date.now() });
-                redirectUrl = "/admin/dashboard";
-            } else if (email === "demo@progettoimpresa.it" && password === "demo123") {
-                sessionData = JSON.stringify({ role: "client", name: "Mario Rossi", clientId: "client_001", token: Date.now() });
-                redirectUrl = "/dashboard";
-            } else if (email === "christian@progettoimpresa.it" && password === "consultant123") {
-                sessionData = JSON.stringify({ role: "consultant", name: "Christian Rossi", clientId: "PART-004", token: Date.now() });
-                redirectUrl = "/consultant/dashboard";
-            } else {
-                setError("Credenziali errate. Usa le demo indicate sotto.");
+            if (!res.ok || !result.success) {
+                setError(result.error || "Credenziali errate.");
                 setLoading(false);
                 return;
             }
 
+            const { user, token } = result;
+            const sessionData = JSON.stringify({
+                role: user.role,
+                name: user.name,
+                email: user.email,
+                clientId: String(user.id),
+                partnerId: user.partnerId,
+                // erpv6.consulting.consultant.id reale - usato per il link
+                // pubblico di prenotazione (/booking/<id>). Null se questo
+                // utente non e' ancora collegato a nessun consulente reale
+                // (vedi report: da creare esplicitamente, mai dedotto).
+                bookingConsultantId: user.consultantId,
+                token, // JWT emesso da Odoo (erpv6.api.key/_generate_jwt) - usato per le chiamate autenticate al gateway
+            });
+
+            let redirectUrl = "/dashboard";
+            if (user.role === "admin") redirectUrl = "/admin/dashboard";
+            else if (user.role === "consultant") redirectUrl = "/consultant/dashboard";
+
             localStorage.setItem("pi_session", sessionData);
-            // 🔥 Aggiungi 'domain' per assicurarti che il cookie sia valido su localhost
-            document.cookie = `pi_session=${encodeURIComponent(sessionData)}; path=/; max-age=86400; domain=localhost`;
+            document.cookie = `pi_session=${encodeURIComponent(sessionData)}; path=/; max-age=86400`;
 
             window.location.href = redirectUrl;
-        }, 500);
+        } catch (err) {
+            setError("Errore di connessione al server. Riprova.");
+            setLoading(false);
+        }
     };
 
     return (
@@ -81,10 +103,8 @@ export default function UnifiedLoginPage() {
                         </button>
                     </form>
 
-                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 space-y-1">
-                        <div><strong>👨‍💼 Admin:</strong> admin@progettoimpresa.it / admin123</div>
-                        <div><strong>👤 Cliente:</strong> demo@progettoimpresa.it / demo123</div>
-                        <div><strong>👔 Consulente:</strong> christian@progettoimpresa.it / consultant123</div>
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+                        Accesso con le credenziali reali del tuo account Odoo (email e password del consulente/amministratore).
                     </div>
                 </div>
             </div>
