@@ -1,3 +1,5 @@
+import base64
+import json
 import logging
 
 from odoo import _, api, fields, models
@@ -62,6 +64,20 @@ class Erpv6ProductionOrder(models.Model):
     # corrispondente per il gap) - mai un suggerimento inventato qui.
     metodo_ultimo_suggerimento = fields.Text(string='Ultimo Suggerimento del Metodo')
     metodo_ultima_analisi_date = fields.Datetime(string='Ultima Analisi del Metodo')
+
+    # Due nuovi "metodi" (Compito Denis, notte 24-25/08/2026): "analisi
+    # win-win" e "profilo DISC" - stesso pattern KB+AI di sopra (kb_type
+    # 'metodo_v6', vedi data/kb_metodo_winwin_disc_data.xml), non un motore
+    # nuovo. Il risultato completo vive nel erpv6.library.document generato
+    # (gia' visibile in document_ids sopra); questi campi sono solo un
+    # riferimento rapido in scheda, come metodo_ultima_analisi_date sopra.
+    winwin_ultima_analisi_date = fields.Datetime(string='Ultima Analisi Win-Win', readonly=True, copy=False)
+    disc_ultima_analisi_date = fields.Datetime(string='Ultima Analisi DISC', readonly=True, copy=False)
+    disc_profilo_dominante = fields.Char(
+        string='Profilo DISC Rilevato', readonly=True, copy=False,
+        help="Ultima lettera/combinazione DISC dominante rilevata dal metodo, solo per consultazione "
+             "rapida - il dettaglio completo (indizi, confidenza, implicazioni comunicative) vive nel "
+             "documento generato (vedi document_ids).")
 
     event_ids = fields.One2many('erpv6.production.event', 'order_id', string='Eventi')
     schedule_ids = fields.One2many('erpv6.production.schedule', 'order_id', string='Pianificazione Risorse')
@@ -711,6 +727,273 @@ class Erpv6ProductionOrder(models.Model):
             'view_mode': 'form',
             'target': 'current',
         }
+
+    # ------------------------------------------------------------------
+    # Metodi "analisi win-win" e "profilo DISC" (Compito Denis, notte
+    # 24-25/08/2026, ragionando sul funnel commerciale): stesso pattern
+    # KB+AI gia' usato da ogni agente del progetto (Kaizen/Susanna/Sabrina/
+    # Andrea/Claudio/Argus/Alessandro) - un erpv6.omni.route.config per
+    # task_type, un'istruzione reale in erpv6.kb (kb_type='metodo_v6', vedi
+    # data/kb_metodo_winwin_disc_data.xml), execute_ai_task con dati REALI,
+    # mai un motore nuovo. Un unico metodo condiviso (_run_metodo_ai)
+    # invece di duplicare la stessa logica due volte - principio "non
+    # duplicare" di CLAUDE.md: le uniche differenze reali tra i due metodi
+    # sono quale voce KB/route usare e come formattare il risultato in
+    # relazione leggibile, tutto il resto (raccolta dati, chiamata AI,
+    # salvataggio come documento tracciato) e' identico.
+    _METODO_CONFIG = {
+        'winwin': {
+            'kb_xmlid': 'erpv6_production.kb_metodo_analisi_winwin',
+            'omni_task_type': 'winwin_analysis_generation',
+            'doc_category': 'proposal',
+            'is_final_client_facing': True,
+            'doc_title': "Analisi Win-Win",
+        },
+        'disc': {
+            'kb_xmlid': 'erpv6_production.kb_metodo_profilo_disc',
+            'omni_task_type': 'disc_profile_generation',
+            'doc_category': 'other',
+            'is_final_client_facing': False,
+            'doc_title': "Profilo DISC",
+        },
+    }
+
+    def action_genera_analisi_win_win(self):
+        self.ensure_one()
+        return self._run_metodo_ai('winwin')
+
+    def action_determina_profilo_disc(self):
+        self.ensure_one()
+        return self._run_metodo_ai('disc')
+
+    def _build_metodo_context_data(self):
+        """Dati REALI disponibili per i due metodi sopra: campi strutturati
+        dell'intervista (gia' su questo record) + TUTTE le risposte di
+        TUTTE le sessioni d'intervista di questo lead, comprese quelle
+        testuali libere (vedi erpv6.interview.answer) - richiesto
+        esplicitamente da Denis per il DISC ("tutto passa... dalle domande
+        iniziali e integrative... oltre che dai campi liberi"), e utile
+        anche al win-win per non limitarsi ai soli 5 campi gia' mappati su
+        questo ordine. Nessun dato inventato: solo cio' che l'intervista ha
+        davvero raccolto, in ordine cronologico di risposta."""
+        self.ensure_one()
+        sessions = self.env['erpv6.interview.session'].sudo().search(
+            [('lead_id', '=', self.lead_id.id)], order='create_date asc')
+        answers = []
+        for session in sessions:
+            for answer in session.answer_ids.sorted('id'):
+                value = answer.option_id.value if answer.option_id else answer.value_text
+                if not value:
+                    continue
+                answers.append({
+                    'domanda': answer.question_id.question_text,
+                    'risposta': value,
+                    'testo_libero': bool(answer.value_text and not answer.option_id),
+                })
+        return {
+            'azienda': self.lead_id.name or '',
+            'tipo_progetto': self.interview_tipo_progetto or '',
+            'budget': self.interview_budget or '',
+            'tempistiche': self.interview_tempistiche or '',
+            'destinatario_business_plan': self.interview_destinatario or '',
+            'fatturato': self.interview_fatturato or '',
+            'verticale': self.verticale or '',
+            'risposte_intervista': answers,
+        }
+
+    def _run_metodo_ai(self, method_code):
+        """Esegue il metodo (winwin o disc): legge il prompt reale da KB,
+        raccoglie i dati reali, chiama l'AI via OmniRoute, salva il
+        risultato come erpv6.library.document collegato a questa produzione
+        (stesso schema gia' usato da _generate_phase_output sopra e da
+        erpv6_kaizen._write_document_report - mai un terzo modo di salvare
+        un output AI). Nessun fallback silenzioso: se manca il prompt, se
+        non ci sono dati d'intervista, o se la chiamata AI fallisce, si
+        alza un UserError reale invece di produrre un risultato inventato
+        o vuoto (regola anti-allucinazione)."""
+        self.ensure_one()
+        config = self._METODO_CONFIG[method_code]
+        kb = self.env.ref(config['kb_xmlid'], raise_if_not_found=False)
+        kb = kb.sudo() if kb else kb
+        if not kb or not kb.content:
+            raise UserError(_(
+                "Il metodo '%s' non ha ancora un prompt configurato (voce KB mancante o vuota) - "
+                "impossibile procedere senza istruzioni reali."
+            ) % config['doc_title'])
+
+        context_data = self._build_metodo_context_data()
+        has_structured_data = any([
+            context_data['tipo_progetto'], context_data['budget'], context_data['tempistiche'],
+        ])
+        if not context_data['risposte_intervista'] and not has_structured_data:
+            raise UserError(_(
+                "Nessun dato reale d'intervista trovato per il lead '%(lead)s': il metodo '%(m)s' "
+                "non puo' essere eseguito senza dati reali su cui basarsi."
+            ) % {'lead': self.lead_id.name or self.lead_id.id, 'm': config['doc_title']})
+
+        # Lettura diretta del contenuto (stesso schema di
+        # validation_session.py._get_analyst_prompt_template e di
+        # kaizen_agent.py rules_kbs), non get_content_for_ai(): quella
+        # applica un controllo di accesso pensato per un utente che
+        # consulta la KB dalla UI, qui il chiamante e' sempre codice interno
+        # che gia' sa di poter leggere una KB kb_type='metodo_v6' pubblica
+        # (kb e' gia' in sudo, vedi sopra).
+        system_prompt = kb.content
+        user_content = json.dumps(context_data, ensure_ascii=False, indent=2)
+
+        result = self.env['erpv6.omni.bridge'].execute_ai_task(
+            task_type=config['omni_task_type'],
+            payload={
+                'temperature': 0.3,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': _("Dati reali raccolti su questa azienda/produzione "
+                                                    "(nessun altro dato esiste oltre a questi):\n%s") % user_content},
+                ],
+            },
+            context={'source': 'erpv6_production:_run_metodo_ai:%s' % method_code, 'order_id': self.id},
+        )
+        if not result.get('success'):
+            raise UserError(_("Chiamata AI fallita per il metodo '%(m)s': %(e)s") % {
+                'm': config['doc_title'], 'e': result.get('error') or _('nessun dettaglio disponibile')})
+        try:
+            ai_content = result['data']['choices'][0]['message']['content']
+        except (KeyError, IndexError, TypeError):
+            raise UserError(_("Risposta AI in formato inatteso per il metodo '%s'.") % config['doc_title'])
+
+        parsed = self._parse_metodo_ai_json(ai_content)
+        report_text = self._build_metodo_report_text(method_code, ai_content, parsed)
+
+        document = self.env['erpv6.library.document'].register_document(
+            project_id=self.lead_id.id,
+            name=_("%(title)s — %(lead)s") % {'title': config['doc_title'], 'lead': self.lead_id.name or self.name},
+            category=config['doc_category'],
+            origin='generated',
+            source_model='erpv6.production.order',
+            source_res_id=self.id,
+            is_final=config['is_final_client_facing'],
+            file_data=base64.b64encode(report_text.encode('utf-8')),
+            file_name='%s_%s_%s.md' % (method_code, self.id, fields.Date.context_today(self).isoformat()),
+        )
+
+        self.env['erpv6.production.event'].create({
+            'order_id': self.id,
+            'event_type': 'documento_generato',
+            'decision_method': 'ai',
+            'description': _("Metodo '%(m)s' eseguito, documento generato: '%(doc)s' (#%(id)s).") % {
+                'm': config['doc_title'], 'doc': document.name, 'id': document.id},
+        })
+
+        now = fields.Datetime.now()
+        if method_code == 'winwin':
+            self.winwin_ultima_analisi_date = now
+        else:
+            self.disc_ultima_analisi_date = now
+            if parsed:
+                self.disc_profilo_dominante = parsed.get('profilo_dominante') or False
+
+        self.message_post(body=_(
+            "Metodo '%(m)s' eseguito: documento '%(doc)s' generato e collegato a questa produzione."
+        ) % {'m': config['doc_title'], 'doc': document.name})
+
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'erpv6.library.document',
+            'res_id': document.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
+    @staticmethod
+    def _parse_metodo_ai_json(ai_content):
+        """Come _parse_ai_json_response in erpv6_validation: la risposta
+        attesa e' JSON puro, ma un provider puo' comunque incapsularla in
+        un code fence markdown - stesso trattamento tollerante gia' in uso
+        li'. Ritorna None (non {}) se non e' JSON valido, cosi' il
+        chiamante puo' distinguere "JSON valido ma vuoto" da "non era JSON"
+        e riportare comunque il testo grezzo nella relazione invece di
+        scartarlo silenziosamente."""
+        raw = (ai_content or '').strip()
+        if raw.startswith('```'):
+            raw = raw.strip('`')
+            if raw.lower().startswith('json'):
+                raw = raw[4:]
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    def _build_metodo_report_text(self, method_code, ai_content, parsed):
+        """Relazione leggibile (markdown) a partire dal JSON strutturato
+        dell'AI - stesso schema di _build_md_report_content in
+        erpv6_kaizen/models/kaizen_rule_engine.py (report .md tracciato via
+        register_document, mai un file su disco locale). Se l'AI non ha
+        risposto con JSON valido, il testo grezzo viene comunque riportato
+        per intero (mai scartato) con un avviso esplicito, cosi' un umano
+        puo' comunque leggerlo e capire cosa e' andato storto."""
+        self.ensure_one()
+        title = self._METODO_CONFIG[method_code]['doc_title']
+        lines = [
+            "# %s — %s" % (title, self.lead_id.name or self.name),
+            "",
+            _("Generato automaticamente dal metodo AI erpv6 il %s, sui dati reali raccolti "
+              "dall'intervista di questo lead.") % fields.Datetime.now(),
+            "",
+        ]
+        if parsed is None:
+            lines.append(_("**Attenzione**: la risposta AI non era in formato JSON valido, riportata "
+                            "cosi' com'e' di seguito senza elaborazione:"))
+            lines.append("")
+            lines.append(ai_content or '')
+            return "\n".join(lines)
+
+        if method_code == 'winwin':
+            for i, azione in enumerate(parsed.get('azioni_winwin') or [], start=1):
+                lines.append("## %d. %s" % (i, azione.get('titolo') or _('(senza titolo)')))
+                lines.append("")
+                if azione.get('come_funziona'):
+                    lines.append(_("**Come funziona**: %s") % azione['come_funziona'])
+                    lines.append("")
+                if azione.get('beneficio_azienda'):
+                    lines.append(_("**Beneficio per l'azienda**: %s") % azione['beneficio_azienda'])
+                    lines.append("")
+                if azione.get('beneficio_controparte'):
+                    lines.append(_("**Beneficio per la controparte**: %s") % azione['beneficio_controparte'])
+                    lines.append("")
+                if azione.get('basata_su'):
+                    lines.append(_("_Basata su_: %s") % azione['basata_su'])
+                    lines.append("")
+            if parsed.get('sintesi_per_il_cliente'):
+                lines.append("## " + _("Sintesi"))
+                lines.append("")
+                lines.append(parsed['sintesi_per_il_cliente'])
+                lines.append("")
+        else:  # disc
+            secondario = parsed.get('profilo_secondario')
+            lines.append("## " + _("Profilo rilevato: %s%s") % (
+                parsed.get('profilo_dominante') or '?',
+                (_(" (secondario: %s)") % secondario) if secondario else ''))
+            lines.append("")
+            lines.append(_("**Confidenza**: %s") % (parsed.get('confidenza') or _('non indicata')))
+            lines.append("")
+            if parsed.get('indizi_osservati'):
+                lines.append("### " + _("Indizi osservati"))
+                for indizio in parsed['indizi_osservati']:
+                    lines.append("- %s" % indizio)
+                lines.append("")
+            if parsed.get('implicazioni_comunicative'):
+                lines.append("### " + _("Come comunicare con questa persona"))
+                lines.append("")
+                lines.append(parsed['implicazioni_comunicative'])
+                lines.append("")
+
+        if parsed.get('flagged_missing_data'):
+            lines.append("### " + _("Dati mancanti segnalati dall'AI"))
+            lines.append("")
+            lines.append(parsed['flagged_missing_data'])
+            lines.append("")
+
+        return "\n".join(lines)
 
     @api.model
     def _cron_evaluate_all(self):

@@ -41,6 +41,7 @@
         'data/kairos_scoring_rule_data.xml',
         'data/kb_admin_lead_data.xml',
         'data/kb_prompt_data.xml',
+        'data/kb_metodo_winwin_disc_data.xml',
         'data/validation_session_bulk_actions.xml',
         'data/kb_bulk_actions.xml',
         'data/interview_question_data.xml',
