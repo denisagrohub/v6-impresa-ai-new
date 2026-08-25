@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Compito "wizard-prodotto-consulenza" (25/08/2026): fasi di catalogo
+         SPECIFICHE del Business Plan, testuali di Denis ("ricezione
+         informazioni, ricerca dati, bozza, call di analisi bozza,
+         ridefinizione/revisione, discussione consegna" + una futura
+         "revisione post pagamento", NON creata qui - vedi report). Sequenze
+         40-90, dopo il catalogo generico esistente (10/20/30 in
+         production_phase_data.xml): restano isolate dalla catena generica
+         non appena referenziate da un prodotto (vedi
+         Erpv6ProductionOrder._next_phase_for, filtro used_phase_ids). -->
+    <record id="phase_bp_ricezione_informazioni" model="erpv6.production.phase">
+        <field name="name">Ricezione informazioni</field>
+        <field name="sequence">40</field>
+        <field name="phase_kind">diagnostica</field>
+        <field name="requires_output">False</field>
+    </record>
+    <record id="phase_bp_ricerca_dati" model="erpv6.production.phase">
+        <field name="name">Ricerca dati</field>
+        <field name="sequence">50</field>
+        <field name="phase_kind">lavoro</field>
+    </record>
+    <record id="phase_bp_bozza" model="erpv6.production.phase">
+        <field name="name">Bozza</field>
+        <field name="sequence">60</field>
+        <field name="phase_kind">documento</field>
+        <field name="requires_output">True</field>
+        <field name="output_category">business_plan</field>
+        <field name="requires_validation">True</field>
+        <field name="typst_template_id" ref="erpv6_typst.typst_template_business_plan_standard"/>
+    </record>
+    <record id="phase_bp_call_analisi_bozza" model="erpv6.production.phase">
+        <field name="name">Call di analisi bozza</field>
+        <field name="sequence">70</field>
+        <field name="phase_kind">lavoro</field>
+    </record>
+    <record id="phase_bp_ridefinizione_revisione" model="erpv6.production.phase">
+        <field name="name">Ridefinizione/revisione</field>
+        <field name="sequence">80</field>
+        <field name="phase_kind">lavoro</field>
+    </record>
+    <record id="phase_bp_discussione_consegna" model="erpv6.production.phase">
+        <field name="name">Discussione consegna</field>
+        <field name="sequence">90</field>
+        <field name="phase_kind">documento</field>
+        <field name="requires_output">True</field>
+        <field name="output_category">final</field>
+        <field name="requires_validation">True</field>
+    </record>
+
+    <!-- Nessun product.product "Business Plan" esisteva gia' sul DB al
+         momento di questo compito (verificato con query diretta: 0 righe) -
+         creato qui come prodotto Odoo reale, collegabile a Sales/Fatturazione. -->
+    <record id="product_business_plan_product" model="product.product">
+        <field name="name">Business Plan</field>
+        <field name="type">service</field>
+        <field name="list_price">3500.0</field>
+        <field name="sale_ok">True</field>
+        <field name="purchase_ok">False</field>
+    </record>
+
+    <!-- Il "primo output reale" richiesto da Denis: il prodotto Business
+         Plan configurato attraverso erpv6.prodotto.consulenza, con le
+         fasi/flag esatti descritti nel compito (vedi report finale per il
+         dettaglio dei dubbi di design segnalati - posizione del gate di
+         pagamento e numero/importo tranche scelti come ragionevole
+         default, da confermare con Denis). -->
+    <record id="prodotto_consulenza_business_plan" model="erpv6.prodotto.consulenza">
+        <field name="name">Business Plan</field>
+        <field name="product_id" ref="product_business_plan_product"/>
+        <field name="description">Percorso standard di redazione Business Plan: ricezione informazioni riservate (NDA), ricerca dati, bozza, call di analisi, ridefinizione, consegna. Pagamento a tranche (SAL) prima della consegna finale.</field>
+    </record>
+
+    <record id="prodotto_consulenza_bp_fase_1" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_business_plan"/>
+        <field name="phase_id" ref="phase_bp_ricezione_informazioni"/>
+        <field name="sequence">10</field>
+        <field name="richiede_nda">True</field>
+    </record>
+    <record id="prodotto_consulenza_bp_fase_2" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_business_plan"/>
+        <field name="phase_id" ref="phase_bp_ricerca_dati"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="prodotto_consulenza_bp_fase_3" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_business_plan"/>
+        <field name="phase_id" ref="phase_bp_bozza"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="prodotto_consulenza_bp_fase_4" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_business_plan"/>
+        <field name="phase_id" ref="phase_bp_call_analisi_bozza"/>
+        <field name="sequence">40</field>
+        <field name="richiede_contratto">True</field>
+    </record>
+    <record id="prodotto_consulenza_bp_fase_5" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_business_plan"/>
+        <field name="phase_id" ref="phase_bp_ridefinizione_revisione"/>
+        <field name="sequence">50</field>
+        <field name="richiede_pagamento">True</field>
+        <field name="pagamento_tipo">tranche</field>
+        <field name="numero_tranche">3</field>
+    </record>
+    <record id="prodotto_consulenza_bp_fase_6" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_business_plan"/>
+        <field name="phase_id" ref="phase_bp_discussione_consegna"/>
+        <field name="sequence">60</field>
+    </record>
+</odoo>

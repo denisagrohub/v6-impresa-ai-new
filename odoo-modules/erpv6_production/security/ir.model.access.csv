@@ -28,3 +28,12 @@ access_consulente_richiesta_user,erpv6.consulente.richiesta user,model_erpv6_con
 access_consulente_richiesta_manager,erpv6.consulente.richiesta manager,model_erpv6_consulente_richiesta,sales_team.group_sale_manager,1,1,1,1
 access_consulente_richiesta_admin,erpv6.consulente.richiesta admin,model_erpv6_consulente_richiesta,base.group_system,1,1,1,1
 access_consulente_reassign_wizard_user,erpv6.consulente.reassign.wizard user,model_erpv6_consulente_reassign_wizard,base.group_user,1,1,1,1
+access_prodotto_consulenza_user,erpv6.prodotto.consulenza user,model_erpv6_prodotto_consulenza,base.group_user,1,0,0,0
+access_prodotto_consulenza_manager,erpv6.prodotto.consulenza manager,model_erpv6_prodotto_consulenza,sales_team.group_sale_manager,1,1,1,1
+access_prodotto_consulenza_admin,erpv6.prodotto.consulenza admin,model_erpv6_prodotto_consulenza,base.group_system,1,1,1,1
+access_prodotto_consulenza_fase_user,erpv6.prodotto.consulenza.fase user,model_erpv6_prodotto_consulenza_fase,base.group_user,1,0,0,0
+access_prodotto_consulenza_fase_manager,erpv6.prodotto.consulenza.fase manager,model_erpv6_prodotto_consulenza_fase,sales_team.group_sale_manager,1,1,1,1
+access_prodotto_consulenza_fase_admin,erpv6.prodotto.consulenza.fase admin,model_erpv6_prodotto_consulenza_fase,base.group_system,1,1,1,1
+access_production_order_tranche_user,erpv6.production.order.tranche user,model_erpv6_production_order_tranche,base.group_user,1,1,1,0
+access_production_order_tranche_manager,erpv6.production.order.tranche manager,model_erpv6_production_order_tranche,sales_team.group_sale_manager,1,1,1,1
+access_production_order_tranche_admin,erpv6.production.order.tranche admin,model_erpv6_production_order_tranche,base.group_system,1,1,1,1

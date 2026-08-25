@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Template NDA (Compito "wizard-prodotto-consulenza", parte 2,
+             25/08/2026): usato da erpv6.production.order._ensure_nda_document
+             via _generate_contract_document_pdf. Stesso stile difensivo
+             (#if "chiave" in data) del resto del catalogo Typst - una
+             chiave mancante non genera testo inventato, semplicemente non
+             compare (regola anti-allucinazione: solo dati reali). -->
+        <record id="typst_template_nda" model="erpv6.typst.template">
+            <field name="name">NDA - Accordo di Riservatezza</field>
+            <field name="code">NDA-STD-001</field>
+            <field name="category">nda</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">NDA standard tra il fornitore e il cliente di un progetto di consulenza, generato automaticamente alla ricezione delle prime informazioni riservate (vedi erpv6.production.order._ensure_nda_document).</field>
+            <field name="sequence">50</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields" eval="{
+                'cliente_nome': {'type': 'string', 'description': 'Nome/ragione sociale del cliente'},
+                'cliente_piva': {'type': 'string', 'description': 'Opzionale: Partita IVA del cliente'},
+                'cliente_indirizzo': {'type': 'string', 'description': 'Opzionale: indirizzo del cliente'},
+                'azienda_fornitore': {'type': 'string', 'description': 'Ragione sociale del fornitore (azienda erpv6)'},
+                'progetto_nome': {'type': 'string', 'description': 'Nome del progetto/lead'},
+                'prodotto_nome': {'type': 'string', 'description': 'Opzionale: nome del prodotto di consulenza'},
+                'generated_at': {'type': 'string', 'description': 'Data di generazione, formato gg/mm/aaaa'}
+            }"/>
+            <field name="typst_source"><![CDATA[#let data = json("data.json")
+
+#set page(paper: "a4", margin: 2.5cm)
+#set text(size: 10.5pt, lang: "it")
+
+#align(center)[
+  #text(size: 16pt, weight: "bold")[Accordo di Riservatezza (NDA)]
+]
+#v(1.5em)
+
+Tra:
+
+- *#data.at("azienda_fornitore", default: "Il Fornitore")*, di seguito "il Fornitore";
+- *#data.at("cliente_nome", default: "il Cliente")*#if "cliente_piva" in data [, P.IVA #data.cliente_piva]#if "cliente_indirizzo" in data [, con sede in #data.cliente_indirizzo], di seguito "il Cliente";
+
+relativamente al progetto *#data.at("progetto_nome", default: "-")*#if "prodotto_nome" in data [ (#data.prodotto_nome)],
+
+si conviene quanto segue.
+
++ *Oggetto*. Il Fornitore riceverà dal Cliente, nell'ambito dell'incarico di consulenza sopra indicato, informazioni riservate relative all'azienda, ai dati finanziari, strategici, organizzativi e a ogni altra informazione qualificata come riservata dal Cliente ("Informazioni Riservate"), necessarie all'erogazione del servizio.
+
++ *Obbligo di riservatezza*. Il Fornitore si impegna a: mantenere la massima riservatezza sulle Informazioni Riservate; non divulgarle a terzi senza il consenso scritto del Cliente; utilizzarle esclusivamente ai fini dell'incarico ricevuto; adottare le medesime precauzioni che adotterebbe per proteggere informazioni analoghe proprie.
+
++ *Durata*. L'obbligo di riservatezza permane per tutta la durata dell'incarico e per i 3 (tre) anni successivi alla sua conclusione, qualunque ne sia la causa.
+
++ *Esclusioni*. Sono escluse dall'obbligo di riservatezza le informazioni che: erano già di pubblico dominio al momento della comunicazione; erano già lecitamente in possesso del Fornitore prima della comunicazione; devono essere divulgate per obbligo di legge o ordine di un'autorità competente.
+
++ *Restituzione/distruzione*. Su richiesta del Cliente, o alla conclusione dell'incarico, il Fornitore restituirà o distruggerà ogni supporto contenente Informazioni Riservate, fatte salve le copie conservate per obbligo di legge.
+
+#v(2em)
+Data: #data.at("generated_at", default: "-")
+
+#v(2em)
+#grid(columns: (1fr, 1fr), column-gutter: 2em,
+  [Per il Fornitore \ _#data.at("azienda_fornitore", default: "")_ \ #v(2em) #line(length: 80%, stroke: 0.5pt)],
+  [Per il Cliente \ _#data.at("cliente_nome", default: "")_ \ #v(2em) #line(length: 80%, stroke: 0.5pt)]
+)]]></field>
+        </record>
+
+        <!-- Template Contratto di Consulenza (variante "gia' pagato il
+             primo SAL") - stesso doc_type='service' di erpv6.contract.document. -->
+        <record id="typst_template_contratto_consulenza" model="erpv6.typst.template">
+            <field name="name">Contratto di Consulenza</field>
+            <field name="code">CONTRATTO-CONSULENZA-001</field>
+            <field name="category">contract</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Contratto di consulenza vero, generato quando il primo SAL/tranche risulta gia' incassato (vedi erpv6.production.order._ensure_contratto_o_promessa, variante doc_type='service').</field>
+            <field name="sequence">60</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields" eval="{
+                'cliente_nome': {'type': 'string'},
+                'azienda_fornitore': {'type': 'string'},
+                'progetto_nome': {'type': 'string'},
+                'prodotto_nome': {'type': 'string', 'description': 'Opzionale'},
+                'importo_totale': {'type': 'number', 'description': 'Opzionale: prezzo di listino del prodotto Odoo collegato'},
+                'pagamento_tipo': {'type': 'string', 'description': 'Opzionale: tranche/unico'},
+                'numero_tranche': {'type': 'integer', 'description': 'Opzionale'},
+                'importo_unico': {'type': 'number', 'description': 'Opzionale'},
+                'generated_at': {'type': 'string'}
+            }"/>
+            <field name="typst_source"><![CDATA[#let data = json("data.json")
+
+#set page(paper: "a4", margin: 2.5cm)
+#set text(size: 10.5pt, lang: "it")
+
+#let format-thousands(n) = {
+  if type(n) != int and type(n) != float { return str(n) }
+  let digits = str(int(calc.abs(n)))
+  let grouped = ()
+  let count = 0
+  for i in range(digits.len() - 1, -1, step: -1) {
+    grouped.push(digits.at(i))
+    count += 1
+    if calc.rem(count, 3) == 0 and i != 0 { grouped.push(".") }
+  }
+  grouped.rev().join("")
+}
+
+#align(center)[
+  #text(size: 16pt, weight: "bold")[Contratto di Consulenza]
+]
+#v(1.5em)
+
+Tra *#data.at("azienda_fornitore", default: "Il Fornitore")* (di seguito "il Fornitore") e *#data.at("cliente_nome", default: "il Cliente")* (di seguito "il Cliente"),
+
+relativamente al progetto *#data.at("progetto_nome", default: "-")*#if "prodotto_nome" in data [ — servizio: *#data.prodotto_nome*],
+
+si conviene quanto segue.
+
++ *Oggetto*. Il Fornitore si impegna a erogare al Cliente il servizio di consulenza sopra indicato, secondo le fasi e le modalità già condivise con il Cliente nel corso dell'incarico.
+
++ *Corrispettivo*.#if "importo_totale" in data [ Il corrispettivo complessivo pattuito per il servizio è pari a *€ #format-thousands(data.importo_totale)*#if "pagamento_tipo" in data and data.pagamento_tipo == "tranche" [, da corrispondersi in *#data.at("numero_tranche", default: "-")* tranche (SAL) secondo lo stato di avanzamento del servizio]#if "pagamento_tipo" in data and data.pagamento_tipo == "unico" [, da corrispondersi in un'unica soluzione]. ] else [ Il corrispettivo è quello già indicato nella proposta commerciale accettata dal Cliente. ]Il Cliente dichiara di aver già corrisposto la prima tranche (SAL), a fronte della quale il presente contratto viene formalizzato.
+
++ *Obblighi del Fornitore*. Il Fornitore si impegna a eseguire il servizio con diligenza professionale, nel rispetto delle tempistiche concordate, e a mantenere riservate le informazioni ricevute dal Cliente (vedi NDA già sottoscritto tra le parti, ove applicabile).
+
++ *Obblighi del Cliente*. Il Cliente si impegna a fornire tempestivamente le informazioni necessarie all'esecuzione del servizio e a corrispondere il corrispettivo pattuito secondo i termini concordati.
+
++ *Recesso*. Ciascuna delle parti può recedere dal presente contratto con preavviso scritto, fermo restando il pagamento delle prestazioni già rese fino alla data di recesso.
+
+#v(2em)
+Data: #data.at("generated_at", default: "-")
+
+#v(2em)
+#grid(columns: (1fr, 1fr), column-gutter: 2em,
+  [Per il Fornitore \ _#data.at("azienda_fornitore", default: "")_ \ #v(2em) #line(length: 80%, stroke: 0.5pt)],
+  [Per il Cliente \ _#data.at("cliente_nome", default: "")_ \ #v(2em) #line(length: 80%, stroke: 0.5pt)]
+)]]></field>
+        </record>
+
+        <!-- Template Promessa di Pagamento ("pagherò") - variante quando il
+             primo SAL non e' ancora stato incassato (doc_type='promise_to_pay'). -->
+        <record id="typst_template_promessa_pagamento" model="erpv6.typst.template">
+            <field name="name">Promessa di Pagamento</field>
+            <field name="code">PROMESSA-PAGAMENTO-001</field>
+            <field name="category">contract</field>
+            <field name="language">it</field>
+            <field name="version">1.0</field>
+            <field name="description">Promessa di pagamento ("pagherò"), generata quando la call di analisi e' avvenuta ma il primo SAL/tranche non e' ancora stato incassato (vedi erpv6.production.order._ensure_contratto_o_promessa, variante doc_type='promise_to_pay').</field>
+            <field name="sequence">70</field>
+            <field name="page_size">a4</field>
+            <field name="orientation">portrait</field>
+            <field name="required_fields" eval="{
+                'cliente_nome': {'type': 'string'},
+                'azienda_fornitore': {'type': 'string'},
+                'progetto_nome': {'type': 'string'},
+                'prodotto_nome': {'type': 'string', 'description': 'Opzionale'},
+                'importo_totale': {'type': 'number', 'description': 'Opzionale'},
+                'pagamento_tipo': {'type': 'string', 'description': 'Opzionale: tranche/unico'},
+                'numero_tranche': {'type': 'integer', 'description': 'Opzionale'},
+                'importo_unico': {'type': 'number', 'description': 'Opzionale'},
+                'generated_at': {'type': 'string'}
+            }"/>
+            <field name="typst_source"><![CDATA[#let data = json("data.json")
+
+#set page(paper: "a4", margin: 2.5cm)
+#set text(size: 10.5pt, lang: "it")
+
+#let format-thousands(n) = {
+  if type(n) != int and type(n) != float { return str(n) }
+  let digits = str(int(calc.abs(n)))
+  let grouped = ()
+  let count = 0
+  for i in range(digits.len() - 1, -1, step: -1) {
+    grouped.push(digits.at(i))
+    count += 1
+    if calc.rem(count, 3) == 0 and i != 0 { grouped.push(".") }
+  }
+  grouped.rev().join("")
+}
+
+#align(center)[
+  #text(size: 16pt, weight: "bold")[Promessa di Pagamento]
+]
+#v(1.5em)
+
+Il sottoscritto, in nome e per conto di *#data.at("cliente_nome", default: "il Cliente")* (di seguito "il Cliente"),
+
+in relazione al servizio di consulenza *#data.at("progetto_nome", default: "-")*#if "prodotto_nome" in data [ (#data.prodotto_nome)] erogato da *#data.at("azienda_fornitore", default: "il Fornitore")* (di seguito "il Fornitore"),
+
+*dichiara e si impegna* a quanto segue.
+
++ *Riconoscimento del servizio*. Il Cliente dà atto che la fase di analisi (call di analisi/allineamento) si è regolarmente svolta e che il servizio di consulenza sopra indicato prosegue secondo le fasi già condivise con il Fornitore.
+
++ *Impegno di pagamento*. Il Cliente si impegna a corrispondere al Fornitore#if "importo_totale" in data [ il corrispettivo complessivo di *€ #format-thousands(data.importo_totale)*#if "pagamento_tipo" in data and data.pagamento_tipo == "tranche" [, ripartito in *#data.at("numero_tranche", default: "-")* tranche (SAL) secondo lo stato di avanzamento del servizio]#if "pagamento_tipo" in data and data.pagamento_tipo == "unico" [, in un'unica soluzione],] else [ il corrispettivo pattuito, ] secondo i termini già condivisi, a partire dal ricevimento della prima fattura/richiesta di acconto (SAL 1).
+
++ *Natura dell'impegno*. La presente promessa di pagamento non sostituisce il contratto di consulenza definitivo, che verrà formalizzato dal Fornitore non appena il Cliente avrà corrisposto la prima tranche (SAL 1) pattuita.
+
++ *Riservatezza*. Restano fermi gli obblighi di riservatezza già assunti dalle parti (vedi NDA, ove già sottoscritto).
+
+#v(2em)
+Data: #data.at("generated_at", default: "-")
+
+#v(2em)
+#grid(columns: (1fr, 1fr), column-gutter: 2em,
+  [Per il Fornitore \ _#data.at("azienda_fornitore", default: "")_ \ #v(2em) #line(length: 80%, stroke: 0.5pt)],
+  [Il Cliente (promittente) \ _#data.at("cliente_nome", default: "")_ \ #v(2em) #line(length: 80%, stroke: 0.5pt)]
+)]]></field>
+        </record>
+    </data>
+</odoo>

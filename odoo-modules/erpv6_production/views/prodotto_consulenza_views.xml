@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- PRODOTTO CONSULENZA (Compito "wizard-prodotto-consulenza", 25/08/2026):
+         il form CON il one2many editabile fase_ids fa da "wizard" di
+         composizione (persistente, non un TransientModel - vedi docstring
+         del modello). Riservato a Responsabile/Admin sia in Python
+         (create/write) sia qui (menu nascosto agli altri gruppi). -->
+    <record id="view_prodotto_consulenza_form" model="ir.ui.view">
+        <field name="name">erpv6.prodotto.consulenza.form</field>
+        <field name="model">erpv6.prodotto.consulenza</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Es. Business Plan"/></h1>
+                    </div>
+                    <group>
+                        <field name="product_id"/>
+                        <field name="active"/>
+                    </group>
+                    <field name="description" placeholder="Descrizione del prodotto..."/>
+                    <notebook>
+                        <page string="Fasi (composizione)">
+                            <field name="fase_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="phase_id"/>
+                                    <field name="richiede_nda"/>
+                                    <field name="richiede_contratto"/>
+                                    <field name="richiede_pagamento"/>
+                                    <field name="pagamento_tipo" invisible="not richiede_pagamento"/>
+                                    <field name="numero_tranche"
+                                           invisible="not richiede_pagamento or pagamento_tipo != 'tranche'"/>
+                                    <field name="importo_pagamento_unico"
+                                           invisible="not richiede_pagamento or pagamento_tipo != 'unico'"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_prodotto_consulenza_list" model="ir.ui.view">
+        <field name="name">erpv6.prodotto.consulenza.list</field>
+        <field name="model">erpv6.prodotto.consulenza</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="product_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_prodotto_consulenza" model="ir.actions.act_window">
+        <field name="name">Prodotti Consulenza</field>
+        <field name="res_model">erpv6.prodotto.consulenza</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_prodotto_consulenza" name="Prodotti Consulenza" parent="menu_production_root"
+              action="action_prodotto_consulenza" sequence="15"
+              groups="sales_team.group_sale_manager,base.group_system"/>
+</odoo>
