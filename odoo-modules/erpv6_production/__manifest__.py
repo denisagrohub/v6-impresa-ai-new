@@ -35,6 +35,7 @@
     ],
     'data': [
         'security/ir.model.access.csv',
+        'security/erpv6_production_security_rules.xml',
         'data/production_cron.xml',
         'data/production_phase_data.xml',
         'data/kairos_scoring_rule_data.xml',

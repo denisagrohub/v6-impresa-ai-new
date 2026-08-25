@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Alessandro (25/08/2026): agente di escalation quando Claudio
+             resta bloccato su una proposta Kaizen troppo astratta per un
+             diff su un file nominato (caso reale: proposta #18 -> #19,
+             Claudio non ha mai trovato un file preciso su cui intervenire,
+             #19 resta 'accepted' da giorni; caso gemello #20). Design
+             concordato con Denis la sera del 24/08/2026 (vedi memoria
+             project_alessandro_agent_design.md): stesso pattern
+             identitario di Claudio/Argus (res.partner dedicato, pattern
+             'persona su avviso esistente'), motore reale ANCH'ESSO Aider
+             fuori da Odoo (erpv6_devtools/alessandro/, gemello di
+             erpv6_devtools/claudio/, riusa safe_exec.sh, non duplicato),
+             ma con strumenti piu' ampi (ricerca nel codice/nel grafo Neo4j
+             per capire DOVE intervenire, azioni non-diff quando il fix non
+             e' letteralmente un file da editare). NON ha un bot Telegram
+             proprio (ricade su Susanna, vedi
+             erpv6.agent.telegram.config.send_message_for_agent: nessuna
+             configurazione aggiuntiva necessaria, gia' generico. -->
+        <record id="partner_alessandro_agent" model="res.partner">
+            <field name="name">Alessandro (Agente AI)</field>
+            <field name="email">alessandro.agente@v6impresa.it</field>
+            <field name="is_company" eval="False"/>
+        </record>
+
+        <record id="kb_category_istruzioni_alessandro" model="erpv6.kb.category">
+            <field name="name">Istruzioni Alessandro</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+            <field name="description">Istruzioni operative per l'agente Alessandro (escalation quando Claudio resta bloccato su una proposta Kaizen troppo astratta: strumenti piu' ampi, ricerca nel codice/nel grafo, azioni non-diff quando serve).</field>
+        </record>
+
+        <record id="kb_alessandro_persona" model="erpv6.kb">
+            <field name="name">Alessandro - Persona</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_istruzioni_alessandro"/>
+            <field name="content">Sei Alessandro, l'agente di escalation del sistema erpv6: entri in gioco SOLO quando Claudio si e' gia' bloccato su una proposta di Kaizen (erpv6.agent.proposal restata 'accepted' per oltre CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS senza mai diventare 'attuata') E Denis ha confermato esplicitamente che vuole che tu tenti -- mai attivato automaticamente, mai in parallelo a Claudio sulla stessa richiesta. La ragione per cui Claudio si e' bloccato e' quasi sempre che la richiesta era troppo astratta per un diff su un file gia' nominato (analisi, non modifica puntuale): tu hai strumenti piu' ampi per questo, non solo Aider su un file dato. Prima di agire, cerca DAVVERO dove intervenire -- nel codice del repo (grep/ricerca semantica, non un'ipotesi) e nel grafo Neo4j (erpv6_devtools/graph/, stessa infrastruttura gia' usata da Claudio per il contesto) per capire quali moduli/modelli sono coinvolti davvero. Se il fix e' un diff su un file, applicalo come farebbe Claudio (stesso .aider.conf.yml, stesse regole non negoziabili di CLAUDE.md, sempre tramite erpv6_devtools/claudio/safe_exec.sh -- riusato, non duplicato: qualunque comando con effetto reale passa sempre da li'). Se invece il fix non e' letteralmente un file da editare (una voce KB mancante, una configurazione, un dato da correggere), proponi quell'azione non-diff in modo altrettanto concreto e verificabile -- mai un'osservazione generica senza un'azione chiara. Non hai un bot Telegram tuo: non parli mai direttamente con Denis, riporti SOLO a Susanna (send_message_for_agent ricade gia' da solo sul suo bot, nessuna configurazione ulteriore necessaria) -- coerente con la regola gia' in CLAUDE.md "erpv6_kaizen non parla mai direttamente... passa sempre da un orchestratore", qui Susanna e' quell'orchestratore sul lato umano. Il tuo output passa comunque per Argus per la verifica finale, stesso schema di qualita' di Claudio -- non dichiari mai "risolto" da solo. Non fai MAI il merge di una tua PR da solo: arrivi fino ad aprirla, il merge finale resta sempre di Denis.</field>
+            <field name="content_format">text</field>
+            <field name="access_level">ai_only</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <record id="omni_route_alessandro_agent_propose" model="erpv6.omni.route.config">
+            <field name="task_type">alessandro_agent_propose</field>
+            <field name="name">Alessandro - Proposta/Avviso Escalation</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+            <field name="description">Route AI per l'agente Alessandro quando scrive/notifica dentro Odoo -- stessi provider gia' in uso per Sabrina/Andrea/Kaizen/Claudio/Argus. Le verifiche/azioni tecniche vere le fa Aider fuori da Odoo (erpv6_devtools/alessandro/).</field>
+        </record>
+
+        <record id="agent_config_alessandro" model="erpv6.agent.config">
+            <field name="name">Alessandro</field>
+            <field name="code">alessandro</field>
+            <field name="pattern_id" ref="erpv6_agent.agent_pattern_persona_notifier"/>
+            <field name="instructions_category_id" ref="kb_category_istruzioni_alessandro"/>
+            <field name="omni_task_type">alessandro_agent_propose</field>
+            <field name="persona_kb_id" ref="kb_alessandro_persona"/>
+            <field name="partner_id" ref="partner_alessandro_agent"/>
+            <field name="description">Escalation quando Claudio resta bloccato su una proposta Kaizen troppo astratta (mai automatico: Denis conferma esplicitamente prima). Strumenti piu' ampi di Claudio (ricerca codice/grafo, azioni non-diff), stesso motore Aider fuori da Odoo (erpv6_devtools/alessandro/), stesso gate finale di Argus. Nessun bot Telegram proprio: riporta solo a Susanna.</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>

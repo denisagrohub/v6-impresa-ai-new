@@ -202,6 +202,39 @@ class Erpv6AgentTelegramConfig(models.Model):
             return False
 
     @api.model
+    def _resolve_telegram_config_for_agent(self, agent_config):
+        """Trova la configurazione Telegram REALE da cui inviare per questo
+        agente: la sua propria se attiva, altrimenti quella di Susanna
+        (fallback, vedi send_message_for_agent per il motivo). Fattorizzata
+        il 25/08/2026 (costruzione di Alessandro) da dentro
+        send_message_for_agent, per essere riusata anche da
+        send_proposal_decision_for_agent: Kaizen non ha mai avuto un bot
+        proprio, ma la sua proposta di escalation verso Alessandro ha
+        comunque bisogno di veri bottoni Approva/Rifiuta cliccabili, stesso
+        schema gia' in uso per Claudio (send_proposal_decision) -- niente
+        di nuovo da duplicare, solo da riusare col fallback gia' esistente.
+
+        Ritorna (config_da_usare, prefisso_testo) oppure (None, '') se
+        nessun invio e' possibile (nessun bot proprio ne' di Susanna
+        attivo)."""
+        config = self.search([
+            ('agent_config_id', '=', agent_config.id), ('is_active', '=', True), ('bot_token', '!=', False),
+        ], limit=1)
+        if config:
+            return config, ''
+        if agent_config.code == 'susanna':
+            return self.browse(), ''
+        susanna = self.env['erpv6.agent.config'].sudo().search([('code', '=', 'susanna')], limit=1)
+        if not susanna:
+            return self.browse(), ''
+        susanna_config = self.search([
+            ('agent_config_id', '=', susanna.id), ('is_active', '=', True), ('bot_token', '!=', False),
+        ], limit=1)
+        if not susanna_config:
+            return self.browse(), ''
+        return susanna_config, _("[%s, tramite Susanna]\n") % agent_config.name
+
+    @api.model
     def send_message_for_agent(self, agent_config, text, reply_markup=None):
         """Punto di ingresso usato dal resto del sistema (es.
         erpv6.agent.confirmation._escalate, Compito 3): invia via Telegram
@@ -223,23 +256,40 @@ class Erpv6AgentTelegramConfig(models.Model):
         Susanna, con un prefisso che dice chi scrive davvero -- Susanna
         stessa non fa mai da fallback per se stessa (evita un loop se
         anche lei fosse priva di bot)."""
-        config = self.search([
-            ('agent_config_id', '=', agent_config.id), ('is_active', '=', True), ('bot_token', '!=', False),
-        ], limit=1)
-        if config:
-            return config.send_message(text, reply_markup=reply_markup)
-        if agent_config.code == 'susanna':
+        config, prefix = self._resolve_telegram_config_for_agent(agent_config)
+        if not config:
             return False
-        susanna = self.env['erpv6.agent.config'].sudo().search([('code', '=', 'susanna')], limit=1)
-        if not susanna:
+        return config.send_message(prefix + text, reply_markup=reply_markup)
+
+    @api.model
+    def _proposal_decision_reply_markup(self, proposal_id):
+        """Bottoni Approva/Rifiuta per una erpv6.agent.proposal --
+        fattorizzato il 25/08/2026 da dentro send_proposal_decision, per
+        essere riusato identico da send_proposal_decision_for_agent (mai
+        due copie dello stesso dizionario che potrebbero disallinearsi)."""
+        return {
+            'inline_keyboard': [[
+                {'text': '✅ Approva', 'callback_data': 'approva:%d' % proposal_id},
+                {'text': '❌ Rifiuta', 'callback_data': 'rifiuta:%d' % proposal_id},
+            ]],
+        }
+
+    @api.model
+    def send_proposal_decision_for_agent(self, agent_config, proposal_id, text):
+        """Parallelo di send_proposal_decision (bottoni Approva/Rifiuta
+        cliccabili) ma per un agente che potrebbe non avere un bot Telegram
+        proprio (es. Kaizen) -- stesso fallback su Susanna di
+        send_message_for_agent, stessi bottoni di send_proposal_decision,
+        senza duplicare nessuna delle due logiche (vedi
+        _resolve_telegram_config_for_agent e _proposal_decision_reply_markup).
+        Aggiunto il 25/08/2026 per la proposta di escalation verso
+        Alessandro (erpv6_kaizen._maybe_escalate_to_alessandro): Kaizen
+        deve poter chiedere una vera decisione Approva/Rifiuta a Denis, non
+        solo un avviso testuale."""
+        config, prefix = self._resolve_telegram_config_for_agent(agent_config)
+        if not config:
             return False
-        susanna_config = self.search([
-            ('agent_config_id', '=', susanna.id), ('is_active', '=', True), ('bot_token', '!=', False),
-        ], limit=1)
-        if not susanna_config:
-            return False
-        relayed_text = _("[%s, tramite Susanna]\n%s") % (agent_config.name, text)
-        return susanna_config.send_message(relayed_text, reply_markup=reply_markup)
+        return config.send_message(prefix + text, reply_markup=self._proposal_decision_reply_markup(proposal_id))
 
     # ------------------------------------------------------------------
     # Ricezione (Compito 6, 23/08/2026) -- polling, non webhook (vedi
@@ -300,13 +350,7 @@ class Erpv6AgentTelegramConfig(models.Model):
         testuale (mai testo libero interpretato): il click e' solo un modo
         piu' comodo di mandare lo stesso comando esplicito."""
         self.ensure_one()
-        reply_markup = {
-            'inline_keyboard': [[
-                {'text': '✅ Approva', 'callback_data': 'approva:%d' % proposal_id},
-                {'text': '❌ Rifiuta', 'callback_data': 'rifiuta:%d' % proposal_id},
-            ]],
-        }
-        return self.send_message(text, reply_markup=reply_markup)
+        return self.send_message(text, reply_markup=self._proposal_decision_reply_markup(proposal_id))
 
     def _answer_callback_query(self, callback_query_id):
         """Toglie lo stato 'in caricamento' dal bottone su Telegram dopo il
@@ -432,9 +476,19 @@ class Erpv6AgentTelegramConfig(models.Model):
             proposal.sudo().write({
                 'status': 'accepted', 'reviewer_id': reviewer.id, 'reviewed_at': fields.Datetime.now(),
             })
+            # Bug reale trovato e corretto il 25/08/2026 (verifica dal vivo
+            # dei bottoni di Sabrina, stessa sessione): questo messaggio
+            # diceva il nome del CANALE che aveva approvato (es. 'Susanna',
+            # autorizzata ad approvare proposte di chiunque) invece
+            # dell'agente che avrebbe DAVVERO applicato la modifica --
+            # _next_chain_agent_code() e' la stessa funzione che decide a
+            # chi incatenare in agent_proposal.py, non puo' piu'
+            # disallinearsi da qui.
+            next_agent = self.env['erpv6.agent.config'].sudo().search(
+                [('code', '=', proposal.sudo()._next_chain_agent_code())], limit=1)
             self.send_message(_(
                 "✅ Proposta #%d approvata. %s se ne occupa a breve, ti avviso quando è fatto."
-            ) % (proposal_id, self.agent_config_id.name if proposal.agent_config_id.code == 'claudio' else 'Claudio'))
+            ) % (proposal_id, next_agent.name if next_agent else _("Qualcuno")))
         else:
             # NON action_reject(): quel metodo usa self.env.user, che qui e'
             # l'utente tecnico del cron/shell che ha ricevuto l'update

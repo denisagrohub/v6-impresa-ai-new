@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Consulente (25/08/2026, richiesto esplicitamente da Denis):
+             vede solo la propria cartella clienti, mai quella degli altri
+             consulenti. Un solo campo decide sia commerciale che delivery
+             (user_id, il venditore assegnato sul crm.lead, ereditato su
+             erpv6.production.order - vedi production_order.py). Il gruppo
+             vive in erpv6_core (concetto trasversale), le regole qui dove
+             i modelli reali (crm.lead, erpv6.production.order) e la
+             dipendenza da crm gia' esistono. Admin (base.group_system)
+             resta fuori da questo gruppo, nessuna restrizione per lui. -->
+        <record id="rule_production_order_consulente" model="ir.rule">
+            <field name="name">Produzione: il Consulente vede solo le proprie</field>
+            <field name="model_id" ref="model_erpv6_production_order"/>
+            <!-- Nessun user_id diretto su erpv6.production.order (verificato
+                 il 25/08/2026 dopo un promote fallito: il campo esiste solo
+                 su modelli di log/evento collegati, non qui). Il
+                 venditore assegnato si legge SOLO attraverso lead_id. -->
+            <field name="domain_force">[('lead_id.user_id', '=', user.id)]</field>
+            <field name="groups" eval="[(4, ref('erpv6_core.group_consulente'))]"/>
+        </record>
+
+        <record id="rule_crm_lead_consulente" model="ir.rule">
+            <field name="name">Lead: il Consulente vede solo i propri</field>
+            <field name="model_id" ref="crm.model_crm_lead"/>
+            <field name="domain_force">[('user_id', '=', user.id)]</field>
+            <field name="groups" eval="[(4, ref('erpv6_core.group_consulente'))]"/>
+        </record>
+    </data>
+</odoo>

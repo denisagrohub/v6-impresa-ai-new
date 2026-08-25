@@ -1,6 +1,9 @@
+import logging
 from datetime import timedelta
 
 from odoo import _, api, fields, models
+
+_logger = logging.getLogger(__name__)
 
 # Ancora fissa per il backlog Pareto CONDIVISO tra tutte le classi di
 # problema rilevate (non un record reale: res_id=0 non esiste mai su nessun
@@ -133,6 +136,7 @@ class Erpv6KaizenDetectedSignal(models.Model):
             'kb_extraction_recovered': self._detect_kb_extraction_recovered_after_retry(),
             'case_study_stalled': self._detect_case_study_stalled(),
             'typst_draft_not_compiling': self._detect_typst_draft_not_compiling(),
+            'typst_document_failed': self._detect_typst_document_failed(),
             'claudio_argus_proposal_stuck': self._detect_claudio_argus_proposal_stuck(),
             'frontend_error': self._detect_frontend_errors(),
         }
@@ -160,6 +164,7 @@ class Erpv6KaizenDetectedSignal(models.Model):
             'kb_extraction_recovered': "estrazioni KB recuperate da sole dopo retry",
             'case_study_stalled': "casi studio fermi da oltre %dh senza decisione umana" % CASE_STUDY_STALLED_HOURS,
             'typst_draft_not_compiling': "bozze Typst AI che non compilano",
+            'typst_document_failed': "documenti Typst di produzione falliti in rendering",
             'claudio_argus_proposal_stuck': "proposte di Claudio/Argus approvate ma mai attuate",
             'frontend_error': "errori JavaScript reali catturati nel browser",
         }
@@ -483,6 +488,47 @@ class Erpv6KaizenDetectedSignal(models.Model):
             _("Bozze Typst AI che non compilano"), len(broken), impatto=3)
         return new_count
 
+    def _detect_typst_document_failed(self):
+        """Dominio aperto il 25/08/2026, dopo aver trovato dal vivo un buco
+        reale nel controllo notturno: due documenti di produzione reali
+        (erpv6.production.order #25/#27, template #8 'Proposta Commerciale
+        L2') fallivano il rendering ogni 30 minuti per ORE (variabile Typst
+        `v` che oscurava la funzione nativa di spaziatura std.v, riga 83 del
+        sorgente) senza che Kaizen se ne accorgesse mai -- il detector
+        gemello sopra (_detect_typst_draft_not_compiling) copre SOLO le
+        bozze AI non ancora promosse (typst_source_draft), mai un documento
+        REALE gia' in produzione che fallisce (erpv6.typst.document,
+        status='failed', gia' un campo strutturato esistente, mai letto da
+        nessun detector prima d'ora). Sorgente corretta a mano lo stesso
+        giorno (std.v esplicito, come suggerito dall'errore stesso del
+        compilatore Typst) -- questo detector serve a non doverlo scoprire
+        di nuovo leggendo i log del container a mano."""
+        failed = self.env['erpv6.typst.document'].search([('status', '=', 'failed')])
+        new_count = 0
+        for doc in failed:
+            signal_key = 'typst_document_failed'
+            if self._already_detected(doc._name, doc.id, signal_key):
+                continue
+            self.env['erpv6.heinrich.indicator'].log_signal(
+                doc._name, doc.id, 'grave',
+                description=_(
+                    "Documento Typst #%(id)s '%(name)s' (template %(template)s) fallito in "
+                    "rendering. Errore reale: %(err)s"
+                ) % {'id': doc.id, 'name': doc.name, 'template': doc.template_id.name,
+                     'err': (doc.error_message or '')[:300]},
+            )
+            self._mark_detected(doc._name, doc.id, signal_key)
+            new_count += 1
+        self._log_shared_backlog_class(
+            _("Documenti Typst di produzione falliti in rendering"), len(failed), impatto=4)
+        if new_count:
+            # Stesso principio del segnale 'grave' su errori frontend
+            # (24/08/2026, "il sistema deve essere attivo, e sistemare"):
+            # un documento di produzione bloccato non deve aspettare il
+            # cron giornaliero di _cron_kaizen_agent_propose.
+            self._cron_kaizen_agent_propose()
+        return new_count
+
     def _detect_claudio_argus_proposal_stuck(self):
         """Dominio aperto il 24/08/2026. SOLO stato strutturato (status,
         create_date), MAI il contenuto testuale del registro Claudio/Argus
@@ -501,22 +547,88 @@ class Erpv6KaizenDetectedSignal(models.Model):
         new_count = 0
         for proposal in stuck:
             signal_key = 'claudio_argus_proposal_stuck'
-            if self._already_detected(proposal._name, proposal.id, signal_key):
-                continue
-            self.env['erpv6.heinrich.indicator'].log_signal(
-                proposal._name, proposal.id, 'lieve',
-                description=_(
-                    "Proposta #%(id)s ('%(name)s') di %(agent)s approvata da oltre %(h)dh ma mai "
-                    "diventata 'attuata' - il ciclo automatico potrebbe non averla presa in "
-                    "carico (processo fermo?) o essere bloccato su un errore."
-                ) % {'id': proposal.id, 'name': proposal.name, 'agent': proposal.agent_config_id.name,
-                     'h': CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS},
-            )
-            self._mark_detected(proposal._name, proposal.id, signal_key)
-            new_count += 1
+            if not self._already_detected(proposal._name, proposal.id, signal_key):
+                self.env['erpv6.heinrich.indicator'].log_signal(
+                    proposal._name, proposal.id, 'lieve',
+                    description=_(
+                        "Proposta #%(id)s ('%(name)s') di %(agent)s approvata da oltre %(h)dh ma mai "
+                        "diventata 'attuata' - il ciclo automatico potrebbe non averla presa in "
+                        "carico (processo fermo?) o essere bloccato su un errore."
+                    ) % {'id': proposal.id, 'name': proposal.name, 'agent': proposal.agent_config_id.name,
+                         'h': CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS},
+                )
+                self._mark_detected(proposal._name, proposal.id, signal_key)
+                new_count += 1
+            # Escalation verso Alessandro (25/08/2026, design concordato con
+            # Denis la sera del 24/08/2026 - vedi memoria
+            # project_alessandro_agent_design.md): SOLO per proposte di
+            # Claudio (mai Argus, che e' sola lettura e non applica mai
+            # nulla). Idempotenza su signal_key DEDICATA
+            # (_maybe_escalate_to_alessandro, non su questo signal_key
+            # 'claudio_argus_proposal_stuck') apposta: una proposta gia'
+            # segnalata come 'lieve' PRIMA che questa escalation esistesse
+            # (casi reali #19/#20, gia' 'accepted' da giorni quando questa
+            # funzione e' stata scritta il 25/08/2026) deve poter essere
+            # comunque escalata al prossimo giro, non restare bloccata per
+            # sempre solo perche' il vecchio segnale Heinrich era gia'
+            # scattato.
+            if proposal.agent_config_id.code == 'claudio':
+                self._maybe_escalate_to_alessandro(proposal)
         self._log_shared_backlog_class(
             _("Proposte di Claudio/Argus approvate ma mai attuate"), len(stuck), impatto=4)
         return new_count
+
+    def _maybe_escalate_to_alessandro(self, proposal):
+        """Crea (se non esiste gia') una proposta di Kaizen che chiede
+        ESPLICITAMENTE conferma a Denis per attivare Alessandro su questa
+        proposta di Claudio rimasta bloccata -- design concordato con Denis
+        la sera del 24/08/2026 (memoria project_alessandro_agent_design.md):
+        "Kaizen chiede conferma a noi, noi confermando attiviamo la
+        proposta di Alessandro". NON attiva Alessandro da sola: la nuova
+        proposta resta 'pending_review' come qualunque altra -- solo
+        quando Denis la approva (bottone o testo, come sempre),
+        erpv6.agent.proposal.write() la incatena davvero ad Alessandro
+        (vedi _chain_to_next_agent_if_needed/_next_chain_agent_code).
+
+        Idempotente su un child_proposal_id di Kaizen gia' collegato a
+        QUESTA proposta bloccata (parent_proposal_id), non su un
+        signal_key Heinrich (vedi chiamante): non va mai duplicata, nemmeno
+        se il cron gira di nuovo prima che Denis abbia deciso, ne' se
+        Denis la rifiuta (un rifiuto e' comunque una decisione presa, non
+        va riproposta identica al giro successivo)."""
+        kaizen = self.env['erpv6.agent.config'].sudo().search([('code', '=', 'kaizen')], limit=1)
+        if not kaizen:
+            return
+        existing = self.env['erpv6.agent.proposal'].sudo().search([
+            ('parent_proposal_id', '=', proposal.id), ('agent_config_id', '=', kaizen.id),
+        ], limit=1)
+        if existing:
+            return
+        escalation = self.env['erpv6.agent.proposal'].sudo().create({
+            'agent_config_id': kaizen.id,
+            'name': _("Claudio bloccato su #%d — attivo Alessandro?") % proposal.id,
+            'proposal_text': _(
+                "Claudio non ce l'ha fatta sulla proposta #%(id)d ('%(name)s'): resta 'accettata' "
+                "da oltre %(h)dh senza mai diventare 'attuata' -- probabilmente la richiesta era "
+                "troppo astratta per un diff su un file nominato (il caso per cui Alessandro e' "
+                "stato pensato: strumenti piu' ampi, ricerca nel codice/nel grafo, anche azioni "
+                "non-diff). Vuoi che Alessandro tenti?\n\nTesto originale della proposta di "
+                "Claudio: %(text)s"
+            ) % {'id': proposal.id, 'name': proposal.name, 'h': CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS,
+                 'text': proposal.proposal_text},
+            'parent_proposal_id': proposal.id,
+            'status': 'pending_review',
+        })
+        text = _(
+            "🧭 Claudio è bloccato sulla proposta #%(id)d, mai attuata da oltre %(h)dh. Vuoi che "
+            "provi Alessandro (strumenti più ampi)?"
+        ) % {'id': proposal.id, 'h': CLAUDIO_ARGUS_PROPOSAL_STUCK_HOURS}
+        try:
+            self.env['erpv6.agent.telegram.config'].send_proposal_decision_for_agent(kaizen, escalation.id, text)
+        except Exception:
+            _logger.exception(
+                "Invio Telegram (bottoni Approva/Rifiuta) fallito per la proposta di escalation "
+                "Alessandro #%s -- resta comunque visibile/decidibile da Odoo.", escalation.id)
 
     def _detect_frontend_errors(self):
         """Dominio aperto il 24/08/2026 (richiesto esplicitamente: "se apro

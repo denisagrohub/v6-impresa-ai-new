@@ -73,32 +73,82 @@ class Erpv6AgentProposal(models.Model):
             for proposal in self:
                 if was_pending.get(proposal.id) == 'accepted':
                     continue  # gia' accettata prima di questa write, non ricatenare
-                proposal._chain_to_claudio_if_needed()
+                proposal._chain_to_next_agent_if_needed()
         return result
 
-    def _chain_to_claudio_if_needed(self):
-        """Crea (se non esiste gia') una proposta di verifica/applicazione
-        per Claudio, incatenata e gia' accettata, per QUALUNQUE proposta
-        approvata che non sia gia' di Claudio stesso -- cosi' il ciclo
-        automatico (watch_proposals.py, che guarda solo le proposte
-        accettate di Claudio) la trova al giro successivo senza altro
-        intervento umano oltre all'approvazione originale."""
+    def _next_chain_agent_code(self):
+        """Codice dell'agente che si occupera' DAVVERO di questa proposta
+        una volta approvata -- UNA sola funzione, usata sia da
+        _chain_to_next_agent_if_needed (per decidere a chi incatenare) sia
+        da erpv6.agent.telegram.config._handle_proposal_decision (per dire
+        a Denis chi se ne occupa), cosi' le due cose non possono
+        disallinearsi. Fattorizzata il 25/08/2026 dopo aver trovato dal
+        vivo un bug reale in _handle_proposal_decision: il messaggio di
+        conferma diceva il nome del CANALE Telegram che aveva approvato
+        (es. 'Susanna', che puo' approvare proposte di chiunque) invece
+        del nome dell'agente che avrebbe davvero applicato la modifica.
+
+        Caso normale (invariato dal 24/08/2026): il prossimo agente e'
+        Claudio. Claudio e Alessandro stessi sono agenti TERMINALI (nessun
+        ulteriore incatenamento, se ne occupano loro).
+
+        Caso escalation Alessandro (25/08/2026, design concordato con
+        Denis la sera del 24/08/2026, vedi memoria
+        project_alessandro_agent_design.md): SE questa proposta appartiene
+        a Kaizen E il suo parent_proposal_id appartiene a Claudio,
+        significa che e' la proposta di escalation creata da
+        erpv6.kaizen.detected_signal._maybe_escalate_to_alessandro quando
+        una proposta di Claudio resta bloccata (mai 'actioned') --
+        approvarla NON deve rimandare la stessa richiesta a Claudio (si
+        bloccherebbe di nuovo per lo stesso motivo, rischio di loop
+        silenzioso): il prossimo agente e' invece Alessandro, che ha
+        strumenti piu' ampi (ricerca nel codice/nel grafo, azioni non-diff)
+        per i casi troppo astratti per un diff su un file nominato."""
         self.ensure_one()
-        if self.agent_config_id.code == 'claudio':
+        if self.agent_config_id.code in ('claudio', 'alessandro'):
+            return self.agent_config_id.code
+        if self.agent_config_id.code == 'kaizen' and self.parent_proposal_id.agent_config_id.code == 'claudio':
+            return 'alessandro'
+        return 'claudio'
+
+    def _chain_to_next_agent_if_needed(self):
+        """Crea (se non esiste gia') una proposta di verifica/applicazione
+        per il prossimo agente della catena (vedi _next_chain_agent_code),
+        incatenata e gia' accettata, per QUALUNQUE proposta approvata che
+        non sia gia' di un agente terminale (Claudio o Alessandro) -- cosi'
+        il ciclo automatico (watch_proposals.py, che guarda le proposte
+        accettate di Claudio E Alessandro) la trova al giro successivo
+        senza altro intervento umano oltre all'approvazione originale.
+        Generalizzata il 25/08/2026 da _chain_to_claudio_if_needed per
+        includere Alessandro (vedi _next_chain_agent_code per il caso
+        escalation)."""
+        self.ensure_one()
+        if self.agent_config_id.code in ('claudio', 'alessandro'):
             return
-        if self.child_proposal_ids.filtered(lambda c: c.agent_config_id.code == 'claudio'):
+        next_code = self._next_chain_agent_code()
+        if self.child_proposal_ids.filtered(lambda c: c.agent_config_id.code == next_code):
             return  # gia' incatenata (es. scritta da _handle_proposal_decision in passato)
-        claudio = self.env['erpv6.agent.config'].sudo().search([('code', '=', 'claudio')], limit=1)
-        if not claudio:
+        next_agent = self.env['erpv6.agent.config'].sudo().search([('code', '=', next_code)], limit=1)
+        if not next_agent:
             return
         reviewer = self.reviewer_id or self.env.ref('base.user_admin', raise_if_not_found=False) or self.env.user
-        self.env['erpv6.agent.proposal'].sudo().create({
-            'agent_config_id': claudio.id,
-            'name': _("Verifica e applica: %s") % self.name,
-            'proposal_text': _(
+        if next_code == 'alessandro':
+            proposal_text = _(
+                "Denis ha confermato: Claudio non ce l'ha fatta su questa proposta (rimasta "
+                "bloccata, mai attuata). Prova tu -- hai strumenti piu' ampi di Claudio: ricerca "
+                "nel codice/nel grafo Neo4j per capire DOVE intervenire, ed eventualmente un'azione "
+                "non-diff (voce KB, configurazione) se il fix non e' letteralmente un file da "
+                "editare. %(text)s"
+            ) % {'text': self.proposal_text}
+        else:
+            proposal_text = _(
                 "Denis ha approvato questa proposta di %(agent)s: %(text)s\n\n"
                 "Verifica sul codice reale se e come applicarla correttamente, poi applicala davvero."
-            ) % {'agent': self.agent_config_id.name, 'text': self.proposal_text},
+            ) % {'agent': self.agent_config_id.name, 'text': self.proposal_text}
+        self.env['erpv6.agent.proposal'].sudo().create({
+            'agent_config_id': next_agent.id,
+            'name': _("Verifica e applica: %s") % self.name,
+            'proposal_text': proposal_text,
             'parent_proposal_id': self.id,
             'status': 'accepted',
             'reviewer_id': reviewer.id,

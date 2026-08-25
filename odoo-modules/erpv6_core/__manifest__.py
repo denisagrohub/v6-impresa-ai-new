@@ -8,6 +8,7 @@
     'license': 'LGPL-3',
     'depends': ['base', 'mail'],
     'data': [
+        'security/erpv6_security_groups.xml',
         'views/core_views.xml',
         'security/ir.model.access.csv',
     ],

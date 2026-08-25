@@ -33,6 +33,7 @@
         'data/agent_monitor_rules_data.xml',
         'data/agent_claudio_data.xml',
         'data/agent_argus_data.xml',
+        'data/agent_alessandro_data.xml',
         'data/agent_external_log_data.xml',
     ],
     'installable': True,
