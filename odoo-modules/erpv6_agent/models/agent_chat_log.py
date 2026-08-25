@@ -29,6 +29,17 @@ class Erpv6AgentChatLog(models.Model):
         ('out', 'Agente → Umano'),
     ], required=True)
     text = fields.Text(required=True)
+    telegram_message_id = fields.Integer(
+        string='ID Messaggio Telegram', index=True,
+        help="message_id nativo Telegram del messaggio 'out' che l'agente ha davvero inviato "
+             "(valorizzato da agent_telegram_config.py.send_message al momento dell'invio, MAI "
+             "su un messaggio 'in'). Aggiunto il 25/08/2026 per la feature 'reazione 👎': senza "
+             "questo id non c'e' modo di risalire dal message_id di un update Telegram "
+             "'message_reaction' (che contiene SOLO chat+message_id, mai il testo) al record "
+             "storico giusto -- vedi find_by_telegram_message_id sotto. Vuoto sui messaggi 'in' "
+             "e su qualunque 'out' inviato PRIMA di questa modifica (storico non retroattivo: "
+             "una reazione su un messaggio vecchio non trova corrispondenza, gestito esplicitamente "
+             "in agent_telegram_config.py._process_reaction_update, mai un errore silenzioso).")
 
     # Azione proposta (25/08/2026, richiesto esplicitamente da Denis dopo
     # aver scoperto che Susanna diceva "ho inoltrato/trasmesso" senza
@@ -65,6 +76,45 @@ class Erpv6AgentChatLog(models.Model):
         ], limit=1, order='create_date desc')
 
     @classmethod
+    def _format_history(cls, records):
+        """Formattazione condivisa 'Umano: ...'/'Agente: ...' -- fattorizzata
+        il 25/08/2026 (feature reazione 👎) da dentro log_and_get_history,
+        perche' get_history_text (sotto, usato per rileggere il contesto
+        attorno a un messaggio segnalato) ha bisogno DELLA STESSA identica
+        formattazione, mai una seconda versione che potrebbe disallinearsi."""
+        return "\n".join(
+            "%s: %s" % ("Umano" if h.direction == 'in' else "Agente", h.text)
+            for h in reversed(records)
+        )
+
+    @classmethod
+    def get_history_text(cls, env, agent_config_id, chat_key, limit=CHAT_HISTORY_LIMIT):
+        """Storico formattato SENZA registrare nulla di nuovo -- a differenza
+        di log_and_get_history (che registra sempre un 'in' in ingresso),
+        questo serve quando non c'e' nessun nuovo messaggio testuale umano
+        da salvare (es. una reazione 👎 su un messaggio esistente, vedi
+        agent_telegram_config.py._process_reaction_update): serve SOLO
+        rileggere il contesto gia' persistito, mai crearne di nuovo."""
+        Model = env['erpv6.agent.chat.log'].sudo()
+        history = Model.search([
+            ('agent_config_id', '=', agent_config_id), ('chat_key', '=', chat_key),
+        ], limit=limit, order='create_date desc')
+        return cls._format_history(history)
+
+    @classmethod
+    def find_by_telegram_message_id(cls, env, agent_config_id, chat_key, telegram_message_id):
+        """Risale dal message_id nativo Telegram (l'UNICO dato che un update
+        'message_reaction' porta con se', vedi MessageReactionUpdated: chat
+        + message_id, MAI il testo) al record storico 'out' che l'agente ha
+        davvero scritto -- None se non trovato (messaggio precedente
+        all'introduzione di telegram_message_id, o reazione su un messaggio
+        di un'altra chat/agente: mai indovinare un match approssimato)."""
+        return env['erpv6.agent.chat.log'].sudo().search([
+            ('agent_config_id', '=', agent_config_id), ('chat_key', '=', chat_key),
+            ('direction', '=', 'out'), ('telegram_message_id', '=', telegram_message_id),
+        ], limit=1)
+
+    @classmethod
     def log_and_get_history(cls, env, agent_config_id, chat_key, incoming_text):
         """Registra il messaggio in ingresso e ritorna lo storico
         formattato (esclude quello appena scritto, che va passato come
@@ -75,10 +125,7 @@ class Erpv6AgentChatLog(models.Model):
         history = Model.search([
             ('agent_config_id', '=', agent_config_id), ('chat_key', '=', chat_key),
         ], limit=CHAT_HISTORY_LIMIT, order='create_date desc')
-        history_text = "\n".join(
-            "%s: %s" % ("Umano" if h.direction == 'in' else "Agente", h.text)
-            for h in reversed(history)
-        )
+        history_text = cls._format_history(history)
         Model.create({
             'agent_config_id': agent_config_id, 'chat_key': chat_key,
             'direction': 'in', 'text': incoming_text,

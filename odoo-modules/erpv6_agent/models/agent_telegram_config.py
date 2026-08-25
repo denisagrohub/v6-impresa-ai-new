@@ -42,6 +42,23 @@ CONFIRMATION_DECISION_RE = re.compile(r'^\s*(conferma|procedi|pianifica|fermati)
 # vedi erpv6.agent.chat.log.find_pending_action.
 REGISTRA_RE = re.compile(r'^\s*registra(?:\s+(\d+))?\s*$', re.IGNORECASE)
 
+# Reazione che fa scattare l'autocritica (25/08/2026, richiesta esplicita di
+# Denis) -- SOLO questo emoji, mai un'interpretazione libera di "reazione
+# negativa" (stesso principio non negoziabile gia' seguito per i comandi
+# testuali sopra: vocabolario chiuso, non dedotto).
+NEGATIVE_REACTION_EMOJI = '\U0001F44E'  # 👎
+
+# Update types richiesti esplicitamente via allowed_updates (Compito 6,
+# 23/08/2026 + feature reazione 25/08/2026). Verificato sulla documentazione
+# ufficiale Telegram Bot API (core.telegram.org/bots/api#getupdates,
+# 25/08/2026): "Specify an empty list to receive all update types except
+# chat_member, message_reaction, and message_reaction_count (default)" --
+# quindi 'message_reaction' NON arriverebbe mai senza elencarlo qui
+# esplicitamente, e specificare QUALUNQUE lista non vuota disattiva tutti i
+# tipi non elencati: bisogna rielencare anche i tre gia' in uso
+# (message/edited_message/callback_query), non solo aggiungere il nuovo.
+TELEGRAM_ALLOWED_UPDATES = ['message', 'edited_message', 'callback_query', 'message_reaction']
+
 
 class Erpv6AgentTelegramConfig(models.Model):
     """Predisposizione COMPLETA (Compito 6, 23/08/2026) -- non piu' un
@@ -170,12 +187,23 @@ class Erpv6AgentTelegramConfig(models.Model):
     # perche' nessun record ha is_active=True + bot_token reale.
     # ------------------------------------------------------------------
 
-    def send_message(self, text, reply_markup=None, reply_to_message_id=None):
+    def send_message(self, text, reply_markup=None, reply_to_message_id=None, return_message_id=False):
         """Invia un messaggio di testo alla chat configurata (sendMessage).
         Ritorna True/False -- non solleva mai un'eccezione al chiamante
         (stesso principio gia' seguito ovunque per i canali di notifica: un
         canale che fallisce non deve mai far fallire l'intero flusso che lo
         chiama), logga per intero l'errore reale.
+
+        return_message_id (opzionale, 25/08/2026, feature reazione 👎):
+        se True, ritorna l'id nativo Telegram del messaggio appena inviato
+        (result.message_id della risposta sendMessage) al posto di True, o
+        None al posto di False -- serve a chi chiama per valorizzare
+        erpv6.agent.chat.log.telegram_message_id sul record 'out'
+        corrispondente, cosi' una futura reazione Telegram su quel
+        messaggio puo' risalire al testo giusto (vedi
+        find_by_telegram_message_id). Default False per non cambiare il
+        contratto di ritorno per nessuno dei chiamanti esistenti (nessuno
+        di loro legge il valore ritornato oltre a un controllo di verita').
 
         reply_markup (opzionale, 24/08/2026): dict Telegram nativo
         (es. {'inline_keyboard': [[{'text': '...', 'callback_data': '...'}]]})
@@ -194,16 +222,17 @@ class Erpv6AgentTelegramConfig(models.Model):
         cancellato), Telegram ignora il parametro e invia comunque il
         messaggio normalmente -- mai un fallimento per questo."""
         self.ensure_one()
+        failure = None if return_message_id else False
         if not self.is_active or not self.bot_token or not self.chat_id:
             _logger.debug(
                 "Configurazione Telegram %s non attiva/incompleta -- send_message() non invia nulla "
                 "(is_active=%s, bot_token=%s, chat_id=%s).",
                 self.name, self.is_active, bool(self.bot_token), bool(self.chat_id))
-            return False
+            return failure
         token = self.get_decrypted_bot_token()
         if not token:
             _logger.warning("Configurazione Telegram %s: bot_token non decifrabile, invio saltato.", self.name)
-            return False
+            return failure
         try:
             body = {'chat_id': self.chat_id, 'text': text}
             if reply_markup:
@@ -219,11 +248,13 @@ class Erpv6AgentTelegramConfig(models.Model):
             payload = response.json()
             if not payload.get('ok'):
                 _logger.error("Telegram sendMessage per %s: risposta non ok: %s", self.name, payload)
-                return False
+                return failure
+            if return_message_id:
+                return (payload.get('result') or {}).get('message_id')
             return True
         except Exception as e:
             _logger.error("Telegram sendMessage fallito per configurazione %s: %s", self.name, e)
-            return False
+            return failure
 
     @api.model
     def _resolve_telegram_config_for_agent(self, agent_config):
@@ -341,7 +372,10 @@ class Erpv6AgentTelegramConfig(models.Model):
         try:
             response = requests.get(
                 (TELEGRAM_API_BASE % token) + '/getUpdates',
-                params={'offset': self.last_update_id + 1, 'timeout': 0, 'limit': 50},
+                params={
+                    'offset': self.last_update_id + 1, 'timeout': 0, 'limit': 50,
+                    'allowed_updates': json.dumps(TELEGRAM_ALLOWED_UPDATES),
+                },
                 timeout=TELEGRAM_HTTP_TIMEOUT,
             )
             response.raise_for_status()
@@ -395,15 +429,21 @@ class Erpv6AgentTelegramConfig(models.Model):
             _logger.exception("answerCallbackQuery fallito (non bloccante) per %s.", self.name)
 
     def _process_update(self, update):
-        """UN update in ingresso: solo messaggi testuali O click sui
-        bottoni Approva/Rifiuta dalla chat_id configurata vengono elaborati
-        (nessun'altra chat, nessun contenuto non testuale -- foto/documenti/
-        sticker restano fuori perimetro). Genera sempre e solo una risposta
-        conversazionale via agent_config_id.answer_conversationally (o
-        un'approvazione/rifiuto SOLO per comando/click esplicito, mai
-        un'azione dedotta dal testo libero) -- stesso vincolo non
-        negoziabile gia' applicato ai canali Discuss."""
+        """UN update in ingresso: solo messaggi testuali, click sui bottoni
+        Approva/Rifiuta, O reazioni 👎 (25/08/2026, vedi
+        _process_reaction_update) dalla chat_id configurata vengono
+        elaborati (nessun'altra chat, nessun contenuto non testuale --
+        foto/documenti/sticker restano fuori perimetro). Genera sempre e
+        solo una risposta conversazionale via
+        agent_config_id.answer_conversationally, un'autocritica via
+        reflect_on_negative_feedback, (o un'approvazione/rifiuto SOLO per
+        comando/click esplicito) -- mai un'azione dedotta dal testo libero,
+        stesso vincolo non negoziabile gia' applicato ai canali Discuss."""
         self.ensure_one()
+        reaction_update = update.get('message_reaction')
+        if reaction_update:
+            self._process_reaction_update(reaction_update)
+            return
         callback_query = update.get('callback_query')
         if callback_query:
             chat_id = str(((callback_query.get('message') or {}).get('chat') or {}).get('id', ''))
@@ -462,6 +502,19 @@ class Erpv6AgentTelegramConfig(models.Model):
         if registra_match:
             self._handle_registra(int(registra_match.group(1)) if registra_match.group(1) else None)
             return
+        # Fallback 👎 via reply testuale (25/08/2026, richiesto esplicitamente
+        # da Denis dopo aver scoperto che la vera reazione Telegram non
+        # funziona in chat privata: "piuttosto che mettere l'emotion così
+        # rispondo al messaggio con l'emotion"). Un normale messaggio "👎"
+        # mandato in RISPOSTA (reply_to_message, sempre presente in una
+        # chat privata indipendentemente dalla privacy mode dei bot) innesca
+        # la STESSA autocritica reale di _process_reaction_update - stesso
+        # vocabolario chiuso (solo questo emoji, mai un'interpretazione
+        # libera), stesso metodo condiviso _handle_negative_feedback.
+        reply_to = message.get('reply_to_message') or {}
+        if text == NEGATIVE_REACTION_EMOJI and reply_to.get('message_id'):
+            self._handle_negative_feedback(reply_to['message_id'])
+            return
         ChatLog = self.env['erpv6.agent.chat.log']
         thread_history = ChatLog.log_and_get_history(self.env, self.agent_config_id.id, str(self.chat_id), text)
         answer, pending_action = self.agent_config_id.answer_conversationally(
@@ -472,7 +525,106 @@ class Erpv6AgentTelegramConfig(models.Model):
         log_entry = ChatLog.log_reply(
             self.env, self.agent_config_id.id, str(self.chat_id), answer, pending_action=pending_action)
         reply_markup = self._registra_reply_markup(log_entry) if pending_action else None
-        self.send_message(answer, reply_markup=reply_markup, reply_to_message_id=message.get('message_id'))
+        sent_message_id = self.send_message(
+            answer, reply_markup=reply_markup, reply_to_message_id=message.get('message_id'),
+            return_message_id=True)
+        if sent_message_id:
+            log_entry.telegram_message_id = sent_message_id
+
+    @staticmethod
+    def _reaction_emojis(reaction_list):
+        """Estrae gli emoji da un array di ReactionType (formato reale
+        MessageReactionUpdated.old_reaction/new_reaction, verificato sulla
+        documentazione ufficiale Telegram Bot API il 25/08/2026:
+        [{'type': 'emoji', 'emoji': '👍'}, ...] -- un ReactionType puo' anche
+        essere di type 'custom_emoji' o 'paid' (nessun campo 'emoji' in
+        quei casi, .get() torna None e viene scartato qui, mai un errore)."""
+        return {item.get('emoji') for item in (reaction_list or []) if item.get('type') == 'emoji'}
+
+    def _process_reaction_update(self, reaction_update):
+        """UN update Telegram di tipo 'message_reaction' (MessageReactionUpdated,
+        vedi TELEGRAM_ALLOWED_UPDATES sopra per come viene richiesto in
+        allowed_updates). Struttura reale verificata sulla documentazione
+        ufficiale (core.telegram.org/bots/api#messagereactionupdated,
+        25/08/2026): {'chat': {...}, 'message_id': int, 'user': {...}
+        (opzionale), 'actor_chat': {...} (opzionale), 'date': int,
+        'old_reaction': [ReactionType...], 'new_reaction': [ReactionType...]}
+        -- MAI il testo del messaggio originale, solo chat+message_id: va
+        sempre recuperato da erpv6.agent.chat.log via telegram_message_id
+        (vedi find_by_telegram_message_id).
+
+        Scatta SOLO se 👎 e' NUOVO in new_reaction rispetto a old_reaction
+        (un umano che aggiunge/cambia un'altra reazione mentre 👎 resta gia'
+        presente da prima non deve ritriggerare l'autocritica una seconda
+        volta) -- stesso principio di vocabolario chiuso gia' seguito per i
+        comandi testuali (mai dedurre 'e' negativo' da qualunque altro
+        segnale).
+
+        LIMITE REALE VERIFICATO IL 25/08/2026 (non un'ipotesi): la
+        documentazione ufficiale Telegram dice esplicitamente "The bot must
+        be an administrator in the chat" per ricevere questo tipo di
+        update. Uno stato di amministratore non esiste per una chat privata
+        1:1 bot<->utente (e' un concetto solo di gruppi/canali) -- verificato
+        dal vivo che le configurazioni Susanna e Claudio oggi puntano
+        entrambe a una chat_id di tipo 'private' (getChat confermato in
+        sessione). In pratica questo significa che Telegram NON invierà mai
+        questo update per una reazione di Denis nella chat privata attuale,
+        indipendentemente da questo codice -- il codice qui e' comunque
+        corretto e pronto (stessa logica che scatterebbe in un gruppo dove
+        il bot fosse promosso amministratore, o se Telegram cambiasse
+        comportamento in futuro), ma NON e' oggi azionabile da una reazione
+        vera nella chat privata Denis<->bot senza cambiare il tipo di chat.
+        Vedi il report di verifica per i dettagli."""
+        self.ensure_one()
+        chat_id = str((reaction_update.get('chat') or {}).get('id', ''))
+        if not chat_id or chat_id != str(self.chat_id):
+            _logger.warning(
+                "Telegram: reazione ricevuta da una chat NON configurata (%s) sulla configurazione "
+                "%s -- ignorata.", chat_id, self.name)
+            return
+        if not self.agent_config_id:
+            _logger.warning(
+                "Configurazione Telegram %s non collegata a nessun agente -- reazione ricevuta ma "
+                "nessuna autocritica possibile.", self.name)
+            return
+        old_emojis = self._reaction_emojis(reaction_update.get('old_reaction'))
+        new_emojis = self._reaction_emojis(reaction_update.get('new_reaction'))
+        if NEGATIVE_REACTION_EMOJI not in new_emojis or NEGATIVE_REACTION_EMOJI in old_emojis:
+            return  # non e' un NUOVO 👎 -- niente da fare (vedi docstring)
+        self._handle_negative_feedback(reaction_update.get('message_id'))
+
+    def _handle_negative_feedback(self, message_id):
+        """Logica CONDIVISA dell'autocritica su un messaggio flaggato -
+        fattorizzata il 25/08/2026 per essere riusata sia da una vera
+        reazione 👎 (_process_reaction_update, oggi non azionabile in chat
+        privata, vedi limite sopra) sia dal fallback che Denis ha chiesto
+        subito dopo aver scoperto quel limite: "piuttosto che mettere
+        l'emotion così rispondo al messaggio con l'emotion" - un normale
+        messaggio di testo "👎" mandato in RISPOSTA (reply) al messaggio da
+        criticare, che funziona identico in chat privata senza bisogno di
+        nessun permesso speciale di Telegram."""
+        self.ensure_one()
+        ChatLog = self.env['erpv6.agent.chat.log']
+        flagged_entry = ChatLog.find_by_telegram_message_id(
+            self.env, self.agent_config_id.id, str(self.chat_id), message_id)
+        if not flagged_entry:
+            _logger.warning(
+                "Telegram: 👎 su message_id %s (config %s) ma nessun messaggio corrispondente "
+                "nello storico (probabilmente precedente all'introduzione di telegram_message_id) -- "
+                "avviso Denis invece di restare in silenzio.", message_id, self.name)
+            self.send_message(_(
+                "Ho visto il tuo 👎 ma non trovo il testo esatto di quel messaggio nel mio "
+                "storico (probabilmente è precedente a quando ho iniziato a registrarli) -- dimmi tu "
+                "cosa non andava, così lo tengo a mente."
+            ), reply_to_message_id=message_id)
+            return
+        thread_history = ChatLog.get_history_text(self.env, self.agent_config_id.id, str(self.chat_id))
+        reasoning = self.agent_config_id.reflect_on_negative_feedback(
+            flagged_text=flagged_entry.text, thread_history=thread_history)
+        log_entry = ChatLog.log_reply(self.env, self.agent_config_id.id, str(self.chat_id), reasoning)
+        sent_message_id = self.send_message(reasoning, reply_to_message_id=message_id, return_message_id=True)
+        if sent_message_id:
+            log_entry.telegram_message_id = sent_message_id
 
     # Etichette per tipo (25/08/2026, richiesto esplicitamente da Denis:
     # "pulsante uguale ad azione" - il bottone deve dire DAVVERO cosa fa,

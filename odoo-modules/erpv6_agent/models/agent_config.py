@@ -560,6 +560,116 @@ class Erpv6AgentConfig(models.Model):
             }
         return message, pending_action
 
+    def reflect_on_negative_feedback(self, flagged_text, thread_history):
+        """Autocritica GENUINA (25/08/2026, richiesta esplicita di Denis:
+        "quando metto 👎 su un messaggio Telegram di un agente, deve
+        rileggerlo, capire perche' potrebbe essere sbagliato, e scrivermi
+        il ragionamento") su un PROPRIO messaggio precedente appena
+        segnalato con una reazione 👎 su Telegram -- vedi
+        agent_telegram_config.py._process_reaction_update, l'unico
+        chiamante. Stesso schema di answer_conversationally (bridge AI
+        reale, persona, istruzioni KB) MA con la memoria (_get_memory_kbs)
+        gia' dentro il prompt come in _run_generic_text_proposal/
+        kaizen_agent.py, perche' qui la memoria e' il punto centrale della
+        feature (non solo un log): il ragionamento generato viene SEMPRE
+        scritto in memoria via _write_memory alla fine (mai solo
+        risposto e dimenticato), cosi' i turni conversazionali futuri
+        (answer_conversationally rilegge le istruzioni ma NON la memoria
+        oggi -- differenza nota, non toccata qui) e le prossime
+        riflessioni la ritrovano.
+
+        Nessun azione_proposta qui (a differenza di answer_conversationally):
+        questo e' solo testo di riflessione, mai un'azione dedotta -- stesso
+        vincolo non negoziabile di sempre.
+
+        Ritorna SEMPRE una stringa (mai None): un fallback esplicito se la
+        chiamata AI fallisce o risponde in formato inatteso, mai un
+        silenzio -- Denis deve sempre vedere che la reazione e' stata
+        notata."""
+        self.ensure_one()
+        fallback = _(
+            "Ho visto la tua reazione 👎 su questo messaggio ma non sono riuscita a generare "
+            "un'autocritica in questo momento -- se mi dici cosa non andava lo tengo comunque "
+            "a mente."
+        )
+        if not self.omni_task_type:
+            return fallback
+        persona_text = self._get_persona_text()
+        instructions_kbs = self.env['erpv6.kb'].search(
+            [('category_id', '=', self.instructions_category_id.id), ('is_active', '=', True)], order='name') \
+            if self.instructions_category_id else self.env['erpv6.kb']
+        instructions_text = "\n\n".join("### %s\n%s" % (kb.name, kb.content) for kb in instructions_kbs)
+        memory_kbs = self._get_memory_kbs()
+        memory_text = "\n\n".join("### %s\n%s" % (kb.name, kb.content) for kb in memory_kbs)
+        system_prompt = (
+            "Sei l'agente '%(name)s' del sistema erpv6.%(persona)s Denis ha appena messo una "
+            "reazione 👎 (pollice verso) su un TUO messaggio precedente in questa conversazione "
+            "Telegram: per lui quel messaggio era sbagliato, fuorviante, o basato su una "
+            "comprensione errata della sua richiesta. Il tuo compito ORA e' fare un'autocritica "
+            "GENUINA e SPECIFICA: rileggi il messaggio segnalato (sotto) nel contesto dello "
+            "storico della conversazione, e spiega -- breve, in italiano, nel tuo tono -- cosa "
+            "potrebbe essere andato storto (un dato sbagliato o non verificato dato per certo, "
+            "un'interpretazione affrettata della richiesta, un tono non adatto, un'azione "
+            "descritta come gia' fatta quando non lo era). Se rileggendolo non trovi davvero "
+            "nulla di sbagliato, dillo onestamente e chiedi a Denis cosa intendeva -- MAI "
+            "inventare un errore plausibile solo per avere qualcosa da dire. Stesso vincolo di "
+            "sempre: questa risposta e' SOLO testo di riflessione, non prometti mai correzioni o "
+            "azioni che non puoi eseguire da qui (niente 'ho corretto/aggiornato/registrato').\n\n"
+            "Rispondi SOLO con un oggetto JSON valido, senza markdown code fence, senza altro "
+            "testo: {\"message\": \"<la tua autocritica, breve, nel tuo tono>\", \"memoria\": "
+            "\"<UNA frase concreta e operativa da ricordare per non ripetere lo stesso errore in "
+            "futuro -- una lezione, non una parafrasi del messaggio>\"}\n\n"
+            "%(instructions)s%(memory)s"
+        ) % {
+            'name': self.name,
+            'persona': (" " + persona_text) if persona_text else '',
+            'instructions': ("ISTRUZIONI:\n%s\n\n" % instructions_text) if instructions_text else '',
+            'memory': ("MEMORIA DELLE TUE PROPOSTE/RIFLESSIONI PRECEDENTI (piu' recenti prima):\n%s\n\n" % memory_text)
+                      if memory_text else '',
+        }
+        user_content = _(
+            "STORICO DELLA CONVERSAZIONE (compreso il messaggio segnalato):\n%(thread)s\n\n"
+            "TUO MESSAGGIO SEGNALATO CON 👎 DA DENIS:\n%(flagged)s"
+        ) % {'thread': thread_history or _('(nessuno)'), 'flagged': flagged_text}
+        bridge = self.env['erpv6.omni.bridge']
+        result = bridge.execute_ai_task(
+            task_type=self.omni_task_type,
+            payload={
+                'temperature': 0.3,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_content},
+                ],
+            },
+            context={'source': 'erpv6_agent:reflect_on_negative_feedback', 'agent_code': self.code},
+        )
+        if not result.get('success'):
+            _logger.warning(
+                "Agente %s: chiamata AI fallita per l'autocritica su reazione 👎, uso testo di "
+                "fallback: %s", self.code, result.get('error'))
+            return fallback
+        try:
+            content = result['data']['choices'][0]['message']['content']
+            parsed = json.loads(content)
+            message = parsed.get('message')
+            lesson = parsed.get('memoria')
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
+            _logger.warning(
+                "Agente %s: risposta AI in formato inatteso per l'autocritica su reazione 👎, uso "
+                "testo di fallback: %s", self.code, e)
+            return fallback
+        if not message:
+            return fallback
+        self._write_memory(_(
+            "Denis ha reagito con 👎 a un mio messaggio precedente (\"%(flagged)s\"). Autocritica: "
+            "%(reasoning)s%(lesson)s"
+        ) % {
+            'flagged': (flagged_text or '')[:200],
+            'reasoning': message,
+            'lesson': ("\nLezione per il futuro: %s" % lesson) if lesson else '',
+        })
+        return message
+
     # ------------------------------------------------------------------
     # Dialogo iniziato dall'UMANO (non dall'agente) -- richiesto
     # esplicitamente il 22/08/2026: "voglio poter scrivere per primo a
