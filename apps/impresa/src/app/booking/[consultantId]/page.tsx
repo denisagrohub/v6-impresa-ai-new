@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
     Calendar, Clock, User, Mail, Phone, CheckCircle2,
-    ArrowLeft, Loader2, AlertCircle
+    ArrowLeft, Loader2, AlertCircle, Video
 } from "lucide-react";
 
 export default function PublicBookingPage() {
@@ -25,12 +25,24 @@ export default function PublicBookingPage() {
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
 
+    const [consultantName, setConsultantName] = useState('');
+
     useEffect(() => {
-        // Carica slot pubblici disponibili per questo consulente
+        // Carica i link di prenotazione realmente disponibili per questo
+        // consulente (erpv6.booking.token, Odoo) - 25/08/2026: prima
+        // leggeva un JSON finto su disco. Il modello reale non ha
+        // giorno/ora (e' un link monouso con sola scadenza), quindi qui
+        // "slot" = link prenotabile con una scadenza reale, non un
+        // orario scelto a priori.
         fetch(`/api/consultant/public-slots?consultantId=${consultantId}`)
             .then(res => res.json())
             .then(data => {
-                setSlots(data.slots || []);
+                if (data.error) {
+                    setError(data.error);
+                } else {
+                    setSlots(data.tokens || []);
+                    setConsultantName(data.consultantName || '');
+                }
                 setLoading(false);
             })
             .catch(err => {
@@ -66,7 +78,7 @@ export default function PublicBookingPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    bookingToken: selectedSlot.bookingToken,
+                    bookingToken: selectedSlot.token,
                     ...formData
                 })
             });
@@ -100,16 +112,13 @@ export default function PublicBookingPage() {
                     <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
                         <CheckCircle2 size={48} className="text-green-600" />
                     </div>
-                    <h2 className="text-2xl font-bold text-[#1a2744] mb-2">Prenotazione Confermata!</h2>
+                    <h2 className="text-2xl font-bold text-[#1a2744] mb-2">Richiesta Inviata!</h2>
                     <p className="text-gray-600 mb-6">
-                        Riceverai un'email di conferma con tutti i dettagli dell'appuntamento.
+                        Il consulente ti ricontattera' a breve su questo contatto per fissare l'orario della call.
                     </p>
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-left">
                         <div className="text-sm text-blue-900">
-                            <strong>Data:</strong> {new Date(selectedSlot.date).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}<br />
-                            <strong>Ora:</strong> {selectedSlot.time}<br />
-                            <strong>Durata:</strong> {selectedSlot.duration} minuti<br />
-                            <strong>Consulente:</strong> {selectedSlot.consultantName}
+                            <strong>Consulente:</strong> {consultantName}
                         </div>
                     </div>
                     <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#1a2744] text-white font-medium hover:bg-[#0f3460]">
@@ -130,61 +139,54 @@ export default function PublicBookingPage() {
                     </Link>
                     <h1 className="text-3xl font-bold text-[#1a2744]">Prenota una Call Gratuita</h1>
                     <p className="text-gray-600 mt-1">
-                        Seleziona uno slot disponibile e compila il form per prenotare la tua call di 30 minuti
+                        {consultantName ? `Richiedi una call con ${consultantName}` : 'Seleziona un link di prenotazione disponibile e compila il form'} - ti ricontattera' per fissare l'orario.
                     </p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
-                    {/* Colonna Sinistra: Slot Disponibili */}
+                    {/* Colonna Sinistra: Link di prenotazione disponibili.
+                        Il modello Odoo reale (erpv6.booking.token) non ha
+                        giorno/ora - e' un link monouso valido fino a una
+                        scadenza. Niente calendario con orari finti. */}
                     <div className="bg-white rounded-2xl border border-gray-200 p-6">
                         <h2 className="text-xl font-bold text-[#1a2744] mb-4 flex items-center gap-2">
                             <Calendar size={20} className="text-orange-500" />
-                            Slot Disponibili
+                            Link Disponibili
                         </h2>
 
                         {slots.length === 0 ? (
                             <div className="text-center py-12">
                                 <Calendar size={48} className="mx-auto mb-4 text-gray-300" />
-                                <p className="text-gray-500">Nessuno slot disponibile al momento</p>
+                                <p className="text-gray-500">Nessun link di prenotazione disponibile al momento</p>
                                 <p className="text-sm text-gray-400 mt-2">Riprova più tardi o contattaci direttamente</p>
                             </div>
                         ) : (
                             <div className="space-y-3 max-h-[500px] overflow-y-auto">
                                 {slots.map((slot) => (
                                     <button
-                                        key={slot.id}
+                                        key={slot.token}
                                         onClick={() => handleSlotSelect(slot)}
-                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all ${selectedSlot?.id === slot.id
+                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all ${selectedSlot?.token === slot.token
                                                 ? 'border-orange-500 bg-orange-50'
                                                 : 'border-gray-200 hover:border-orange-300 hover:bg-gray-50'
                                             }`}
                                     >
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <Calendar size={16} className="text-orange-500" />
-                                                <span className="font-bold text-[#1a2744]">
-                                                    {new Date(slot.date).toLocaleDateString('it-IT', {
-                                                        weekday: 'short',
-                                                        day: 'numeric',
-                                                        month: 'short'
-                                                    })}
-                                                </span>
+                                                <Video size={16} className="text-orange-500" />
+                                                <span className="font-bold text-[#1a2744]">Call con {consultantName}</span>
                                             </div>
-                                            {selectedSlot?.id === slot.id && (
+                                            {selectedSlot?.token === slot.token && (
                                                 <CheckCircle2 size={20} className="text-orange-500" />
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                                            <div className="flex items-center gap-1">
-                                                <Clock size={14} />
-                                                <span>{slot.time}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <span>{slot.duration} min</span>
-                                            </div>
-                                        </div>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            con {slot.consultantName}
+                                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                                            <Clock size={14} />
+                                            <span>
+                                                Valido fino al {new Date(slot.expires_at).toLocaleString('it-IT', {
+                                                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                })}
+                                            </span>
                                         </div>
                                     </button>
                                 ))}
@@ -209,14 +211,11 @@ export default function PublicBookingPage() {
                         {selectedSlot ? (
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl mb-4">
-                                    <div className="text-sm font-bold text-orange-900 mb-1">Slot Selezionato</div>
+                                    <div className="text-sm font-bold text-orange-900 mb-1">Link Selezionato</div>
                                     <div className="text-sm text-orange-800">
-                                        {new Date(selectedSlot.date).toLocaleDateString('it-IT', {
-                                            weekday: 'long',
-                                            day: 'numeric',
-                                            month: 'long',
-                                            year: 'numeric'
-                                        })} alle {selectedSlot.time}
+                                        Call con {consultantName} - valido fino al {new Date(selectedSlot.expires_at).toLocaleString('it-IT', {
+                                            day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+                                        })}
                                     </div>
                                 </div>
 

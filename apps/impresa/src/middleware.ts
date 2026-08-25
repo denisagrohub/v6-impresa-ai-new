@@ -14,7 +14,15 @@ const PUBLIC_PATHS = [
   '/chi-siamo',
   '/metodo',
   '/casi-studio',
+  // Pagina pubblica di prenotazione call (/booking/[consultantId]) -
+  // bug pre-esistente trovato il 25/08/2026: la pagina esisteva ma non
+  // era mai stata aggiunta qui, quindi un visitatore anonimo veniva
+  // rimandato al login prima ancora di vedere gli slot. Le sue API
+  // (/api/booking, /api/consultant/public-slots) erano gia' pubbliche,
+  // solo la pagina no.
+  '/booking',
   '/api/auth/client-login',
+  '/api/auth/login',
   '/api/auth/logout',
   '/api/health',
   '/api/kb',

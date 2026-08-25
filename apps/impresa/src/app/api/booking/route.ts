@@ -1,83 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { callOdooAPI } from '@/lib/odoo-adapter';
+import { isOdooEnabled } from '@/config/system';
 
-const CALENDAR_PATH = path.join(process.cwd(), 'src/data/consultant-calendar.json');
-
-function ensureFile() {
-    if (!fs.existsSync(CALENDAR_PATH)) {
-        fs.writeFileSync(CALENDAR_PATH, JSON.stringify({ events: [], settings: {} }, null, 2));
-    }
-}
-
-function loadData() {
-    ensureFile();
-    return JSON.parse(fs.readFileSync(CALENDAR_PATH, 'utf-8'));
-}
-
-function saveData(data: any) {
-    fs.writeFileSync(CALENDAR_PATH, JSON.stringify(data, null, 2));
-}
-
-// POST: Prenota slot pubblico
+// Collegato per davvero a Odoo il 25/08/2026 (vedi
+// /api/consultant/public-slots per il contesto completo). Prima scriveva
+// su src/data/consultant-calendar.json; ora la prenotazione e' una vera
+// erpv6.booking.token.action_book() lato Odoo (POST /api/v1/booking/book).
 export async function POST(request: NextRequest) {
+    if (!isOdooEnabled()) {
+        return NextResponse.json(
+            { error: 'Odoo non configurato (NEXT_PUBLIC_USE_ODOO / ODOO_API_KEY mancanti)' },
+            { status: 503 }
+        );
+    }
+    let body: any;
     try {
-        const body = await request.json();
-        const { bookingToken, clientName, clientEmail, clientPhone, notes } = body;
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ error: 'JSON non valido' }, { status: 400 });
+    }
+    const { bookingToken, clientName, clientEmail, clientPhone, notes } = body || {};
+    if (!bookingToken || !clientName || !clientEmail) {
+        return NextResponse.json({ error: 'Token e dati cliente obbligatori' }, { status: 400 });
+    }
 
-        if (!bookingToken || !clientName || !clientEmail) {
-            return NextResponse.json(
-                { error: 'Token e dati cliente obbligatori' },
-                { status: 400 }
-            );
-        }
-
-        const data = loadData();
-        const slotIndex = data.events.findIndex((e: any) => e.bookingToken === bookingToken);
-
-        if (slotIndex === -1) {
-            return NextResponse.json({ error: 'Slot non trovato o non più disponibile' }, { status: 404 });
-        }
-
-        const slot = data.events[slotIndex];
-
-        // Verifica che lo slot sia ancora disponibile
-        if (slot.status !== 'scheduled') {
-            return NextResponse.json({ error: 'Slot già prenotato' }, { status: 400 });
-        }
-
-        // Aggiorna lo slot con i dati del cliente
-        data.events[slotIndex] = {
-            ...slot,
-            status: 'booked',
-            clientName,
-            clientEmail,
-            clientPhone,
-            notes,
-            bookedAt: new Date().toISOString()
-        };
-
-        saveData(data);
-
-        console.log(`✅ Slot prenotato: ${slot.id} | Cliente: ${clientName}`);
-
-        // In produzione: invia email di conferma al cliente e al consulente
-        // await sendBookingConfirmationEmail(slot, clientEmail);
-
-        return NextResponse.json({
-            success: true,
-            booking: {
-                id: slot.id,
-                date: slot.date,
-                time: slot.time,
-                duration: slot.duration,
-                consultantName: slot.consultantName,
-                clientName,
-                clientEmail
-            }
+    try {
+        const result = await callOdooAPI('/api/v1/booking/book', {
+            method: 'POST',
+            body: JSON.stringify({
+                token: bookingToken,
+                client_name: clientName,
+                client_email: clientEmail,
+                client_phone: clientPhone,
+                notes,
+            }),
         });
-    } catch (error) {
-        console.error('Errore prenotazione slot:', error);
-        return NextResponse.json({ error: 'Errore prenotazione' }, { status: 500 });
+        return NextResponse.json({ success: true, booking: result.data });
+    } catch (error: any) {
+        console.error('Errore /api/booking:', error);
+        const message = String(error?.message || '');
+        if (message.includes(' 404 ')) {
+            return NextResponse.json({ error: 'Link non trovato o non piu\' valido' }, { status: 404 });
+        }
+        if (message.includes(' 400 ') || message.includes(' 410 ') || message.includes(' 409 ')) {
+            return NextResponse.json({ error: 'Questo link non e\' piu\' disponibile' }, { status: 409 });
+        }
+        return NextResponse.json({ error: 'Odoo non raggiungibile' }, { status: 502 });
     }
 }

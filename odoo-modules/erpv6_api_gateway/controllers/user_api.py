@@ -16,6 +16,13 @@ class UserAPIController(APIBaseController):
         
         try:
             partner = user.partner_id
+            # 25/08/2026: il link pubblico di prenotazione (/booking/<id>)
+            # e' indicizzato sul consulente reale (erpv6.consulting.consultant),
+            # non su res.users - il frontend deve poterlo scoprire da qui
+            # invece di inventarselo. None se l'utente non e' (ancora)
+            # collegato a nessun record consulente reale.
+            consultant = request.env['erpv6.consulting.consultant'].sudo().search(
+                [('partner_id', '=', partner.id)], limit=1)
             data = {
                 'id': user.id,
                 'name': user.name,
@@ -23,6 +30,7 @@ class UserAPIController(APIBaseController):
                 'phone': partner.phone or '',
                 'partner_id': partner.id,
                 'company_id': user.company_id.id if user.company_id else None,
+                'consultant_id': consultant.id if consultant else None,
             }
             self._log_api_call('/api/v1/users/me', 'GET', user.id, 200, start_time)
             return self._json_response(data, status=200)

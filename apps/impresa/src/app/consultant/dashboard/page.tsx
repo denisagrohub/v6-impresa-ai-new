@@ -8,6 +8,7 @@ import {
     CheckCircle2, TrendingUp, FileText
 } from "lucide-react";
 import { CalendarWithHeinrich } from "@/components/calendar/CalendarWithHeinrich";
+import { ConsultantBookingLinks } from "@/components/booking/ConsultantBookingLinks";
 
 export default function ConsultantDashboard() {
     const router = useRouter();
@@ -372,6 +373,17 @@ export default function ConsultantDashboard() {
                 {/* TAB: CALENDARIO */}
                 {activeTab === "calendario" && (
                     <div className="space-y-6">
+                        {/* Collegato per davvero a Odoo il 25/08/2026 (Denis:
+                            "la parte da salvare e' sicuramente la call") -
+                            erpv6.booking.token reale, non piu' un JSON su
+                            disco. Vedi report: il modello reale non ha
+                            giorno/ora, e' un link monouso con scadenza. */}
+                        <ConsultantBookingLinks consultantId={user?.bookingConsultantId ?? null} token={user?.token} />
+                        {/* CalendarWithHeinrich resta un widget SEPARATO e
+                            ancora 100% con dati finti hardcoded (scadenze/
+                            review/rischio progetto) - non riguarda la
+                            prenotazione call, non toccato in questo giro
+                            (solo analisi, vedi report). */}
                         <CalendarWithHeinrich />
                     </div>
                 )}
