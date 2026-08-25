@@ -10,6 +10,7 @@ import {
     answerInterview,
     type InterviewProduct,
     type InterviewQuestionPayload,
+    type InterviewScore,
 } from '@/lib/interview/tree-client';
 
 // Frontend dell'intervista ad albero (erpv6.interview.session lato Odoo,
@@ -52,6 +53,7 @@ function IntervistaGuidataContent() {
     // Sessione in corso
     const [leadId, setLeadId] = useState<number | null>(incomingLeadId);
     const [question, setQuestion] = useState<InterviewQuestionPayload | null>(null);
+    const [score, setScore] = useState<InterviewScore | null>(null);
     const [answeredCount, setAnsweredCount] = useState(0);
     const [freeTextValue, setFreeTextValue] = useState('');
 
@@ -115,6 +117,7 @@ function IntervistaGuidataContent() {
             setFreeTextValue('');
             if (result.completed || !result.question) {
                 setQuestion(null);
+                setScore(result.score);
                 setStep('completed');
             } else {
                 setQuestion(result.question);
@@ -341,8 +344,29 @@ function IntervistaGuidataContent() {
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">Intervista completata</h2>
                         <p className="text-gray-600 mb-6">
                             Grazie{name ? `, ${name}` : ''}. Le tue risposte sono state registrate
-                            {leadId ? ` (riferimento #${leadId})` : ''}. Un consulente le riceve e ti ricontatta.
+                            {leadId ? ` (riferimento #${leadId})` : ''}.
                         </p>
+                        {score && (
+                            <div className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-6 text-left">
+                                <p className="text-xs font-semibold uppercase tracking-widest text-orange-600 mb-2">
+                                    La tua prima analisi
+                                </p>
+                                <p className="text-lg font-bold text-gray-900 mb-3">
+                                    {score.quadrante_label || score.quadrante}
+                                </p>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <span className="text-gray-500">Impatto potenziale</span>
+                                        <p className="font-semibold text-gray-900 capitalize">{score.impatto_level}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-500">Prontezza a partire</span>
+                                        <p className="font-semibold text-gray-900 capitalize">{score.prontezza_level}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <p className="text-gray-600 mb-6">Un consulente riceve le tue risposte e ti ricontatta.</p>
                         <Link href="/contatti">
                             <Button size="lg" fullWidth>Contattaci</Button>
                         </Link>

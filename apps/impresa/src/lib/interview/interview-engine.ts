@@ -150,7 +150,7 @@ export class InterviewEngine {
   }
 
   private generateNextSteps(level: 'L1' | 'L2' | 'L3' | 'Custom'): string[] {
-    const base = ['Prenota una call di consulenza gratuita'];
+    const base = ["Continua con l'intervista guidata per un'analisi più approfondita"];
     if (level === 'L1') {
       return [...base, 'Ricevi il Business Plan in 48 ore', 'Preparati per la banca'];
     } else if (level === 'L2') {

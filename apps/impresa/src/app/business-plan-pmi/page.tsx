@@ -274,7 +274,7 @@ export default function LandingL2Page() {
             La tua azienda merita una strategia, non solo un documento.
           </h2>
           <p className="text-lg text-gray-300 mb-8">
-            Prenota l'audit gratuito e scopri il potenziale inespresso del tuo business.
+            Fai l'analisi gratuita e scopri il potenziale inespresso del tuo business.
           </p>
           <Link 
             href="/intervista"
