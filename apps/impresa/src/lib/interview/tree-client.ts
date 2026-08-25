@@ -41,9 +41,24 @@ export interface StartInterviewResult {
     question: InterviewQuestionPayload | false;
 }
 
+// Punteggio Kairós a video (25/08/2026, richiesto esplicitamente da
+// Denis: lo scoring deve comparire SUBITO a fine intervista). Solo lettura
+// di erpv6.kairos.matrix gia' calcolata da _complete() lato Odoo - null se
+// budget/tempistiche non erano riconosciuti, mai un punteggio inventato
+// qui lato client.
+export interface InterviewScore {
+    quadrante: string;
+    quadrante_label: string | null;
+    impatto_score: number;
+    impatto_level: string;
+    prontezza_totale: number;
+    prontezza_level: string;
+}
+
 export interface AnswerInterviewResult {
     completed: boolean;
     question: InterviewQuestionPayload | false;
+    score: InterviewScore | null;
 }
 
 async function parseOrThrow(response: Response): Promise<any> {
