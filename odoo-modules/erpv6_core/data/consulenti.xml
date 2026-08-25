@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Partner Stefano Puglisi -->
+    <record id="partner_ste_f_puglisi" model="res.partner">
+        <field name="name">Stefano Puglisi</field>
+        <field name="email">stepupitalia@gmail.com</field>
+    </record>
+
+    <!-- User Stefano Puglisi -->
+    <record id="user_ste_f_puglisi" model="res.users">
+        <field name="name">Stefano Puglisi</field>
+        <field name="login">stepupitalia@gmail.com</field>
+        <field name="partner_id" ref="partner_ste_f_puglisi"/>
+        <field name="groups_id" eval="[(4, ref('erpv6_core.group_consulente'))]"/>
+    </record>
+
+    <!-- Partner Martina Garbin -->
+    <record id="partner_martina_garbin" model="res.partner">
+        <field name="name">Martina Garbin</field>
+        <field name="email">zorabidu62@gmail.com</field>
+    </record>
+
+    <!-- User Martina Garbin -->
+    <record id="user_martina_garbin" model="res.users">
+        <field name="name">Martina Garbin</field>
+        <field name="login">zorabidu62@gmail.com</field>
+        <field name="partner_id" ref="partner_martina_garbin"/>
+        <field name="groups_id" eval="[(4, ref('erpv6_core.group_consulente'))]"/>
+    </record>
+</odoo>

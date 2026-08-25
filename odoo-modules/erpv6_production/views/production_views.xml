@@ -20,6 +20,8 @@
                     <button name="action_consultant_advance" type="object" string="Valuta avanzamento" class="oe_highlight"/>
                     <button name="action_create_contract" type="object" string="Crea Contratto"
                             invisible="contract_id"/>
+                    <button name="action_genera_analisi_win_win" type="object" string="Genera Analisi Win-Win"/>
+                    <button name="action_determina_profilo_disc" type="object" string="Genera Profilo DISC"/>
                 </header>
                 <sheet>
                     <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
@@ -44,6 +46,9 @@
                         <group string="Metodo">
                             <field name="metodo_ultima_analisi_date" readonly="1"/>
                             <field name="metodo_ultimo_suggerimento" readonly="1"/>
+                            <field name="winwin_ultima_analisi_date" readonly="1"/>
+                            <field name="disc_ultima_analisi_date" readonly="1"/>
+                            <field name="disc_profilo_dominante" readonly="1"/>
                         </group>
                     </group>
                     <notebook>

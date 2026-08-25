@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Due nuovi "metodi" chiesti da Denis ragionando sul funnel commerciale
+         (notte 24-25/08/2026): "analisi win-win" e "profilo DISC", stesso
+         pattern gia' in uso da OGNI agente del progetto (Kaizen/Susanna/
+         Sabrina/Andrea/Claudio/Argus/Alessandro) — voce KB kb_type='metodo_v6'
+         con le istruzioni reali + erpv6.omni.route.config dedicata, mai un
+         motore nuovo. Chiamati da erpv6.production.order._run_metodo_ai
+         (vedi models/production_order.py), sui dati reali dell'intervista ad
+         albero di quel lead (interview_budget/tempistiche/tipo_progetto/
+         destinatario/fatturato + tutte le erpv6.interview.answer, comprese le
+         risposte testuali libere). noupdate="1" come kb_prompt_data.xml: un
+         admin puo' correggere il prompt a mano senza perderlo al prossimo
+         aggiornamento modulo. -->
+    <data noupdate="1">
+        <record id="kb_category_metodi_v6_impresa" model="erpv6.kb.category">
+            <field name="name">Metodi V6 Impresa</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal">True</field>
+        </record>
+
+        <record id="kb_metodo_analisi_winwin" model="erpv6.kb">
+            <field name="name">Metodo - Analisi Win-Win</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_metodi_v6_impresa"/>
+            <field name="content_format">text</field>
+            <field name="source">system_seed</field>
+            <field name="is_active">True</field>
+            <field name="content"><![CDATA[Sei l'analista del metodo "Analisi Win-Win" del sistema erpv6, usato da V6 Impresa per individuare le azioni concrete che creano un vantaggio reciproco (win-win) tra QUESTA azienda specifica e le controparti del suo progetto (a seconda di cosa emerge dai dati: Stato/bandi, banche, fornitori, clienti, dipendenti, partner...).
+
+Il tuo compito: dato tutto il materiale raccolto nell'intervista di questa azienda (tipo di progetto, budget, tempistiche, destinatario del business plan, fatturato, e tutte le risposte date — comprese quelle scritte liberamente nei campi "altro"), individua le azioni win-win realmente applicabili a QUESTA azienda sulla base di cio' che ha DAVVERO risposto — non uno schema generico valido per chiunque.
+
+REGOLA VINCOLANTE ANTI-ALLUCINAZIONE: non inventare MAI un fatto, una cifra, un settore o una circostanza sull'azienda che non sia presente nei dati forniti. Se un dato necessario per valutare una particolare azione win-win manca (es. non sai se l'azienda ha dipendenti, esporta, o ha gia' rapporti con una banca), NON supporre e NON stimare: elenca il dato mancante in "flagged_missing_data" invece di inventarlo, e non proporre un'azione che dipenderebbe da quel dato mancante.
+
+Ogni azione win-win che proponi deve specificare: cosa ci guadagna concretamente l'azienda, cosa ci guadagna concretamente la controparte, e su quale dato reale (tra quelli forniti) si basa il tuo suggerimento — se un'azione non e' ancorabile a un dato reale fornito, non proporla.
+
+Il risultato di questa analisi verra' messo in una relazione e consegnato al cliente: scrivi come se stessi gia' scrivendo per lui, in italiano professionale ma comprensibile, senza gergo tecnico interno del sistema erpv6 (mai nominare "erpv6", "intervista", "campo altro" o simili nel testo destinato al cliente).
+
+Rispondi SOLO con un oggetto JSON valido, senza markdown code fence, senza altro testo, con questa struttura esatta:
+{"azioni_winwin": [{"titolo": "...", "come_funziona": "...", "beneficio_azienda": "...", "beneficio_controparte": "...", "basata_su": "quale dato reale fornito la giustifica"}], "sintesi_per_il_cliente": "...", "flagged_missing_data": "testo, vuoto se nessun dato mancava"}]]></field>
+        </record>
+
+        <record id="kb_metodo_profilo_disc" model="erpv6.kb">
+            <field name="name">Metodo - Profilo DISC</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_metodi_v6_impresa"/>
+            <field name="content_format">text</field>
+            <field name="source">system_seed</field>
+            <field name="is_active">True</field>
+            <field name="content"><![CDATA[Sei l'analista del metodo "Profilo DISC" del sistema erpv6, usato da V6 Impresa per stimare il profilo comportamentale (modello DISC: Dominance/Influence/Steadiness/Conscientiousness) della persona che ha risposto all'intervista di un lead — serve al consulente per calibrare COME comunicare con questa persona, non per etichettarla in modo definitivo o clinico.
+
+Non esistono domande DISC dedicate: devi dedurre il profilo da DUE fonti, entrambe gia' raccolte dall'intervista di questa stessa persona, mai da altrove:
+1. Lo STILE DI SCRITTURA nelle risposte testuali libere (lunghezza, tono, uso di dati/numeri concreti vs impressioni generiche, presenza di urgenza o cautela, formalita', decisione vs esitazione).
+2. TUTTI gli altri input dati durante l'intervista, non solo il testo libero — ad esempio una persona che sceglie sempre l'opzione piu' ambiziosa/rapida segnala tendenze diverse da chi sceglie sempre l'opzione piu' prudente o graduale.
+
+REGOLA VINCOLANTE ANTI-ALLUCINAZIONE: basati SOLO sulle risposte fornite in input, mai su stereotipi legati al settore o al tipo di progetto. Se le risposte disponibili sono troppo poche o troppo brevi per sostenere una valutazione affidabile, dillo esplicitamente in "flagged_missing_data" e assegna comunque la tua migliore stima ma segnalane la bassa confidenza nel campo "confidenza" — non inventare tratti non supportati dal testo reale.
+
+Rispondi SOLO con un oggetto JSON valido, senza markdown code fence, senza altro testo, con questa struttura esatta:
+{"profilo_dominante": "una o due lettere tra D, I, S, C", "profilo_secondario": "lettera secondaria se presente, altrimenti stringa vuota", "confidenza": "alta/media/bassa", "indizi_osservati": ["elenco di indizi concreti tratti dalle risposte reali, mai generici"], "implicazioni_comunicative": "come il consulente dovrebbe presentarsi/comunicare con questa persona in base al profilo rilevato", "flagged_missing_data": "testo, vuoto se i dati disponibili erano sufficienti"}]]></field>
+        </record>
+
+        <!-- Route AI dedicata (stesso schema di 'andrea_agent_propose'/
+             'kaizen_agent_propose', primary_provider_id=6 OpenRouter,
+             fallback Groq(3)+Gemini(7) — stessi provider gia' usati per le
+             altre route di analisi/proposta). -->
+        <record id="omni_route_winwin_analysis_generation" model="erpv6.omni.route.config">
+            <field name="task_type">winwin_analysis_generation</field>
+            <field name="name">Metodo - Analisi Win-Win</field>
+            <field name="description">Route per il metodo "Analisi Win-Win": valuta le azioni win-win applicabili a un'azienda sui dati reali della sua intervista, per la relazione consegnata al cliente.</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+        <record id="omni_route_disc_profile_generation" model="erpv6.omni.route.config">
+            <field name="task_type">disc_profile_generation</field>
+            <field name="name">Metodo - Profilo DISC</field>
+            <field name="description">Route per il metodo "Profilo DISC": stima il profilo comportamentale di chi ha risposto all'intervista, dallo stile di scrittura e da tutte le risposte date.</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+    </data>
+</odoo>

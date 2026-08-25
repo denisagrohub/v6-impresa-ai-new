@@ -11,6 +11,7 @@
         'security/erpv6_security_groups.xml',
         'views/core_views.xml',
         'security/ir.model.access.csv',
+        'data/consulenti.xml',
     ],
     'assets': {
         'web.assets_backend': [

@@ -30,6 +30,40 @@ class Erpv6AgentChatLog(models.Model):
     ], required=True)
     text = fields.Text(required=True)
 
+    # Azione proposta (25/08/2026, richiesto esplicitamente da Denis dopo
+    # aver scoperto che Susanna diceva "ho inoltrato/trasmesso" senza
+    # scrivere MAI nulla di reale per una richiesta libera senza un
+    # meccanismo gia' collegato: "dobbiamo far si' che tutte le azioni
+    # siano azioni reali a codice, non che siano azioni che fa la AI,
+    # altrimenti si perde il controllo e Susanna inventa"). Popolati SOLO
+    # su un messaggio 'out': l'AI puo' PROPORRE un'azione qui (dati inerti,
+    # mai eseguiti da lei), ma solo la parola chiave chiusa 'registra'
+    # (vedi agent_telegram_config.py) la trasforma in un record reale -
+    # stesso principio del gate umano gia' seguito ovunque.
+    pending_action_type = fields.Selection([
+        ('claudio', 'Proposta per Claudio (task di codice preciso)'),
+        ('alessandro', 'Proposta per Alessandro (indagine/task ambiguo)'),
+        ('kaizen_signal', 'Segnalazione Kaizen (miglioramento/idea)'),
+    ], help="Vuoto = nessuna azione concreta proposta in questo messaggio.")
+    pending_action_title = fields.Char()
+    pending_action_description = fields.Text()
+    pending_action_consumed = fields.Boolean(
+        default=False, copy=False,
+        help="Vero dopo che 'registra' ha davvero creato il record collegato - "
+             "evita di ricrearlo due volte se Denis scrive 'registra' più di una volta.")
+
+    @classmethod
+    def find_pending_action(cls, env, agent_config_id, chat_key):
+        """L'ultima azione proposta non ancora consumata su questa
+        conversazione - None se non ce n'e' nessuna (mai indovinare a
+        quale messaggio Denis si riferisce se il tempo e' passato: solo
+        l'ultima, come una coda a un solo elemento)."""
+        return env['erpv6.agent.chat.log'].sudo().search([
+            ('agent_config_id', '=', agent_config_id), ('chat_key', '=', chat_key),
+            ('direction', '=', 'out'), ('pending_action_type', '!=', False),
+            ('pending_action_consumed', '=', False),
+        ], limit=1, order='create_date desc')
+
     @classmethod
     def log_and_get_history(cls, env, agent_config_id, chat_key, incoming_text):
         """Registra il messaggio in ingresso e ritorna lo storico
@@ -52,8 +86,16 @@ class Erpv6AgentChatLog(models.Model):
         return history_text
 
     @classmethod
-    def log_reply(cls, env, agent_config_id, chat_key, reply_text):
-        env['erpv6.agent.chat.log'].sudo().create({
+    def log_reply(cls, env, agent_config_id, chat_key, reply_text, pending_action=None):
+        """pending_action (opzionale): dict {'type','title','description'}
+        proposto dall'AI in questa risposta - salvato inerte, mai eseguito
+        qui (vedi find_pending_action/pending_action_consumed)."""
+        vals = {
             'agent_config_id': agent_config_id, 'chat_key': chat_key,
             'direction': 'out', 'text': reply_text,
-        })
+        }
+        if pending_action and pending_action.get('type'):
+            vals['pending_action_type'] = pending_action['type']
+            vals['pending_action_title'] = pending_action.get('title') or ''
+            vals['pending_action_description'] = pending_action.get('description') or ''
+        return env['erpv6.agent.chat.log'].sudo().create(vals)

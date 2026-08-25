@@ -30,6 +30,18 @@ PROPOSAL_DECISION_RE = re.compile(r'^\s*(approva|rifiuta)\s+(\d+)\s*$', re.IGNOR
 # decision_type='confirm', gli altri tre per 'phase_decision'.
 CONFIRMATION_DECISION_RE = re.compile(r'^\s*(conferma|procedi|pianifica|fermati)\s+(\d+)\s*$', re.IGNORECASE)
 
+# 'registra' (25/08/2026): trasforma DAVVERO in un record reale (proposta
+# per Claudio/Alessandro, o segnalazione Kaizen) una 'azione_proposta' che
+# un agente (Susanna, Sabrina, o qualunque altro - vedi
+# erpv6.agent.config.answer_conversationally) ha SOLO proposto in una
+# risposta conversazionale, mai eseguito da sola. Con id: click sul
+# bottone Telegram (il caso normale, callback_data='registra:<chat_log_id>'
+# - preciso, nessuna ambiguita' su quale proposta). Senza id: comando
+# testuale digitato (fallback se non c'e' un bottone, es. su Discuss) -
+# usa l'ultima azione proposta non consumata su quella conversazione,
+# vedi erpv6.agent.chat.log.find_pending_action.
+REGISTRA_RE = re.compile(r'^\s*registra(?:\s+(\d+))?\s*$', re.IGNORECASE)
+
 
 class Erpv6AgentTelegramConfig(models.Model):
     """Predisposizione COMPLETA (Compito 6, 23/08/2026) -- non piu' un
@@ -158,7 +170,7 @@ class Erpv6AgentTelegramConfig(models.Model):
     # perche' nessun record ha is_active=True + bot_token reale.
     # ------------------------------------------------------------------
 
-    def send_message(self, text, reply_markup=None):
+    def send_message(self, text, reply_markup=None, reply_to_message_id=None):
         """Invia un messaggio di testo alla chat configurata (sendMessage).
         Ritorna True/False -- non solleva mai un'eccezione al chiamante
         (stesso principio gia' seguito ovunque per i canali di notifica: un
@@ -170,7 +182,17 @@ class Erpv6AgentTelegramConfig(models.Model):
         per bottoni cliccabili -- richiesto da Denis dopo aver visto il
         comando testuale 'approva N'/'rifiuta N' ("possibile che siano
         cliccabili?"). Vedi send_proposal_decision() per il caso d'uso
-        concreto (proposte erpv6.agent.proposal)."""
+        concreto (proposte erpv6.agent.proposal).
+
+        reply_to_message_id (opzionale, 25/08/2026): id nativo Telegram del
+        messaggio a cui questo e' una risposta -- richiesto esplicitamente
+        da Denis ("inizierò a usare il comando Telegram reply, vorrei che
+        anche gli agenti lo usassero"), cosi' la risposta appare
+        visivamente agganciata sotto il messaggio giusto invece che persa
+        nel flusso piatto della chat quando ci sono piu' proposte/conferme
+        in sospeso insieme. Se il messaggio originale non esiste piu' (es.
+        cancellato), Telegram ignora il parametro e invia comunque il
+        messaggio normalmente -- mai un fallimento per questo."""
         self.ensure_one()
         if not self.is_active or not self.bot_token or not self.chat_id:
             _logger.debug(
@@ -186,6 +208,8 @@ class Erpv6AgentTelegramConfig(models.Model):
             body = {'chat_id': self.chat_id, 'text': text}
             if reply_markup:
                 body['reply_markup'] = reply_markup
+            if reply_to_message_id:
+                body['reply_parameters'] = {'message_id': reply_to_message_id, 'allow_sending_without_reply': True}
             response = requests.post(
                 (TELEGRAM_API_BASE % token) + '/sendMessage',
                 json=body,
@@ -392,11 +416,14 @@ class Erpv6AgentTelegramConfig(models.Model):
             normalized = data.replace(':', ' ', 1)
             match = PROPOSAL_DECISION_RE.match(normalized)
             confirmation_match = CONFIRMATION_DECISION_RE.match(normalized)
+            registra_match = REGISTRA_RE.match(normalized)
             self._answer_callback_query(callback_query.get('id'))
             if match and self.agent_config_id:
                 self._handle_proposal_decision(match.group(1).lower(), int(match.group(2)))
             elif confirmation_match and self.agent_config_id:
                 self._handle_confirmation_decision(confirmation_match.group(1).lower(), int(confirmation_match.group(2)))
+            elif registra_match and self.agent_config_id:
+                self._handle_registra(int(registra_match.group(1)) if registra_match.group(1) else None)
             else:
                 _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
             return
@@ -431,15 +458,89 @@ class Erpv6AgentTelegramConfig(models.Model):
         # thread_history era sempre '' (limite noto, mai risolto). chat_key
         # = chat_id Telegram: una conversazione per chat, mai mescolata con
         # altre chat sullo stesso bot.
+        registra_match = REGISTRA_RE.match(text)
+        if registra_match:
+            self._handle_registra(int(registra_match.group(1)) if registra_match.group(1) else None)
+            return
         ChatLog = self.env['erpv6.agent.chat.log']
         thread_history = ChatLog.log_and_get_history(self.env, self.agent_config_id.id, str(self.chat_id), text)
-        answer = self.agent_config_id.answer_conversationally(
+        answer, pending_action = self.agent_config_id.answer_conversationally(
             title=_("Telegram — %s") % self.agent_config_id.name,
             thread_history=thread_history,
             question_text=text,
         )
-        ChatLog.log_reply(self.env, self.agent_config_id.id, str(self.chat_id), answer)
-        self.send_message(answer)
+        log_entry = ChatLog.log_reply(
+            self.env, self.agent_config_id.id, str(self.chat_id), answer, pending_action=pending_action)
+        reply_markup = self._registra_reply_markup(log_entry) if pending_action else None
+        self.send_message(answer, reply_markup=reply_markup, reply_to_message_id=message.get('message_id'))
+
+    # Etichette per tipo (25/08/2026, richiesto esplicitamente da Denis:
+    # "pulsante uguale ad azione" - il bottone deve dire DAVVERO cosa fa,
+    # non un generico "Registra" uguale per tutto).
+    _REGISTRA_BUTTON_LABELS = {
+        'claudio': '📝 Assegna a Claudio',
+        'alessandro': '📝 Assegna ad Alessandro',
+        'kaizen_signal': '📝 Registra per Kaizen',
+    }
+
+    def _registra_reply_markup(self, chat_log_entry):
+        label = self._REGISTRA_BUTTON_LABELS.get(chat_log_entry.pending_action_type, '📝 Registra')
+        return {
+            'inline_keyboard': [[
+                {'text': label, 'callback_data': 'registra:%d' % chat_log_entry.id},
+            ]],
+        }
+
+    def _handle_registra(self, chat_log_id):
+        """Trasforma DAVVERO un'azione_proposta (mai eseguita dall'AI, solo
+        dati inerti su erpv6.agent.chat.log) in un record reale - unico
+        punto di scrittura per questo meccanismo, sempre codice
+        deterministico, mai una nuova chiamata AI che "decide" cosa fare.
+        chat_log_id esplicito (bottone, il caso normale) o None (comando
+        testuale digitato, usa l'ultima azione non consumata)."""
+        self.ensure_one()
+        ChatLog = self.env['erpv6.agent.chat.log']
+        if chat_log_id:
+            entry = ChatLog.sudo().browse(chat_log_id)
+            if not entry.exists() or not entry.pending_action_type:
+                self.send_message(_("Non trovo nessuna azione proposta #%d da registrare.") % chat_log_id)
+                return
+        else:
+            entry = ChatLog.find_pending_action(self.env, self.agent_config_id.id, str(self.chat_id))
+            if not entry:
+                self.send_message(_("Non c'è nessuna azione proposta in sospeso da registrare."))
+                return
+        if entry.pending_action_consumed:
+            self.send_message(_("Questa azione è già stata registrata in precedenza."))
+            return
+        reviewer = self.env.ref('base.user_admin', raise_if_not_found=False) or self.env.user
+        if entry.pending_action_type in ('claudio', 'alessandro'):
+            target = self.env['erpv6.agent.config'].sudo().search(
+                [('code', '=', entry.pending_action_type)], limit=1)
+            if not target:
+                self.send_message(_("Agente '%s' non trovato, registrazione annullata.") % entry.pending_action_type)
+                return
+            proposal = self.env['erpv6.agent.proposal'].sudo().create({
+                'agent_config_id': target.id,
+                'name': entry.pending_action_title or _('Richiesta da conversazione Telegram'),
+                'proposal_text': entry.pending_action_description or entry.pending_action_title,
+                'status': 'accepted',
+                'reviewer_id': reviewer.id,
+                'reviewed_at': fields.Datetime.now(),
+            })
+            ack = _("✅ Creata proposta #%(id)d per %(agent)s: %(title)s") % {
+                'id': proposal.id, 'agent': target.name, 'title': proposal.name}
+        else:  # kaizen_signal
+            report = self.env['erpv6.kaizen.manual_report'].sudo().create({
+                'name': entry.pending_action_title or _('Richiesta da conversazione Telegram'),
+                'description': entry.pending_action_description or entry.pending_action_title,
+                'severity': 'lieve',
+                'reporter_id': reviewer.id,
+            })
+            ack = _("✅ Registrata segnalazione Kaizen #%(id)d: %(title)s") % {
+                'id': report.id, 'title': report.name}
+        entry.pending_action_consumed = True
+        self.send_message(ack)
 
     def _handle_proposal_decision(self, decision, proposal_id):
         """Approva/rifiuta DAVVERO una erpv6.agent.proposal da un comando

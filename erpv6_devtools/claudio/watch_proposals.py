@@ -315,6 +315,114 @@ def run_argus_verification(agent_name, proposal, touched_files):
     return proc.returncode == 0, verdict, extract_human_summary(proc.stdout)
 
 
+INVESTIGATION_MARKER = "Indagine promozione fallita"
+
+
+def request_promote_failure_investigation(agent_name, agent_code, proposal, errors_text):
+    """Quando la PROMOZIONE fallisce, non fa indagare Argus in automatico:
+    chiede prima l'autorizzazione a Denis, con bottoni Approva/Rifiuta veri
+    (25/08/2026, richiesto esplicitamente: "nel messaggio di Claudio
+    doveva esserci la richiesta di autorizzazione ad indagare sempre con i
+    pulsanti" - stesso principio del gate umano gia' seguito ovunque,
+    anche per un'indagine sola-lettura). Il testo dell'errore reale resta
+    dentro la proposta stessa (proposal_text), cosi' quando Denis approva
+    (query_approved_investigations, in un giro successivo del loop) non
+    serve nessuno stato esterno per rilanciare l'indagine vera."""
+    script = '''
+argus = env['erpv6.agent.config'].search([('code', '=', 'argus')], limit=1)
+p = env['erpv6.agent.proposal'].sudo().create({
+    'agent_config_id': argus.id,
+    'name': %r,
+    'proposal_text': %r,
+    'parent_proposal_id': %d,
+    'status': 'pending_review',
+})
+env.cr.commit()
+body = %r
+ok = env['erpv6.agent.telegram.config'].send_proposal_decision_for_agent(argus, p.id, body)
+print("INVESTIGATION_PROPOSAL_ID:%%d" %% p.id)
+print("SENT:", ok)
+''' % (
+        "%s: proposta #%d" % (INVESTIGATION_MARKER, proposal["id"]),
+        errors_text,
+        proposal["id"],
+        "🔍 La promozione della proposta #%d ('%s', %s) è fallita — rollback automatico già "
+        "avvenuto, produzione intatta. Vuoi che indaghi DAVVERO la causa reale ed eventualmente "
+        "proponga una correzione?" % (proposal["id"], proposal["name"], agent_name),
+    )
+    subprocess.run(
+        ["docker", "exec", "-i", "odoo", "odoo", "shell", "-d", "erpv6", "--no-http"],
+        input=script, capture_output=True, text=True, timeout=60,
+    )
+
+
+def query_approved_investigations():
+    """Indagini di promozione fallita che Denis ha approvato (bottone
+    'Approva' su una proposta creata da request_promote_failure_investigation)
+    -- stesso schema di query_accepted_proposals, ma per l'agente Argus e
+    filtrato sul marcatore nel nome, cosi' non intercetta per sbaglio
+    un'altra proposta di Argus non legata a questo meccanismo."""
+    query_script = '''
+import json
+proposals = env['erpv6.agent.proposal'].sudo().search([
+    ('agent_config_id.code', '=', 'argus'),
+    ('status', '=', 'accepted'),
+    ('name', 'like', %r),
+])
+result = [{'id': p.id, 'name': p.name, 'proposal_text': p.proposal_text,
+           'parent_id': p.parent_proposal_id.id, 'parent_name': p.parent_proposal_id.name} for p in proposals]
+print("RESULT_JSON:" + json.dumps(result))
+''' % INVESTIGATION_MARKER
+    result = subprocess.run(
+        ["docker", "exec", "-i", "odoo", "odoo", "shell", "-d", "erpv6", "--no-http"],
+        input=query_script, capture_output=True, text=True, timeout=60,
+    )
+    for line in result.stdout.splitlines():
+        if line.startswith("RESULT_JSON:"):
+            return json.loads(line[len("RESULT_JSON:"):])
+    print("ATTENZIONE: query indagini approvate fallita, stdout:", result.stdout[-1000:], file=sys.stderr)
+    return []
+
+
+def run_argus_promote_diagnosis(original_proposal_id, original_proposal_name, errors_text):
+    """Fa DAVVERO indagare Argus (SOLO dopo l'autorizzazione di Denis, vedi
+    request_promote_failure_investigation) quando una PROMOZIONE e'
+    fallita (25/08/2026, caso reale: la modifica di Claudio era corretta,
+    ma promuoverla ha rivelato un bug di schema preesistente e scollegato).
+    Diverso da run_argus_verification: li' Argus controlla SE la modifica
+    e' presente e giusta; qui il file e' gia' stato scartato dal rollback
+    (mai arrivato in produzione) - Argus deve leggere l'errore REALE e
+    capire la causa, non il file stesso. Stesso contratto RIASSUNTO
+    TELEGRAM, stesso principio sola-lettura."""
+    # Contesto dal grafo (25/08/2026, richiesto esplicitamente da Denis:
+    # "Claudio ha poteri investigativi e accesso al grafo, altrimenti a
+    # cosa serve il grafo" - se il grafo aiuta a capire dipendenze/modelli
+    # reali per un'applicazione normale, aiuta ancora di più per capire la
+    # causa di un fallimento su uno schema che nessuno stava toccando di
+    # proposito. Stesso motore gia' usato in apply_proposal, mai duplicato.
+    graph_block = graph_context.build_context_block(errors_text)
+    message = (
+        "Sei Argus, QA del sistema erpv6 - SOLA LETTURA sempre, mai scrittura. La promozione della "
+        "proposta approvata #%d ('%s') è fallita (rollback automatico già avvenuto, la produzione "
+        "non è stata toccata). Ecco l'output reale dell'errore:\n\n%s\n\n%s"
+        "Leggi ORA il codice/schema reale coinvolto per capire la causa vera (non supporre, "
+        "verifica) e proponi una soluzione concreta - se la causa è un problema preesistente "
+        "scollegato dalla modifica appena applicata (es. uno schema del database, non il codice "
+        "appena scritto), dillo esplicitamente invece di suggerire di correggere la modifica "
+        "originale per sbaglio.\n\n"
+        "IMPORTANTE: termina SEMPRE la risposta con una riga che inizia esattamente con "
+        "'RIASSUNTO TELEGRAM:' seguita da 2-3 frasi in italiano semplice per Denis (legge da "
+        "telefono) che spiegano la causa reale trovata e la soluzione proposta."
+    ) % (original_proposal_id, original_proposal_name, errors_text, graph_block)
+    proc = subprocess.run(
+        [str(REPO_ROOT / "erpv6_devtools" / "argus" / "run.sh"), "--yes-always", "--message", message],
+        cwd=REPO_ROOT, capture_output=True, text=True, timeout=300,
+    )
+    if proc.returncode != 0:
+        return "Argus non è riuscito a rispondere neanche lui - verifica manuale consigliata."
+    return extract_human_summary(proc.stdout)
+
+
 def create_correction_proposal(agent_code, original_proposal, argus_summary):
     """Crea una nuova erpv6.agent.proposal (STESSO agente che ha applicato
     -- Claudio o Alessandro, incatenata a quella originale) quando Argus
@@ -512,10 +620,18 @@ def run_once_for_agent(agent_code):
                      ", ".join(touched_files), promote_lines, argus_line)
                 mark_actioned(proposal["id"])
             else:
+                # Chiede autorizzazione PRIMA di far indagare Argus (25/08/2026,
+                # richiesto esplicitamente da Denis: "nel messaggio di Claudio
+                # doveva esserci la richiesta di autorizzazione ad indagare
+                # sempre con i pulsanti") - vedi request_promote_failure_investigation,
+                # verrà eseguita davvero solo se/quando Denis approva (query_approved_investigations).
+                errors_text = "\n\n".join(
+                    "--- %s ---\n%s" % (m, log) for m, (ok, log) in promote_results.items() if not ok)
+                request_promote_failure_investigation(agent_name, agent_code, proposal, errors_text)
                 body = (
-                    "⚠️ Proposta #%d: modifica applicata ma la PROMOZIONE È FALLITA (controlla "
-                    "manualmente sul VPS, la produzione NON è stata toccata grazie al rollback "
-                    "automatico). File toccati: %s\n\nDettaglio:\n%s"
+                    "⚠️ Proposta #%d: modifica applicata ma la PROMOZIONE È FALLITA (produzione NON "
+                    "toccata, rollback automatico già avvenuto). File toccati: %s\n\nDettaglio:\n%s\n\n"
+                    "Ti ho mandato una richiesta separata per autorizzare Argus a indagare la causa reale."
                 ) % (proposal["id"], ", ".join(touched_files), promote_lines)
         elif success and non_diff_action:
             # SOLO Alessandro (25/08/2026): il fix non e' un file da
@@ -547,12 +663,29 @@ def run_once_for_agent(agent_code):
         print("[watch_proposals] (%s)" % agent_code, body)
 
 
+def run_pending_investigations():
+    """Esegue DAVVERO l'indagine di Argus, ma SOLO per le richieste che
+    Denis ha gia' approvato col bottone (vedi
+    request_promote_failure_investigation/query_approved_investigations) -
+    un giro dedicato, separato da AGENT_CODES perche' l'agente proprietario
+    qui e' sempre Argus, non Claudio/Alessandro."""
+    for inv in query_approved_investigations():
+        print("[watch_proposals] (argus) indagine autorizzata #%d, eseguo davvero." % inv["id"])
+        diagnosis = run_argus_promote_diagnosis(inv["parent_id"], inv["parent_name"], inv["proposal_text"])
+        notify_telegram('argus', "🔍 Indagine sulla proposta #%d completata:\n\n%s" % (inv["parent_id"], diagnosis))
+        mark_actioned(inv["id"])
+
+
 def run_once():
     for agent_code in AGENT_CODES:
         try:
             run_once_for_agent(agent_code)
         except Exception as e:
             print("[watch_proposals] errore nel giro di %s, continuo comunque:" % agent_code, e, file=sys.stderr)
+    try:
+        run_pending_investigations()
+    except Exception as e:
+        print("[watch_proposals] errore nel giro delle indagini Argus, continuo comunque:", e, file=sys.stderr)
 
 
 def main():
