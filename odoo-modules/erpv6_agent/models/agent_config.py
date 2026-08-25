@@ -400,7 +400,7 @@ class Erpv6AgentConfig(models.Model):
         for other in others:
             if other.name and other.name.lower() in text_lower:
                 try:
-                    answer = other.answer_conversationally(
+                    answer, _pending = other.answer_conversationally(
                         title=_("Richiesta di Denis via Susanna"),
                         thread_history='', question_text=question_text,
                     )
@@ -451,9 +451,13 @@ class Erpv6AgentConfig(models.Model):
         if consulted:
             other, other_answer = consulted
             instructions_text += (
-                "\n\n### Risposta REALE di %(agent)s, appena consultato per questa domanda\n"
-                "%(answer)s\n\n(Riporta questa risposta a Denis attribuendola chiaramente a "
-                "%(agent)s, nel tuo tono, senza inventare nulla in più.)"
+                "\n\n### Cosa direbbe %(agent)s su questo, appena interrogato con lo stesso "
+                "meccanismo (SUA opinione/persona, NON un controllo dello stato reale del suo "
+                "lavoro/backlog - %(agent)s non ha qui accesso a task/branch/proposte in corso "
+                "diversi da quelli gia' elencati sopra in ISTRUZIONI)\n%(answer)s\n\n"
+                "(Riporta questa risposta a Denis attribuendola chiaramente a %(agent)s, nel tuo "
+                "tono, senza inventare nulla in più e SENZA presentarla come una verifica tecnica "
+                "reale se non lo e'.)"
             ) % {'agent': other.name, 'answer': other_answer}
         system_prompt = (
             "Sei l'agente '%(name)s' del sistema erpv6.%(persona)s Un umano ti ha scritto un messaggio "
@@ -463,14 +467,41 @@ class Erpv6AgentConfig(models.Model):
             "modo conversazionale, breve, in italiano, nel tuo tono -- basandoti SOLO sui fatti "
             "presenti nel tuo storico del thread e nelle tue istruzioni sotto, mai inventando dati non "
             "presenti (se non sai qualcosa, dillo esplicitamente invece di inventarlo).\n\n"
-            "VINCOLO NON NEGOZIABILE: questa risposta e' SOLO testo informativo -- non stai eseguendo "
-            "nessuna azione reale, nemmeno se l'umano sembra chiedertene una o dare per scontato che "
-            "l'hai gia' fatta. Se dalla conversazione emerge davvero il bisogno di un'azione concreta "
-            "gia' collegata a questo avviso, dì esplicitamente all'umano quale parola chiave scrivere "
-            "(es. 'ok' o 'confermo') per farla eseguire -- non darla per confermata e non descriverla "
-            "come gia' fatta.\n\n"
+            "VINCOLO NON NEGOZIABILE (25/08/2026, rafforzato dopo un caso reale di Susanna che ha "
+            "scritto \"ho inoltrato/trasmesso la richiesta\" senza che fosse MAI vero, per una "
+            "richiesta libera senza nessun meccanismo gia' collegato): questa risposta e' SOLO "
+            "testo informativo -- tu NON esegui, inoltri, trasmetti o deleghi MAI nulla scrivendo "
+            "questo messaggio, nemmeno se l'umano lo chiede esplicitamente o da' per scontato che "
+            "l'hai gia' fatto. Non scrivere MAI frasi come 'ho inoltrato', 'ho trasmesso', 'ho "
+            "delegato', 'procedo subito' -- non e' vero, tu non hai nessun modo di eseguire nulla "
+            "da qui. Due casi:\n"
+            "1) Se l'azione e' GIA' collegata a un avviso esistente (una conferma con azione gia' "
+            "agganciata), dì quale parola chiave chiusa scrivere (es. 'ok') per farla eseguire.\n"
+            "2) Se invece la richiesta e' NUOVA e non esiste ancora nessun meccanismo automatico "
+            "collegato (es. un nuovo consulente da creare, un nuovo modulo da sviluppare, una nuova "
+            "regola): dillo chiaramente ('questo non ha ancora un collegamento automatico'), e SE "
+            "la richiesta e' abbastanza concreta da valere la pena registrarla per davvero, valorizza "
+            "anche 'azione_proposta' sotto (altrimenti lascialo null) -- la registrazione vera "
+            "avviene SOLO se l'umano scrive poi la parola chiave 'registra', mai qui.\n\n"
+            "VINCOLO NON NEGOZIABILE #2 (25/08/2026, richiesto esplicitamente): se per compilare "
+            "'azione_proposta' ti mancano dati necessari o hai un dubbio reale su cosa l'umano "
+            "intende, NON indovinare e NON compilarla comunque con un contenuto plausibile ma "
+            "incompleto -- lascia 'azione_proposta' a null e usa 'message' per fare le domande "
+            "precise che ti servono. Il tuo unico compito come AI e' tradurre in un linguaggio "
+            "comprensibile cosa succederebbe, mai decidere al posto dell'umano quando manca "
+            "l'informazione.\n\n"
             "Rispondi SOLO con un oggetto JSON valido, senza markdown code fence, senza altro testo: "
-            '{"message": "<risposta breve, nel tuo tono>"}\n\n'
+            '{"message": "<risposta breve, nel tuo tono>", "azione_proposta": null oppure '
+            '{"tipo": "claudio|alessandro|kaizen_signal", "titolo": "<breve>", "descrizione": '
+            '"<completa, con tutti i dettagli dati dall\'umano finora>"}}\n\n'
+            "Come scegliere 'tipo' per azione_proposta: 'claudio' per qualunque compito concreto e "
+            "ben definito che Claudio puo' davvero eseguire (accesso ampio a VPS/DB/Odoo via "
+            "safe_exec.sh, non solo edit di file -- es. creare un consulente/partner/utente reale è "
+            "un compito da Claudio, non da Kaizen, se i dati forniti bastano a farlo); 'alessandro' "
+            "se è un task di codice/analisi ma il bersaglio preciso non è ancora chiaro (indagine "
+            "prima necessaria); 'kaizen_signal' solo per idee di prodotto/processo senza un'azione "
+            "diretta eseguibile (nuove regole di metodo, segnalazioni, miglioramenti da valutare) -- "
+            "mai per un compito che Claudio potrebbe già fare con i dati che hai.\n\n"
             "%(instructions)s"
         ) % {
             'name': self.name,
@@ -498,19 +529,27 @@ class Erpv6AgentConfig(models.Model):
             _logger.warning(
                 "Agente %s: chiamata AI fallita per la risposta conversazionale, uso testo di fallback: %s",
                 self.code, result.get('error'))
-            return fallback
+            return fallback, None
         try:
             content = result['data']['choices'][0]['message']['content']
             parsed = json.loads(content)
             message = parsed.get('message')
+            raw_action = parsed.get('azione_proposta')
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
             _logger.warning(
                 "Agente %s: risposta AI in formato inatteso per la risposta conversazionale, uso "
                 "testo di fallback: %s", self.code, e)
-            return fallback
+            return fallback, None
         if not message:
-            return fallback
-        return message
+            return fallback, None
+        pending_action = None
+        if isinstance(raw_action, dict) and raw_action.get('tipo') in ('claudio', 'alessandro', 'kaizen_signal'):
+            pending_action = {
+                'type': raw_action['tipo'],
+                'title': raw_action.get('titolo') or message[:120],
+                'description': raw_action.get('descrizione') or question_text,
+            }
+        return message, pending_action
 
     # ------------------------------------------------------------------
     # Dialogo iniziato dall'UMANO (non dall'agente) -- richiesto
@@ -592,9 +631,14 @@ class Erpv6AgentConfig(models.Model):
             if not question_text:
                 continue
             thread_history = self._compose_channel_history(channel, after_id, msg.id)
-            answer = self.answer_conversationally(
+            answer, pending_action = self.answer_conversationally(
                 title=_("Conversazione diretta con %s") % self.name,
                 thread_history=thread_history, question_text=question_text)
+            if pending_action:
+                answer += _(
+                    "\n\n(Per registrarla per davvero, scrivimi su Telegram \"registra\" — "
+                    "qui su Discuss non è ancora collegato.)"
+                )
             channel.sudo().message_post(
                 body=answer.replace("\n", "<br/>"), author_id=self.partner_id.id,
                 message_type='comment', subtype_xmlid='mail.mt_comment')

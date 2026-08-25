@@ -213,8 +213,17 @@ class Erpv6AgentConfirmation(models.Model):
         if not record.exists() or not hasattr(record, 'message_post'):
             return
         thread_history = self._compose_thread_history(msg)
-        answer = self.agent_config_id.answer_conversationally(
+        answer, pending_action = self.agent_config_id.answer_conversationally(
             title=self.name, thread_history=thread_history, question_text=question_text)
+        if pending_action:
+            # Il bottone/comando 'registra' vive solo su Telegram (vedi
+            # agent_telegram_config.py) - su Discuss non c'e' ancora un
+            # meccanismo equivalente, quindi si dice la verita' invece di
+            # far finta che basti rispondere qui.
+            answer += _(
+                "\n\n(Per registrarla per davvero, scrivimi su Telegram \"registra\" — "
+                "qui su Discuss non è ancora collegato.)"
+            )
         author_id = self.agent_config_id.partner_id.id if self.agent_config_id.partner_id else self.env.user.partner_id.id
         # _notify_or_post (message_notify sotto, stesso fix del 22/08/2026 di
         # notify_pending_confirmation): una risposta conversazionale che
