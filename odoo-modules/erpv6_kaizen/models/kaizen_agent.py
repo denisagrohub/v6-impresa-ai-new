@@ -184,12 +184,20 @@ class Erpv6KaizenAgent(models.Model):
             # tramite Susanna" -- questa proposta usava SOLO email, mai
             # Telegram, stesso buco gia' trovato e corretto altrove
             # stanotte per erpv6.agent.confirmation). Kaizen non ha un bot
-            # proprio (verificato sul DB): send_message_for_agent ricade
-            # da solo sul bot di Susanna, vedi agent_telegram_config.py.
+            # proprio (verificato sul DB): send_proposal_decision_for_agent
+            # ricade da solo sul bot di Susanna, vedi agent_telegram_config.py.
+            #
+            # BUG REALE trovato il 25/08/2026 (Denis: "non ha nessun
+            # pulsante per dire si o no" su un messaggio Kaizen reale):
+            # questa chiamata usava send_message_for_agent (solo testo),
+            # mai send_proposal_decision_for_agent (Approva/Rifiuta veri) -
+            # la proposta arrivava senza NESSUN modo di agire dal telefono,
+            # nonostante il meccanismo dei bottoni esistesse gia' per
+            # Claudio/Alessandro. Corretto qui, stesso schema.
             if supervisor.im_status != 'online':
                 try:
-                    self.env['erpv6.agent.telegram.config'].send_message_for_agent(
-                        agent_config,
+                    self.env['erpv6.agent.telegram.config'].send_proposal_decision_for_agent(
+                        agent_config, proposal.id,
                         _("[Kaizen] Nuova proposta: %(title)s\n\n%(text)s") % {
                             'title': proposal.name, 'text': proposal.proposal_text},
                     )

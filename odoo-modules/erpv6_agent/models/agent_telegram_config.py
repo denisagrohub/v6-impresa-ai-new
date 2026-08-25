@@ -170,7 +170,7 @@ class Erpv6AgentTelegramConfig(models.Model):
     # perche' nessun record ha is_active=True + bot_token reale.
     # ------------------------------------------------------------------
 
-    def send_message(self, text, reply_markup=None):
+    def send_message(self, text, reply_markup=None, reply_to_message_id=None):
         """Invia un messaggio di testo alla chat configurata (sendMessage).
         Ritorna True/False -- non solleva mai un'eccezione al chiamante
         (stesso principio gia' seguito ovunque per i canali di notifica: un
@@ -182,7 +182,17 @@ class Erpv6AgentTelegramConfig(models.Model):
         per bottoni cliccabili -- richiesto da Denis dopo aver visto il
         comando testuale 'approva N'/'rifiuta N' ("possibile che siano
         cliccabili?"). Vedi send_proposal_decision() per il caso d'uso
-        concreto (proposte erpv6.agent.proposal)."""
+        concreto (proposte erpv6.agent.proposal).
+
+        reply_to_message_id (opzionale, 25/08/2026): id nativo Telegram del
+        messaggio a cui questo e' una risposta -- richiesto esplicitamente
+        da Denis ("inizierò a usare il comando Telegram reply, vorrei che
+        anche gli agenti lo usassero"), cosi' la risposta appare
+        visivamente agganciata sotto il messaggio giusto invece che persa
+        nel flusso piatto della chat quando ci sono piu' proposte/conferme
+        in sospeso insieme. Se il messaggio originale non esiste piu' (es.
+        cancellato), Telegram ignora il parametro e invia comunque il
+        messaggio normalmente -- mai un fallimento per questo."""
         self.ensure_one()
         if not self.is_active or not self.bot_token or not self.chat_id:
             _logger.debug(
@@ -198,6 +208,8 @@ class Erpv6AgentTelegramConfig(models.Model):
             body = {'chat_id': self.chat_id, 'text': text}
             if reply_markup:
                 body['reply_markup'] = reply_markup
+            if reply_to_message_id:
+                body['reply_parameters'] = {'message_id': reply_to_message_id, 'allow_sending_without_reply': True}
             response = requests.post(
                 (TELEGRAM_API_BASE % token) + '/sendMessage',
                 json=body,
@@ -460,7 +472,7 @@ class Erpv6AgentTelegramConfig(models.Model):
         log_entry = ChatLog.log_reply(
             self.env, self.agent_config_id.id, str(self.chat_id), answer, pending_action=pending_action)
         reply_markup = self._registra_reply_markup(log_entry) if pending_action else None
-        self.send_message(answer, reply_markup=reply_markup)
+        self.send_message(answer, reply_markup=reply_markup, reply_to_message_id=message.get('message_id'))
 
     # Etichette per tipo (25/08/2026, richiesto esplicitamente da Denis:
     # "pulsante uguale ad azione" - il bottone deve dire DAVVERO cosa fa,
