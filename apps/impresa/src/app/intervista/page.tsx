@@ -204,6 +204,15 @@ function InterviewContent() {
         throw new Error(responseBody?.error || `Invio lead fallito (${response.status})`);
       }
 
+      // Se la cattura anticipata non era scattata (leadId ancora nullo a
+      // questo punto), il POST pieno appena fatto ha comunque creato il
+      // crm.lead su Odoo e ora restituisce il suo id (vedi
+      // lib/lead-queue.ts::saveLead) - lo teniamo per il CTA verso
+      // /intervista/guidata qui sotto, stesso lead, non uno nuovo.
+      if (!leadId && responseBody?.leadId) {
+        setLeadId(responseBody.leadId);
+      }
+
       setSubmitted(true);
     } catch (error) {
       console.error('Errore:', error);
@@ -214,6 +223,20 @@ function InterviewContent() {
   };
 
   if (submitted && result) {
+    // Passo successivo naturale: l'intervista guidata ad albero
+    // (erpv6.interview.session lato Odoo), sullo STESSO lead appena
+    // creato/qualificato qui sopra - mai un secondo lead. leadId puo'
+    // mancare solo se anche il POST pieno e' finito in coda locale (Odoo
+    // giu': vedi lib/lead-queue.ts::saveLead, fallbackToQueue non ha un id
+    // reale da dare) - in quel caso passiamo comunque nome/email cosi'
+    // l'utente non li riscrive, ma /intervista/guidata creera' un lead suo.
+    const guidataParams = new URLSearchParams();
+    if (leadId) guidataParams.set('lead_id', String(leadId));
+    if (answers.nome) guidataParams.set('name', answers.nome);
+    if (answers.email) guidataParams.set('email', answers.email);
+    const guidataQuery = guidataParams.toString();
+    const guidataHref = `/intervista/guidata${guidataQuery ? `?${guidataQuery}` : ''}`;
+
     return (
       <main className="min-h-screen bg-gradient-to-b from-orange-50 to-white py-16">
         <div className="container max-w-2xl mx-auto px-4">
@@ -273,9 +296,18 @@ function InterviewContent() {
               </ul>
             </div>
 
+            <div className="mb-4">
+              <Link href={guidataHref}>
+                <Button size="lg" fullWidth>✨ Continua con l'intervista guidata</Button>
+              </Link>
+              <p className="text-xs text-gray-500 text-center mt-2">
+                Poche domande in più, su misura per il progetto che hai descritto.
+              </p>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/contatti">
-                <Button size="lg" fullWidth>📞 Richiedi Consulenza</Button>
+                <Button variant="secondary" size="lg" fullWidth>📞 Richiedi Consulenza</Button>
               </Link>
               <Link href="/premium">
                 <Button variant="secondary" size="lg" fullWidth>💎 Vedi Pacchetti</Button>

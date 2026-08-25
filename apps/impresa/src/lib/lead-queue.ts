@@ -85,7 +85,7 @@ export interface Lead {
 // Salva un lead (su Odoo o in coda locale). Non lancia mai: se anche il
 // fallback locale fallisce, il lead completo finisce comunque nei log
 // (console.error, recuperabili da Vercel) invece di sparire in un 500 muto.
-export async function saveLead(leadData: Record<string, any>, source: string): Promise<{ success: boolean; queued?: boolean }> {
+export async function saveLead(leadData: Record<string, any>, source: string): Promise<{ success: boolean; queued?: boolean; leadId?: number }> {
     const lead: Lead = {
         id: `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date().toISOString(),
@@ -98,14 +98,21 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
     if (isOdooEnabled()) {
         try {
             // Prova a inviare a Odoo
-            await callOdooAPI('/api/v1/leads', {
+            const result = await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
                 body: JSON.stringify(mapLeadDataForOdoo(leadData)),
             });
 
             lead.synced = true;
             console.debug(`✅ Lead ${lead.id} salvato su Odoo`);
-            return { success: true, queued: false };
+            // id reale del crm.lead Odoo (result.data.id, vedi lead_api.py
+            // create_lead) - stessa estrazione gia' usata da
+            // createPartialLead qui sotto. Prima andava perso: il
+            // chiamante finale (submit completo di /intervista, quando la
+            // cattura anticipata non e' scattata) non aveva modo di sapere
+            // quale crm.lead fosse stato appena creato per proseguire
+            // verso /intervista/guidata con lo stesso lead.
+            return { success: true, queued: false, leadId: result?.data?.id ?? result?.id };
         } catch (error) {
             console.error('⚠️ Odoo non disponibile, salvataggio in coda locale:', error);
             return await fallbackToQueue(lead);

@@ -36,6 +36,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             queued: result.queued || false,
+            // Presente solo se salvato direttamente su Odoo (mai fabbricato
+            // per un lead finito in coda locale, vedi saveLead in
+            // lib/lead-queue.ts): e' il crm.lead id reale che
+            // /intervista/guidata usa per proseguire sullo stesso lead
+            // invece di crearne uno nuovo.
+            leadId: result.leadId,
             message: result.queued
                 ? 'Lead salvato in coda (Odoo non disponibile)'
                 : 'Lead salvato con successo',
