@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- RIGHE PARTECIPANTE (lead, ruolo, percentuale) - sola consultazione
+             qui: create/write/unlink reali passano da _set_delivery_consulente
+             (assegnazione automatica/override/richiesta approvata) o da un
+             Responsabile/Admin (vedi ir.model.access.csv). -->
+        <record id="view_production_consulente_line_list" model="ir.ui.view">
+            <field name="name">erpv6.production.consulente.line.list</field>
+            <field name="model">erpv6.production.consulente.line</field>
+            <field name="arch" type="xml">
+                <list editable="bottom">
+                    <field name="role"/>
+                    <field name="user_id"/>
+                    <field name="referral_partner_id"/>
+                    <field name="percentuale"/>
+                    <field name="assignment_reason"/>
+                    <field name="note"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- RICHIESTA DI ASSEGNAZIONE/ESCLUSIONE -->
+        <record id="view_consulente_richiesta_list" model="ir.ui.view">
+            <field name="name">erpv6.consulente.richiesta.list</field>
+            <field name="model">erpv6.consulente.richiesta</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="create_date"/>
+                    <field name="consulente_id"/>
+                    <field name="lead_id"/>
+                    <field name="tipo"/>
+                    <field name="state" decoration-warning="state == 'in_attesa'" decoration-success="state == 'approvata'" decoration-danger="state == 'rifiutata'"/>
+                    <field name="responsabile_id"/>
+                </list>
+            </field>
+        </record>
+        <record id="view_consulente_richiesta_form" model="ir.ui.view">
+            <field name="name">erpv6.consulente.richiesta.form</field>
+            <field name="model">erpv6.consulente.richiesta</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button name="action_approve" type="object" string="Approva" class="oe_highlight"
+                                invisible="state != 'in_attesa'"
+                                groups="sales_team.group_sale_manager,base.group_system"/>
+                        <button name="action_reject" type="object" string="Rifiuta"
+                                invisible="state != 'in_attesa'"
+                                groups="sales_team.group_sale_manager,base.group_system"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <field name="consulente_id"/>
+                            <field name="lead_id"/>
+                            <field name="tipo"/>
+                            <field name="motivo"/>
+                        </group>
+                        <group string="Decisione" invisible="state == 'in_attesa'">
+                            <field name="responsabile_id" readonly="1"/>
+                            <field name="decisione_note" readonly="1"/>
+                        </group>
+                    </sheet>
+                    <div class="oe_chatter">
+                        <field name="message_ids"/>
+                    </div>
+                </form>
+            </field>
+        </record>
+        <record id="action_consulente_richiesta" model="ir.actions.act_window">
+            <field name="name">Richieste Assegnazione Consulenti</field>
+            <field name="res_model">erpv6.consulente.richiesta</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <!-- WIZARD RIASSEGNAZIONE MANUALE (Responsabile/Admin) -->
+        <record id="view_consulente_reassign_wizard_form" model="ir.ui.view">
+            <field name="name">erpv6.consulente.reassign.wizard.form</field>
+            <field name="model">erpv6.consulente.reassign.wizard</field>
+            <field name="arch" type="xml">
+                <form>
+                    <group>
+                        <field name="lead_id" readonly="1"/>
+                        <field name="new_user_id"/>
+                        <field name="motivo"/>
+                    </group>
+                    <footer>
+                        <button name="action_confirm" type="object" string="Riassegna" class="oe_highlight"/>
+                        <button special="cancel" string="Annulla"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- ESTENSIONE FORM crm.lead: bottoni assegnazione + tab partecipanti -->
+        <record id="crm_lead_view_form_consulente_assignment" model="ir.ui.view">
+            <field name="name">crm.lead.form.consulente.assignment</field>
+            <field name="model">crm.lead</field>
+            <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//header" position="inside">
+                    <button name="action_open_reassign_wizard" type="object" string="Riassegna Consulente"
+                            groups="sales_team.group_sale_manager,base.group_system"/>
+                    <button name="action_request_assegnazione" type="object" string="Chiedi di essere assegnato"
+                            groups="erpv6_core.group_consulente"/>
+                    <button name="action_request_non_assegnazione" type="object" string="Chiedi di NON essere assegnato"
+                            groups="erpv6_core.group_consulente"/>
+                </xpath>
+                <xpath expr="//notebook" position="inside">
+                    <page string="Consulenti/Referral (compensi)" name="erpv6_consulente_lines">
+                        <field name="consulente_line_ids">
+                            <list editable="bottom">
+                                <field name="role"/>
+                                <field name="user_id"/>
+                                <field name="referral_partner_id"/>
+                                <field name="percentuale"/>
+                                <field name="assignment_reason"/>
+                                <field name="note"/>
+                            </list>
+                        </field>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- ESTENSIONE FORM res.users: competenze/zona del consulente -->
+        <record id="view_users_form_consulente_zona" model="ir.ui.view">
+            <field name="name">res.users.form.consulente.zona</field>
+            <field name="model">res.users</field>
+            <field name="inherit_id" ref="base.view_users_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//notebook" position="inside">
+                    <!-- Nessun groups="" qui apposta: questo form (Impostazioni > Utenti) e'
+                         gia' raggiungibile solo da chi ha base.group_system (Admin/Responsabile
+                         IT) - restringere la pagina al gruppo group_consulente impedirebbe
+                         proprio all'Admin di configurare competenza/zona sugli ALTRI utenti
+                         (un consulente non gestisce comunque la propria scheda utente da qui). -->
+                    <page string="Consulente V6 Impresa" name="erpv6_consulente">
+                        <group>
+                            <field name="competenza_verticale_ids" widget="many2many_tags"/>
+                            <field name="zona_competenza_state_ids" widget="many2many_tags"/>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+        <menuitem id="menu_consulente_richiesta" name="Richieste Assegnazione"
+                  parent="erpv6_production.menu_production_root" action="action_consulente_richiesta" sequence="40"/>
+    </data>
+</odoo>

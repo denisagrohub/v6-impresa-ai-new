@@ -27,5 +27,27 @@
             <field name="domain_force">[('user_id', '=', user.id)]</field>
             <field name="groups" eval="[(4, ref('erpv6_core.group_consulente'))]"/>
         </record>
+
+        <!-- Righe partecipante (25/08/2026, modello a righe lead/ruolo/
+             percentuale): un Consulente vede le righe dove COMPARE (come
+             sourcing o delivery) o quelle del proprio lead di riferimento -
+             non tutta la pipeline degli altri consulenti. -->
+        <record id="rule_production_consulente_line_consulente" model="ir.rule">
+            <field name="name">Riga partecipante: il Consulente vede solo le proprie</field>
+            <field name="model_id" ref="model_erpv6_production_consulente_line"/>
+            <field name="domain_force">['|', ('user_id', '=', user.id), ('lead_id.user_id', '=', user.id)]</field>
+            <field name="groups" eval="[(4, ref('erpv6_core.group_consulente'))]"/>
+        </record>
+
+        <!-- Richieste di assegnazione/esclusione: un Consulente vede solo
+             le PROPRIE richieste - l'approvazione resta comunque riservata
+             a Responsabile/Admin dentro action_approve/action_reject (vedi
+             consulente_assignment.py), questa regola e' solo visibilita'. -->
+        <record id="rule_consulente_richiesta_consulente" model="ir.rule">
+            <field name="name">Richiesta assegnazione: il Consulente vede solo le proprie</field>
+            <field name="model_id" ref="model_erpv6_consulente_richiesta"/>
+            <field name="domain_force">[('consulente_id', '=', user.id)]</field>
+            <field name="groups" eval="[(4, ref('erpv6_core.group_consulente'))]"/>
+        </record>
     </data>
 </odoo>
