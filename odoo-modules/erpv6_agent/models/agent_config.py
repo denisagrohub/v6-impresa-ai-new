@@ -560,7 +560,7 @@ class Erpv6AgentConfig(models.Model):
             }
         return message, pending_action
 
-    def reflect_on_negative_feedback(self, flagged_text, thread_history):
+    def reflect_on_negative_feedback(self, flagged_text, thread_history, denis_reason=None):
         """Autocritica GENUINA (25/08/2026, richiesta esplicita di Denis:
         "quando metto 👎 su un messaggio Telegram di un agente, deve
         rileggerlo, capire perche' potrebbe essere sbagliato, e scrivermi
@@ -610,9 +610,7 @@ class Erpv6AgentConfig(models.Model):
             "storico della conversazione, e spiega -- breve, in italiano, nel tuo tono -- cosa "
             "potrebbe essere andato storto (un dato sbagliato o non verificato dato per certo, "
             "un'interpretazione affrettata della richiesta, un tono non adatto, un'azione "
-            "descritta come gia' fatta quando non lo era). Se rileggendolo non trovi davvero "
-            "nulla di sbagliato, dillo onestamente e chiedi a Denis cosa intendeva -- MAI "
-            "inventare un errore plausibile solo per avere qualcosa da dire. Stesso vincolo di "
+            "descritta come gia' fatta quando non lo era).%(reason_instruction)s Stesso vincolo di "
             "sempre: questa risposta e' SOLO testo di riflessione, non prometti mai correzioni o "
             "azioni che non puoi eseguire da qui (niente 'ho corretto/aggiornato/registrato').\n\n"
             "Rispondi SOLO con un oggetto JSON valido, senza markdown code fence, senza altro "
@@ -623,6 +621,19 @@ class Erpv6AgentConfig(models.Model):
         ) % {
             'name': self.name,
             'persona': (" " + persona_text) if persona_text else '',
+            # 25/08/2026, richiesto esplicitamente da Denis: "oltre a mettere
+            # l'emotion scrivo anche il perche', e se non lo scrivo mi chiede
+            # il perche' se non lo capisce" -- due rami distinti, mai
+            # indovinare quando Denis ha gia' detto lui stesso cosa non va.
+            'reason_instruction': (
+                _(" Denis ti ha gia' detto il motivo, USA QUELLO come base della tua autocritica "
+                  "(non ignorarlo, non sostituirlo con un'ipotesi tua): \"%s\".") % denis_reason
+                if denis_reason else
+                _(" Denis non ha scritto il motivo: se rileggendo il messaggio non trovi davvero "
+                  "nulla di sbagliato o resti incerto su COSA esattamente non andava, dillo "
+                  "onestamente e CHIEDIGLIELO esplicitamente invece di inventare un errore "
+                  "plausibile solo per avere qualcosa da dire.")
+            ),
             'instructions': ("ISTRUZIONI:\n%s\n\n" % instructions_text) if instructions_text else '',
             'memory': ("MEMORIA DELLE TUE PROPOSTE/RIFLESSIONI PRECEDENTI (piu' recenti prima):\n%s\n\n" % memory_text)
                       if memory_text else '',

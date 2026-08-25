@@ -506,14 +506,20 @@ class Erpv6AgentTelegramConfig(models.Model):
         # da Denis dopo aver scoperto che la vera reazione Telegram non
         # funziona in chat privata: "piuttosto che mettere l'emotion così
         # rispondo al messaggio con l'emotion"). Un normale messaggio "👎"
-        # mandato in RISPOSTA (reply_to_message, sempre presente in una
-        # chat privata indipendentemente dalla privacy mode dei bot) innesca
-        # la STESSA autocritica reale di _process_reaction_update - stesso
-        # vocabolario chiuso (solo questo emoji, mai un'interpretazione
-        # libera), stesso metodo condiviso _handle_negative_feedback.
+        # (da solo, o seguito dal motivo: "👎 hai sbagliato il nome del
+        # cliente" - richiesto subito dopo esplicitamente da Denis) mandato
+        # in RISPOSTA (reply_to_message, sempre presente in una chat privata
+        # indipendentemente dalla privacy mode dei bot) innesca la STESSA
+        # autocritica reale di _process_reaction_update - vocabolario chiuso
+        # sul PREFISSO (solo questo emoji all'inizio, mai dedotto da
+        # qualunque altro segnale), stesso metodo condiviso
+        # _handle_negative_feedback. Se Denis scrive solo il motivo SENZA
+        # l'emoji, o l'emoji NON in risposta a un messaggio, resta testo
+        # conversazionale normale -- il cancelletto e' sempre l'emoji.
         reply_to = message.get('reply_to_message') or {}
-        if text == NEGATIVE_REACTION_EMOJI and reply_to.get('message_id'):
-            self._handle_negative_feedback(reply_to['message_id'])
+        if text.startswith(NEGATIVE_REACTION_EMOJI) and reply_to.get('message_id'):
+            denis_reason = text[len(NEGATIVE_REACTION_EMOJI):].strip() or None
+            self._handle_negative_feedback(reply_to['message_id'], denis_reason=denis_reason)
             return
         ChatLog = self.env['erpv6.agent.chat.log']
         thread_history = ChatLog.log_and_get_history(self.env, self.agent_config_id.id, str(self.chat_id), text)
@@ -593,7 +599,7 @@ class Erpv6AgentTelegramConfig(models.Model):
             return  # non e' un NUOVO 👎 -- niente da fare (vedi docstring)
         self._handle_negative_feedback(reaction_update.get('message_id'))
 
-    def _handle_negative_feedback(self, message_id):
+    def _handle_negative_feedback(self, message_id, denis_reason=None):
         """Logica CONDIVISA dell'autocritica su un messaggio flaggato -
         fattorizzata il 25/08/2026 per essere riusata sia da una vera
         reazione 👎 (_process_reaction_update, oggi non azionabile in chat
@@ -602,7 +608,13 @@ class Erpv6AgentTelegramConfig(models.Model):
         l'emotion così rispondo al messaggio con l'emotion" - un normale
         messaggio di testo "👎" mandato in RISPOSTA (reply) al messaggio da
         criticare, che funziona identico in chat privata senza bisogno di
-        nessun permesso speciale di Telegram."""
+        nessun permesso speciale di Telegram.
+
+        denis_reason (opzionale): il motivo che Denis ha scritto subito
+        dopo l'emoji (es. "👎 hai sbagliato il nome del cliente") - se
+        presente, l'AI lo usa come base invece di indovinare (vedi
+        reflect_on_negative_feedback); una vera reazione Telegram non porta
+        mai testo, quindi resta sempre None su quel percorso."""
         self.ensure_one()
         ChatLog = self.env['erpv6.agent.chat.log']
         flagged_entry = ChatLog.find_by_telegram_message_id(
@@ -620,7 +632,7 @@ class Erpv6AgentTelegramConfig(models.Model):
             return
         thread_history = ChatLog.get_history_text(self.env, self.agent_config_id.id, str(self.chat_id))
         reasoning = self.agent_config_id.reflect_on_negative_feedback(
-            flagged_text=flagged_entry.text, thread_history=thread_history)
+            flagged_text=flagged_entry.text, thread_history=thread_history, denis_reason=denis_reason)
         log_entry = ChatLog.log_reply(self.env, self.agent_config_id.id, str(self.chat_id), reasoning)
         sent_message_id = self.send_message(reasoning, reply_to_message_id=message_id, return_message_id=True)
         if sent_message_id:
