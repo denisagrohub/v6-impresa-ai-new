@@ -178,6 +178,48 @@ def extract_non_diff_action(aider_output):
     return matches[-1] if matches else None
 
 
+# Bug reale trovato il 25/08/2026 (Denis: "continuano ad arrivare richieste
+# sempre uguali ma con numero proposta incrementale"): create_non_diff_proposal
+# veniva chiamata senza nessun limite -- ogni volta che Denis approvava la
+# proposta "azione non-diff", questo script rilanciava Aider sullo STESSO
+# testo (mai eseguito davvero, nessun executor esiste per un'azione libera),
+# Aider tornava di nuovo "non e' un diff", e si creava una NUOVA proposta
+# figlia identica con l'id incrementato -- un loop che non si fermava mai da
+# solo, richiedeva solo che Denis continuasse a premere Approva. Il limite
+# sotto lascia comunque un secondo tentativo (a volte Aider trova davvero un
+# fix diverso al secondo giro) ma smette di proporre in automatico oltre.
+MAX_NON_DIFF_CHAIN = 2
+
+
+def count_non_diff_chain_depth(proposal_id):
+    """Risale parent_proposal_id contando quante proposte consecutive (a
+    partire da questa) sono gia' azioni non-diff di Alessandro sullo stesso
+    problema -- vedi MAX_NON_DIFF_CHAIN sopra."""
+    script = '''
+current_id = %d
+depth = 0
+seen = set()
+while current_id and current_id not in seen and depth < 50:
+    seen.add(current_id)
+    p = env['erpv6.agent.proposal'].sudo().browse(current_id)
+    if not p.exists() or not __import__('re').match(r"^Alessandro propone un.azione non-diff per la proposta #\\d+$", p.name or ""):
+        break
+    depth += 1
+    current_id = p.parent_proposal_id.id
+print("NON_DIFF_CHAIN_DEPTH:%%d" %% depth)
+''' % proposal_id
+    result = subprocess.run(
+        ["docker", "exec", "-i", "odoo", "odoo", "shell", "-d", "erpv6", "--no-http"],
+        input=script, capture_output=True, text=True, timeout=60,
+    )
+    for line in result.stdout.splitlines():
+        if line.startswith("NON_DIFF_CHAIN_DEPTH:"):
+            return int(line[len("NON_DIFF_CHAIN_DEPTH:"):])
+    print("ATTENZIONE: impossibile calcolare la profondita' della catena non-diff per #%d, assumo 0:" % proposal_id,
+          result.stdout[-500:], file=sys.stderr)
+    return 0
+
+
 def create_non_diff_proposal(proposal, action_text):
     """Crea una NUOVA erpv6.agent.proposal (agente Alessandro, incatenata
     a quella che stava eseguendo) quando Alessandro trova un'azione non-diff
@@ -638,12 +680,24 @@ def run_once_for_agent(agent_code):
             # editare -- niente applicato/promosso qui, solo una NUOVA
             # proposta in attesa per Denis (vedi create_non_diff_proposal,
             # stesso gate umano di sempre, nessuna scrittura automatica).
-            create_non_diff_proposal(proposal, non_diff_action)
-            body = (
-                "🧩 Proposta #%d: Alessandro non ha trovato un file da editare, ha proposto "
-                "un'azione diversa (voce KB/configurazione) -- ti ho mandato una richiesta "
-                "separata per approvarla."
-            ) % proposal["id"]
+            # Guardia anti-loop (25/08/2026 sera, vedi MAX_NON_DIFF_CHAIN):
+            # senza questa, ogni approvazione rilanciava Aider sullo stesso
+            # problema e creava un'altra proposta identica all'infinito.
+            chain_depth = count_non_diff_chain_depth(proposal["id"])
+            if chain_depth >= MAX_NON_DIFF_CHAIN:
+                body = (
+                    "🛑 Proposta #%d: Alessandro continua a proporre un'azione non-diff sullo "
+                    "stesso problema (già tentato %d volte) senza mai risolverlo — mi fermo qui "
+                    "per non generare un'altra proposta identica in loop. Serve un intervento "
+                    "manuale diretto (VPS/codice), non un altro giro automatico."
+                ) % (proposal["id"], chain_depth)
+            else:
+                create_non_diff_proposal(proposal, non_diff_action)
+                body = (
+                    "🧩 Proposta #%d: Alessandro non ha trovato un file da editare, ha proposto "
+                    "un'azione diversa (voce KB/configurazione) -- ti ho mandato una richiesta "
+                    "separata per approvarla."
+                ) % proposal["id"]
         elif success and not diff:
             argus_check = run_argus_status_check(agent_name, proposal, output)
             body = (
