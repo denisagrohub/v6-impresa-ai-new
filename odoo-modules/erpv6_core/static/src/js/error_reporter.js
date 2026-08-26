@@ -45,7 +45,21 @@
     // una pagina gia' caricata. Controllare .name (la classe dell'errore),
     // mai il testo del messaggio.
     function is_blocking(err) {
-        return !!(err && err.name === "OwlError");
+        if (!err) {
+            return false;
+        }
+        if (err.name === "OwlError") {
+            return true;
+        }
+        // Fallback sul testo (26/08/2026, bug reale trovato da Denis: 4
+        // occorrenze reali su 2 giorni, sempre classificate 'near_miss'
+        // nonostante fossero chiaramente OwlError - quando l'errore arriva
+        // come Promise non gestita, l'oggetto ricevuto da 'unhandledrejection'
+        // ha perso .name === 'OwlError' nel passaggio attraverso la gestione
+        // errori interna di Owl/Odoo, ma il messaggio resta questo testo
+        // fisso e stabile (owl.js, "An error occured in the owl lifecycle").
+        var message = err.message || String(err);
+        return message.indexOf("owl lifecycle") !== -1;
     }
 
     window.addEventListener("error", function (event) {
