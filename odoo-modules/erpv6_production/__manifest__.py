@@ -32,6 +32,7 @@
         'erpv6_validation',
         'erpv6_contract',
         'erpv6_typst',
+        'erpv6_sign',
         'erpv6_agent',
         'erpv6_saas',
     ],

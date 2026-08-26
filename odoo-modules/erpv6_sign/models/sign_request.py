@@ -216,8 +216,41 @@ class SignRequest(models.Model):
             if new_status == 'signed' and not self.signed_document and self.envelope_item_id:
                 self._fetch_signed_document(config)
 
+            if new_status == 'signed':
+                self._sync_signed_contract_document()
+
         except Exception as e:
             _logger.error(f'Errore verifica stato: {e}')
+
+    def _sync_signed_contract_document(self):
+        """Propaga il completamento firma al documento sorgente, quando
+        questa richiesta viene dal flusso NDA/contratto/promessa di
+        pagamento di erpv6_production (Compito "documenso-invio-reale",
+        26/08/2026) - riusa il riferimento generico gia' scritto da
+        erpv6.typst.engine.generate_document su document_id.res_model/
+        res_id, nessun nuovo campo di collegamento introdotto. Chiamata
+        sia dal poll manuale (action_check_status) sia dal webhook
+        DOCUMENT_COMPLETED, che passano entrambi da qui.
+
+        signed_by NON viene valorizzato qui: erpv6.contract.document.signed_by
+        e' tipizzato res.users (utente interno), ma il vero firmatario di
+        questo flusso e' self.partner_id (res.partner, il cliente esterno) -
+        tipi incompatibili. Non inventiamo una mappatura utente/partner:
+        decisione di design da confermare con Denis (vedi report)."""
+        self.ensure_one()
+        doc = self.document_id
+        if not doc or doc.res_model != 'erpv6.contract.document' or not doc.res_id:
+            return
+        contract_doc = self.env['erpv6.contract.document'].sudo().browse(doc.res_id)
+        if not contract_doc.exists():
+            return
+
+        vals = {'signed_at': self.signed_at or fields.Datetime.now()}
+        if self.signed_document:
+            import base64
+            import hashlib
+            vals['signature_hash'] = hashlib.sha256(base64.b64decode(self.signed_document)).hexdigest()
+        contract_doc.write(vals)
 
     def _fetch_signed_document(self, config):
         """Scarica il PDF firmato (GET /envelope/item/{envelopeItemId}/download).

@@ -6,6 +6,7 @@ from odoo.exceptions import UserError
 from .main import APIBaseController
 
 
+# Vedi anche module_kb/known_errors/hasattr_request_env.md per lo stesso pattern corretto altrove.
 class SignAPIController(APIBaseController):
     """Espone erpv6_sign (integrazione Documenso) sul gateway API.
 
