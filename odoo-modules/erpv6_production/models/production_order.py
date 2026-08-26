@@ -842,6 +842,54 @@ class Erpv6ProductionOrder(models.Model):
         })
         return typst_doc
 
+    def _send_contract_document_to_sign(self, contract_doc, typst_doc):
+        """Invia per davvero un documento contrattuale a firma reale su
+        Documenso, riusando il motore gia' esistente erpv6_sign
+        (Compito "documenso-invio-reale", 26/08/2026) - NON un secondo modo
+        di inviare un documento (principio motore/conoscenza di CLAUDE.md):
+        erpv6.sign.request.document_id si aspetta un erpv6.typst.document,
+        e il typst_doc passato qui e' esattamente quello appena generato da
+        _generate_contract_document_pdf via erpv6.typst.engine.generate_document
+        (res_model='erpv6.contract.document', res_id=contract_doc.id) - lo
+        stesso record, non una copia. Nessun nuovo campo di collegamento
+        introdotto su nessuno dei due modelli.
+
+        Firmatario: il cliente reale del progetto (contract.partner_id o,
+        in mancanza, lead_id.partner_id) - mai un placeholder.
+
+        Non bloccante: un invio fallito (email firmatario mancante,
+        Documenso irraggiungibile, ...) viene loggato e notificato sul
+        chatter della produzione, ma non impedisce ne' la creazione del
+        documento contrattuale ne' l'avanzamento di fase - stesso
+        trattamento gia' riservato a un rendering PDF fallito qui sopra."""
+        self.ensure_one()
+        contract = contract_doc.contract_id
+        partner = (contract.partner_id if contract else False) or self.lead_id.partner_id
+        if not partner or not partner.email:
+            msg = _("Invio a firma saltato per '%s': nessun cliente con email valida risolvibile.") % contract_doc.name
+            _logger.warning(msg)
+            self.message_post(body=msg)
+            return False
+
+        sign_request = self.env['erpv6.sign.request'].sudo().create({
+            'name': contract_doc.name,
+            'contract_id': contract.id if contract else False,
+            'document_id': typst_doc.id,
+            'partner_id': partner.id,
+        })
+        try:
+            sign_request.action_send_to_sign()
+            self.message_post(body=_(
+                "'%(doc)s' inviato a firma reale su Documenso (destinatario: %(email)s)."
+            ) % {'doc': contract_doc.name, 'email': partner.email})
+        except Exception as e:
+            _logger.error("Invio a firma fallito per '%s' (sign.request #%s): %s",
+                           contract_doc.name, sign_request.id, e)
+            self.message_post(body=_(
+                "Invio a firma fallito per '%(doc)s': %(err)s"
+            ) % {'doc': contract_doc.name, 'err': str(e)})
+        return sign_request
+
     def _ensure_nda_document(self):
         """Gate automatico NDA (Compito "wizard-prodotto-consulenza",
         25/08/2026): 'un NDA unico per cliente/progetto, si attiva alla
@@ -851,10 +899,10 @@ class Erpv6ProductionOrder(models.Model):
         documento doc_type='nda', non ne crea un secondo.
 
         Genera anche il PDF reale (parte 2 dello stesso compito, 25/08/2026)
-        via _generate_contract_document_pdf: l'invio reale a Documenso
-        (erpv6.sign.request) resta comunque un'azione separata e manuale,
-        per scelta esplicita di Denis in questo giro (vuole prima vedere il
-        PDF)."""
+        via _generate_contract_document_pdf, e da 26/08/2026 (Compito
+        "documenso-invio-reale") lo invia anche per davvero a firma su
+        Documenso via _send_contract_document_to_sign - l'invio non e' piu'
+        un'azione manuale separata, e' agganciato qui automaticamente."""
         self.ensure_one()
         contract = self._ensure_contract()
         existing_nda = contract.document_ids.filtered(lambda d: d.doc_type == 'nda')
@@ -865,7 +913,9 @@ class Erpv6ProductionOrder(models.Model):
             'contract_id': contract.id,
             'doc_type': 'nda',
         })
-        self._generate_contract_document_pdf(nda_doc, 'erpv6_production.typst_template_nda')
+        typst_doc = self._generate_contract_document_pdf(nda_doc, 'erpv6_production.typst_template_nda')
+        if typst_doc:
+            self._send_contract_document_to_sign(nda_doc, typst_doc)
         self.env['erpv6.production.event'].create({
             'order_id': self.id,
             'event_type': 'interazione_consulente',
@@ -887,7 +937,11 @@ class Erpv6ProductionOrder(models.Model):
         service/promise_to_pay su questo contratto non ne crea un secondo -
         la variante scelta al momento giusto resta quella valida, cambiarla
         a posteriori (es. dopo un pagamento tardivo) e' una decisione
-        umana, non automatica."""
+        umana, non automatica.
+
+        Invia anche a firma reale su Documenso via
+        _send_contract_document_to_sign (Compito "documenso-invio-reale",
+        26/08/2026), stesso trattamento di _ensure_nda_document."""
         self.ensure_one()
         contract = self._ensure_contract()
         existing = contract.document_ids.filtered(lambda d: d.doc_type in ('service', 'promise_to_pay'))
@@ -906,7 +960,9 @@ class Erpv6ProductionOrder(models.Model):
             'erpv6_production.typst_template_contratto_consulenza' if doc_type == 'service'
             else 'erpv6_production.typst_template_promessa_pagamento'
         )
-        self._generate_contract_document_pdf(doc, template_xmlid)
+        typst_doc = self._generate_contract_document_pdf(doc, template_xmlid)
+        if typst_doc:
+            self._send_contract_document_to_sign(doc, typst_doc)
         self.env['erpv6.production.event'].create({
             'order_id': self.id,
             'event_type': 'interazione_consulente',
