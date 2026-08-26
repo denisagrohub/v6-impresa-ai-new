@@ -159,6 +159,36 @@ class CrmLead(models.Model):
             'user': user.name, 'reason': dict(Line._fields['assignment_reason'].selection).get(reason, reason),
         })
 
+    def _set_sourcing_consulente(self, user):
+        """Consulente che ha CREATO lui stesso il lead dalla propria
+        dashboard (Denis, 25/08/2026 - compito "dashboard consulente":
+        "il lead risultante deve attribuirsi automaticamente al consulente
+        che l'ha creato con ruolo sourcing... SENZA passare dalla logica di
+        assegnazione automatica per zona/competenza, quella e' per i lead
+        pubblici"). Crea/aggiorna la riga 'sourcing' (chi l'ha portato,
+        fatto storico e immutabile) E imposta subito anche la lavorazione
+        (user_id + riga 'delivery', via _set_delivery_consulente) sullo
+        stesso consulente: di norma e' anche chi lo seguira' finche' un
+        Responsabile non riassegna con gli strumenti gia' esistenti
+        (wizard manuale o richiesta approvata) - vedi _promote_to_opportunity,
+        che salta l'auto-assign competenza/storico/zona quando trova gia'
+        una riga 'sourcing' su questo lead."""
+        self.ensure_one()
+        Line = self.env['erpv6.production.consulente.line'].sudo()
+        existing_sourcing = Line.search([
+            ('lead_id', '=', self.id), ('role', '=', 'sourcing'), ('user_id', '=', user.id),
+        ])
+        if not existing_sourcing:
+            Line.create({
+                'lead_id': self.id, 'role': 'sourcing', 'user_id': user.id,
+                'assignment_reason': 'sourcing_diretto',
+                'note': _("Lead creato direttamente dal consulente dalla propria dashboard."),
+            })
+        self._set_delivery_consulente(
+            user, reason='sourcing_diretto',
+            note=_("Consulente che ha creato il lead (sourcing diretto dalla dashboard)."),
+        )
+
     def action_request_assegnazione(self):
         """Bottone per il Consulente: 'vorrei essere assegnato a questo
         lead' - crea SOLO la richiesta, nessuna scrittura reale finche' un
@@ -292,41 +322,57 @@ class CrmLead(models.Model):
         # indovinata - fallback sul round-robin del team (rete di
         # sicurezza, mai piu' l'utente pubblico) con segnalazione esplicita
         # che serve una verifica umana.
-        verticale_order = next((o for o in orders if o.verticale), orders[:1])
-        chosen, reason = self._auto_assign_consulente(order=verticale_order)
-        team = self.team_id
-        summary = f"Nuovo lead qualificato da gestire: {self.name}"
-        if kairos_label:
-            summary += f" — Kairós: {kairos_label}"
-
-        if chosen:
-            self._set_delivery_consulente(chosen, reason=reason)
-            self.activity_schedule('mail.mail_activity_data_todo', summary=summary, user_id=chosen.id)
+        #
+        # ECCEZIONE (Denis, 25/08/2026 - compito "dashboard consulente",
+        # criterio 1): un lead che un consulente ha CREATO lui stesso dalla
+        # propria dashboard (gia' riconoscibile da una riga 'sourcing' su
+        # consulente_line_ids, vedi _set_sourcing_consulente, chiamato
+        # PRIMA che questo lead venga mai promosso) non passa MAI da qui -
+        # e' gia' stato attribuito (sourcing + delivery) al consulente che
+        # l'ha portato, non a chi la logica automatica competenza/storico/
+        # zona avrebbe scelto. Quella logica resta riservata ai lead
+        # pubblici (form/intervista anonima), non a quelli portati di
+        # persona da un consulente.
+        sourcing_lines = self.consulente_line_ids.filtered(lambda l: l.role == 'sourcing' and l.user_id)
+        if sourcing_lines:
+            if kairos_label:
+                self.message_post(body=f"Kairós: {kairos_label}")
         else:
-            members = team.crm_team_member_ids.mapped('user_id') if team else self.env['res.users']
-            if members:
-                self._handle_salesmen_assignment(user_ids=members.ids)
-                self.env['erpv6.production.consulente.line'].sudo().create({
-                    'lead_id': self.id, 'role': 'delivery', 'user_id': self.user_id.id,
-                    'assignment_reason': 'fallback_team',
-                })
-                self.activity_schedule(
-                    'mail.mail_activity_data_todo',
-                    summary=f"VERIFICA MANUALE — assegnazione automatica non trovata ({reason}): {self.name}",
-                    note=(
-                        "Nessun consulente competente/di zona trovato automaticamente "
-                        f"(motivo: {reason}). Assegnato provvisoriamente per round-robin sul team "
-                        f"'{team.name if team else '(nessun team)'}': verificare e riassegnare se necessario."
-                    ),
-                    user_id=self.user_id.id,
-                )
-                if kairos_label:
-                    self.message_post(body=f"Kairós: {kairos_label}")
+            verticale_order = next((o for o in orders if o.verticale), orders[:1])
+            chosen, reason = self._auto_assign_consulente(order=verticale_order)
+            team = self.team_id
+            summary = f"Nuovo lead qualificato da gestire: {self.name}"
+            if kairos_label:
+                summary += f" — Kairós: {kairos_label}"
+
+            if chosen:
+                self._set_delivery_consulente(chosen, reason=reason)
+                self.activity_schedule('mail.mail_activity_data_todo', summary=summary, user_id=chosen.id)
             else:
-                _logger.warning(
-                    "Nessun membro reale nel team '%s' - lead #%s promosso senza venditore assegnato.",
-                    team.name if team else '(nessun team)', self.id,
-                )
+                members = team.crm_team_member_ids.mapped('user_id') if team else self.env['res.users']
+                if members:
+                    self._handle_salesmen_assignment(user_ids=members.ids)
+                    self.env['erpv6.production.consulente.line'].sudo().create({
+                        'lead_id': self.id, 'role': 'delivery', 'user_id': self.user_id.id,
+                        'assignment_reason': 'fallback_team',
+                    })
+                    self.activity_schedule(
+                        'mail.mail_activity_data_todo',
+                        summary=f"VERIFICA MANUALE — assegnazione automatica non trovata ({reason}): {self.name}",
+                        note=(
+                            "Nessun consulente competente/di zona trovato automaticamente "
+                            f"(motivo: {reason}). Assegnato provvisoriamente per round-robin sul team "
+                            f"'{team.name if team else '(nessun team)'}': verificare e riassegnare se necessario."
+                        ),
+                        user_id=self.user_id.id,
+                    )
+                    if kairos_label:
+                        self.message_post(body=f"Kairós: {kairos_label}")
+                else:
+                    _logger.warning(
+                        "Nessun membro reale nel team '%s' - lead #%s promosso senza venditore assegnato.",
+                        team.name if team else '(nessun team)', self.id,
+                    )
 
         # Fa scattare subito il motore (KB/typst/validazione) verso la fase
         # successiva invece di aspettare il prossimo giro di cron (30 min) -

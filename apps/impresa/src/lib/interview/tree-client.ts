@@ -82,10 +82,19 @@ export type StartInterviewParams =
     | { lead_id: number; verticale_id?: number; name?: never; email?: never }
     | { name: string; email: string; verticale_id?: number; lead_id?: never };
 
-export async function startInterview(params: StartInterviewParams): Promise<StartInterviewResult> {
+// authToken opzionale (25/08/2026, compito "dashboard consulente"): il JWT
+// della sessione consulente/admin (pi_session.token), propagato fino a
+// interview_api.py/start_interview - SOLO cosi' il lead creato si attribuisce
+// automaticamente a chi lo sta creando (ruolo sourcing), invece di restare
+// sull'utente pubblico anonimo (comportamento invariato quando authToken e'
+// assente, es. /intervista pubblica).
+export async function startInterview(params: StartInterviewParams, authToken?: string): Promise<StartInterviewResult> {
     const response = await fetch('/api/interview-tree/start', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            ...(authToken ? { Authorization: `JWT ${authToken}` } : {}),
+        },
         body: JSON.stringify(params),
     });
     return parseOrThrow(response);
