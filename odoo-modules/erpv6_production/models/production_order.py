@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import logging
 
@@ -30,8 +31,19 @@ class Erpv6ProductionOrder(models.Model):
     contract_id = fields.Many2one(
         'erpv6.contract', string='Contratto', ondelete='set null',
         help='Valorizzato solo se un consulente ha deciso manualmente di formalizzare '
-             'questa produzione con NDA/contratto (action_create_contract)'
+             'questa produzione con NDA/contratto (action_create_contract), oppure '
+             'automaticamente dai gate richiede_nda/richiede_contratto (vedi prodotto_id).'
     )
+    prodotto_id = fields.Many2one(
+        'erpv6.prodotto.consulenza', string='Prodotto Consulenza', tracking=True,
+        help="Se valorizzato, la sequenza di fasi di QUESTA produzione segue l'ordine scelto dentro "
+             "questo prodotto (non piu' il catalogo globale) e i flag NDA/contratto/pagamento delle sue "
+             "fasi si applicano agli avanzamenti (vedi _next_phase_for/_do_advance_after_gate). Vuoto = "
+             "comportamento invariato (catalogo globale, nessun gate NDA/contratto/pagamento aggiuntivo) "
+             "- produzioni esistenti prima di questo compito non sono impattate."
+    )
+    tranche_ids = fields.One2many(
+        'erpv6.production.order.tranche', 'order_id', string='Tranche di Pagamento')
 
     # Dati grezzi dell'intervista, non scritti su crm.lead (vedi CLAUDE.md:
     # motore vs conoscenza - non vanno confusi con x_fenice_score/x_fenice_livello,
@@ -446,6 +458,43 @@ class Erpv6ProductionOrder(models.Model):
 
         return True
 
+    def _next_phase_for(self, phase):
+        """Prossima fase dopo 'phase' (Compito "wizard-prodotto-consulenza",
+        25/08/2026 - prima un prodotto non era un concetto esplicito: tutte
+        le produzioni condividevano UNA sola sequenza globale nel catalogo
+        erpv6.production.phase).
+
+        Se questo ordine ha un prodotto configurato (prodotto_id), la
+        sequenza vive DENTRO le fasi scelte per quel prodotto
+        (erpv6.prodotto.consulenza.fase.sequence), non nel catalogo
+        condiviso: due prodotti diversi possono riusare le stesse fasi di
+        catalogo in ordini diversi senza interferire tra loro.
+
+        Senza prodotto_id (produzioni create prima di questo compito, o
+        genuinamente generiche): stessa ricerca globale di sempre, MA
+        esclude le fasi ormai "di proprieta'" di un qualunque prodotto
+        configurato - altrimenti, appena questo compito aggiunge nuove
+        righe al catalogo condiviso per il Business Plan (sequence 40-90,
+        dopo Consegnato=30), una produzione generica gia' ferma su
+        'Consegnato' le vedrebbe come prossima fase e ci avanzerebbe per
+        errore. Una fase referenziata da un prodotto e' raggiungibile SOLO
+        attraverso quel prodotto, mai piu' dalla catena anonima."""
+        self.ensure_one()
+        if self.prodotto_id:
+            fase_lines = self.prodotto_id.fase_ids.sorted('sequence')
+            current_line = fase_lines.filtered(lambda f: f.phase_id.id == phase.id)
+            if not current_line:
+                return self.env['erpv6.production.phase']
+            idx = fase_lines.ids.index(current_line[:1].id)
+            remaining = fase_lines[idx + 1:]
+            return remaining[:1].phase_id if remaining else self.env['erpv6.production.phase']
+
+        used_phase_ids = self.env['erpv6.prodotto.consulenza.fase'].sudo().search([]).mapped('phase_id').ids
+        domain = [('sequence', '>', phase.sequence), ('active', '=', True)]
+        if used_phase_ids:
+            domain.append(('id', 'not in', used_phase_ids))
+        return self.env['erpv6.production.phase'].search(domain, order='sequence asc', limit=1)
+
     def _evaluate_and_advance_one(self, event_type, trigger, event_vals):
         self.ensure_one()
         order = self
@@ -453,10 +502,7 @@ class Erpv6ProductionOrder(models.Model):
         if not phase:
             return
 
-        next_phase = self.env['erpv6.production.phase'].search(
-            [('sequence', '>', phase.sequence), ('active', '=', True)],
-            order='sequence asc', limit=1,
-        )
+        next_phase = order._next_phase_for(phase)
         if not next_phase:
             return
 
@@ -630,16 +676,295 @@ class Erpv6ProductionOrder(models.Model):
         self.phase_gate_confirmation_id = confirmation.id
         return confirmation
 
+    def _get_fase_config(self, phase):
+        """Riga di configurazione (flag NDA/contratto/pagamento) di 'phase'
+        DENTRO il prodotto consulenza collegato a questo ordine
+        (prodotto_id), se esiste. Un ordine senza prodotto_id (produzioni
+        esistenti prima di questo compito, o generiche) non ha nessun gate
+        aggiuntivo: record vuoto, comportamento identico a prima."""
+        self.ensure_one()
+        if not self.prodotto_id or not phase:
+            return self.env['erpv6.prodotto.consulenza.fase']
+        return self.prodotto_id.fase_ids.filtered(lambda f: f.phase_id.id == phase.id)[:1]
+
+    def _ensure_tranches_for(self, fase_config):
+        """Crea (idempotente) le righe erpv6.production.order.tranche per
+        QUESTA produzione sulla fase configurata fase_config - 1 riga se
+        pagamento_tipo='unico', numero_tranche righe se 'tranche'. Se le
+        tranche esistono gia' (secondo giro sulla stessa fase), le ritorna
+        senza duplicare."""
+        self.ensure_one()
+        existing = self.tranche_ids.filtered(lambda t: t.fase_config_id.id == fase_config.id)
+        if existing:
+            return existing
+        Tranche = self.env['erpv6.production.order.tranche'].sudo()
+        count = 1 if fase_config.pagamento_tipo == 'unico' else max(fase_config.numero_tranche, 1)
+        vals_list = []
+        for n in range(1, count + 1):
+            importo = fase_config.importo_pagamento_unico if fase_config.pagamento_tipo == 'unico' else 0.0
+            vals_list.append({
+                'order_id': self.id,
+                'fase_config_id': fase_config.id,
+                'tranche_number': n,
+                'importo': importo,
+                'currency_id': fase_config.currency_id.id,
+            })
+        return Tranche.create(vals_list)
+
+    def _create_contract_record(self):
+        """Crea davvero il contratto per questa produzione (risoluzione
+        partner + creazione erpv6.contract) - estratto da action_create_contract
+        cosi' i gate automatici sotto (_ensure_contract) possono riusare la
+        STESSA logica invece di duplicarla, senza pero' ereditare il
+        controllo "gia' esistente -> errore" che ha senso solo per l'azione
+        manuale esplicita."""
+        self.ensure_one()
+        self.lead_id.sudo()._handle_partner_assignment(create_missing=True)
+        partner = self.lead_id.partner_id
+        if not partner:
+            raise UserError(_("Impossibile determinare un cliente per questo lead - contatto non risolvibile."))
+
+        contract = self.env['erpv6.contract'].sudo().create({
+            'name': f"Contratto - {self.name}",
+            'partner_id': partner.id,
+            'project_id': self.project_id.id if self.project_id else False,
+        })
+        self.contract_id = contract.id
+        self.env['erpv6.production.event'].create({
+            'order_id': self.id,
+            'event_type': 'interazione_consulente',
+            'decision_method': 'deterministico',
+            'description': f"Contratto #{contract.id} creato manualmente da {self.env.user.name}.",
+            'phase_before_id': self.phase_id.id,
+            'phase_after_id': self.phase_id.id,
+        })
+        return contract
+
+    def _ensure_contract(self):
+        """Ritorna il contratto di questa produzione, creandolo se manca
+        ancora - riusato sia dall'azione manuale (action_create_contract,
+        che blocca se esiste gia') sia dai gate automatici NDA/contratto
+        sotto, che devono invece essere idempotenti: 'un NDA/contratto
+        unico per cliente/progetto', mai uno nuovo ad ogni fase che lo
+        richiede."""
+        self.ensure_one()
+        if self.contract_id:
+            return self.contract_id
+        return self._create_contract_record()
+
+    def _build_contract_doc_data(self, doc_type):
+        """Dati REALI per generare il PDF di un erpv6.contract.document
+        (Compito "wizard-prodotto-consulenza", parte 2 - 25/08/2026): solo
+        campi che esistono davvero su questo ordine/contratto/prodotto,
+        mai un valore inventato (regola anti-allucinazione) - ogni chiave
+        e' aggiunta SOLO se il dato sorgente e' presente, i template .typ
+        sono scritti per gestire in modo esplicito l'assenza di una chiave
+        (#if "chiave" in data), mai un placeholder finto al suo posto."""
+        self.ensure_one()
+        contract = self.contract_id
+        partner = (contract.partner_id if contract else False) or self.lead_id.partner_id
+        prodotto = self.prodotto_id
+
+        data = {
+            'doc_type': doc_type,
+            'generated_at': fields.Date.context_today(self).strftime('%d/%m/%Y'),
+            'azienda_fornitore': self.env.company.name,
+            'progetto_nome': self.lead_id.name or self.name,
+        }
+        cliente_nome = (partner.name if partner else False) or self.lead_id.partner_name or self.lead_id.contact_name
+        if cliente_nome:
+            data['cliente_nome'] = cliente_nome
+        if partner and partner.vat:
+            data['cliente_piva'] = partner.vat
+        if partner and (partner.street or partner.city):
+            data['cliente_indirizzo'] = ", ".join(filter(None, [partner.street, partner.city]))
+
+        if prodotto:
+            data['prodotto_nome'] = prodotto.product_id.name or prodotto.name
+            if prodotto.product_id.list_price:
+                data['importo_totale'] = prodotto.product_id.list_price
+            payment_fase = prodotto.fase_ids.filtered(lambda f: f.richiede_pagamento)[:1]
+            if payment_fase:
+                data['pagamento_tipo'] = payment_fase.pagamento_tipo
+                if payment_fase.pagamento_tipo == 'tranche':
+                    data['numero_tranche'] = payment_fase.numero_tranche
+                elif payment_fase.importo_pagamento_unico:
+                    data['importo_unico'] = payment_fase.importo_pagamento_unico
+
+        if self.tranche_ids:
+            data['tranche'] = [
+                {'numero': t.tranche_number, 'importo': t.importo, 'stato': t.stato}
+                for t in self.tranche_ids
+            ]
+        return data
+
+    def _generate_contract_document_pdf(self, contract_doc, template_xmlid):
+        """Genera per davvero il PDF di un erpv6.contract.document (NDA/
+        Contratto/Promessa di Pagamento), riusando il motore Typst gia'
+        esistente - stesso pattern di _generate_phase_output sopra:
+        template -> erpv6.typst.engine.generate_document ->
+        erpv6.typst.document.pdf_file - poi copia il PDF risultante sul
+        record contract_doc stesso (content/file_name/hash), che e' dove
+        erpv6_contract si aspetta di trovarlo (non un erpv6.library.document
+        separato: erpv6.contract.document ha gia' il proprio schema di
+        storage file).
+
+        Un rendering fallito (template senza typst_source ancora
+        configurato, binario typst non disponibile, dati insufficienti) NON
+        blocca la creazione del documento contrattuale ne' l'avanzamento di
+        fase: logga e lascia il documento senza PDF - stesso trattamento
+        del caso equivalente in _generate_phase_output. Il gate NDA/
+        contratto riguarda l'ESISTENZA del record documento, non la
+        riuscita della sua stampa."""
+        self.ensure_one()
+        template = self.env.ref(template_xmlid, raise_if_not_found=False)
+        if not template:
+            _logger.warning(
+                "Template Typst '%s' non trovato: PDF non generato per erpv6.contract.document #%s.",
+                template_xmlid, contract_doc.id)
+            return False
+
+        data = self._build_contract_doc_data(contract_doc.doc_type)
+        typst_doc = self.env['erpv6.typst.engine'].generate_document(
+            template.id, 'erpv6.contract.document', contract_doc.id, data=data)
+        if typst_doc.status != 'ready':
+            _logger.warning(
+                "Generazione PDF fallita per erpv6.contract.document #%s (typst doc #%s, template '%s'): %s",
+                contract_doc.id, typst_doc.id, template_xmlid,
+                typst_doc.error_message or 'nessun dettaglio')
+            return False
+
+        pdf_bytes = base64.b64decode(typst_doc.pdf_file)
+        contract_doc.sudo().write({
+            'content': typst_doc.pdf_file,
+            'file_name': typst_doc.pdf_filename,
+            'hash': hashlib.sha256(pdf_bytes).hexdigest(),
+        })
+        return typst_doc
+
+    def _ensure_nda_document(self):
+        """Gate automatico NDA (Compito "wizard-prodotto-consulenza",
+        25/08/2026): 'un NDA unico per cliente/progetto, si attiva alla
+        ricezione delle prime informazioni strutturate e riservate' (Denis)
+        - qui applicato alla chiusura della fase configurata con
+        richiede_nda=True. Idempotente: se il contratto ha gia' un
+        documento doc_type='nda', non ne crea un secondo.
+
+        Genera anche il PDF reale (parte 2 dello stesso compito, 25/08/2026)
+        via _generate_contract_document_pdf: l'invio reale a Documenso
+        (erpv6.sign.request) resta comunque un'azione separata e manuale,
+        per scelta esplicita di Denis in questo giro (vuole prima vedere il
+        PDF)."""
+        self.ensure_one()
+        contract = self._ensure_contract()
+        existing_nda = contract.document_ids.filtered(lambda d: d.doc_type == 'nda')
+        if existing_nda:
+            return existing_nda
+        nda_doc = self.env['erpv6.contract.document'].sudo().create({
+            'name': _("NDA - %s") % self.name,
+            'contract_id': contract.id,
+            'doc_type': 'nda',
+        })
+        self._generate_contract_document_pdf(nda_doc, 'erpv6_production.typst_template_nda')
+        self.env['erpv6.production.event'].create({
+            'order_id': self.id,
+            'event_type': 'interazione_consulente',
+            'decision_method': 'deterministico',
+            'description': _("NDA (documento #%s) creato automaticamente all'avanzamento della fase "
+                              "con richiede_nda.") % nda_doc.id,
+            'phase_before_id': self.phase_id.id,
+        })
+        return nda_doc
+
+    def _ensure_contratto_o_promessa(self):
+        """Gate automatico Contratto (stesso compito): 'si attiva dopo la
+        call, e se non hanno gia' pagato il primo SAL una promessa di
+        pagherò' (Denis) - due varianti sullo stesso erpv6.contract.document
+        (doc_type='service' o 'promise_to_pay'), decise da "esiste gia' una
+        tranche numero 1 incassata su questa produzione".
+
+        Idempotente come _ensure_nda_document: se esiste gia' un documento
+        service/promise_to_pay su questo contratto non ne crea un secondo -
+        la variante scelta al momento giusto resta quella valida, cambiarla
+        a posteriori (es. dopo un pagamento tardivo) e' una decisione
+        umana, non automatica."""
+        self.ensure_one()
+        contract = self._ensure_contract()
+        existing = contract.document_ids.filtered(lambda d: d.doc_type in ('service', 'promise_to_pay'))
+        if existing:
+            return existing
+        primo_sal_pagato = bool(self.tranche_ids.filtered(
+            lambda t: t.tranche_number == 1 and t.stato == 'incassata'))
+        doc_type = 'service' if primo_sal_pagato else 'promise_to_pay'
+        doc = self.env['erpv6.contract.document'].sudo().create({
+            'name': (_("Contratto - %s") % self.name) if doc_type == 'service'
+                    else (_("Promessa di Pagamento - %s") % self.name),
+            'contract_id': contract.id,
+            'doc_type': doc_type,
+        })
+        template_xmlid = (
+            'erpv6_production.typst_template_contratto_consulenza' if doc_type == 'service'
+            else 'erpv6_production.typst_template_promessa_pagamento'
+        )
+        self._generate_contract_document_pdf(doc, template_xmlid)
+        self.env['erpv6.production.event'].create({
+            'order_id': self.id,
+            'event_type': 'interazione_consulente',
+            'decision_method': 'deterministico',
+            'description': _(
+                "%(tipo)s (documento #%(id)s) creato automaticamente all'avanzamento della fase con "
+                "richiede_contratto (primo SAL gia' pagato: %(pagato)s)."
+            ) % {
+                'tipo': _('Contratto') if doc_type == 'service' else _('Promessa di pagamento'),
+                'id': doc.id, 'pagato': _('si') if primo_sal_pagato else _('no'),
+            },
+            'phase_before_id': self.phase_id.id,
+        })
+        return doc
+
     def _do_advance_after_gate(self):
         """Azione 'procedi' agganciata al gate (vedi _open_phase_gate) --
         no-arg per costruzione (erpv6.agent.confirmation puo' chiamare solo
         metodi senza argomenti): legge phase_gate_next_phase_id gia' salvato
         sull'ordine, chiama advance_phase() (l'unico scrittore finale della
-        fase, invariato) e chiude il task di tracciabilita'."""
+        fase, invariato) e chiude il task di tracciabilita'.
+
+        Compito "wizard-prodotto-consulenza" (25/08/2026): PRIMA di
+        avanzare per davvero, se la fase che si sta chiudendo e' configurata
+        (via prodotto_id) con richiede_pagamento=True, blocca sollevando
+        UserError finche' le tranche non risultano tutte 'incassata' -
+        erpv6.agent.confirmation._do_phase_decision cattura QUALUNQUE
+        eccezione di action_method e la trasforma in stato 'action_error'
+        (mai un avanzamento silenzioso), quindi basta sollevare qui, nessuna
+        modifica necessaria a erpv6_agent. richiede_nda/richiede_contratto
+        vengono invece applicati (mai bloccanti) subito dopo il controllo
+        pagamento, prima dell'avanzamento vero."""
         self.ensure_one()
         next_phase = self.phase_gate_next_phase_id
         if not next_phase:
             raise UserError(_("Nessuna fase in attesa di decisione su questa produzione."))
+
+        current_phase = self.phase_id
+        fase_config = self._get_fase_config(current_phase)
+        if fase_config and fase_config.richiede_pagamento:
+            tranches = self._ensure_tranches_for(fase_config)
+            pending = tranches.filtered(lambda t: t.stato != 'incassata')
+            if pending:
+                raise UserError(_(
+                    "Impossibile avanzare da '%(fase)s' a '%(next)s': il prodotto '%(prodotto)s' richiede "
+                    "il pagamento su questa fase e %(n)d tranche/e risultano ancora da incassare (%(nums)s). "
+                    "Conferma l'incasso (azione 'Marca Incassata' sulla tranche) prima di poter procedere."
+                ) % {
+                    'fase': current_phase.name, 'next': next_phase.name,
+                    'prodotto': fase_config.prodotto_id.name,
+                    'n': len(pending), 'nums': ', '.join(str(t.tranche_number) for t in pending),
+                })
+
+        if fase_config and fase_config.richiede_nda:
+            self._ensure_nda_document()
+        if fase_config and fase_config.richiede_contratto:
+            self._ensure_contratto_o_promessa()
+
         vals = {
             'event_type': 'interazione_consulente',
             'decision_method': 'deterministico',
@@ -659,9 +984,22 @@ class Erpv6ProductionOrder(models.Model):
         dal meccanismo di conferma): qui restano solo da svuotare i campi di
         gate. Per 'pianifica'/'fermati' i campi di gate restano valorizzati
         apposta (nessun avanzamento, il gate resta "l'ultima decisione
-        nota" finche' non arriva un 'procedi')."""
+        nota" finche' non arriva un 'procedi').
+
+        Corretto il 25/08/2026 (Compito "wizard-prodotto-consulenza"): PRIMA
+        questo controllava solo decision == 'procedi', assumendo che
+        l'azione fosse sempre riuscita - ma ora _do_advance_after_gate puo'
+        fallire per davvero (gate di pagamento non soddisfatto), lasciando
+        confirmation.state='action_error'. In quel caso i campi di gate
+        NON vanno svuotati: se li svuotassimo, si perderebbe la fase in
+        attesa senza che l'avanzamento sia mai avvenuto. Lasciandoli
+        valorizzati, il prossimo giro di evaluate_and_advance rileva che il
+        gate esistente ha decision_result='procedi' ma non e' piu'
+        'pending', e ne riapre uno nuovo (vedi _evaluate_and_advance_one) -
+        il consulente viene ririnterpellato dopo aver confermato il
+        pagamento."""
         self.ensure_one()
-        if decision == 'procedi':
+        if decision == 'procedi' and confirmation.state == 'confirmed':
             self.write({'phase_gate_confirmation_id': False, 'phase_gate_next_phase_id': False})
 
     def _notify_consultant_update(self, new_phase, document_generated=None):
@@ -701,25 +1039,7 @@ class Erpv6ProductionOrder(models.Model):
         if self.contract_id:
             raise UserError(_("Questa produzione ha gia' un contratto collegato (#%s).") % self.contract_id.id)
 
-        self.lead_id.sudo()._handle_partner_assignment(create_missing=True)
-        partner = self.lead_id.partner_id
-        if not partner:
-            raise UserError(_("Impossibile determinare un cliente per questo lead - contatto non risolvibile."))
-
-        contract = self.env['erpv6.contract'].sudo().create({
-            'name': f"Contratto - {self.name}",
-            'partner_id': partner.id,
-            'project_id': self.project_id.id if self.project_id else False,
-        })
-        self.contract_id = contract.id
-        self.env['erpv6.production.event'].create({
-            'order_id': self.id,
-            'event_type': 'interazione_consulente',
-            'decision_method': 'deterministico',
-            'description': f"Contratto #{contract.id} creato manualmente da {self.env.user.name}.",
-            'phase_before_id': self.phase_id.id,
-            'phase_after_id': self.phase_id.id,
-        })
+        contract = self._create_contract_record()
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'erpv6.contract',

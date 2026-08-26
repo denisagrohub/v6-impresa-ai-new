@@ -9,6 +9,12 @@ class Erpv6ContractDocument(models.Model):
     doc_type = fields.Selection([
         ('nda', 'NDA'),
         ('service', 'Contratto'),
+        # Aggiunto per erpv6_production (Compito "wizard-prodotto-consulenza",
+        # 25/08/2026): variante di 'service' quando il contratto vero non e'
+        # ancora attivabile perche' il primo SAL/tranche non e' stato ancora
+        # incassato - "una promessa di pagherò", stessa infrastruttura firma,
+        # contenuto diverso (Denis). Vedi erpv6.production.order._ensure_contratto_o_promessa.
+        ('promise_to_pay', 'Promessa di Pagamento'),
         ('terms', 'Termini'),
         ('privacy', 'Privacy'),
         ('custom', 'Custom'),

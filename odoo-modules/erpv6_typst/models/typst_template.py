@@ -34,6 +34,11 @@ class TypstTemplate(models.Model):
         ('bando_application', 'Candidatura Bando'),
         ('proposal', 'Proposta Commerciale'),
         ('contract', 'Contratto'),
+        # Aggiunto per erpv6_production (Compito "wizard-prodotto-consulenza",
+        # 25/08/2026): NDA e' concettualmente distinto da un contratto di
+        # servizio - vedi erpv6.contract.document.doc_type='nda', gia'
+        # esistente, che questa categoria affianca lato template.
+        ('nda', 'NDA'),
         ('relazione', 'Relazione'),
         ('manuale', 'Manuale'),
         ('custom', 'Personalizzato'),

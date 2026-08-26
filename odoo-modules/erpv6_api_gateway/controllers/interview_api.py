@@ -79,12 +79,38 @@ class InterviewAPIController(APIBaseController):
             if not name or not email:
                 return self._json_response({'error': 'lead_id or name+email required'}, 400)
             existing = env['crm.lead'].sudo().search([('email_from', '=', email), ('active', '=', True)], limit=1)
+            is_new = not existing
             lead = existing or env['crm.lead'].sudo().create({
                 'name': f"Lead Web: {name}",
                 'contact_name': name,
                 'email_from': email,
                 'type': 'lead',
             })
+
+            # Compito "dashboard consulente" (Denis, 25/08/2026, criterio 1):
+            # un Consulente/Responsabile/Admin loggato che avvia QUESTA
+            # STESSA intervista dalla propria dashboard (per un cliente
+            # seguito di persona) deve vedersi attribuire subito il lead con
+            # ruolo "sourcing" - SOLO se l'header Authorization porta un JWT
+            # reale (vedi tree-client.ts/startInterview con authToken): un
+            # visitatore pubblico anonimo (nessun Authorization) non tocca
+            # mai questo ramo, stesso identico comportamento di sempre.
+            if is_new:
+                auth_header = request.httprequest.headers.get('Authorization', '')
+                if auth_header.startswith('JWT '):
+                    creator = self._validate_jwt(auth_header[4:])
+                    if creator and hasattr(lead, '_set_sourcing_consulente') and (
+                        creator.has_group('erpv6_core.group_consulente')
+                        or creator.has_group('base.group_system')
+                        or creator.has_group('sales_team.group_sale_manager')
+                    ):
+                        try:
+                            lead._set_sourcing_consulente(creator)
+                        except Exception:
+                            _logger.exception(
+                                "Attribuzione sourcing fallita per lead #%s, consulente #%s.",
+                                lead.id, creator.id,
+                            )
 
         verticale_id = data.get('verticale_id')
         session = env['erpv6.interview.session'].sudo().create({'lead_id': lead.id})

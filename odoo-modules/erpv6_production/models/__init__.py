@@ -1,5 +1,6 @@
 from . import production_phase
 from . import kairos_scoring_rule
+from . import prodotto_consulenza
 from . import production_order
 from . import production_event
 from . import production_schedule
