@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Admin Visual V4 — Cross-reference (Denis, 30/08/2026). Sola
+         consultazione: context "create": False sulle azioni dei bottoni
+         smart button, nessun nuovo permesso di scrittura oltre a quello
+         gia' esistente (erpv6.core.output/kb_link erano gia' scrivibili
+         via il notebook del nodo, invariato). Prima di questo prompt
+         nessuno dei due modelli aveva un'azione/menu proprio — erano
+         raggiungibili SOLO annidati dentro il form di erpv6.core.node. -->
+
+    <record id="view_erpv6_core_output_list" model="ir.ui.view">
+        <field name="name">erpv6.core.output.list</field>
+        <field name="model">erpv6.core.output</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="source_node_id"/>
+                <field name="output_type"/>
+                <field name="library_category_name"/>
+                <field name="consumer_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_erpv6_core_output_form" model="ir.ui.view">
+        <field name="name">erpv6.core.output.form</field>
+        <field name="model">erpv6.core.output</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_consumers" type="object" class="oe_stat_button" icon="fa-share-alt">
+                            <field name="consumer_count" widget="statinfo" string="Nodi Consumatori"/>
+                        </button>
+                    </div>
+                    <group>
+                        <field name="source_node_id" readonly="1"/>
+                        <field name="output_type" readonly="1"/>
+                        <field name="library_category_name" readonly="1"/>
+                        <field name="category_id" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_erpv6_core_output" model="ir.actions.act_window">
+        <field name="name">Output (Adaptive EOSv6)</field>
+        <field name="res_model">erpv6.core.output</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'create': False}</field>
+    </record>
+
+    <record id="view_erpv6_core_kb_link_list" model="ir.ui.view">
+        <field name="name">erpv6.core.kb_link.list</field>
+        <field name="model">erpv6.core.kb_link</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="target_node_id"/>
+                <field name="resolution_mode"/>
+                <field name="data_format"/>
+                <field name="format_mismatch"/>
+                <field name="other_consumers_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_erpv6_core_kb_link_form" model="ir.ui.view">
+        <field name="name">erpv6.core.kb_link.form</field>
+        <field name="model">erpv6.core.kb_link</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_other_consumers" type="object" class="oe_stat_button" icon="fa-share-alt">
+                            <field name="other_consumers_count" widget="statinfo" string="Altri Rombi (stessa conoscenza)"/>
+                        </button>
+                    </div>
+                    <group>
+                        <field name="target_node_id" readonly="1"/>
+                        <field name="resolution_mode" readonly="1"/>
+                        <field name="kb_id" readonly="1"/>
+                        <field name="kb_type_dynamic" readonly="1"/>
+                        <field name="verticale" readonly="1"/>
+                        <field name="data_format" readonly="1"/>
+                        <field name="format_mismatch" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_erpv6_core_kb_link" model="ir.actions.act_window">
+        <field name="name">Rombi KB (Adaptive EOSv6)</field>
+        <field name="res_model">erpv6.core.kb_link</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'create': False}</field>
+    </record>
+
+    <menuitem id="menu_erpv6_core_output" name="Output" parent="menu_erpv6_core_engine_root"
+              action="action_erpv6_core_output" sequence="20"/>
+    <menuitem id="menu_erpv6_core_kb_link" name="Rombi KB" parent="menu_erpv6_core_engine_root"
+              action="action_erpv6_core_kb_link" sequence="30"/>
+</odoo>

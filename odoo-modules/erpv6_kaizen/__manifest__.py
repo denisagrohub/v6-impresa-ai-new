@@ -16,12 +16,23 @@
     """,
     'author': 'V6 Impresa AI',
     'license': 'LGPL-3',
-    'depends': ['base', 'crm', 'account', 'erpv6_methodology', 'erpv6_kb', 'erpv6_production', 'erpv6_agent'],
+    # Denis, 30/08/2026, prompt #22: erpv6_core_dispatch + erpv6_core_engine
+    # aggiunti -- neo4j_write_fix/kaizen_signal_to_context si registrano da
+    # sole qui (models/aeosv6_dispatch.py), e data/circuit_kaizen_data.xml
+    # (spostato da erpv6_core_engine) crea davvero erpv6.core.node/.arc/
+    # .kb_link/.output/.output_link, che vivono in erpv6_core_engine.
+    # Verificato in Fase 0: nessun ciclo, erpv6_kaizen non e' nella catena
+    # di dipendenze di erpv6_core_engine dopo questa rimozione.
+    'depends': [
+        'base', 'crm', 'account', 'erpv6_methodology', 'erpv6_kb', 'erpv6_production', 'erpv6_agent',
+        'erpv6_core_dispatch', 'erpv6_core_engine',
+    ],
     'data': [
         'security/ir.model.access.csv',
         'data/kaizen_cron.xml',
         'data/kaizen_agent_config.xml',
         'data/kaizen_plain_language_data.xml',
+        'data/circuit_kaizen_data.xml',
         'views/kaizen_views.xml',
         'views/dashboard_views.xml',
         'views/product_proposal_wizard_views.xml',

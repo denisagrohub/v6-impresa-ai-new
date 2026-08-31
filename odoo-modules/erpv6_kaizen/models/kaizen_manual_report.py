@@ -94,7 +94,16 @@ class Erpv6KaizenManualReport(models.Model):
         self.ensure_one()
         if self.detected_signal_id or not self.related_record:
             return self.detected_signal_id
-        Signal = self.env['erpv6.kaizen.detected_signal']
+        # Denis, 29/08/2026, decomposizione EAOSv6: sudo() qui, non prima --
+        # erpv6.kaizen.detected_signal nega perm_create a base.group_user
+        # (solo admin), ma la regola Kaizen #1 ("zero attrito") vuole che
+        # QUALUNQUE utente possa segnalare -- senza sudo() un utente
+        # normale riceveva AccessError proprio su questo passo interno,
+        # contraddicendo il design dichiarato dal modulo stesso. Il
+        # permesso vero resta quello su erpv6.kaizen.manual_report stesso
+        # (aperto a base.group_user), questo e' solo il passo automatico
+        # che ne consegue.
+        Signal = self.env['erpv6.kaizen.detected_signal'].sudo()
         signal_key = "%s%d" % (MANUAL_REPORT_SIGNAL_PREFIX, self.id)
         signal = Signal.search([
             ('res_model', '=', self.related_record._name),

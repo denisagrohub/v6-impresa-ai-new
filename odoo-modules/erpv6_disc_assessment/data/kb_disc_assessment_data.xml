@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Denis, 30/08/2026, prompt #21 — primo modulo NATIVO Adaptive
+             EOSv6, non una conversione. Banco domande REALE (8, campione
+             minimo dichiarato — non il questionario definitivo), mappatura
+             a=D, b=I, c=S, d=C su ogni domanda, identica al wizard
+             (models/disc_wizard.py) — stesso contenuto, non duplicato per
+             caso. -->
+        <record id="kb_category_disc_assessment" model="erpv6.kb.category">
+            <field name="name">DISC Assessment — Dipendenti</field>
+            <field name="kb_type">disc_assessment</field>
+            <field name="is_transversal" eval="True"/>
+        </record>
+
+        <record id="kb_disc_assessment_bank" model="erpv6.kb">
+            <field name="name">Banco domande DISC — Fase A (campione, 8 domande)</field>
+            <field name="kb_type">disc_assessment</field>
+            <field name="category_id" ref="kb_category_disc_assessment"/>
+            <field name="content_format">json</field>
+            <field name="source">system_seed</field>
+            <field name="is_active" eval="True"/>
+            <field name="content"><![CDATA[{
+  "questions": [
+    {"id": "q1", "text": "Quando affronto un nuovo progetto di lavoro, la mia prima reazione è:", "options": {
+      "a": {"text": "Definire subito obiettivi e tempistiche chiare", "disc": "D"},
+      "b": {"text": "Condividere l'idea con i colleghi per generare entusiasmo", "disc": "I"},
+      "c": {"text": "Capire come si inserisce nelle attività già in corso", "disc": "S"},
+      "d": {"text": "Raccogliere tutte le informazioni prima di iniziare", "disc": "C"}
+    }},
+    {"id": "q2", "text": "In una discussione di gruppo dove ci sono opinioni diverse:", "options": {
+      "a": {"text": "Prendo posizione e spingo per una decisione rapida", "disc": "D"},
+      "b": {"text": "Cerco di alleggerire il clima e trovare un terreno comune", "disc": "I"},
+      "c": {"text": "Aspetto che tutti si esprimano prima di dire la mia", "disc": "S"},
+      "d": {"text": "Valuto i pro e i contro di ogni proposta con attenzione", "disc": "C"}
+    }},
+    {"id": "q3", "text": "Di fronte a un imprevisto urgente sul lavoro:", "options": {
+      "a": {"text": "Agisco subito, decido e correggo strada facendo", "disc": "D"},
+      "b": {"text": "Coinvolgo altri per trovare insieme una soluzione", "disc": "I"},
+      "c": {"text": "Mantengo la calma e procedo con ordine, un passo alla volta", "disc": "S"},
+      "d": {"text": "Analizzo la causa prima di intervenire", "disc": "C"}
+    }},
+    {"id": "q4", "text": "Il mio stile di comunicazione preferito è:", "options": {
+      "a": {"text": "Diretto ed essenziale", "disc": "D"},
+      "b": {"text": "Espressivo e coinvolgente", "disc": "I"},
+      "c": {"text": "Paziente e disponibile all'ascolto", "disc": "S"},
+      "d": {"text": "Preciso e basato sui dati", "disc": "C"}
+    }},
+    {"id": "q5", "text": "Quando ricevo una critica sul mio lavoro:", "options": {
+      "a": {"text": "La accolgo se porta a risultati migliori, senza troppi giri", "disc": "D"},
+      "b": {"text": "Preferisco parlarne di persona per chiarire subito", "disc": "I"},
+      "c": {"text": "Ci penso con calma prima di rispondere", "disc": "S"},
+      "d": {"text": "Chiedo dettagli specifici per capire esattamente cosa correggere", "disc": "C"}
+    }},
+    {"id": "q6", "text": "Nella pianificazione del mio lavoro settimanale:", "options": {
+      "a": {"text": "Punto ai risultati principali, i dettagli si sistemano dopo", "disc": "D"},
+      "b": {"text": "Lascio spazio a imprevisti e opportunità che emergono", "disc": "I"},
+      "c": {"text": "Seguo una routine stabile che conosco bene", "disc": "S"},
+      "d": {"text": "Pianifico ogni fase in anticipo con precisione", "disc": "C"}
+    }},
+    {"id": "q7", "text": "Cosa mi motiva di più in un ambiente di lavoro:", "options": {
+      "a": {"text": "Vincere sfide e raggiungere obiettivi ambiziosi", "disc": "D"},
+      "b": {"text": "Il riconoscimento e le relazioni positive con i colleghi", "disc": "I"},
+      "c": {"text": "Stabilità e un clima di squadra sereno", "disc": "S"},
+      "d": {"text": "Fare le cose nel modo corretto, senza errori", "disc": "C"}
+    }},
+    {"id": "q8", "text": "Se un collega non rispetta una scadenza condivisa:", "options": {
+      "a": {"text": "Lo affronto direttamente e chiedo spiegazioni immediate", "disc": "D"},
+      "b": {"text": "Ne parlo con un tono positivo, cercando di capire cosa è successo", "disc": "I"},
+      "c": {"text": "Aspetto un momento opportuno per parlargliene con calma", "disc": "S"},
+      "d": {"text": "Verifico prima i fatti e la documentazione prima di dire qualcosa", "disc": "C"}
+    }}
+  ]
+}]]></field>
+        </record>
+
+        <record id="circuit_disc_assessment" model="erpv6.core.node">
+            <field name="name">Circuito DISC Assessment (nativo, prompt #21)</field>
+            <field name="parent_id" ref="erpv6_core_engine.circuit_workspace_root"/>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+        </record>
+
+        <record id="node_disc_interview_score" model="erpv6.core.node">
+            <field name="name">Calcola profilo DISC</field>
+            <field name="parent_id" ref="circuit_disc_assessment"/>
+            <field name="sequence">10</field>
+            <field name="process_key">disc_interview_score</field>
+            <field name="input_format">json</field>
+            <field name="output_binding_model">res.users</field>
+            <field name="output_binding_field">disc_profile</field>
+            <field name="output_binding_value_path">disc</field>
+        </record>
+
+        <record id="kb_link_disc_assessment" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_disc_interview_score"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="kb_disc_assessment_bank"/>
+            <field name="data_format">json</field>
+        </record>
+
+        <record id="input_spec_disc_interview_score_answers" model="erpv6.core.process.input_spec">
+            <field name="process_key">disc_interview_score</field>
+            <field name="input_key">answers</field>
+            <field name="tipo_dato">json</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">dict {question_id: option_key} -- tutte le domande del banco KB devono avere risposta</field>
+        </record>
+
+        <record id="output_spec_disc_interview_score" model="erpv6.core.process.output_spec">
+            <field name="process_key">disc_interview_score</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+    </data>
+</odoo>

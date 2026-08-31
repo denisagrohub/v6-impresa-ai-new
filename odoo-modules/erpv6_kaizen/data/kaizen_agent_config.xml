@@ -12,6 +12,23 @@
             <field name="is_company" eval="False"/>
         </record>
 
+        <!-- Denis, 29/08/2026, decomposizione EAOSv6: questo xmlid era
+             referenziato due volte piu' sotto (righe originali 18/31) ma
+             non dichiarato da nessun record XML in tutto il repository:
+             risolveva solo su questo DB perche' il record (id 51, "Regole
+             Kaizen") era gia' stato creato a runtime da kaizen_rule_engine.
+             py:317 con un get_or_create per nome, senza mai passare da
+             qui. Su un'installazione pulita (DB nuovo) il caricamento di
+             questo file avrebbe fallito con "External ID not found".
+             Dichiarato ora esplicitamente, con gli stessi valori reali gia'
+             presenti nel DB: su questa installazione aggiorna in place
+             lo stesso record (nessun duplicato), su una nuova lo crea. -->
+        <record id="kb_category_regole_kaizen" model="erpv6.kb.category">
+            <field name="name">Regole Kaizen</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+        </record>
+
         <record id="kb_kaizen_persona" model="erpv6.kb">
             <field name="name">Kaizen - Persona</field>
             <field name="kb_type">metodo_v6</field>

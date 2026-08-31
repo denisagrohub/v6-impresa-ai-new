@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Circuito Acquisizione v6impresa (Denis, 30/08/2026): mappato a
+             lungo prima di scrivere codice (vedi
+             odoo-modules/erpv6_core_engine/docs/CIRCUITO_ACQUISIZIONE_DESIGN.md
+             per il disegno completo con tutti i gap dichiarati). Solo Fase 1
+             e' pronta oggi: le fasi successive (intervista/Kairos loop/
+             Circuito Metodo/bivio) restano fuori da questo file finche' i
+             loro gap reali (KB marketing/verticale, collegamento action_start
+             -> promozione, loop Kairos, oscuramento) non sono chiusi. -->
+        <record id="circuit_acquisizione" model="erpv6.core.node">
+            <field name="name">Circuito Acquisizione</field>
+            <field name="parent_id" ref="circuit_workspace_root"/>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+        </record>
+
+        <!-- Fase 1 isolata da _run_crea_lead: SOLO crea crm.lead
+             type='lead'. Le altre 4 azioni che il controller reale
+             (lead_api.py:create_lead) fa oggi in una chiamata sola
+             (promozione opportunity, funnel, produzione, webhook) NON sono
+             replicate qui: restano nodi da costruire a valle quando i
+             loro gap (in particolare il collegamento mancante
+             action_start->_promote_to_opportunity, vedi doc) saranno
+             chiariti con Denis. -->
+        <record id="node_fase1_crea_lead" model="erpv6.core.node">
+            <field name="name">Fase 1 — Crea Lead</field>
+            <field name="parent_id" ref="circuit_acquisizione"/>
+            <field name="sequence">10</field>
+            <field name="process_key">crea_lead</field>
+            <field name="input_format">json</field>
+            <field name="engine_model">crm.lead</field>
+            <field name="engine_method">create() -- isolato da erpv6_api_gateway.lead_api.create_lead, che fa altre 4 azioni non replicate qui</field>
+        </record>
+
+    </data>
+</odoo>

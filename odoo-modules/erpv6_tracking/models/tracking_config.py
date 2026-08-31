@@ -80,32 +80,41 @@ class TrackingConfig(models.Model):
 
     @api.model
     def get_default_config(self, tracking_type='product'):
-        """Ottiene la configurazione di default per una tipologia"""
-        config = self.search(
-            [('code', '=', tracking_type), ('active', '=', True)], limit=1)
-        if not config:
-            config = self.search([('active', '=', True)], limit=1)
-        return config
+        """Ottiene la configurazione di default per una tipologia.
+
+        Denis, 29/08/2026: prima, se non trovava una config per il tipo
+        richiesto, ne prendeva UNA QUALUNQUE attiva -- stesso errore
+        travestito da successo gia' corretto altrove (palette vuota,
+        kb_request_id): un chiamante che chiede 'document' non deve
+        ricevere in silenzio la config di 'product'. I chiamanti esistenti
+        (es. erpv6.tracking.mixin) gia' controllano 'if not config: raise
+        UserError', quindi ritornare un recordset vuoto qui e' sicuro,
+        non introduce nessuna rottura.
+        """
+        return self.search([('code', '=', tracking_type), ('active', '=', True)], limit=1)
 
     @api.model
-    def get_config_for_ateco(self, ateco_code):
-        """Ottiene la configurazione per un codice ATECO specifico
-        
-        Cerca una config con match su ateco_suggested_ids, 
-        fallback su get_default_config
+    def get_config_for_ateco(self, ateco_code, tracking_type='product'):
+        """Ottiene la configurazione per un codice ATECO specifico.
+
+        Cerca una config con match su ateco_suggested_ids, fallback su
+        get_default_config(tracking_type). Denis, 29/08/2026: il fallback
+        di per se' e' corretto (non c'e' niente di sbagliato nel "se
+        l'ATECO non matcha, usa il default"), ma PRIMA il default veniva
+        chiamato senza tracking_type, quindi ricadeva sempre su 'product'
+        a prescindere dal contesto reale del chiamante -- ora il chiamante
+        dichiara esplicitamente quale tipologia vuole anche nel fallback.
         """
-        # Cerca config che hanno questo ATECO tra i suggeriti
         ateco_regime = self.env['erpv6.ateco.regime'].search(
             [('code', '=', ateco_code)], limit=1)
-        
+
         if ateco_regime:
             config = self.search(
                 [('ateco_suggested_ids', 'in', ateco_regime.id),
-                 ('active', '=', True)], 
+                 ('active', '=', True)],
                 limit=1
             )
             if config:
                 return config
-        
-        # Fallback sulla config default
-        return self.get_default_config()
+
+        return self.get_default_config(tracking_type)

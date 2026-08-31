@@ -186,7 +186,7 @@ class Erpv6ProductionOrder(models.Model):
             'verticale': self.verticale or '',
         }
 
-    def _compute_kairos_matrix(self):
+    def _compute_kairos_matrix(self, previous_matrix=None):
         """Crea/aggiorna una erpv6.kairos.matrix (matrix_type='finanziario',
         motore generico di erpv6_methodology, non reimplementato qui) per
         capire se vale la pena chiamare subito questo lead o nutrirlo prima.
@@ -203,7 +203,22 @@ class Erpv6ProductionOrder(models.Model):
         sono regole di business reali, un admin deve poterle correggere
         senza un promote del modulo. Le chiavi letterali (le stringhe
         opzione) restano invece accoppiate ad apps/impresa/src/app/intervista/page.tsx,
-        vincolo tecnico reale, non spostato."""
+        vincolo tecnico reale, non spostato.
+
+        DUE INPUT (Denis, 30/08/2026, loop ricorsivo dell'intervista): oltre
+        ai dati correnti, il chiamante puo' passare `previous_matrix` (la
+        valutazione precedente DELLO STESSO loop). Il Motore ha gia' una
+        sua funzione propria per questo, mai usata finora prima di questa
+        sessione: il campo `previous_matrix_id` su erpv6.kairos.matrix
+        (storico verso la valutazione precedente) -- qui, se
+        `previous_matrix` e' passato, si CREA una nuova valutazione
+        agganciata alla precedente (mai sovrascritta), cosi' la storia
+        resta tracciabile. Punteggi MAI fusi/mediati (Denis, 30/08/2026:
+        "nessuno te lo ha chiesto") -- quadrante e prontezza restano
+        calcolati onestamente solo dai dati di QUESTO giro, come sempre.
+        Senza `previous_matrix` (ogni altro chiamante, es.
+        _promote_to_opportunity): comportamento invariato, upsert
+        sull'ultima valutazione esistente."""
         self.ensure_one()
         budget = (self.interview_budget or '').strip()
         tempistiche = (self.interview_tempistiche or '').strip()
@@ -222,6 +237,7 @@ class Erpv6ProductionOrder(models.Model):
             )
             return False
         neutro = Scoring.get_neutro_score()
+        liquidita = liquidita if liquidita is not None else neutro
 
         Matrix = self.env['erpv6.kairos.matrix'].sudo()
         vals = {
@@ -230,7 +246,7 @@ class Erpv6ProductionOrder(models.Model):
             'matrix_type': 'finanziario',
             'impatto_score': impatto,
             'indicatore_1': neutro,
-            'indicatore_2': liquidita if liquidita is not None else neutro,
+            'indicatore_2': liquidita,
             'indicatore_3': neutro,
             'indicatore_4': urgenza,
             'indicatore_5': neutro,
@@ -240,9 +256,18 @@ class Erpv6ProductionOrder(models.Model):
                 "l'intervista non raccoglie apertura del titolare o storico bancario."
             ),
         }
+        if previous_matrix and previous_matrix.exists():
+            vals['previous_matrix_id'] = previous_matrix.id
+            return Matrix.create(vals)
+
+        # order='id desc': se un domani esiste gia' una catena (es. creata
+        # dal loop sopra), l'upsert di un chiamante senza previous_matrix
+        # deve comunque trovare l'ULTIMA valutazione, mai la piu' vecchia
+        # della catena (bug potenziale altrimenti: search senza ordine
+        # esplicito su un modello senza _order ritorna per id crescente).
         existing = Matrix.search([
             ('res_model', '=', self._name), ('res_id', '=', self.id), ('matrix_type', '=', 'finanziario'),
-        ], limit=1)
+        ], order='id desc', limit=1)
         if existing:
             existing.write(vals)
             return existing

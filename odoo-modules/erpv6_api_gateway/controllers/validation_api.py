@@ -8,6 +8,27 @@ from .main import APIBaseController
 class ValidationAPIController(APIBaseController):
     """API per Validazione 6 Giudici"""
 
+    def _sync_circuit_run_for_session(self, session):
+        """Se questa sessione è stata avviata via il circuito Adaptive EOSv6
+        (erpv6.core.circuit.run.run_six_judges_for_kb), tiene lo stato del
+        grafo coerente con l'approvazione/rifiuto appena fatto qui -- prima
+        di questo fix, un'approvazione fatta da questo controller (invece che
+        dal pannello del circuito) lasciava erpv6.core.circuit.run.status
+        bloccato su 'human_gate_pending' per sempre, incoerente col resto del
+        grafo (bug trovato nell'analisi EAOSv6 del 29/08/2026). erpv6_core_engine
+        non è una dipendenza dichiarata di questo modulo -- opzionale, stesso
+        pattern 'model non in request.env' già usato altrove nel gateway.
+        Sync fatto in sudo(): è una scrittura interna di tracciamento del
+        grafo, non un'azione che richiede i permessi specifici
+        dell'approvatore (già verificati sopra su action_human_approve/reject)."""
+        Env = session.env
+        if 'erpv6.core.circuit.run' not in Env:
+            return
+        run = Env['erpv6.core.circuit.run'].sudo().search(
+            [('validation_session_id', '=', session.id)], limit=1)
+        if run:
+            run._sync_from_session()
+
     @http.route('/api/v1/validation/sessions', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_validation_sessions(self, **kwargs):
         """
@@ -211,7 +232,14 @@ class ValidationAPIController(APIBaseController):
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}/approve', 'POST', user.id, 404, start_time)
                 return self._json_response({'error': 'Session not found'}, status=404)
 
-            session.action_human_approve()
+            # with_user(user), non solo .sudo(): dentro action_human_approve()
+            # self.env.user scrive human_reviewer_id -- su una route auth='none'
+            # .sudo() da solo lascia self.env.user sull'utente pubblico della
+            # richiesta, non sul vero approvatore JWT risolto sopra (bug trovato
+            # nell'analisi EAOSv6 del 29/08/2026: identita' sbagliata o vuota sul
+            # gate umano richiesto da CLAUDE.md per i contenuti CCP-correlati).
+            session.with_user(user).action_human_approve()
+            self._sync_circuit_run_for_session(session)
 
             result = {
                 'id': session.id,
@@ -249,7 +277,9 @@ class ValidationAPIController(APIBaseController):
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}/reject', 'POST', user.id, 404, start_time)
                 return self._json_response({'error': 'Session not found'}, status=404)
 
-            session.action_human_reject(reason=reason)
+            # with_user(user): stesso motivo del ramo approve sopra.
+            session.with_user(user).action_human_reject(reason=reason)
+            self._sync_circuit_run_for_session(session)
 
             result = {
                 'id': session.id,

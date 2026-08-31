@@ -5,3 +5,4 @@ from . import kaizen_rule_answer
 from . import kaizen_neo4j_client
 from . import kaizen_rule_engine
 from . import production_order_proposal
+from . import aeosv6_dispatch

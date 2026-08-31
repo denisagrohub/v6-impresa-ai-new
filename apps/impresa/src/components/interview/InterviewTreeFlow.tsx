@@ -86,6 +86,13 @@ export function InterviewTreeFlow({
             setErrorMessage('Nome ed email sono obbligatori per iniziare.');
             return;
         }
+        // Settore obbligatorio (Denis, 30/08/2026: "non è opzionale") -- senza
+        // un verticale scelto, il resto dell'intervista/le KB di settore non
+        // possono mai adattarsi, meglio bloccare qui che scoprirlo dopo.
+        if (!selectedVariantId && !selectedProductId) {
+            setErrorMessage('Seleziona il settore della tua azienda per continuare.');
+            return;
+        }
         setErrorMessage(null);
         setLoading(true);
         try {
@@ -196,14 +203,14 @@ export function InterviewTreeFlow({
                     )}
 
                     <div className="mb-6">
-                        <p className="text-sm font-medium text-gray-700 mb-3">Che tipo di prodotto ti interessa? (opzionale)</p>
+                        <p className="text-sm font-medium text-gray-700 mb-3">A che settore appartiene la tua azienda?</p>
                         {productsLoading ? (
                             <div className="flex items-center gap-2 text-gray-500 text-sm">
                                 <Loader2 size={16} className="animate-spin" /> Carico i prodotti da Odoo...
                             </div>
                         ) : products.length === 0 ? (
-                            <p className="text-sm text-gray-500">
-                                Catalogo prodotti non disponibile al momento: puoi comunque proseguire, l'intervista parte dal ramo generico.
+                            <p className="text-sm text-red-600">
+                                Catalogo settori non disponibile al momento: il settore è obbligatorio, riprova tra poco o ricarica la pagina.
                             </p>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

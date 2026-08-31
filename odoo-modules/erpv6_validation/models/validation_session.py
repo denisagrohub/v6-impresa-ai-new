@@ -179,6 +179,20 @@ class Erpv6ValidationSession(models.Model):
         scopo, analysis_findings, previous_round_corrections)."""
         return DEFAULT_SESTO_UOMO_PROMPT_TEMPLATE, 'default motore (nessuna voce KB)'
 
+    def _get_analyst_indices(self):
+        """Ritorna la lista degli indici analista da eseguire in questo round
+        (senza 'sesto', aggiunto dal chiamante) -- default: comportamento
+        identico a prima dell'introduzione di questo hook. Hook riscrivibile,
+        stesso spirito di _get_analyst_prompt_template/_get_sesto_uomo_prompt_template
+        sopra: erpv6_core_engine lo sovrascrive per leggere l'elenco dai nodi-analista
+        raggiunti da un arco attivo verso il Gate nel grafo Adaptive EOSv6, quando
+        res_model=='erpv6.kb' -- questo modulo (motore generico) non dipende da
+        erpv6_core_engine, quindi non puo' leggerlo direttamente."""
+        self.ensure_one()
+        if self.validation_mode == 'full_six_judges':
+            return ['1', '2', '3', '4', '5']
+        return []
+
     def _parse_ai_json_response(self, result):
         """Estrae il contenuto JSON della risposta AI (choices[0].message.content).
         Ritorna (dict_parsato, error_text) -- error_text vuoto solo se la chiamata
@@ -224,9 +238,7 @@ class Erpv6ValidationSession(models.Model):
             validation_round = self.env['erpv6.validation.round'].create(round_vals)
 
             # Determina quali analisti eseguire
-            analyst_indices = []
-            if session.validation_mode == 'full_six_judges':
-                analyst_indices = ['1', '2', '3', '4', '5']
+            analyst_indices = session._get_analyst_indices()
             analyst_indices.append('sesto')
 
             # Prepara i dati per i prompt
