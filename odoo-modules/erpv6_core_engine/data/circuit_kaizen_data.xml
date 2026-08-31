@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Decomposizione di erpv6_kaizen (Denis, 29/08/2026): a differenza
+             dei circuiti precedenti, qui i Motori GIA' esistono e funzionano
+             (AIPO via ai_analyze, il Traslo via file_to_library): quello
+             che mancava era il Circuito stesso, piu' un Motore Esterno
+             genuinamente nuovo (Neo4j). I 4 cron reali NON vengono duplicati:
+             sono rappresentati via wrap_existing_cron_node (cron_role=
+             'wrapped'), il loro codice originale resta intoccato. -->
+
+        <record id="circuit_kaizen" model="erpv6.core.node">
+            <field name="name">Circuito Kaizen</field>
+            <field name="parent_id" ref="circuit_workspace_root"/>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+        </record>
+
+        <!-- 4 PID reali, avvolti non creati: rappresentano i 4 cron gia'
+             esistenti e attivi di erpv6_kaizen, il loro ir.cron reale non
+             viene mai toccato ne' duplicato. -->
+        <record id="pid_kaizen_detect_signals" model="erpv6.core.node">
+            <field name="name">PID — Rileva Segnali (30 min)</field>
+            <field name="parent_id" ref="circuit_kaizen"/>
+            <field name="sequence">10</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">pid</field>
+            <field name="cron_role">wrapped</field>
+            <field name="cron_id" ref="erpv6_kaizen.cron_kaizen_detect_signals"/>
+        </record>
+        <record id="pid_kaizen_evaluate_rules" model="erpv6.core.node">
+            <field name="name">PID — Applica le 12 Regole (giornaliero)</field>
+            <field name="parent_id" ref="circuit_kaizen"/>
+            <field name="sequence">20</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">pid</field>
+            <field name="cron_role">wrapped</field>
+            <field name="cron_id" ref="erpv6_kaizen.cron_kaizen_evaluate_rules"/>
+        </record>
+        <record id="pid_kaizen_agent_propose" model="erpv6.core.node">
+            <field name="name">PID — Proposta Agente AI (giornaliero)</field>
+            <field name="parent_id" ref="circuit_kaizen"/>
+            <field name="sequence">30</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">pid</field>
+            <field name="cron_role">wrapped</field>
+            <field name="cron_id" ref="erpv6_kaizen.cron_kaizen_agent_propose"/>
+        </record>
+        <record id="pid_kaizen_daily_digest" model="erpv6.core.node">
+            <field name="name">PID — Resoconto Giornaliero</field>
+            <field name="parent_id" ref="circuit_kaizen"/>
+            <field name="sequence">40</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">pid</field>
+            <field name="cron_role">wrapped</field>
+            <field name="cron_id" ref="erpv6_kaizen.cron_kaizen_daily_digest"/>
+        </record>
+
+        <!-- Motore IPO NUOVO (kaizen_signal_to_context): il ponte tra il
+             segnale reale (mai raggiungibile da un PID 'wrapped', che non
+             produce nessuna nostra esecuzione) e il nodo AIPO sotto:
+             trovato mancante testando l'AIPO isolato (generava un esempio
+             inventato invece di dire "nessun segnale reale"). -->
+        <record id="node_kaizen_signal_context" model="erpv6.core.node">
+            <field name="name">Segnale → Contesto</field>
+            <field name="parent_id" ref="circuit_kaizen"/>
+            <field name="sequence">45</field>
+            <field name="process_key">kaizen_signal_to_context</field>
+            <field name="input_format">json</field>
+        </record>
+        <record id="output_kaizen_signal_context" model="erpv6.core.output">
+            <field name="source_node_id" ref="node_kaizen_signal_context"/>
+            <field name="output_type">testo</field>
+            <field name="library_category_name">Kaizen — Contesto Segnale</field>
+        </record>
+
+        <!-- AIPO gia' esistente (ai_analyze), qui solo dichiarato/collegato:
+             riusa DAVVERO la persona reale di Kaizen, stesso prompt che il
+             modulo vero usa in kaizen_agent.py, non un prompt fittizio.
+             Collegato al nodo sopra via Output-Link: quando gira dentro un
+             circuito, riceve il segnale reale in input_data['linked_
+             outputs'], non solo la persona isolata. -->
+        <record id="node_kaizen_ai_propose" model="erpv6.core.node">
+            <field name="name">Proposta Kaizen (AIPO)</field>
+            <field name="parent_id" ref="circuit_kaizen"/>
+            <field name="sequence">50</field>
+            <field name="process_key">ai_analyze</field>
+            <field name="input_format">prompt</field>
+        </record>
+        <record id="kb_link_kaizen_ai_propose" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_kaizen_ai_propose"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="erpv6_kaizen.kb_kaizen_persona"/>
+            <field name="data_format">prompt</field>
+        </record>
+        <record id="output_link_kaizen_ai_propose" model="erpv6.core.output_link">
+            <field name="target_node_id" ref="node_kaizen_ai_propose"/>
+            <field name="output_id" ref="output_kaizen_signal_context"/>
+        </record>
+
+        <!-- Motore Esterno NUOVO (neo4j_write_fix): l'unico pezzo che non
+             esisteva gia' in nessuna forma riusabile nel sistema. -->
+        <record id="node_kaizen_neo4j_fix" model="erpv6.core.node">
+            <field name="name">Scrivi Fix su Neo4j (ESTERNO)</field>
+            <field name="parent_id" ref="circuit_kaizen"/>
+            <field name="sequence">60</field>
+            <field name="process_key">neo4j_write_fix</field>
+            <field name="input_format">json</field>
+        </record>
+
+    </data>
+</odoo>

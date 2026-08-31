@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_erpv6_core_circuit_run_tree" model="ir.ui.view">
+        <field name="name">erpv6.core.circuit.run.list</field>
+        <field name="model">erpv6.core.circuit.run</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="circuit_id"/>
+                <field name="validation_session_id"/>
+                <field name="status"/>
+                <field name="create_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_erpv6_core_circuit_run_form" model="ir.ui.view">
+        <field name="name">erpv6.core.circuit.run.form</field>
+        <field name="model">erpv6.core.circuit.run</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="circuit_id"/>
+                        <field name="validation_session_id"/>
+                        <field name="status"/>
+                    </group>
+                    <field name="node_run_ids">
+                        <list>
+                            <field name="node_id"/>
+                            <field name="analysis_id"/>
+                            <field name="outcome"/>
+                            <field name="is_ai_failure"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_erpv6_core_circuit_run" model="ir.actions.act_window">
+        <field name="name">Esecuzioni Circuiti (Adaptive EOSv6)</field>
+        <field name="res_model">erpv6.core.circuit.run</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_erpv6_core_circuit_run" name="Esecuzioni" parent="menu_erpv6_core_engine_root"
+              action="action_erpv6_core_circuit_run" sequence="20"/>
+</odoo>

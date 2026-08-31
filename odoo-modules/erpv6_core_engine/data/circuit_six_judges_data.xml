@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Materiale di test dedicato (Denis, 29/08/2026: mai testare sui
+             dati reali. Creato apposta quando si costruisce il circuito,
+             is_active=False cosi' find_best_for() non lo trova mai per
+             sbaglio nel motore reale. Contenuto breve apposta: risposte AI
+             piu' veloci durante il test.) -->
+        <record id="kb_category_test_material" model="erpv6.kb.category">
+            <field name="name">Materiale di Test — Adaptive EOSv6 (mai reale)</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+        </record>
+        <record id="kb_test_material_six_judges" model="erpv6.kb">
+            <field name="name">TEST — Materiale di prova Circuito 6 Giudici (non reale)</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_test_material"/>
+            <field name="content_format">text</field>
+            <field name="source">system_seed</field>
+            <field name="is_active" eval="False"/>
+            <field name="content">Il capitale sociale minimo per costituire una SRL in Italia e' di 1 euro (SRL semplificata) o 10.000 euro (SRL ordinaria).</field>
+        </record>
+
+        <!-- Circuito 6 Giudici: definizione canonica, pilota Adaptive EOSv6 -->
+        <record id="circuit_six_judges" model="erpv6.core.node">
+            <field name="name">Circuito 6 Giudici</field>
+            <field name="parent_id" ref="circuit_workspace_root"/>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">action_start_validation</field>
+        </record>
+
+        <record id="node_analyst_1" model="erpv6.core.node">
+            <field name="name">Analista 1</field>
+            <field name="parent_id" ref="circuit_six_judges"/>
+            <field name="sequence">10</field>
+            <field name="analyst_index">1</field>
+            <field name="input_format">prompt</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">_run_round</field>
+        </record>
+        <record id="node_analyst_2" model="erpv6.core.node">
+            <field name="name">Analista 2</field>
+            <field name="parent_id" ref="circuit_six_judges"/>
+            <field name="sequence">20</field>
+            <field name="analyst_index">2</field>
+            <field name="input_format">prompt</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">_run_round</field>
+        </record>
+        <record id="node_analyst_3" model="erpv6.core.node">
+            <field name="name">Analista 3</field>
+            <field name="parent_id" ref="circuit_six_judges"/>
+            <field name="sequence">30</field>
+            <field name="analyst_index">3</field>
+            <field name="input_format">prompt</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">_run_round</field>
+        </record>
+        <record id="node_analyst_4" model="erpv6.core.node">
+            <field name="name">Analista 4</field>
+            <field name="parent_id" ref="circuit_six_judges"/>
+            <field name="sequence">40</field>
+            <field name="analyst_index">4</field>
+            <field name="input_format">prompt</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">_run_round</field>
+        </record>
+        <record id="node_analyst_5" model="erpv6.core.node">
+            <field name="name">Analista 5</field>
+            <field name="parent_id" ref="circuit_six_judges"/>
+            <field name="sequence">50</field>
+            <field name="analyst_index">5</field>
+            <field name="input_format">prompt</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">_run_round</field>
+        </record>
+
+        <record id="node_gate_sesto_uomo" model="erpv6.core.node">
+            <field name="name">Sesto Uomo (Gate)</field>
+            <field name="parent_id" ref="circuit_six_judges"/>
+            <field name="sequence">60</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+            <field name="phase_gate_type">ai</field>
+            <field name="analyst_index">sesto</field>
+            <field name="input_format">prompt</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">_run_round</field>
+        </record>
+
+        <record id="node_pid_retry_tecnico" model="erpv6.core.node">
+            <field name="name">PID — Retry tecnico AI</field>
+            <field name="parent_id" ref="circuit_six_judges"/>
+            <field name="sequence">70</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">pid</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">_cron_retry_escalated_ai_failures</field>
+            <field name="cron_id" ref="erpv6_validation.cron_retry_escalated_ai_failures"/>
+            <field name="cron_role">attivazione</field>
+        </record>
+
+        <!-- Archi: 5 analisti -> Sesto Uomo (AND-join), Sesto Uomo -> Circuito
+             (gate_check), Sesto Uomo -> PID (fallback su fallimento tecnico) -->
+        <!-- nota: nessun doppio trattino nei commenti XML, non e' ammesso -->
+        <record id="arc_analyst_1_to_gate" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_analyst_1"/>
+            <field name="target_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="action_type">data_flow</field>
+            <field name="is_and_join" eval="True"/>
+        </record>
+        <record id="arc_analyst_2_to_gate" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_analyst_2"/>
+            <field name="target_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="action_type">data_flow</field>
+            <field name="is_and_join" eval="True"/>
+        </record>
+        <record id="arc_analyst_3_to_gate" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_analyst_3"/>
+            <field name="target_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="action_type">data_flow</field>
+            <field name="is_and_join" eval="True"/>
+        </record>
+        <record id="arc_analyst_4_to_gate" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_analyst_4"/>
+            <field name="target_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="action_type">data_flow</field>
+            <field name="is_and_join" eval="True"/>
+        </record>
+        <record id="arc_analyst_5_to_gate" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_analyst_5"/>
+            <field name="target_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="action_type">data_flow</field>
+            <field name="is_and_join" eval="True"/>
+        </record>
+        <record id="arc_gate_to_circuit" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="target_node_id" ref="circuit_six_judges"/>
+            <field name="action_type">gate_check</field>
+            <field name="is_and_join" eval="False"/>
+        </record>
+        <record id="arc_gate_to_pid" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="target_node_id" ref="node_pid_retry_tecnico"/>
+            <field name="action_type">pid_fallback</field>
+            <field name="is_and_join" eval="False"/>
+        </record>
+
+        <!-- Loop di retry (Denis, 29/08/2026): quando issues_found > 0 e
+             restano round disponibili, _run_round si richiama da sola per
+             un nuovo round sugli stessi 5 analisti. Esisteva solo nel
+             controllo di flusso Python, non era mai stato disegnato. -->
+        <record id="arc_gate_retry_loop" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="target_node_id" ref="circuit_six_judges"/>
+            <field name="action_type">retry_loop</field>
+            <field name="is_and_join" eval="False"/>
+        </record>
+
+        <!-- Rombi KB: pin diretto sulle 6 voci gia' esistenti in erpv6_production -->
+        <record id="kb_link_analyst_1" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_analyst_1"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="erpv6_production.kb_prompt_validation_analyst_1"/>
+            <field name="data_format">prompt</field>
+        </record>
+        <record id="kb_link_analyst_2" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_analyst_2"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="erpv6_production.kb_prompt_validation_analyst_2"/>
+            <field name="data_format">prompt</field>
+        </record>
+        <record id="kb_link_analyst_3" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_analyst_3"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="erpv6_production.kb_prompt_validation_analyst_3"/>
+            <field name="data_format">prompt</field>
+        </record>
+        <record id="kb_link_analyst_4" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_analyst_4"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="erpv6_production.kb_prompt_validation_analyst_4"/>
+            <field name="data_format">prompt</field>
+        </record>
+        <record id="kb_link_analyst_5" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_analyst_5"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="erpv6_production.kb_prompt_validation_analyst_5"/>
+            <field name="data_format">prompt</field>
+        </record>
+        <record id="kb_link_sesto_uomo" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_gate_sesto_uomo"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="erpv6_production.kb_prompt_validation_sesto_uomo"/>
+            <field name="data_format">prompt</field>
+        </record>
+
+        <!-- Fase: Validazione KB pre-attivazione (l'intero schema) -->
+        <record id="phase_kb_pre_activation" model="erpv6.core.phase">
+            <field name="name">Validazione KB pre-attivazione</field>
+            <field name="exit_gate_ids" eval="[(6, 0, [ref('node_gate_sesto_uomo')])]"/>
+            <field name="node_ids" eval="[(6, 0, [
+                ref('circuit_six_judges'), ref('node_analyst_1'), ref('node_analyst_2'),
+                ref('node_analyst_3'), ref('node_analyst_4'), ref('node_analyst_5'),
+                ref('node_gate_sesto_uomo'), ref('node_pid_retry_tecnico')])]"/>
+        </record>
+
+        <!-- Fasi reali (Denis, 29/08/2026): i due riquadri di raggruppamento
+             che il frontend calcolava a mano diventano record veri, cosi'
+             il disegno legge davvero la struttura invece di indovinarla da
+             analyst_index/circuit_role lato client. -->
+        <record id="phase_five_analysts" model="erpv6.core.phase">
+            <field name="name">5 Analisti</field>
+            <field name="node_ids" eval="[(6, 0, [
+                ref('node_analyst_1'), ref('node_analyst_2'), ref('node_analyst_3'),
+                ref('node_analyst_4'), ref('node_analyst_5')])]"/>
+        </record>
+        <record id="phase_sesto_giudice" model="erpv6.core.phase">
+            <field name="name">Sesto Giudice (Gate)</field>
+            <field name="exit_gate_ids" eval="[(6, 0, [ref('node_gate_sesto_uomo')])]"/>
+            <field name="node_ids" eval="[(6, 0, [ref('node_gate_sesto_uomo')])]"/>
+        </record>
+
+    </data>
+</odoo>

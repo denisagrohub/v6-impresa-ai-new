@@ -1,0 +1,25 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_erpv6_core_node_user,erpv6.core.node user,model_erpv6_core_node,,1,1,1,0
+access_erpv6_core_node_system,erpv6.core.node system,model_erpv6_core_node,base.group_system,1,1,1,1
+access_erpv6_core_arc_user,erpv6.core.arc user,model_erpv6_core_arc,,1,1,1,0
+access_erpv6_core_arc_system,erpv6.core.arc system,model_erpv6_core_arc,base.group_system,1,1,1,1
+access_erpv6_core_kb_link_user,erpv6.core.kb_link user,model_erpv6_core_kb_link,,1,1,1,0
+access_erpv6_core_kb_link_system,erpv6.core.kb_link system,model_erpv6_core_kb_link,base.group_system,1,1,1,1
+access_erpv6_core_output_user,erpv6.core.output user,model_erpv6_core_output,,1,1,1,0
+access_erpv6_core_output_system,erpv6.core.output system,model_erpv6_core_output,base.group_system,1,1,1,1
+access_erpv6_core_output_link_user,erpv6.core.output_link user,model_erpv6_core_output_link,,1,1,1,0
+access_erpv6_core_output_link_system,erpv6.core.output_link system,model_erpv6_core_output_link,base.group_system,1,1,1,1
+access_erpv6_core_phase_user,erpv6.core.phase user,model_erpv6_core_phase,,1,1,1,0
+access_erpv6_core_phase_system,erpv6.core.phase system,model_erpv6_core_phase,base.group_system,1,1,1,1
+access_erpv6_core_circuit_run_user,erpv6.core.circuit.run user,model_erpv6_core_circuit_run,,1,1,1,0
+access_erpv6_core_circuit_run_system,erpv6.core.circuit.run system,model_erpv6_core_circuit_run,base.group_system,1,1,1,1
+access_erpv6_core_circuit_run_node_user,erpv6.core.circuit.run.node user,model_erpv6_core_circuit_run_node,,1,1,1,0
+access_erpv6_core_circuit_run_node_system,erpv6.core.circuit.run.node system,model_erpv6_core_circuit_run_node,base.group_system,1,1,1,1
+access_erpv6_core_node_execution_user,erpv6.core.node.execution user,model_erpv6_core_node_execution,,1,1,1,0
+access_erpv6_core_node_execution_system,erpv6.core.node.execution system,model_erpv6_core_node_execution,base.group_system,1,1,1,1
+access_erpv6_core_library_category_user,erpv6.core.library_category user,model_erpv6_core_library_category,,1,1,1,0
+access_erpv6_core_library_category_system,erpv6.core.library_category system,model_erpv6_core_library_category,base.group_system,1,1,1,1
+access_erpv6_core_process_input_spec_user,erpv6.core.process.input_spec user,model_erpv6_core_process_input_spec,,1,1,1,0
+access_erpv6_core_process_input_spec_system,erpv6.core.process.input_spec system,model_erpv6_core_process_input_spec,base.group_system,1,1,1,1
+access_erpv6_core_process_output_spec_user,erpv6.core.process.output_spec user,model_erpv6_core_process_output_spec,,1,1,1,0
+access_erpv6_core_process_output_spec_system,erpv6.core.process.output_spec system,model_erpv6_core_process_output_spec,base.group_system,1,1,1,1

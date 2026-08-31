@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Secondo circuito reale (Denis, 29/08/2026): la sequenza a fasi
+             di erpv6.production.order (_evaluate_and_advance_one). Sotto-
+             insieme scelto apposta piccolo e verificabile: 3 fasi del
+             catalogo globale (production_phase_data.xml), non l'intera
+             logica prodotto_id/NDA/contratto/tranche  -  quella resta fuori
+             scope per non ripetere l'errore di costruire l'astrazione
+             sbagliata prima di validarla su un caso reale. -->
+        <!-- Materiale di test dedicato (Denis, 29/08/2026: stesso principio
+             gia' applicato ai 6 Giudici: "ogni Circuito si porta dietro il
+             proprio ambiente di prova", mai testare su un lead/ordine reale
+             che capita di avere un nome sicuro. Lead finto + ordine finto,
+             fase iniziale = Relazione generata, dove sta il Motore Typst. -->
+        <record id="crm_lead_test_material_produzione" model="crm.lead">
+            <field name="name">TEST — Lead di prova Circuito Produzione (non reale)</field>
+            <field name="type">opportunity</field>
+            <field name="active" eval="False"/>
+        </record>
+        <record id="production_order_test_material" model="erpv6.production.order">
+            <field name="lead_id" ref="crm_lead_test_material_produzione"/>
+            <field name="phase_id" ref="erpv6_production.phase_relazione_generata"/>
+        </record>
+
+        <record id="circuit_produzione_fasi" model="erpv6.core.node">
+            <field name="name">Circuito Produzione a Fasi</field>
+            <field name="parent_id" ref="circuit_workspace_root"/>
+            <field name="test_fixture_ref">erpv6_core_engine.production_order_test_material</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+            <field name="engine_model">erpv6.production.order</field>
+            <field name="engine_method">evaluate_and_advance</field>
+        </record>
+
+        <record id="node_fase_diagnostica" model="erpv6.core.node">
+            <field name="name">Diagnostica</field>
+            <field name="parent_id" ref="circuit_produzione_fasi"/>
+            <field name="sequence">10</field>
+            <field name="engine_model">erpv6.production.order</field>
+            <field name="engine_method">_evaluate_and_advance_one -- fase erpv6_production.phase_diagnostica (sequence=10, requires_output=False, requires_validation=False)</field>
+        </record>
+
+        <record id="node_gate_validazione_relazione" model="erpv6.core.node">
+            <field name="name">Gate — Validazione Relazione (6 Giudici)</field>
+            <field name="parent_id" ref="circuit_produzione_fasi"/>
+            <field name="sequence">20</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+            <field name="phase_gate_type">umano</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">requires_output+requires_validation su erpv6_production.phase_relazione_generata, poi _open_phase_gate (conferma umana procedi/pianifica/fermati) -- riusa lo stesso motore del Circuito 6 Giudici, due controlli reali unificati in un solo nodo per restare leggibile</field>
+        </record>
+
+        <record id="node_fase_relazione" model="erpv6.core.node">
+            <field name="name">Relazione generata</field>
+            <field name="parent_id" ref="circuit_produzione_fasi"/>
+            <field name="sequence">30</field>
+            <field name="process_key">generate_phase_document</field>
+            <field name="input_format">json</field>
+            <field name="engine_model">erpv6.production.order</field>
+            <field name="engine_method">_evaluate_and_advance_one -- fase erpv6_production.phase_relazione_generata (sequence=20, output_category=proposal, typst_template_id=PROP-L2-001 gia' configurato)</field>
+        </record>
+        <!-- Output dichiarato (Denis, 30/08/2026: "il circuito produzione deve
+             dichiarare gli output", ma NON serve Etichettatrice+Traslo qui:
+             _generate_phase_output chiama gia' register_document(), il punto
+             di ingresso canonico corretto, quindi il documento e' gia'
+             archiviato per davvero. erpv6.core.output e' puro dichiarativo
+             (resolve_value legge l'ultima esecuzione riuscita); aggiungere
+             Traslo dopo archivierebbe lo stesso documento due volte: solo
+             la dichiarazione mancava, non la logica di archiviazione. -->
+        <record id="output_fase_relazione" model="erpv6.core.output">
+            <field name="source_node_id" ref="node_fase_relazione"/>
+            <field name="output_type">documento</field>
+            <field name="library_category_name">Produzione — Relazione (proposal)</field>
+        </record>
+
+        <record id="node_gate_validazione_consegnato" model="erpv6.core.node">
+            <field name="name">Gate — Validazione Consegnato (6 Giudici)</field>
+            <field name="parent_id" ref="circuit_produzione_fasi"/>
+            <field name="sequence">40</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+            <field name="phase_gate_type">umano</field>
+            <field name="engine_model">erpv6.validation.session</field>
+            <field name="engine_method">requires_output+requires_validation su erpv6_production.phase_consegnato (sequence=30, output_category=final), poi _open_phase_gate -- riusa lo stesso motore del Circuito 6 Giudici</field>
+        </record>
+
+        <record id="node_fase_consegnato" model="erpv6.core.node">
+            <field name="name">Consegnato</field>
+            <field name="parent_id" ref="circuit_produzione_fasi"/>
+            <field name="sequence">50</field>
+            <field name="process_key">generate_phase_document</field>
+            <field name="input_format">json</field>
+            <field name="engine_model">erpv6.production.order</field>
+            <field name="engine_method">_evaluate_and_advance_one -- fase erpv6_production.phase_consegnato (terminale in questo sotto-insieme). ATTENZIONE (30/08/2026): phase_consegnato non ha ancora un typst_template_id configurato -- il Motore risponde success=False onestamente (_generate_phase_output non inventa un template), non e' un bug del nodo, e' un gap reale del catalogo template ancora da colmare.</field>
+        </record>
+        <!-- Output dichiarato, stesso motivo di output_fase_relazione sopra:
+             risolvera' a False finche' il template Typst di questa fase
+             non verra' configurato (resolve_value legge l'ultima esecuzione,
+             che oggi ha success=False, onestamente, non un valore inventato). -->
+        <record id="output_fase_consegnato" model="erpv6.core.output">
+            <field name="source_node_id" ref="node_fase_consegnato"/>
+            <field name="output_type">documento</field>
+            <field name="library_category_name">Produzione — Consegnato (final)</field>
+        </record>
+
+        <record id="arc_diagnostica_to_gate_relazione" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_fase_diagnostica"/>
+            <field name="target_node_id" ref="node_gate_validazione_relazione"/>
+            <field name="action_type">trigger</field>
+            <field name="is_and_join" eval="False"/>
+        </record>
+        <record id="arc_gate_relazione_to_fase" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_gate_validazione_relazione"/>
+            <field name="target_node_id" ref="node_fase_relazione"/>
+            <field name="action_type">gate_check</field>
+            <field name="is_and_join" eval="False"/>
+        </record>
+        <record id="arc_relazione_to_gate_consegnato" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_fase_relazione"/>
+            <field name="target_node_id" ref="node_gate_validazione_consegnato"/>
+            <field name="action_type">trigger</field>
+            <field name="is_and_join" eval="False"/>
+        </record>
+        <record id="arc_gate_consegnato_to_fase" model="erpv6.core.arc">
+            <field name="source_node_id" ref="node_gate_validazione_consegnato"/>
+            <field name="target_node_id" ref="node_fase_consegnato"/>
+            <field name="action_type">gate_check</field>
+            <field name="is_and_join" eval="False"/>
+        </record>
+
+        <!-- Fasi reali (erpv6.core.phase)  -  una per ciascuna fase di produzione -->
+        <record id="phase_produzione_diagnostica" model="erpv6.core.phase">
+            <field name="name">Fase: Diagnostica</field>
+            <field name="node_ids" eval="[(6, 0, [ref('node_fase_diagnostica')])]"/>
+        </record>
+        <record id="phase_produzione_relazione" model="erpv6.core.phase">
+            <field name="name">Fase: Relazione generata</field>
+            <field name="exit_gate_ids" eval="[(6, 0, [ref('node_gate_validazione_relazione')])]"/>
+            <field name="node_ids" eval="[(6, 0, [ref('node_fase_relazione'), ref('node_gate_validazione_relazione')])]"/>
+        </record>
+        <record id="phase_produzione_consegnato" model="erpv6.core.phase">
+            <field name="name">Fase: Consegnato</field>
+            <field name="exit_gate_ids" eval="[(6, 0, [ref('node_gate_validazione_consegnato')])]"/>
+            <field name="node_ids" eval="[(6, 0, [ref('node_fase_consegnato'), ref('node_gate_validazione_consegnato')])]"/>
+        </record>
+
+    </data>
+</odoo>

@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Denis, 30/08/2026: firma dichiarativa per PROCESS_KEY (non per
+             istanza di nodo — correzione di design rispetto a un primo
+             tentativo scartato). La firma e' una proprieta' del Motore (la
+             funzione _run_*, statica in SAFE_PROCESSES), non del nodo che
+             la usa: due nodi diversi con lo stesso process_key ereditano
+             automaticamente la stessa firma, senza ridichiararla.
+             Popolato ESCLUSIVAMENTE dai controlli UserError reali di ogni
+             _run_* in core_node.py — nessun input aggiunto che il codice
+             non richiede davvero, nessuno omesso. SOLO schema: run_process()/
+             run_circuit() non leggono questi record, nessun enforcement qui
+             (vedi prompt separato per la morsettiera).
+
+             Tutti e 12 i process_key di SAFE_PROCESSES sono popolati qui,
+             inclusi i 5 senza nessuna istanza reale di nodo oggi
+             (send_to_documenso, file_to_library, label_output,
+             heinrich_log_signal, pareto_log_item) — con lo schema agganciato
+             a process_key invece che a node_id, la firma esiste
+             indipendentemente da chi la usa gia' in un circuito installato. -->
+
+        <!-- generate_phase_document -->
+        <record id="input_spec_generate_phase_document_order_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">generate_phase_document</field>
+            <field name="input_key">order_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">erpv6.production.order gia' esistente</field>
+        </record>
+        <record id="input_spec_generate_phase_document_phase_xmlid" model="erpv6.core.process.input_spec">
+            <field name="process_key">generate_phase_document</field>
+            <field name="input_key">phase_xmlid</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+            <field name="note">opzionale, default order.phase_id se assente</field>
+        </record>
+        <record id="output_spec_generate_phase_document" model="erpv6.core.process.output_spec">
+            <field name="process_key">generate_phase_document</field>
+            <field name="output_tipo_dato">documento</field>
+        </record>
+
+        <!-- ai_analyze — prompt NON e' un AND rigido su input_data: e'
+             risolvibile anche dal rombo KB collegato al nodo
+             (kb_link_ids[0].resolve_kb().content), obbligatorio SOLO se il
+             nodo non ha nessun rombo — marcato obbligatorio=False qui
+             apposta, mai True, altrimenti la futura morsettiera
+             bloccherebbe nodi che oggi funzionano legittimamente senza
+             'prompt' in input_data. -->
+        <record id="input_spec_ai_analyze_task_type" model="erpv6.core.process.input_spec">
+            <field name="process_key">ai_analyze</field>
+            <field name="input_key">task_type</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+            <field name="note">default 'validation_analyst' se assente</field>
+        </record>
+        <record id="input_spec_ai_analyze_prompt" model="erpv6.core.process.input_spec">
+            <field name="process_key">ai_analyze</field>
+            <field name="input_key">prompt</field>
+            <field name="tipo_dato">prompt</field>
+            <field name="obbligatorio" eval="False"/>
+            <field name="note">obbligatorio SOLO se nessun rombo KB e' collegato al nodo (altrimenti risolto da kb_link_ids[0].resolve_kb().content) — non un AND rigido</field>
+        </record>
+        <record id="output_spec_ai_analyze" model="erpv6.core.process.output_spec">
+            <field name="process_key">ai_analyze</field>
+            <field name="output_tipo_dato">testo</field>
+        </record>
+
+        <!-- kb_engine_process — CASO LIMITE, segnalato esplicitamente a
+             Denis: la firma degli INPUT varia per kb_type risolto A
+             RUNTIME dal rombo KB collegato al nodo (vedi
+             KB_ENGINE_REQUIRED_INPUTS in core_node.py), non e' fissa per il
+             process_key. Nessuna intersezione comune a TUTTI i kb_type
+             (verificato: 'regole' e 'commerciale' non richiedono nulla,
+             quindi l'intersezione con gli altri e' vuota) — ZERO
+             input_spec qui per costruzione, niente da dichiarare senza
+             forzare falsamente lo schema come se fosse fisso. La firma
+             reale degli input resta SOLO in KB_ENGINE_REQUIRED_INPUTS, mai
+             duplicata qui. L'output invece E' costante (il wrapper e'
+             sempre {'success','kb_id','kb_name','result'}, un dict json,
+             anche se 'result' interno varia per kb_type) — output_spec
+             dichiarato normalmente. -->
+        <record id="output_spec_kb_engine_process" model="erpv6.core.process.output_spec">
+            <field name="process_key">kb_engine_process</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+        <!-- send_to_documenso -->
+        <record id="input_spec_send_to_documenso_sign_request_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">send_to_documenso</field>
+            <field name="input_key">sign_request_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">erpv6.sign.request gia' esistente, deve avere status='draft'</field>
+        </record>
+        <record id="output_spec_send_to_documenso" model="erpv6.core.process.output_spec">
+            <field name="process_key">send_to_documenso</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+        <!-- neo4j_write_fix -->
+        <record id="input_spec_neo4j_write_fix_fix_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">neo4j_write_fix</field>
+            <field name="input_key">fix_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_neo4j_write_fix_sources" model="erpv6.core.process.input_spec">
+            <field name="process_key">neo4j_write_fix</field>
+            <field name="input_key">sources</field>
+            <field name="tipo_dato">tabella</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_neo4j_write_fix_descrizione" model="erpv6.core.process.input_spec">
+            <field name="process_key">neo4j_write_fix</field>
+            <field name="input_key">descrizione</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_neo4j_write_fix_data" model="erpv6.core.process.input_spec">
+            <field name="process_key">neo4j_write_fix</field>
+            <field name="input_key">data</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_neo4j_write_fix_res_model" model="erpv6.core.process.input_spec">
+            <field name="process_key">neo4j_write_fix</field>
+            <field name="input_key">res_model</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="output_spec_neo4j_write_fix" model="erpv6.core.process.output_spec">
+            <field name="process_key">neo4j_write_fix</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+        <!-- kaizen_signal_to_context -->
+        <record id="input_spec_kaizen_signal_to_context_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">kaizen_signal_to_context</field>
+            <field name="input_key">detected_signal_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">erpv6.kaizen.detected_signal gia' esistente</field>
+        </record>
+        <record id="output_spec_kaizen_signal_to_context" model="erpv6.core.process.output_spec">
+            <field name="process_key">kaizen_signal_to_context</field>
+            <field name="output_tipo_dato">testo</field>
+        </record>
+
+        <!-- create_tracking_lot -->
+        <record id="input_spec_create_tracking_lot_lot_type" model="erpv6.core.process.input_spec">
+            <field name="process_key">create_tracking_lot</field>
+            <field name="input_key">lot_type</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">'batch' o 'definitive'</field>
+        </record>
+        <record id="input_spec_create_tracking_lot_config_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">create_tracking_lot</field>
+            <field name="input_key">config_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">erpv6.tracking.config gia' esistente</field>
+        </record>
+        <record id="input_spec_create_tracking_lot_quantity" model="erpv6.core.process.input_spec">
+            <field name="process_key">create_tracking_lot</field>
+            <field name="input_key">quantity</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+            <field name="note">default 1.0 se assente</field>
+        </record>
+        <record id="input_spec_create_tracking_lot_notes" model="erpv6.core.process.input_spec">
+            <field name="process_key">create_tracking_lot</field>
+            <field name="input_key">notes</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+        </record>
+        <record id="input_spec_create_tracking_lot_batch_lot_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">create_tracking_lot</field>
+            <field name="input_key">batch_lot_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+            <field name="note">solo per lot_type='definitive', ignorato per 'batch'</field>
+        </record>
+        <record id="output_spec_create_tracking_lot" model="erpv6.core.process.output_spec">
+            <field name="process_key">create_tracking_lot</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+        <!-- file_to_library — category/file_data/file_name obbligatori "in
+             senso lato" ma risolvibili automaticamente da linked_outputs
+             (etichettatrice/nodo a monte), quindi obbligatorio=False qui,
+             stessa logica del 'prompt' di ai_analyze: non un AND rigido su
+             input_data quando esiste una via di risoluzione automatica. -->
+        <record id="input_spec_file_to_library_project_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">project_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_file_to_library_name" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">name</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_file_to_library_origin" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">origin</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_file_to_library_category" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">category</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+            <field name="note">obbligatorio se non risolto automaticamente da un Output collegato con etichetta (vedi Motore label_output)</field>
+        </record>
+        <record id="input_spec_file_to_library_file_data" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">file_data</field>
+            <field name="tipo_dato">documento</field>
+            <field name="obbligatorio" eval="False"/>
+            <field name="note">risolvibile da linked_outputs (Output di un nodo a monte)</field>
+        </record>
+        <record id="input_spec_file_to_library_file_name" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">file_name</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+        </record>
+        <record id="input_spec_file_to_library_is_final" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">is_final</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+        </record>
+        <record id="input_spec_file_to_library_source_model" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">source_model</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+        </record>
+        <record id="input_spec_file_to_library_source_res_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="input_key">source_res_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+        </record>
+        <record id="output_spec_file_to_library" model="erpv6.core.process.output_spec">
+            <field name="process_key">file_to_library</field>
+            <field name="output_tipo_dato">documento</field>
+        </record>
+
+        <!-- label_output -->
+        <record id="input_spec_label_output_output_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">label_output</field>
+            <field name="input_key">output_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">erpv6.core.output gia' dichiarato</field>
+        </record>
+        <record id="output_spec_label_output" model="erpv6.core.process.output_spec">
+            <field name="process_key">label_output</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+        <!-- heinrich_log_signal -->
+        <record id="input_spec_heinrich_log_signal_res_model" model="erpv6.core.process.input_spec">
+            <field name="process_key">heinrich_log_signal</field>
+            <field name="input_key">res_model</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_heinrich_log_signal_res_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">heinrich_log_signal</field>
+            <field name="input_key">res_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_heinrich_log_signal_severity" model="erpv6.core.process.input_spec">
+            <field name="process_key">heinrich_log_signal</field>
+            <field name="input_key">severity</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">'near_miss'|'lieve'|'grave'</field>
+        </record>
+        <record id="input_spec_heinrich_log_signal_description" model="erpv6.core.process.input_spec">
+            <field name="process_key">heinrich_log_signal</field>
+            <field name="input_key">description</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+        </record>
+        <record id="output_spec_heinrich_log_signal" model="erpv6.core.process.output_spec">
+            <field name="process_key">heinrich_log_signal</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+        <!-- pareto_log_item -->
+        <record id="input_spec_pareto_log_item_res_model" model="erpv6.core.process.input_spec">
+            <field name="process_key">pareto_log_item</field>
+            <field name="input_key">res_model</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_pareto_log_item_res_id" model="erpv6.core.process.input_spec">
+            <field name="process_key">pareto_log_item</field>
+            <field name="input_key">res_id</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_pareto_log_item_name" model="erpv6.core.process.input_spec">
+            <field name="process_key">pareto_log_item</field>
+            <field name="input_key">name</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_pareto_log_item_frequenza" model="erpv6.core.process.input_spec">
+            <field name="process_key">pareto_log_item</field>
+            <field name="input_key">frequenza</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">intero 1-5</field>
+        </record>
+        <record id="input_spec_pareto_log_item_impatto" model="erpv6.core.process.input_spec">
+            <field name="process_key">pareto_log_item</field>
+            <field name="input_key">impatto</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">intero 1-5</field>
+        </record>
+        <record id="output_spec_pareto_log_item" model="erpv6.core.process.output_spec">
+            <field name="process_key">pareto_log_item</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+        <!-- crea_lead -->
+        <record id="input_spec_crea_lead_name" model="erpv6.core.process.input_spec">
+            <field name="process_key">crea_lead</field>
+            <field name="input_key">name</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_crea_lead_email" model="erpv6.core.process.input_spec">
+            <field name="process_key">crea_lead</field>
+            <field name="input_key">email</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="True"/>
+        </record>
+        <record id="input_spec_crea_lead_company_name" model="erpv6.core.process.input_spec">
+            <field name="process_key">crea_lead</field>
+            <field name="input_key">company_name</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+        </record>
+        <record id="input_spec_crea_lead_phone" model="erpv6.core.process.input_spec">
+            <field name="process_key">crea_lead</field>
+            <field name="input_key">phone</field>
+            <field name="tipo_dato">testo</field>
+            <field name="obbligatorio" eval="False"/>
+        </record>
+        <record id="output_spec_crea_lead" model="erpv6.core.process.output_spec">
+            <field name="process_key">crea_lead</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+    </data>
+</odoo>
