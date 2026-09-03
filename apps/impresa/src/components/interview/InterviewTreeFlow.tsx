@@ -30,6 +30,18 @@ import {
 
 type Step = 'intro' | 'question' | 'completed' | 'error';
 
+// Micro-copy dell'attesa dopo il quadrante Kairos (gia' mostrato, fermo):
+// il report completo (tre liste) non e' ancora generato qui (TASK-3, fuori
+// scope), questo e' solo il messaggio che accompagna l'attesa - testo
+// semplice a rotazione, nessuna barra/percentuale/spinner (vietati dal task).
+const WAIT_MESSAGES = [
+    'Stiamo leggendo i tuoi dati...',
+    'Stiamo confrontando con casi simili al tuo...',
+    'Stiamo verificando ogni numero prima di mostrartelo...',
+];
+const WAIT_TIMEOUT_MS = 18000;
+const WAIT_ROTATE_MS = 2500;
+
 export interface InterviewTreeFlowProps {
     variant?: 'public' | 'consultant';
     // Riprende una sessione/lead gia' noto (es. /intervista?lead_id=..., o
@@ -73,6 +85,25 @@ export function InterviewTreeFlow({
     // libero gia' esistente (righe piu' sotto) invece di sottomettere subito
     // "Altro" come valore letterale. Si azzera ad ogni nuova domanda.
     const [altroActive, setAltroActive] = useState(false);
+    const [waitPhraseIndex, setWaitPhraseIndex] = useState(0);
+    const [waitTimedOut, setWaitTimedOut] = useState(false);
+
+    useEffect(() => {
+        if (step !== 'completed') return;
+        setWaitPhraseIndex(0);
+        setWaitTimedOut(false);
+        const rotateTimer = setInterval(() => {
+            setWaitPhraseIndex((i) => (i + 1) % WAIT_MESSAGES.length);
+        }, WAIT_ROTATE_MS);
+        const timeoutTimer = setTimeout(() => {
+            setWaitTimedOut(true);
+            clearInterval(rotateTimer);
+        }, WAIT_TIMEOUT_MS);
+        return () => {
+            clearInterval(rotateTimer);
+            clearTimeout(timeoutTimer);
+        };
+    }, [step]);
 
     useEffect(() => {
         fetchInterviewProducts()
@@ -405,6 +436,11 @@ export function InterviewTreeFlow({
                             </div>
                         </div>
                     )}
+                    <p className="text-sm text-gray-500 mb-6">
+                        {waitTimedOut
+                            ? 'Ci vuole qualche minuto in più del solito - ti mandiamo il risultato completo via email appena pronto, puoi chiudere questa pagina tranquillamente.'
+                            : WAIT_MESSAGES[waitPhraseIndex]}
+                    </p>
                     {isConsultant ? (
                         <Link href="/consultant/dashboard">
                             <Button size="lg" fullWidth>Torna ai miei progetti</Button>
