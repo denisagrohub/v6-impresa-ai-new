@@ -59,6 +59,24 @@ Creato: 2026-09-03. Aggiornare ad ogni decisione o passo completato.
 - TASK-5 pagine: SKIP
 - Pushato: feature/impresa-redesign-v3
 
+## AGGIORNAMENTO FINE SESSIONE
+- [FATTO] Scoring kairos a fine intervista: riquadro visibile in test
+  (quadrante/impatto/prontezza da Odoo). Catena completa: motore ->
+  API -> setScore -> display. La parola "score" non serve in UI:
+  "Prima analisi" e piu chiaro per il cliente.
+- BUG NUOVO (da fixare): cattura anticipata lead -> Odoo 400
+  "name and email required" (api/leads chiama senza nome/email prima
+  che l'utente li inserisca). Non blocca il flusso ma genera lead
+  falliti lato Odoo.
+- CANTIERE CICLO 2 PRIORITA 1: RELAZIONE WIN-WIN + BUSINESS PLAN
+  (decisione Denis): legati allo stesso motore a due stadi -
+  stadio 1 FATTO: kairos misura (quadrante/impatto/prontezza, popolato
+  ad ogni risposta); stadio 2 DA COSTRUIRE: dalla matrice alla relazione
+  win-win, dalla relazione al business plan "in modo ottimale".
+  Punto di partenza: interview_engine.py + kairos_matrix.py +
+  la matrice gia alimentata dalle interviste reali.
+- Pagamento: dopo la relazione (stadio 3, stesso filone)
+
 ## PROSSIMI PASSI
 1. TASK-2 (intervista, bug "Altro"): TASK PIENO - il piu importante
    - prompt con vincoli: solo file del task, no esplorazione, no gate/build da Claude
