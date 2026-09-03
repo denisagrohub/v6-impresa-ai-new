@@ -31,7 +31,17 @@ class TrackingMixin(models.AbstractModel):
     )
 
     def action_create_batch_lot(self, config_code='product'):
-        """Crea un lotto batch per questo record"""
+        """Crea un lotto batch per questo record -- chiama DAVVERO il nodo
+        AEOSv6 (erpv6_tracking.node_crea_lotto_batch, process_key=
+        'create_tracking_lot') invece di duplicare la chiamata a
+        erpv6.tracking.lot.create_batch_lot() (Denis, 30/08/2026, prompt
+        #17, sblocca §O -- stesso principio gia' applicato a erpv6_color
+        nel prompt #8: il vecchio percorso chiama il nuovo, non lo
+        duplica). batch_lot_id/tracking_lot_ids/tracking_enabled restano
+        scritti qui esplicitamente (non via output_binding_*): sono TRE
+        scritture coordinate su questo stesso record, una delle quali e' un
+        comando Many2many -- output_binding_* scrive un solo campo scalare
+        per costruzione, non il caso giusto qui."""
         self.ensure_one()
         config = self.env['erpv6.tracking.config'].get_default_config(
             config_code)
@@ -42,11 +52,15 @@ class TrackingMixin(models.AbstractModel):
         # stato nella firma del metodo, vedi tracking_lot.py) - passarlo
         # come qui prima faceva sempre TypeError, per qualunque modello
         # ereditasse questo mixin, mai scoperto perche' mai chiamato prima.
-        lot = self.env['erpv6.tracking.lot'].create_batch_lot(
-            config_id=config.id,
-            quantity=self.quantity if hasattr(self, 'quantity') else 1.0,
-            notes=f'Creato da {self._name} ID {self.id}'
-        )
+        # Invariato da questa migrazione: non toccato, fuori scope.
+        node = self.env.ref('erpv6_tracking.node_crea_lotto_batch')
+        execution = node.run_process({
+            'lot_type': 'batch',
+            'config_id': config.id,
+            'quantity': self.quantity if hasattr(self, 'quantity') else 1.0,
+            'notes': f'Creato da {self._name} ID {self.id}',
+        })
+        lot = self.env['erpv6.tracking.lot'].browse(execution.output_data['lot_id'])
 
         self.write({
             'batch_lot_id': lot.id,
@@ -64,11 +78,13 @@ class TrackingMixin(models.AbstractModel):
         if not config:
             raise UserError('Configurazione tracciamento non trovata')
 
+        # Denis, 29/08/2026: stesso bug del metodo gemello sopra
+        # (action_create_batch_lot) -- create_definitive_lot() non ha mai
+        # accettato product_id, non era stato corretto qui quando lo si e'
+        # tolto dall'altro metodo. TypeError garantito se mai chiamato.
         lot = self.env['erpv6.tracking.lot'].create_definitive_lot(
             config_id=config.id,
             batch_lot_id=self.batch_lot_id.id if self.batch_lot_id else None,
-            product_id=self.product_id.id if hasattr(
-                self, 'product_id') else None,
             quantity=self.quantity if hasattr(self, 'quantity') else 1.0,
             notes=f'Creato da {self._name} ID {self.id}'
         )

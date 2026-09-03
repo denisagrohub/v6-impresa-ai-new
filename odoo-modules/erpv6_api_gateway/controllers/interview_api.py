@@ -161,15 +161,17 @@ class InterviewAPIController(APIBaseController):
         session.invalidate_recordset()
         payload = session.get_next_question_payload()
         completed = session.state == 'completed'
-        # Punteggio a video al completamento (25/08/2026, richiesto
-        # esplicitamente da Denis: lo scoring deve comparire SUBITO a fine
-        # intervista, non solo restare calcolato lato Odoo). session ha gia'
-        # kairos_matrix_id valorizzato da _complete() se budget+tempistiche
-        # erano riconosciuti (vedi interview_engine.py) - qui si legge SOLO,
-        # nessun nuovo calcolo, nessun dato inventato se la matrice non
-        # esiste (score resta None).
+        # Punteggio a video risposta per risposta (30/08/2026, Denis: "man
+        # mano che arrivano i dati facciamo vedere a video il Kairos" -
+        # esteso da "solo al completamento", 25/08/2026, a ogni risposta).
+        # session.kairos_matrix_id e' ora aggiornato da
+        # _sync_answer_and_score() dentro action_answer() ad ogni singola
+        # risposta con field_key, non solo da _complete() - qui si legge
+        # SOLO, nessun nuovo calcolo, nessun dato inventato se la matrice
+        # non esiste ancora (score resta None finche' budget+tempistiche
+        # non sono entrambi arrivati).
         score = None
-        if completed and session.kairos_matrix_id:
+        if session.kairos_matrix_id:
             matrix = session.kairos_matrix_id
             score = {
                 'quadrante': matrix.quadrante,

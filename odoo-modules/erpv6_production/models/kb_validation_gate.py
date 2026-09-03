@@ -16,13 +16,20 @@ class Erpv6KbValidationGate(models.AbstractModel):
     _description = 'Gate di Validazione per Voci KB Estratte'
 
     @api.model
-    def create_validation_sessions(self, kb_records):
+    def create_validation_sessions(self, kb_records, max_rounds=None):
         """Crea e avvia una erpv6.validation.session per ciascuna KB passata.
 
         Mapping destinatario/scopo/context_data derivato SOLO da dati reali
         gia' presenti sul record KB (access_level, kb_type, category, content)
         -- nessun contenuto di business inventato. Vedi report per la
         motivazione, da confermare con l'utente se non convince.
+
+        max_rounds (opzionale, 29/08/2026): se valorizzato sovrascrive il
+        default (5) di erpv6.validation.session PRIMA di avviare la
+        validazione -- permette al chiamante (erpv6_core_engine, dal valore
+        impostato sull'arco di loop nel grafo) di pilotare davvero quante
+        volte il round puo' ripetersi, non solo descriverlo nel disegno.
+        None = comportamento identico a prima di questo parametro.
         """
         Session = self.env['erpv6.validation.session']
         KbModel = self.env['erpv6.kb']
@@ -69,14 +76,17 @@ class Erpv6KbValidationGate(models.AbstractModel):
                 # da nessuna parte come nodi/archi reali.
                 'extracted_triples': kb.extracted_triples or [],
             }
-            session = Session.create({
+            session_vals = {
                 'res_model': 'erpv6.kb',
                 'res_id': kb.id,
                 'destinatario': destinatario,
                 'scopo': scopo,
                 'context_data': context_data,
                 'validation_mode': 'full_six_judges',
-            })
+            }
+            if max_rounds is not None:
+                session_vals['max_rounds'] = max_rounds
+            session = Session.create(session_vals)
             session.action_start_validation()
             sessions |= session
         return sessions

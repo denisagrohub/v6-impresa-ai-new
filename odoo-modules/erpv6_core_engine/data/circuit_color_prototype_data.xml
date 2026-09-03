@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Decomposizione di erpv6_color (Denis, 29/08/2026): primo test
+             "prendi un modulo semplice esistente, scomponilo, ricostruiscilo
+             nel sistema nuovo". Trovato: action_generate_palette e' un IPO
+             deterministico puro (zero AI), la KB va risolta in modo
+             dinamico (kb_type_dynamic), non un pin fisso come i 6 Giudici.
+             Motore riusato: kb_engine_process (generico, vedi core_node.py):
+             questo nodo diventa "generatore di palette" SOLO per via del
+             rombo KB sotto (kb_type_dynamic='colori'), zero codice
+             specifico sui colori nel Motore stesso. -->
+
+        <!-- ATTENZIONE is_active=True (eccezione alla regola "materiale di
+             test sempre is_active=False"): qui si sta testando DAVVERO la
+             risoluzione dinamica find_best_for(), che filtra is_active=True
+             per costruzione: con is_active=False il test non proverebbe
+             nulla (non troverebbe mai la KB). Nome e categoria restano
+             inequivocabilmente "materiale di test", mai dato reale. -->
+        <record id="kb_test_material_color_palette" model="erpv6.kb">
+            <field name="name">TEST — Palette colori (non reale, dati finti)</field>
+            <field name="kb_type">colori</field>
+            <field name="category_id" ref="kb_category_test_material"/>
+            <field name="content_format">text</field>
+            <field name="source">system_seed</field>
+            <field name="is_active" eval="True"/>
+            <field name="content">{"disc_palettes": {"C": {"primary": "#1e3a8a", "secondary": "#94a3b8"}, "D": {"primary": "#991b1b", "secondary": "#f87171"}}, "target_palettes": {"professionisti": {"accent": "#0ea5e9"}, "giovani": {"accent": "#f59e0b"}}}</field>
+        </record>
+
+        <record id="circuit_color_prototype" model="erpv6.core.node">
+            <field name="name">Prototipo Palette Colori (da erpv6_color)</field>
+            <field name="parent_id" ref="circuit_workspace_root"/>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+        </record>
+
+        <record id="node_color_palette_generator" model="erpv6.core.node">
+            <field name="name">Genera Palette</field>
+            <field name="parent_id" ref="circuit_color_prototype"/>
+            <field name="sequence">10</field>
+            <field name="process_key">kb_engine_process</field>
+            <field name="input_format">json</field>
+            <!-- Denis, 30/08/2026, prima vera sostituzione (prompt #8):
+                 Output Binding verso erpv6.brand.project.selected_palette —
+                 verificato che _process_colors() ritorna sempre
+                 {'palette': {...}} (anche nel ramo _handle_generic_kb, che
+                 delega comunque a _process_colors() e aggiunge solo
+                 kb_request_id), quindi 'result.palette' e' stabile in
+                 entrambi i rami di specificity. action_generate_palette
+                 (erpv6_color/models/color.py) ora chiama DAVVERO questo
+                 nodo invece di duplicare la logica — vedi quel file. -->
+            <field name="output_binding_model">erpv6.brand.project</field>
+            <field name="output_binding_field">selected_palette</field>
+            <field name="output_binding_value_path">result.palette</field>
+        </record>
+
+        <record id="kb_link_color_palette" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_color_palette_generator"/>
+            <field name="resolution_mode">dynamic</field>
+            <field name="kb_type_dynamic">colori</field>
+            <field name="data_format">json</field>
+        </record>
+
+    </data>
+</odoo>

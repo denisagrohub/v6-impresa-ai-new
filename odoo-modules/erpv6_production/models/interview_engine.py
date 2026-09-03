@@ -140,6 +140,7 @@ class Erpv6InterviewSession(models.Model):
             'value_text': value_text or False,
             'is_altro': bool(is_altro),
         })
+        self._sync_answer_and_score(question, answer)
         next_question = self._find_next_question(after=question)
         if next_question:
             self.current_question_id = next_question.id
@@ -147,6 +148,35 @@ class Erpv6InterviewSession(models.Model):
             self.current_question_id = False
             self._complete()
         return answer, next_question
+
+    def _sync_answer_and_score(self, question, answer):
+        """Kairos "a loop ricorsivo, due input" (Denis, 30/08/2026: "gli
+        diamo due input, piuttosto che uno"). Prima questo campo
+        (interview_<field_key> su erpv6.production.order) veniva scritto in
+        blocco SOLO a _complete() (fine intervista) - qui si scrive subito,
+        una risposta alla volta, poi si richiama _compute_kairos_matrix()
+        passandole ANCHE l'esito del giro precedente di questa stessa
+        sessione (self.kairos_matrix_id) come secondo input -- il Motore
+        crea una nuova valutazione agganciata alla precedente
+        (previous_matrix_id, gia' un campo suo proprio), mai una media:
+        la logica vive dentro il Motore stesso (production_order.py), non
+        qui."""
+        self.ensure_one()
+        if not question.field_key:
+            return
+        value = answer.option_id.value if answer.option_id else answer.value_text
+        if not value:
+            return
+        order = self.env['erpv6.production.order'].sudo().search(
+            [('lead_id', '=', self.lead_id.id)], order='create_date desc', limit=1)
+        if not order:
+            return
+        field_name = 'interview_%s' % question.field_key
+        if field_name in order._fields:
+            order.write({field_name: value})
+        matrix = order._compute_kairos_matrix(previous_matrix=self.kairos_matrix_id or None)
+        if matrix:
+            self.kairos_matrix_id = matrix.id
 
     def _find_next_question(self, after=None):
         """Cammina l'albero: se 'after' ha figli pertinenti al prodotto

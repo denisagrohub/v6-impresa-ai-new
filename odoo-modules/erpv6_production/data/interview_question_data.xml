@@ -8,7 +8,18 @@
          'tempistiche' devono restare IDENTICHE a erpv6.kairos.scoring.rule
          (vedi kairos_scoring_rule_data.xml) e a
          apps/impresa/src/app/intervista/page.tsx: vincolo tecnico reale
-         gia' documentato in _compute_kairos_matrix. -->
+         gia' documentato in _compute_kairos_matrix.
+
+         Ordine RIORDINATO il 30/08/2026 (Denis, Circuito Acquisizione):
+         tipo_progetto -> tempistiche -> budget CONSECUTIVI, cosi' il BANT
+         (bant_fields in production_order.py/_complete, che decide la
+         promozione a opportunity) si completa subito dopo la 3a domanda,
+         non piu' alla 4a con destinatario intercalata in mezzo: prima
+         dell'ordinamento destinatario arrivava tra tipo_progetto e
+         tempistiche, ritardando il BANT di una domanda. destinatario e
+         fatturato restano, ma DOPO il BANT: quello e' il punto in cui deve
+         partire davvero "l'intervista intelligente" (adattamento per
+         verticale). -->
     <data noupdate="1">
 
         <record id="interview_q_tipo_progetto" model="erpv6.interview.question">
@@ -47,7 +58,7 @@
         <record id="interview_q_destinatario" model="erpv6.interview.question">
             <field name="name">destinatario</field>
             <field name="question_text">A chi è destinato questo documento?</field>
-            <field name="parent_id" ref="interview_q_tipo_progetto"/>
+            <field name="parent_id" ref="interview_q_budget"/>
             <field name="field_key">destinatario</field>
             <field name="answer_type">select</field>
             <field name="sequence">10</field>
@@ -76,7 +87,7 @@
         <record id="interview_q_tempistiche" model="erpv6.interview.question">
             <field name="name">tempistiche</field>
             <field name="question_text">In che tempi vorresti realizzarlo?</field>
-            <field name="parent_id" ref="interview_q_destinatario"/>
+            <field name="parent_id" ref="interview_q_tipo_progetto"/>
             <field name="field_key">tempistiche</field>
             <field name="answer_type">select</field>
             <field name="sequence">10</field>
@@ -134,7 +145,7 @@
         <record id="interview_q_fatturato" model="erpv6.interview.question">
             <field name="name">fatturato</field>
             <field name="question_text">Qual è il fatturato annuo della tua azienda?</field>
-            <field name="parent_id" ref="interview_q_budget"/>
+            <field name="parent_id" ref="interview_q_destinatario"/>
             <field name="field_key">fatturato</field>
             <field name="answer_type">select</field>
             <field name="sequence">10</field>

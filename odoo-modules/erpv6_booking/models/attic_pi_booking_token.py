@@ -1,0 +1,32 @@
+from odoo import models, fields, api
+import secrets
+import string
+
+class PiBookingToken(models.Model):
+    _name = 'pi.booking.token'
+    _description = 'Token Prenotazione Pubblica'
+    
+    token = fields.Char(string='Token', required=True, index=True, unique=True)
+    consultant_id = fields.Many2one('res.partner', string='Consulente', required=True)
+    status = fields.Selection([
+        ('available', 'Disponibile'),
+        ('booked', 'Prenotato'),
+        ('expired', 'Scaduto'),
+        ('cancelled', 'Cancellato'),
+    ], default='available', required=True)
+    client_name = fields.Char(string='Nome Cliente')
+    client_email = fields.Char(string='Email Cliente')
+    client_phone = fields.Char(string='Telefono Cliente')
+    notes = fields.Text(string='Note')
+    booked_at = fields.Datetime(string='Prenotato il')
+    expires_at = fields.Datetime(string='Scade il')
+    brand = fields.Char(string='Brand', default='progetto-impresa')
+    
+    _sql_constraints = [
+        ('token_unique', 'unique(token)', 'Il token deve essere univoco!'),
+    ]
+    
+    @api.model
+    def generate_token(self):
+        alphabet = string.ascii_letters + string.digits
+        return 'booking_' + ''.join(secrets.choice(alphabet) for _ in range(24))

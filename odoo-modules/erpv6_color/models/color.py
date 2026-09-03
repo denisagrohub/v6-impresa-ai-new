@@ -1,74 +1,41 @@
-from odoo import models, api, _
-from odoo.exceptions import UserError
-import logging
-
-_logger = logging.getLogger(__name__)
+from odoo import models, _
 
 
 class BrandProjectPalette(models.Model):
     _inherit = 'erpv6.brand.project'
 
     def action_generate_palette(self, disc_profile=None, target=None):
-        """
-        Genera la palette colori usando erpv6.kb.engine._process_colors().
-        
-        Il metodo riutilizza la logica esistente in erpv6_kb/models/kb_engine.py.
-        Cerca una KB di tipo 'colori' e chiama il processore appropriato.
-        
-        :param disc_profile: Profilo DISC (es. 'D', 'I', 'S', 'C')
-        :param target: Target di riferimento (es. 'professionisti', 'giovani', ecc.)
-        """
+        """Genera la palette colori DAVVERO chiamando il nodo Adaptive EOSv6
+        (erpv6_core_engine.node_color_palette_generator, process_key=
+        'kb_engine_process', rombo KB dinamico kb_type='colori') invece di
+        duplicare qui la chiamata a erpv6.kb.engine -- decomposizione
+        originale del 29/08/2026, prima vera sostituzione (non solo
+        prototipo parallelo) dal 30/08/2026: l'Output Binding dichiarato sul
+        nodo (output_binding_field='selected_palette', value_path=
+        'result.palette') scrive DAVVERO self.selected_palette, non e' piu'
+        un'assegnazione diretta qui. Se la KB manca o l'input e' incompleto
+        (es. 'target' mancante per il kb_type risolto), run_process()
+        solleva UserError dal Motore stesso (_run_kb_engine_process, via
+        KB_ENGINE_REQUIRED_INPUTS) -- MAI dalla morsettiera (prompt #6):
+        kb_engine_process ha zero righe in erpv6.core.process.input_spec per
+        costruzione (la firma varia per kb_type risolto a runtime, vedi
+        prompt #4), quindi la morsettiera non lo blocca mai, invariato.
+        L'errore si propaga cosi' com'e': NESSUN fallback silenzioso a
+        colori hardcoded (bug noto rimosso, non piu' mantenuto)."""
         self.ensure_one()
-        
-        # Se non forniti, usa valori default o dal progetto
         if disc_profile is None:
-            disc_profile = 'C'  # Default
+            disc_profile = 'C'
         if target is None:
-            target = 'professionisti'  # Default
-        
-        # Cerca una KB di tipo 'colori'
-        kb_colori = self.env['erpv6.kb'].search(
-            [('kb_type', '=', 'colori')],
-            limit=1
-        )
-        
-        if not kb_colori:
-            # DUBBIO: Nessuna KB 'colori' trovata - segnalo invece di crearne una vuota
-            _logger.warning(
-                "Nessuna Knowledge Base di tipo 'colori' trovata. "
-                "È necessario creare e popolare una KB con kb_type='colori' contenente "
-                "le mappature disc_palettes e target_palettes per generare palette colori."
-            )
-            raise UserError(_(
-                "Nessuna Knowledge Base 'colori' configurata. "
-                "Contattare l'amministratore per creare una KB di tipo 'colori' "
-                "con le mappature DISC -> palette colori."
-            ))
-        
-        # Chiama il motore KB
-        input_data = {
+            target = 'professionisti'
+
+        node = self.env.ref('erpv6_core_engine.node_color_palette_generator')
+        node.run_process({
             'disc': disc_profile,
             'target': target,
             'sector': self.partner_id.company_type if self.partner_id else 'generico',
-        }
-        
-        engine = self.env['erpv6.kb.engine']
-        result = engine.process(kb_colori.id, input_data)
-        
-        # Il risultato di _process_colors() è {'palette': {...}}
-        palette = result.get('palette', {})
-        
-        if not palette:
-            _logger.warning(f"Palette vuota generata per DISC={disc_profile}, target={target}")
-            palette = {
-                'primary': '#333333',
-                'secondary': '#666666',
-                'accent': '#FF5722',
-            }  # Fallback minimale
-        
-        # Salva la palette sul brand_project
-        self.write({'selected_palette': palette})
-        
+            'binding_record_id': self.id,
+        })
+
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',

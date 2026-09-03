@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Nodo radice del foglio di lavoro (Denis, 29/08/2026: "impilare
+             Circuito 6 Giudici, Circuito Validazione, Circuito Colori,
+             Typst: se premo su un circuito ho l'esplosione di cosa esiste
+             dentro, se li tengo fuori ho la mia Adaptive"). Stesso
+             identico principio di contenimento gia' usato per i nodi
+             dentro un Circuito, un gradino piu' in alto: nessun concetto
+             nuovo, solo un genitore comune ai Circuiti esistenti, cosi'
+             get_circuit()/run_circuit() (gia' ricorsivi) li vedono come un
+             unico foglio invece di 4 radici separate e invisibili tra loro.
+             Va caricato PRIMA degli altri file circuit_*_data.xml, cosi'
+             loro possono referenziare questo xmlid per il proprio
+             parent_id (vedi manifest). -->
+        <record id="circuit_workspace_root" model="erpv6.core.node">
+            <field name="name">Adaptive EOSv6</field>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+        </record>
+
+    </data>
+</odoo>

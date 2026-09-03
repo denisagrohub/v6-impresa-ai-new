@@ -30,6 +30,18 @@ import {
 
 type Step = 'intro' | 'question' | 'completed' | 'error';
 
+// Micro-copy dell'attesa dopo il quadrante Kairos (gia' mostrato, fermo):
+// il report completo (tre liste) non e' ancora generato qui (TASK-3, fuori
+// scope), questo e' solo il messaggio che accompagna l'attesa - testo
+// semplice a rotazione, nessuna barra/percentuale/spinner (vietati dal task).
+const WAIT_MESSAGES = [
+    'Stiamo leggendo i tuoi dati...',
+    'Stiamo confrontando con casi simili al tuo...',
+    'Stiamo verificando ogni numero prima di mostrartelo...',
+];
+const WAIT_TIMEOUT_MS = 18000;
+const WAIT_ROTATE_MS = 2500;
+
 export interface InterviewTreeFlowProps {
     variant?: 'public' | 'consultant';
     // Riprende una sessione/lead gia' noto (es. /intervista?lead_id=..., o
@@ -69,6 +81,29 @@ export function InterviewTreeFlow({
     const [score, setScore] = useState<InterviewScore | null>(null);
     const [answeredCount, setAnsweredCount] = useState(0);
     const [freeTextValue, setFreeTextValue] = useState('');
+    // Opzione "Altro" cliccata tra le option normali: entra nel ramo testo
+    // libero gia' esistente (righe piu' sotto) invece di sottomettere subito
+    // "Altro" come valore letterale. Si azzera ad ogni nuova domanda.
+    const [altroActive, setAltroActive] = useState(false);
+    const [waitPhraseIndex, setWaitPhraseIndex] = useState(0);
+    const [waitTimedOut, setWaitTimedOut] = useState(false);
+
+    useEffect(() => {
+        if (step !== 'completed') return;
+        setWaitPhraseIndex(0);
+        setWaitTimedOut(false);
+        const rotateTimer = setInterval(() => {
+            setWaitPhraseIndex((i) => (i + 1) % WAIT_MESSAGES.length);
+        }, WAIT_ROTATE_MS);
+        const timeoutTimer = setTimeout(() => {
+            setWaitTimedOut(true);
+            clearInterval(rotateTimer);
+        }, WAIT_TIMEOUT_MS);
+        return () => {
+            clearInterval(rotateTimer);
+            clearTimeout(timeoutTimer);
+        };
+    }, [step]);
 
     useEffect(() => {
         fetchInterviewProducts()
@@ -86,6 +121,13 @@ export function InterviewTreeFlow({
             setErrorMessage('Nome ed email sono obbligatori per iniziare.');
             return;
         }
+        // Settore obbligatorio (Denis, 30/08/2026: "non è opzionale") -- senza
+        // un verticale scelto, il resto dell'intervista/le KB di settore non
+        // possono mai adattarsi, meglio bloccare qui che scoprirlo dopo.
+        if (!selectedVariantId && !selectedProductId) {
+            setErrorMessage('Seleziona il settore della tua azienda per continuare.');
+            return;
+        }
         setErrorMessage(null);
         setLoading(true);
         try {
@@ -100,6 +142,7 @@ export function InterviewTreeFlow({
             if (result.question) {
                 setQuestion(result.question);
                 setFreeTextValue('');
+                setAltroActive(false);
                 setStep('question');
             } else {
                 setStep('completed');
@@ -121,6 +164,7 @@ export function InterviewTreeFlow({
             const result = await answerInterview({ session_id: question.session_id, ...params });
             setAnsweredCount((c) => c + 1);
             setFreeTextValue('');
+            setAltroActive(false);
             if (result.completed || !result.question) {
                 setQuestion(null);
                 setScore(result.score);
@@ -196,14 +240,14 @@ export function InterviewTreeFlow({
                     )}
 
                     <div className="mb-6">
-                        <p className="text-sm font-medium text-gray-700 mb-3">Che tipo di prodotto ti interessa? (opzionale)</p>
+                        <p className="text-sm font-medium text-gray-700 mb-3">A che settore appartiene la tua azienda?</p>
                         {productsLoading ? (
                             <div className="flex items-center gap-2 text-gray-500 text-sm">
                                 <Loader2 size={16} className="animate-spin" /> Carico i prodotti da Odoo...
                             </div>
                         ) : products.length === 0 ? (
-                            <p className="text-sm text-gray-500">
-                                Catalogo prodotti non disponibile al momento: puoi comunque proseguire, l'intervista parte dal ramo generico.
+                            <p className="text-sm text-red-600">
+                                Catalogo settori non disponibile al momento: il settore è obbligatorio, riprova tra poco o ricarica la pagina.
                             </p>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -263,11 +307,20 @@ export function InterviewTreeFlow({
 
             {step === 'question' && question && (
                 <Card className="p-8">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-2">
                         <Badge variant="primary" className="bg-orange-500 text-white">
                             Domanda {answeredCount + 1}
                         </Badge>
                         {loading && <Loader2 size={16} className="animate-spin text-orange-500" />}
+                    </div>
+                    {/* Totale domande non noto (albero dinamico, il percorso dipende dalle
+                        risposte): barra "soft" che si avvicina a 100% senza mai dichiararlo
+                        raggiunto finche' l'intervista non e' davvero completata. */}
+                    <div className="w-full h-2 bg-gray-200 rounded-full mb-6 overflow-hidden">
+                        <div
+                            className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full transition-all"
+                            style={{ width: `${Math.min(92, answeredCount * 12)}%` }}
+                        />
                     </div>
 
                     {question.contextual_message && (
@@ -280,16 +333,19 @@ export function InterviewTreeFlow({
 
                     {question.answer_type === 'select' && question.options.length > 0 && (
                         <div className="space-y-3 mb-4">
-                            {question.options.map((opt) => (
-                                <button
-                                    key={opt.id}
-                                    disabled={loading}
-                                    onClick={() => handleOptionClick(opt.id)}
-                                    className="w-full p-4 text-left border-2 border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-all disabled:opacity-50"
-                                >
-                                    <span className="text-gray-700">{opt.value}</span>
-                                </button>
-                            ))}
+                            {question.options.map((opt) => {
+                                const isAltroOption = opt.value.trim().toLowerCase() === 'altro';
+                                return (
+                                    <button
+                                        key={opt.id}
+                                        disabled={loading}
+                                        onClick={() => (isAltroOption ? setAltroActive(true) : handleOptionClick(opt.id))}
+                                        className="w-full p-4 text-left border-2 border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-all disabled:opacity-50"
+                                    >
+                                        <span className="text-gray-700">{opt.value}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
 
@@ -320,7 +376,7 @@ export function InterviewTreeFlow({
                         </div>
                     )}
 
-                    {question.answer_type === 'select' && question.always_show_altro && (
+                    {question.answer_type === 'select' && (question.always_show_altro || question.options.length === 0 || altroActive) && (
                         <div className="mt-4 pt-4 border-t border-gray-100">
                             <p className="text-xs text-gray-500 mb-2">Nessuna di queste? Scrivi la risposta:</p>
                             <div className="flex gap-2">
@@ -380,6 +436,11 @@ export function InterviewTreeFlow({
                             </div>
                         </div>
                     )}
+                    <p className="text-sm text-gray-500 mb-6">
+                        {waitTimedOut
+                            ? 'Ci vuole qualche minuto in più del solito - ti mandiamo il risultato completo via email appena pronto, puoi chiudere questa pagina tranquillamente.'
+                            : WAIT_MESSAGES[waitPhraseIndex]}
+                    </p>
                     {isConsultant ? (
                         <Link href="/consultant/dashboard">
                             <Button size="lg" fullWidth>Torna ai miei progetti</Button>

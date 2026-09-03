@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Decomposizione di erpv6_tracking (Denis, 29/08/2026, spostato
+             qui nel prompt #17 -- sblocca §O): il Motore crea DAVVERO un
+             lotto (erpv6.tracking.lot), non un rombo KB: la sigla azienda
+             si legge da res.company.company_code (aggiunto da
+             erpv6_core_engine come orchestratore), MAI piu' da erpv6.
+             tracking.config.company_code (testo libero duplicato, bug
+             reale trovato e corretto). config_id resta un input esplicito
+             richiesto: il Motore non risolve da solo quale config usare
+             (stesso principio di kb_engine_process). Questo file viveva in
+             erpv6_core_engine/data/ -- spostato qui perche' dichiara un
+             erpv6.tracking.config reale, che richiede il modello
+             disponibile al momento del caricamento dati (erpv6_core_engine
+             non dipende piu' da erpv6_tracking, vedi manifest). -->
+        <record id="tracking_config_test_material" model="erpv6.tracking.config">
+            <field name="name">TEST — Config tracciamento (non reale)</field>
+            <field name="code">test_material</field>
+            <field name="company_code">TST</field>
+            <field name="default_brand">TT</field>
+            <field name="tracking_types">product</field>
+        </record>
+
+        <record id="circuit_tracciabilita" model="erpv6.core.node">
+            <field name="name">Circuito Tracciabilità</field>
+            <field name="parent_id" ref="erpv6_core_engine.circuit_workspace_root"/>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+            <field name="test_fixture_ref">erpv6_tracking.tracking_config_test_material</field>
+        </record>
+
+        <record id="node_crea_lotto_batch" model="erpv6.core.node">
+            <field name="name">Crea Lotto Batch</field>
+            <field name="parent_id" ref="circuit_tracciabilita"/>
+            <field name="sequence">10</field>
+            <field name="process_key">create_tracking_lot</field>
+            <field name="input_format">json</field>
+        </record>
+
+    </data>
+</odoo>

@@ -42,6 +42,20 @@ class LibraryDocument(models.Model):
         ('agent_knowledge', 'Conoscenza Agente'),
     ], string='Categoria', required=True)
 
+    # Denis, 30/08/2026, prompt #19 (sblocca §O per davvero): campo NATIVO
+    # qui, non piu' un'estensione _inherit da erpv6_core_engine (vedi
+    # library_document_ext.py, rimosso -- erpv6.core.library_category ora
+    # vive in erpv6_core_dispatch, neutro). category (sopra) resta identica,
+    # mai toccata -- questo e' un catalogo vero parallelo, che i circuiti
+    # fanno crescere dichiarando nuove etichette (erpv6.core.output.create(),
+    # Motore 'etichettatrice' label_output), senza rompere nessun confronto
+    # esistente sul campo legacy.
+    category_id = fields.Many2one(
+        'erpv6.core.library_category', string='Categoria (catalogo EAOSv6)',
+        help="Popolato dal Motore 'etichettatrice' (label_output) quando un circuito "
+             "dichiara un'etichetta per il suo Output -- parallelo al campo category "
+             "legacy, mai un suo sostituto.")
+
     # Progetto brand collegato (opzionale, per documenti di categoria brand_logo/brand_asset)
     brand_project_id = fields.Many2one(
         'erpv6.brand.project',

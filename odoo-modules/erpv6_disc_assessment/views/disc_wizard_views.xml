@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Denis, 30/08/2026, prompt #21: interfaccia minima richiesta esplicitamente
+         (nessuna UI elaborata) — un wizard con le 8 domande campione e un bottone
+         che chiama run_process() sul nodo AEOSv6. -->
+    <record id="view_disc_assessment_wizard_form" model="ir.ui.view">
+        <field name="name">erpv6.disc.assessment.wizard.form</field>
+        <field name="model">erpv6.disc.assessment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Intervista DISC — Fase A">
+                <group invisible="result_disc">
+                    <field name="q1"/>
+                    <field name="q2"/>
+                    <field name="q3"/>
+                    <field name="q4"/>
+                    <field name="q5"/>
+                    <field name="q6"/>
+                    <field name="q7"/>
+                    <field name="q8"/>
+                </group>
+                <group invisible="not result_disc">
+                    <field name="result_disc" readonly="1"/>
+                    <field name="result_scores_display" readonly="1"/>
+                </group>
+                <footer>
+                    <button name="action_submit" string="Calcola profilo DISC"
+                            type="object" class="btn-primary" invisible="result_disc"/>
+                    <button string="Chiudi" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_disc_assessment_wizard" model="ir.actions.act_window">
+        <field name="name">Intervista DISC (Fase A)</field>
+        <field name="res_model">erpv6.disc.assessment.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_disc_assessment_root" name="DISC Assessment" sequence="90"/>
+    <menuitem id="menu_disc_assessment_wizard" name="Fai l'intervista DISC"
+              parent="menu_disc_assessment_root" action="action_disc_assessment_wizard" sequence="10"/>
+</odoo>

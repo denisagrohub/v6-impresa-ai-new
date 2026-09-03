@@ -9,6 +9,13 @@ KB_TYPE_SELECTION = [
     ('artigianale', 'Artigianale'), ('prompt', 'Prompt AI'),
     ('metodo_v6', 'Metodo V6'),
     ('changelog_tecnico', 'Changelog Tecnico (specchio memoria sviluppo, mai per il motore)'),
+    # Denis, 29/08/2026, decomposizione erpv6_color per Adaptive EOSv6:
+    # erpv6.kb.engine._process_kb smista su 6 valori (colori/psicologia/
+    # metodi/regole/storytelling/commerciale), NESSUNO legale qui --
+    # 'colori' e' l'unico aggiunto ora (serve al test), gli altri 5
+    # mismatch (es. 'psicologia' qui vs 'psicologico' nel dispatcher)
+    # restano segnalati ma non corretti, fuori scopo di questa sessione.
+    ('colori', 'Colori (palette brand)'),
 ]
 
 # kb_type esclusi per costruzione da find_best_for(), indipendentemente da

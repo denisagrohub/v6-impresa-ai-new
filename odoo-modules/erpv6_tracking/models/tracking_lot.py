@@ -64,6 +64,21 @@ class TrackingLot(models.Model):
             date = datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
         return date.timetuple().tm_yday
 
+    def _get_company_code(self):
+        """Denis, 29/08/2026, decomposizione EAOSv6: la sigla azienda non
+        e' piu' erpv6.tracking.config.company_code (testo libero duplicato,
+        scollegato) -- e' res.company.company_code (unica fonte reale,
+        aggiunta da erpv6_core_engine come orchestratore). Se non e' stata
+        compilata, errore esplicito: mai generare un codice lotto con un
+        buco silenzioso al posto della sigla azienda."""
+        code = self.env.company.company_code
+        if not code:
+            raise UserError(
+                "Sigla azienda (company_code) non configurata su '%s' -- "
+                "impostarla prima di generare un lotto." % self.env.company.name
+            )
+        return code
+
     @api.model
     def _generate_batch_code(self, config, production_date=None):
         if not production_date:
@@ -73,7 +88,7 @@ class TrackingLot(models.Model):
         year = str(production_date.year)[-2:]
         julian_day = self._get_julian_day(production_date)
         sequence = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(5))
-        return f"BATCH-{config.company_code}-{year}{julian_day:03d}-{config.default_brand}-{sequence}"
+        return f"BATCH-{self._get_company_code()}-{year}{julian_day:03d}-{config.default_brand}-{sequence}"
 
     @api.model
     def _generate_definitive_code(self, config, production_date=None):
@@ -85,7 +100,7 @@ class TrackingLot(models.Model):
         julian_day = self._get_julian_day(production_date)
         hour = production_date.hour
         minute = production_date.minute
-        return f"{config.company_code}-{year}{julian_day:03d}-{config.default_brand}-{hour:02d}{minute:02d}"
+        return f"{self._get_company_code()}-{year}{julian_day:03d}-{config.default_brand}-{hour:02d}{minute:02d}"
 
     @api.model
     def create_batch_lot(self, config_id, quantity=1.0, notes=None):
@@ -97,7 +112,7 @@ class TrackingLot(models.Model):
             'code': code,
             'tracking_type': 'batch',
             'config_id': config.id,
-            'company_code': config.company_code,
+            'company_code': self._get_company_code(),
             'brand_code': config.default_brand,
             'production_date': production_date,
             'year': str(production_date.year),
@@ -127,7 +142,7 @@ class TrackingLot(models.Model):
             'tracking_type': 'definitive',
             'parent_lot_id': batch_lot_id,
             'config_id': config.id,
-            'company_code': config.company_code,
+            'company_code': self._get_company_code(),
             'brand_code': config.default_brand,
             'production_date': production_date,
             'year': str(production_date.year),

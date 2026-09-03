@@ -28,6 +28,15 @@ const PUBLIC_PATHS = [
   '/api/kb',
   '/api/booking',
   '/api/consultant/public-slots',
+  // Pilota Adaptive EOSv6 (28/08/2026): pagina interna di verifica del
+  // circuito 6 Giudici su erpv6_core_engine, raggiungibile solo via tunnel
+  // SSH verso la VPS (porta 3000 non esposta pubblicamente, solo 80/443 via
+  // Caddy) -- bypassa il login dell'app invece di accendere il flag globale
+  // NEXT_PUBLIC_USE_ODOO, che cambierebbe comportamento anche di
+  // dashboard/booking/interview-tree/consultant per tutti. Da rimuovere o
+  // proteggere sul serio prima di qualunque esposizione oltre il tunnel.
+  '/admin/circuit',
+  '/api/core-engine',
   // Proxy pubblici dell'intervista ad albero (/intervista/guidata, gia'
   // pagina pubblica) verso erpv6.interview.session lato Odoo - visitatori
   // anonimi, stesso schema di /api/leads POST qui sotto.

@@ -45,7 +45,7 @@ export default function ChiSiamoPage() {
                             { val: "2018", label: "Anno di fondazione" },
                             { val: "200+", label: "Progetti completati" },
                             { val: "€50M+", label: "Finanziamenti ottenuti" },
-                            { val: "98%", label: "Clienti soddisfatti" },
+                            { val: "✓", label: "Clienti soddisfatti" },
                         ].map((stat, i) => (
                             <div key={i}>
                                 <div className="text-4xl font-bold text-orange-500 mb-2">{stat.val}</div>
