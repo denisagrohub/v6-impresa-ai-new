@@ -40,6 +40,19 @@ Creato: 2026-09-03. Aggiornare ad ogni decisione o passo completato.
 - Tosi Mati non come "azienda cliente" (progetto interno)
 - Blur vietato su criticita/azioni_urgenti (blob decorativi ok)
 
+
+## OBIETTIVI DI CONTENUTO (il PERCHE dei task)
+- TASK-2 intervista: bug funzionale reale - l'opzione "Altro" nell'intervista
+  non funziona; il dato deve arrivare pulito fino a Odoo. Piu importante di tutti.
+- TASK-3 attesa/output: [COMPLETARE - vedi TASK-3-attesa-output.md]
+- TASK-4 circuiti (admin/circuit/page.tsx): [COMPLETARE - vedi TASK-4-circuit.md]
+  Il circuit e il cuore del core-engine: fasi -> nodi -> processi, con DAG
+  (dagre/react-force-graph) e collegamento a /api/core-engine/*. Riscrittura
+  CONSIDERATA RIDOTTA per budget token: solo cio che il task file indica.
+  NOTA: nel commit a6027a0 e finito un page.tsx.bak di 1851 righe del circuit:
+  verifica che il TASK-4 non abbia toccato il circuit prima del suo turno.
+- TASK-5 pagine: secondario, skip probabile.
+
 ## PROSSIMI PASSI
 1. TASK-2 (intervista, bug "Altro"): TASK PIENO - il piu importante
    - prompt con vincoli: solo file del task, no esplorazione, no gate/build da Claude

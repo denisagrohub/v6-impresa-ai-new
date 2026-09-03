@@ -69,6 +69,10 @@ export function InterviewTreeFlow({
     const [score, setScore] = useState<InterviewScore | null>(null);
     const [answeredCount, setAnsweredCount] = useState(0);
     const [freeTextValue, setFreeTextValue] = useState('');
+    // Opzione "Altro" cliccata tra le option normali: entra nel ramo testo
+    // libero gia' esistente (righe piu' sotto) invece di sottomettere subito
+    // "Altro" come valore letterale. Si azzera ad ogni nuova domanda.
+    const [altroActive, setAltroActive] = useState(false);
 
     useEffect(() => {
         fetchInterviewProducts()
@@ -107,6 +111,7 @@ export function InterviewTreeFlow({
             if (result.question) {
                 setQuestion(result.question);
                 setFreeTextValue('');
+                setAltroActive(false);
                 setStep('question');
             } else {
                 setStep('completed');
@@ -128,6 +133,7 @@ export function InterviewTreeFlow({
             const result = await answerInterview({ session_id: question.session_id, ...params });
             setAnsweredCount((c) => c + 1);
             setFreeTextValue('');
+            setAltroActive(false);
             if (result.completed || !result.question) {
                 setQuestion(null);
                 setScore(result.score);
@@ -270,11 +276,20 @@ export function InterviewTreeFlow({
 
             {step === 'question' && question && (
                 <Card className="p-8">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-2">
                         <Badge variant="primary" className="bg-orange-500 text-white">
                             Domanda {answeredCount + 1}
                         </Badge>
                         {loading && <Loader2 size={16} className="animate-spin text-orange-500" />}
+                    </div>
+                    {/* Totale domande non noto (albero dinamico, il percorso dipende dalle
+                        risposte): barra "soft" che si avvicina a 100% senza mai dichiararlo
+                        raggiunto finche' l'intervista non e' davvero completata. */}
+                    <div className="w-full h-2 bg-gray-200 rounded-full mb-6 overflow-hidden">
+                        <div
+                            className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full transition-all"
+                            style={{ width: `${Math.min(92, answeredCount * 12)}%` }}
+                        />
                     </div>
 
                     {question.contextual_message && (
@@ -287,16 +302,19 @@ export function InterviewTreeFlow({
 
                     {question.answer_type === 'select' && question.options.length > 0 && (
                         <div className="space-y-3 mb-4">
-                            {question.options.map((opt) => (
-                                <button
-                                    key={opt.id}
-                                    disabled={loading}
-                                    onClick={() => handleOptionClick(opt.id)}
-                                    className="w-full p-4 text-left border-2 border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-all disabled:opacity-50"
-                                >
-                                    <span className="text-gray-700">{opt.value}</span>
-                                </button>
-                            ))}
+                            {question.options.map((opt) => {
+                                const isAltroOption = opt.value.trim().toLowerCase() === 'altro';
+                                return (
+                                    <button
+                                        key={opt.id}
+                                        disabled={loading}
+                                        onClick={() => (isAltroOption ? setAltroActive(true) : handleOptionClick(opt.id))}
+                                        className="w-full p-4 text-left border-2 border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-all disabled:opacity-50"
+                                    >
+                                        <span className="text-gray-700">{opt.value}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
 
@@ -327,7 +345,7 @@ export function InterviewTreeFlow({
                         </div>
                     )}
 
-                    {question.answer_type === 'select' && question.always_show_altro && (
+                    {question.answer_type === 'select' && (question.always_show_altro || question.options.length === 0 || altroActive) && (
                         <div className="mt-4 pt-4 border-t border-gray-100">
                             <p className="text-xs text-gray-500 mb-2">Nessuna di queste? Scrivi la risposta:</p>
                             <div className="flex gap-2">
