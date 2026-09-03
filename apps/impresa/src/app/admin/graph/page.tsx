@@ -17,7 +17,8 @@ export default function AdminGraphPage() {
 
   useEffect(() => {
     setActions(actionsStore.getAll());
-    return actionsStore.subscribe(setActions);
+    const unsubscribe = actionsStore.subscribe(setActions);
+    return () => { unsubscribe(); };
   }, []);
 
   const syncToNeo4j = async () => {

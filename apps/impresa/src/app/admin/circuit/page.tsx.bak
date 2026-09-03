@@ -183,7 +183,7 @@ function computeFlowLayout(data: CircuitData, expandedIds: Set<number>) {
     );
     const layout = sugiyama().layering(layeringSimplex()).decross(decrossOpt()).coord(coordQuad());
     layout(dag);
-    const posById = new Map(Array.from(dag.nodes()).map((n) => [Number(n.data.id), { x: n.x, y: n.y }]));
+    const posById = new Map([...dag.nodes()].map((n) => [Number(n.data.id), { x: n.x, y: n.y }]));
     laidTop = topLevel.map((n) => {
       const p = posById.get(n.id) || { x: 0, y: 0 };
       return { ...n, x: p.x * COL_GAP, y: p.y * ROW_GAP };
@@ -666,7 +666,7 @@ export default function AdminCircuitPage() {
     // phase_gate_type impostato, vincolo reale lato backend) -- niente
     // selettore separato: se hai gia' scelto come membro un nodo con
     // "Tipo Gate Fase" attivo in creazione, la Fase lo riconosce da solo.
-    const nodeIds = Array.from(newPhaseNodeIds);
+    const nodeIds = [...newPhaseNodeIds];
     const gateNode = (data?.nodes || []).find((n) => nodeIds.includes(n.id) && n.phase_gate_type);
     const result = await postAction("/api/core-engine/phase", {
       name: newPhaseName.trim(),
@@ -1402,7 +1402,7 @@ export default function AdminCircuitPage() {
                           className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-200"
                         />
                         <button
-                          onClick={() => runNodeProcess(selectedNode.id, selectedNode.process_key || "")}
+                          onClick={() => runNodeProcess(selectedNode.id, selectedNode.process_key!)}
                           disabled={testRunning || !testPrompt.trim()}
                           className="flex w-full items-center justify-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-40"
                         >
@@ -1418,7 +1418,7 @@ export default function AdminCircuitPage() {
                           className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs text-zinc-200"
                         />
                         <button
-                          onClick={() => runNodeProcess(selectedNode.id, selectedNode.process_key || "")}
+                          onClick={() => runNodeProcess(selectedNode.id, selectedNode.process_key!)}
                           disabled={testRunning || !testOrderId.trim()}
                           className="flex shrink-0 items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-40"
                         >

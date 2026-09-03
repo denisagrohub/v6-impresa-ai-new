@@ -15,7 +15,8 @@ export default function AdminActionsPage() {
 
   useEffect(() => {
     setActions(actionsStore.getAll());
-    return actionsStore.subscribe(setActions);
+    const unsubscribe = actionsStore.subscribe(setActions);
+    return () => { unsubscribe(); };
   }, []);
 
   const filtered = useMemo(() => {

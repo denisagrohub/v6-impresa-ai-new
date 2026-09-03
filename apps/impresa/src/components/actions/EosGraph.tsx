@@ -46,10 +46,10 @@ function computeDagLayout(rawNodes: any[], rawLinks: any[]) {
       .decross(decrossOpt())
       .coord(coordQuad());
 
-    const { nodes: laidNodes } = layout(dag);
+    layout(dag);
 
     const posById = new Map(
-      laidNodes.map((n) => [n.data.id, { x: n.x * 140, y: n.y * 100 }])
+      Array.from(dag.nodes()).map((n) => [n.data.id, { x: n.x * 140, y: n.y * 100 }])
     );
 
     return {
@@ -239,7 +239,7 @@ export default function EosGraph({ rawActions = [] }: { rawActions?: any[] }) {
           width={dimensions.width}
           height={dimensions.height}
           nodeRelSize={8}
-          dagMode={null}
+          dagMode={undefined}
           d3VelocityDecay={0.4}
           cooldownTicks={0}
           enableNodeDrag={false}

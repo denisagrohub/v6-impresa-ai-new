@@ -60,7 +60,7 @@ export default function PremiumPage() {
             <div className="text-sm text-gray-600">Finanziamenti ottenuti</div>
           </div>
           <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="text-3xl font-bold text-orange-500">98%</div>
+            <div className="text-3xl font-bold text-orange-500">✓</div>
             <div className="text-sm text-gray-600">Clienti soddisfatti</div>
           </div>
           <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100">

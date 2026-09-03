@@ -188,3 +188,7 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--orange-400);
   color: white;
 }
+
+/* Linea del metodo - variante loop (schermata attesa report) */
+@keyframes metodo-loop { 0% { stroke-dashoffset: 1200; } 100% { stroke-dashoffset: 0; } }
+.metodo-loop-anim { animation: metodo-loop 2.5s linear infinite; }
