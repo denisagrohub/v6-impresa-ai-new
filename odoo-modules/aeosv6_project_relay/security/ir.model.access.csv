@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_project_email_log_user,erpv6.project.email.log user,model_erpv6_project_email_log,base.group_user,1,1,1,0
+access_project_email_log_manager,erpv6.project.email.log manager,model_erpv6_project_email_log,base.group_system,1,1,1,1
+access_new_project_wizard_user,erpv6.project.relay.new.project.wizard user,model_erpv6_project_relay_new_project_wizard,base.group_user,1,1,1,1
+access_new_project_line_user,erpv6.project.relay.new.project.line user,model_erpv6_project_relay_new_project_line,base.group_user,1,1,1,1
+access_send_project_email_wizard_user,erpv6.project.relay.send.email.wizard user,model_erpv6_project_relay_send_email_wizard,base.group_user,1,1,1,1

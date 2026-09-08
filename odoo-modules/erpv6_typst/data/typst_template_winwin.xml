@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Template composito Relazione Win-Win: il main (in coda, dopo i
+         blocchi) definisce layout e composizione; i BLOCCHI GRAFICI non
+         sono copiati qui - sono legati via erpv6.typst.template.block ai
+         documenti library (regola T.2). Categoria 'relazione' esistente. -->
+    <record id="typst_template_winwin_standard" model="erpv6.typst.template">
+        <field name="name">Relazione Win-Win Standard</field>
+        <field name="code">WW-STD-001</field>
+        <field name="category">relazione</field>
+        <field name="language">it</field>
+        <field name="version">1.0</field>
+        <field name="sequence">20</field>
+        <field name="description">Relazione di Analisi Rapida (win-win): copertina, quadrante Kairos, schede azione. Composto da blocchi library centralizzati.</field>
+        <field name="page_size">a4</field>
+        <field name="orientation">portrait</field>
+        <field name="required_fields" eval="{&apos;client_info&apos;: {&apos;type&apos;: &apos;object&apos;}, &apos;impatto&apos;: {&apos;type&apos;: &apos;number&apos;}, &apos;prontezza&apos;: {&apos;type&apos;: &apos;number&apos;}, &apos;etichetta_azienda&apos;: {&apos;type&apos;: &apos;string&apos;}, &apos;schede&apos;: {&apos;type&apos;: &apos;array&apos;}}"/>
+        <field name="typst_source"><![CDATA[
+#let data = json("data.json")
+#set page(paper: "a4", margin: 2cm)
+#set text(size: 10pt, fill: testo)
+
+#copertina(data)
+#pagebreak()
+
+#align(center)[
+  #text(size: 14pt, weight: "bold", fill: blu)[Posizione dell'azienda]
+]
+#v(0.5cm)
+#quadrante-kairos(data.impatto, data.prontezza, data.etichetta_azienda)
+#pagebreak()
+
+#align(center)[
+  #text(size: 14pt, weight: "bold", fill: blu)[Le azioni win-win]
+]
+#v(0.5cm)
+#for (i, s) in data.schede.enumerate(start: 1) [
+  #scheda-azione(str(i), s.titolo, s.come_funziona, s.beneficio_azienda, s.beneficio_controparte, s.basata_su)
+  #v(0.6em)
+]
+]]></field>
+    </record>
+</odoo>

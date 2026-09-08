@@ -5,7 +5,7 @@ import { isOdooEnabled } from '@/config/system';
 // Collegato per davvero a Odoo il 25/08/2026 (Denis: "il tab calendario/
 // call e' l'unico pezzo da salvare/rendere reale ora"). Prima leggeva/
 // scriveva su un file JSON locale (src/data/consultant-calendar.json),
-// mai su Odoo. Il modello reale (erpv6.booking.token, erpv6_booking) e'
+// mai su Odoo. Il modello reale (erpv6.booking.token, aeosv6_booking) e'
 // un link di prenotazione monouso con sola scadenza (validity_hours) -
 // NON un calendario con giorno/ora: niente campo data/ora esiste oggi sul
 // modello Odoo, quindi questa route non fabbrica piu' slot con orari

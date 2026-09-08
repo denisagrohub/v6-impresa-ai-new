@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Fase 1 del circuito (05/09/2026): soglie come dato KB, mai
+             hardcoded nel Motore. Struttura pensata per essere estesa con
+             altre metriche senza cambiare schema (un oggetto per metrica,
+             stesse 4 chiavi: verde/ambra/rosso/riferimento). -->
+        <record id="kb_category_winwin_soglie_finanziarie" model="erpv6.kb.category">
+            <field name="name">Soglie Metriche Finanziarie (Win-Win)</field>
+            <field name="kb_type">normativo</field>
+            <field name="is_transversal" eval="True"/>
+        </record>
+
+        <record id="kb_winwin_soglie_finanziarie" model="erpv6.kb">
+            <field name="name">Soglie Win-Win — DSCR e Leva Finanziaria</field>
+            <field name="kb_type">normativo</field>
+            <field name="category_id" ref="kb_category_winwin_soglie_finanziarie"/>
+            <field name="content_format">json</field>
+            <field name="source">system_seed</field>
+            <field name="is_active" eval="True"/>
+            <field name="content"><![CDATA[{
+  "dscr": {"verde": ">1.5", "ambra": "1.2-1.5", "rosso": "<1.2", "riferimento": "soglia banca standard: 1.2x"},
+  "leva_finanziaria": {"verde": "<50%", "ambra": "50-65%", "rosso": ">65%", "riferimento": "media settore, da KB verticale se disponibile"}
+}]]></field>
+        </record>
+
+        <record id="circuit_winwin_renderdata" model="erpv6.core.node">
+            <field name="name">Circuito Win-Win RenderData</field>
+            <field name="parent_id" ref="erpv6_core_engine.circuit_workspace_root"/>
+            <field name="is_composite" eval="True"/>
+            <field name="circuit_role">generico</field>
+        </record>
+
+        <record id="node_winwin_renderdata_build" model="erpv6.core.node">
+            <field name="name">Costruisci render_data Win-Win</field>
+            <field name="parent_id" ref="circuit_winwin_renderdata"/>
+            <field name="sequence">10</field>
+            <field name="process_key">winwin_renderdata_build</field>
+            <field name="input_format">json</field>
+        </record>
+
+        <record id="kb_link_winwin_soglie_finanziarie" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_winwin_renderdata_build"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="kb_winwin_soglie_finanziarie"/>
+            <field name="kb_category_id" ref="kb_category_winwin_soglie_finanziarie"/>
+            <field name="data_format">json</field>
+        </record>
+
+        <record id="input_spec_winwin_renderdata_build" model="erpv6.core.process.input_spec">
+            <field name="process_key">winwin_renderdata_build</field>
+            <field name="input_key">production_order_id</field>
+            <field name="tipo_dato">json</field>
+            <field name="obbligatorio" eval="True"/>
+            <field name="note">id di erpv6.production.order collegato all'intervista completata</field>
+        </record>
+
+        <record id="output_spec_winwin_renderdata_build" model="erpv6.core.process.output_spec">
+            <field name="process_key">winwin_renderdata_build</field>
+            <field name="output_tipo_dato">json</field>
+        </record>
+
+    </data>
+</odoo>

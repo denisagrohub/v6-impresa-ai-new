@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+<t t-name="erpv6_winwin_renderdata.WinwinConsultantDashboard" owl="1">
+    <div class="o_winwin_dashboard">
+        <header class="o_winwin_header">
+            <h1>Dashboard Consulente</h1>
+            <div class="o_winwin_tabs">
+                <button class="o_winwin_tab"
+                        t-att-class="{ active: state.tab === 'richieste' }"
+                        t-on-click="() => this.setTab('richieste')">
+                    Richieste in arrivo
+                    <span class="o_winwin_badge" t-if="state.richieste.length" t-esc="state.richieste.length"/>
+                </button>
+                <button class="o_winwin_tab"
+                        t-att-class="{ active: state.tab === 'progetti' }"
+                        t-on-click="() => this.setTab('progetti')">
+                    I miei progetti
+                    <span class="o_winwin_badge" t-if="state.progetti.length" t-esc="state.progetti.length"/>
+                </button>
+                <button class="o_winwin_tab"
+                        t-att-class="{ active: state.tab === 'relazioni' }"
+                        t-on-click="() => this.setTab('relazioni')">
+                    Progetti &amp; Relazioni
+                    <span class="o_winwin_badge" t-if="state.relazioni.length" t-esc="state.relazioni.length"/>
+                </button>
+                <!-- 07/09/2026: la tab Amministrazione esiste nel DOM SOLO
+                     se state.isAdmin e' true (valore da is_admin_user(),
+                     lato server) - non e' un t-att-class/CSS che la
+                     nasconde, il bottone semplicemente non viene generato
+                     per un utente non-admin. -->
+                <button class="o_winwin_tab" t-if="state.isAdmin"
+                        t-att-class="{ active: state.tab === 'admin' }"
+                        t-on-click="() => this.setTab('admin')">
+                    Amministrazione
+                </button>
+            </div>
+        </header>
+
+        <div class="o_winwin_error" t-if="state.error" t-esc="state.error"/>
+        <div class="o_winwin_loading" t-if="state.loading">Caricamento…</div>
+
+        <div class="o_winwin_body" t-if="!state.loading">
+
+            <!-- Vista Richieste in arrivo -->
+            <div t-if="state.tab === 'richieste'" class="o_winwin_list">
+                <p class="o_winwin_empty" t-if="!state.richieste.length">
+                    Nessuna richiesta in coda al momento.
+                </p>
+                <div class="o_winwin_card" t-foreach="state.richieste" t-as="r" t-key="r.id">
+                    <div class="o_winwin_card_main">
+                        <div class="o_winwin_card_title" t-esc="r.client_name || 'Senza nome'"/>
+                        <div class="o_winwin_card_sub" t-esc="r.client_email"/>
+                        <div class="o_winwin_card_sub" t-if="r.client_phone" t-esc="r.client_phone"/>
+                        <div class="o_winwin_notes" t-if="r.notes" t-esc="r.notes"/>
+                    </div>
+                    <div class="o_winwin_card_meta">
+                        <span class="o_winwin_quadrante" t-if="r.quadrante" t-esc="r.quadrante"/>
+                        <span class="o_winwin_criticita" t-if="r.criticita_count">
+                            <t t-esc="r.criticita_count"/> criticità
+                        </span>
+                        <button class="o_winwin_btn o_winwin_btn_primary"
+                                t-on-click="() => this.prendiInCarico(r.id)">
+                            Prendi in carico
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista I miei progetti -->
+            <div t-if="state.tab === 'progetti'" class="o_winwin_list">
+                <p class="o_winwin_empty" t-if="!state.progetti.length">
+                    Nessun progetto assegnato ancora.
+                </p>
+                <div class="o_winwin_project" t-foreach="state.progetti" t-as="p" t-key="p.id">
+                    <div class="o_winwin_project_head">
+                        <div class="o_winwin_project_head_main" t-on-click="() => this.toggleExpand(p.id)">
+                            <div>
+                                <div class="o_winwin_card_title">
+                                    <t t-esc="p.azienda"/>
+                                    <span class="o_winwin_badge o_winwin_badge_clickable" t-if="p.unread_count"
+                                          title="Segna come letto"
+                                          t-on-click.stop="() => this.markNotificationsRead(p.relation_root_id)"
+                                          t-esc="p.unread_count"/>
+                                </div>
+                                <div class="o_winwin_card_sub" t-esc="p.tipo_progetto"/>
+                            </div>
+                            <span class="o_winwin_quadrante" t-if="p.quadrante" t-esc="p.quadrante"/>
+                        </div>
+                        <button class="o_winwin_btn o_winwin_btn_open"
+                                t-on-click.stop="() => this.openProductionOrder(p.id)">
+                            Apri scheda
+                        </button>
+                    </div>
+
+                    <div class="o_winwin_project_body" t-if="state.expandedId === p.id">
+                        <div class="o_winwin_section">
+                            <h3>BANT</h3>
+                            <ul>
+                                <li><b>Budget:</b> <t t-esc="p.bant.budget || '—'"/></li>
+                                <li><b>Tempistiche:</b> <t t-esc="p.bant.tempistiche || '—'"/></li>
+                                <li><b>Destinatario:</b> <t t-esc="p.bant.destinatario || '—'"/></li>
+                                <li><b>Fatturato:</b> <t t-esc="p.bant.fatturato || '—'"/></li>
+                            </ul>
+                        </div>
+
+                        <div class="o_winwin_section" t-if="p.criticita.length">
+                            <h3>Criticità</h3>
+                            <ul class="o_winwin_criticita_list">
+                                <li t-foreach="p.criticita" t-as="c" t-key="c_index"
+                                    t-esc="c.descrizione || c.titolo"/>
+                            </ul>
+                        </div>
+
+                        <div class="o_winwin_section" t-if="p.azioni_urgenti.length">
+                            <h3>Azioni urgenti</h3>
+                            <ul class="o_winwin_urgenti_list">
+                                <li t-foreach="p.azioni_urgenti" t-as="a" t-key="a_index"
+                                    t-esc="a.descrizione || a.titolo"/>
+                            </ul>
+                        </div>
+
+                        <div class="o_winwin_section">
+                            <h3>Report Win-Win</h3>
+                            <p t-if="!p.has_report">Non ancora generato.</p>
+                            <p t-else="">
+                                Stato: <t t-esc="p.report_stato || '—'"/>
+                            </p>
+                        </div>
+
+                        <div class="o_winwin_section">
+                            <h3>Email di progetto</h3>
+                            <p t-if="p.email_alias">
+                                Alias: <b t-esc="p.email_alias"/>
+                            </p>
+                            <p t-if="!p.emails.length">Nessuna email captata ancora.</p>
+                            <ul class="o_winwin_email_feed" t-else="">
+                                <li t-foreach="p.emails" t-as="e" t-key="e.id">
+                                    <b t-esc="e.sender_email"/> — <t t-esc="e.name"/>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="o_winwin_section">
+                            <h3>DISC</h3>
+                            <p><i t-esc="p.disc_status"/></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista Progetti & Relazioni (erpv6.tracking.relation, generico -
+                 TEE e altri, non solo Win-Win, filtrato per owner_user_id) -->
+            <div t-if="state.tab === 'relazioni'" class="o_winwin_list">
+                <p class="o_winwin_empty" t-if="!state.relazioni.length">
+                    Nessun progetto/relazione a te assegnato ancora.
+                </p>
+                <div class="o_winwin_project" t-foreach="state.relazioni" t-as="rel" t-key="rel.id">
+                    <div class="o_winwin_project_head">
+                        <div class="o_winwin_project_head_main" t-on-click="() => this.toggleExpandRelazione(rel.id)">
+                            <div>
+                                <div class="o_winwin_card_title">
+                                    <t t-esc="rel.name"/>
+                                    <span class="o_winwin_badge o_winwin_badge_clickable" t-if="rel.unread_count"
+                                          title="Segna come letto"
+                                          t-on-click.stop="() => this.markNotificationsRead(rel.id)"
+                                          t-esc="rel.unread_count"/>
+                                </div>
+                                <div class="o_winwin_card_sub" t-if="rel.email_alias_full" t-esc="rel.email_alias_full"/>
+                            </div>
+                        </div>
+                        <button class="o_winwin_btn o_winwin_btn_open"
+                                t-on-click.stop="() => this.openTrackingRelation(rel.id)">
+                            Apri scheda
+                        </button>
+                    </div>
+
+                    <div class="o_winwin_project_body" t-if="state.expandedRelazioneId === rel.id">
+                        <div class="o_winwin_section">
+                            <h3>Parti collegate</h3>
+                            <p t-if="!rel.parti.length">Nessuna parte collegata ancora.</p>
+                            <ul t-else="">
+                                <li t-foreach="rel.parti" t-as="parte" t-key="parte.id">
+                                    <b t-esc="parte.name"/>
+                                    <t t-if="parte.ruolo"> — <t t-esc="parte.ruolo"/></t>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="o_winwin_section">
+                            <h3>Email di progetto</h3>
+                            <p t-if="!rel.emails.length">Nessuna email captata ancora.</p>
+                            <ul class="o_winwin_email_feed" t-else="">
+                                <li t-foreach="rel.emails" t-as="e" t-key="e.id">
+                                    <b t-esc="e.mittente"/> — <t t-esc="e.oggetto"/>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="o_winwin_section">
+                            <h3>Notifiche</h3>
+                            <p t-if="!rel.notifiche.length">Nessuna notifica per questo progetto.</p>
+                            <ul t-else="">
+                                <li t-foreach="rel.notifiche" t-as="n" t-key="n.id" t-esc="n.problema"/>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Amministrazione - contenuto E visibilita' ristretti a
+                 state.isAdmin (server-side, is_admin_user()) -->
+            <div t-if="state.tab === 'admin' &amp;&amp; state.isAdmin" class="o_winwin_list">
+                <p class="o_winwin_admin_message" t-if="state.adminMessage" t-esc="state.adminMessage"/>
+
+                <div class="o_winwin_admin_section">
+                    <h3>Crea Consulente</h3>
+                    <p class="o_winwin_card_sub">
+                        Seleziona un utente Odoo interno gia' esistente - questa azione crea solo il dato di
+                        business (erpv6.consulting.consultant), mai un nuovo login. Per creare un utente vero,
+                        usa Impostazioni &#8594; Utenti.
+                    </p>
+                    <div class="o_winwin_admin_form">
+                        <select t-on-change="(ev) => state.newConsultant.userId = ev.target.value">
+                            <option value="">-- seleziona utente --</option>
+                            <option t-foreach="state.adminData and state.adminData.users or []" t-as="u" t-key="u.id"
+                                    t-att-value="u.id" t-esc="u.name"/>
+                        </select>
+                        <select t-on-change="(ev) => state.newConsultant.brandId = ev.target.value">
+                            <option value="">-- seleziona brand --</option>
+                            <option t-foreach="state.adminData and state.adminData.brands or []" t-as="b" t-key="b.id"
+                                    t-att-value="b.id" t-esc="b.name"/>
+                        </select>
+                        <button class="o_winwin_btn o_winwin_btn_primary" t-on-click="() => this.createConsultant()">
+                            Crea Consulente
+                        </button>
+                    </div>
+                    <p class="o_winwin_card_sub" t-if="state.adminData and state.adminData.consultants.length">
+                        Consulenti esistenti:
+                        <t t-foreach="state.adminData.consultants" t-as="c" t-key="c.id">
+                            <t t-esc="c.name"/> (<t t-esc="c.brand"/>)<t t-if="!c_last">, </t>
+                        </t>
+                    </p>
+                </div>
+
+                <div class="o_winwin_admin_section">
+                    <h3>Registra Referral</h3>
+                    <p class="o_winwin_card_sub">
+                        Anagrafica minima - non collega ancora questa persona a un progetto specifico
+                        (quello resta un'azione separata sul singolo progetto).
+                    </p>
+                    <div class="o_winwin_admin_form">
+                        <input type="text" placeholder="Nome"
+                               t-att-value="state.newReferral.name"
+                               t-on-input="(ev) => state.newReferral.name = ev.target.value"/>
+                        <input type="email" placeholder="Email"
+                               t-att-value="state.newReferral.email"
+                               t-on-input="(ev) => state.newReferral.email = ev.target.value"/>
+                        <input type="tel" placeholder="Telefono"
+                               t-att-value="state.newReferral.phone"
+                               t-on-input="(ev) => state.newReferral.phone = ev.target.value"/>
+                        <button class="o_winwin_btn o_winwin_btn_primary" t-on-click="() => this.createReferral()">
+                            Registra Referral
+                        </button>
+                    </div>
+                    <p class="o_winwin_card_sub" t-if="state.adminData and state.adminData.referrals.length">
+                        Referral registrati:
+                        <t t-foreach="state.adminData.referrals" t-as="r" t-key="r.id">
+                            <t t-esc="r.name"/><t t-if="!r_last">, </t>
+                        </t>
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</t>
+
+</templates>

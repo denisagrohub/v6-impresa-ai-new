@@ -106,4 +106,45 @@
         <field name="phase_id" ref="phase_bp_discussione_consegna"/>
         <field name="sequence">60</field>
     </record>
+
+    <!-- Prodotto "Relazione Win-Win" (modello vedi-poi-paga): relazione
+         generata SUBITO e mostrata con blur selettivo ("vedo non vedo").
+         Il pagamento unico 49e sblocca la consegna integra. -->
+    <record id="product_winwin_product" model="product.product">
+        <field name="name">Relazione Win-Win</field>
+        <field name="type">service</field>
+        <field name="list_price">49.0</field>
+        <field name="sale_ok">True</field>
+        <field name="purchase_ok">False</field>
+    </record>
+
+    <record id="prodotto_consulenza_winwin" model="erpv6.prodotto.consulenza">
+        <field name="name">Relazione Win-Win</field>
+        <field name="product_id" ref="product_winwin_product"/>
+        <field name="description">Analisi rapida dai dati aziendali con quadrante Kairos e azioni win-win. La relazione viene preparata e mostrata in anteprima oscurata; il pagamento unico di 49 euro sblocca la consegna completa.</field>
+    </record>
+
+    <record id="prodotto_consulenza_ww_fase_1" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_winwin"/>
+        <field name="phase_id" ref="phase_bp_ricezione_informazioni"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="prodotto_consulenza_ww_fase_2" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_winwin"/>
+        <field name="phase_id" ref="phase_bp_ricerca_dati"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="prodotto_consulenza_ww_fase_3" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_winwin"/>
+        <field name="phase_id" ref="phase_bp_bozza"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="prodotto_consulenza_ww_fase_4" model="erpv6.prodotto.consulenza.fase">
+        <field name="prodotto_id" ref="prodotto_consulenza_winwin"/>
+        <field name="phase_id" ref="phase_bp_discussione_consegna"/>
+        <field name="sequence">40</field>
+        <field name="richiede_pagamento">True</field>
+        <field name="pagamento_tipo">unico</field>
+        <field name="importo_pagamento_unico">49.0</field>
+    </record>
 </odoo>

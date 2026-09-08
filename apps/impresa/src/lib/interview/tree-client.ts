@@ -59,6 +59,11 @@ export interface AnswerInterviewResult {
     completed: boolean;
     question: InterviewQuestionPayload | false;
     score: InterviewScore | null;
+    // Token report Win-Win (prompt web-async, 06/09/2026): valorizzato SOLO
+    // quando completed=true e il circuito erpv6_winwin_renderdata è
+    // installato lato Odoo (duck-typing in interview_api.py) - null altrimenti,
+    // mai un valore inventato lato client.
+    winwin_report_token: string | null;
 }
 
 async function parseOrThrow(response: Response): Promise<any> {

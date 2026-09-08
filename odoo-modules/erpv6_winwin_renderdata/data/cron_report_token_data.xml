@@ -1,0 +1,21 @@
+<odoo>
+    <data>
+        <!-- "Esegui appena possibile" (prompt web-async, 06/09/2026): niente
+             queue_job in questa istanza, quindi un cron periodico molto
+             frequente che pesca token in coda (FOR UPDATE SKIP LOCKED,
+             vedi _cron_process_pending_tokens) invece di un cron creato al
+             volo per ogni singolo caso - stesso principio "non duplicare"
+             gia' seguito altrove nel progetto per i cron (vedi commento in
+             erpv6_core_engine/models/core_node.py sul wrapping di cron
+             reali esistenti). -->
+        <record id="cron_process_pending_winwin_tokens" model="ir.cron">
+            <field name="name">Win-Win: elabora token report in coda</field>
+            <field name="model_id" ref="model_erpv6_winwin_report_token"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_process_pending_tokens()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

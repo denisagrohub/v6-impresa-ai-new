@@ -1,0 +1,65 @@
+<odoo>
+    <record id="view_project_email_log_tree" model="ir.ui.view">
+        <field name="name">erpv6.project.email.log.tree</field>
+        <field name="model">erpv6.project.email.log</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="create_date"/>
+                <field name="sender_email"/>
+                <field name="name"/>
+                <field name="relation_id"/>
+                <field name="recipient_relation_id"/>
+                <field name="match_status"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_project_email_log_form" model="ir.ui.view">
+        <field name="name">erpv6.project.email.log.form</field>
+        <field name="model">erpv6.project.email.log</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="sender_email"/>
+                        <field name="recipient_emails"/>
+                        <field name="cc_emails"/>
+                    </group>
+                    <group>
+                        <field name="match_status"/>
+                        <field name="matched_alias"/>
+                        <field name="relation_id"/>
+                        <field name="recipient_relation_id"/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_project_email_log" model="ir.actions.act_window">
+        <field name="name">Email Progetti</field>
+        <field name="res_model">erpv6.project.email.log</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_tracking_relation_projects" model="ir.actions.act_window">
+        <field name="name">Progetti</field>
+        <field name="res_model">erpv6.tracking.relation</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('parent_id', '=', False)]</field>
+        <field name="context">{'search_default_active': 1}</field>
+        <field name="help">Nodi radice: un progetto per riga (es. "Progetto TEE", "Progetto Investitori"). Apri una riga per vedere le parti collegate (nodi figlio).</field>
+    </record>
+
+    <menuitem id="menu_tracking_relation_projects" name="Progetti" parent="aeosv6_relation.menu_tracking_relation_root"
+              action="action_tracking_relation_projects" sequence="5"/>
+    <menuitem id="menu_project_email_log" name="Email Progetti" parent="aeosv6_relation.menu_tracking_relation_root"
+              action="action_project_email_log" sequence="20"/>
+
+    <menuitem id="menu_tracking_relation_projects_in_project_app" name="Progetti (Relay Email)"
+              parent="project.menu_main_pm" action="action_tracking_relation_projects" sequence="15"/>
+</odoo>
