@@ -1,0 +1,45 @@
+<odoo>
+    <record id="view_new_project_wizard_form" model="ir.ui.view">
+        <field name="name">erpv6.project.relay.new.project.wizard.form</field>
+        <field name="model">erpv6.project.relay.new.project.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="project_name"/>
+                </group>
+                <field name="line_ids">
+                    <list editable="bottom">
+                        <field name="name"/>
+                        <field name="partner_id"/>
+                        <field name="email_alias"/>
+                        <field name="ruolo"/>
+                        <field name="posta_in_gioco"/>
+                        <field name="mandato"/>
+                        <field name="richiede_nda"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_confirm" string="Crea Progetto" type="object" class="btn-primary"/>
+                    <button string="Annulla" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_new_project_wizard" model="ir.actions.act_window">
+        <field name="name">Nuovo Progetto</field>
+        <field name="res_model">erpv6.project.relay.new.project.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- 06/09/2026: la creazione di erpv6.tracking.relation e' ristretta a
+         base.group_system + erpv6_winwin_renderdata.group_project_relation_manager
+         (vedi CIRCUITO_TRIGGER_DASHBOARD_TRACKING_RELATION.md) - il menu va
+         nascosto agli stessi gruppi autorizzati, altrimenti chi non ha il
+         permesso vede comunque il wizard e lo scopre solo con un AccessError
+         Python alla conferma, invece che non vederlo affatto. -->
+    <menuitem id="menu_new_project_wizard" name="Nuovo Progetto" parent="aeosv6_relation.menu_tracking_relation_root"
+              action="action_new_project_wizard" sequence="1"
+              groups="base.group_system,aeosv6_relation.group_project_relation_manager"/>
+</odoo>

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button, Card, Badge, Input } from '@erpv6/ui';
 import { Loader2, CheckCircle2, ArrowRight, Sparkles, AlertTriangle, Lightbulb } from 'lucide-react';
@@ -11,6 +12,7 @@ import {
     type InterviewQuestionPayload,
     type InterviewScore,
 } from '@/lib/interview/tree-client';
+import { checkWinwinReportStatus } from '@/lib/winwin/report-client';
 
 // Motore dell'intervista ad albero (erpv6.interview.session lato Odoo, vedi
 // odoo-modules/erpv6_production/models/interview_engine.py), estratto da
@@ -31,15 +33,23 @@ import {
 type Step = 'intro' | 'question' | 'completed' | 'error';
 
 // Micro-copy dell'attesa dopo il quadrante Kairos (gia' mostrato, fermo):
-// il report completo (tre liste) non e' ancora generato qui (TASK-3, fuori
-// scope), questo e' solo il messaggio che accompagna l'attesa - testo
-// semplice a rotazione, nessuna barra/percentuale/spinner (vietati dal task).
+// testo semplice a rotazione, nessuna barra/percentuale/spinner (vietati dal
+// task originale, TASK-3). Dal prompt web-async (06/09/2026): allo scadere
+// di WAIT_TIMEOUT_MS parte UNA SOLA chiamata di stato (mai un ciclo di
+// polling) al circuito erpv6_winwin_renderdata - se il report e' gia'
+// pronto (Gate 3B convergente entro l'attesa) si passa subito alla pagina
+// del report, altrimenti resta il messaggio "te lo mandiamo via email" gia'
+// scritto sotto (il messaggio stesso NON e' cambiato, solo collegato a un
+// controllo reale invece di essere puramente estetico).
 const WAIT_MESSAGES = [
     'Stiamo leggendo i tuoi dati...',
     'Stiamo confrontando con casi simili al tuo...',
     'Stiamo verificando ogni numero prima di mostrartelo...',
 ];
-const WAIT_TIMEOUT_MS = 18000;
+// Costante unica, non hardcoded altrove (richiesto esplicitamente dal
+// prompt): 30s di default, il Gate 3B nei test precedenti ha impiegato da
+// meno di un minuto ad alcuni minuti a seconda della convergenza AI.
+const WAIT_TIMEOUT_MS = 30000;
 const WAIT_ROTATE_MS = 2500;
 
 export interface InterviewTreeFlowProps {
@@ -87,6 +97,13 @@ export function InterviewTreeFlow({
     const [altroActive, setAltroActive] = useState(false);
     const [waitPhraseIndex, setWaitPhraseIndex] = useState(0);
     const [waitTimedOut, setWaitTimedOut] = useState(false);
+    // Token report Win-Win (prompt web-async, 06/09/2026): arrivato subito
+    // nella risposta di completamento (vedi submitAnswer), null se il
+    // circuito erpv6_winwin_renderdata non e' installato lato Odoo - in
+    // quel caso il comportamento resta quello di sempre (nessun redirect,
+    // solo il messaggio statico gia' esistente).
+    const [winwinToken, setWinwinToken] = useState<string | null>(null);
+    const router = useRouter();
 
     useEffect(() => {
         if (step !== 'completed') return;
@@ -98,12 +115,36 @@ export function InterviewTreeFlow({
         const timeoutTimer = setTimeout(() => {
             setWaitTimedOut(true);
             clearInterval(rotateTimer);
+            // Fase 3 del prompt web-async: UNA SOLA chiamata di stato dopo
+            // l'attesa fissa, mai un ciclo di polling. Se il token non c'e'
+            // (modulo non installato, o creazione fallita lato Odoo, vedi
+            // interview_api.py) non si tenta nulla - resta il messaggio
+            // statico "te lo mandiamo via email" gia' scritto sotto, che e'
+            // comunque corretto anche in quel caso limite.
+            if (!winwinToken) return;
+            checkWinwinReportStatus(winwinToken)
+                .then((status) => {
+                    if (status.stato === 'pronto') {
+                        router.push(`/report/${winwinToken}`);
+                    }
+                    // 'in_elaborazione': nessuna azione, il messaggio statico
+                    // gia' a video resta corretto (l'email arriva comunque,
+                    // gestita lato backend dal cron - Fase 2 del prompt).
+                })
+                .catch(() => {
+                    // Silenzioso di proposito: un fallimento della sola
+                    // chiamata di stato non deve mai rompere una pagina di
+                    // "intervista completata" gia' andata a buon fine -
+                    // l'email arriva comunque indipendentemente da questa
+                    // chiamata (gestita lato backend), quindi non e' un dato
+                    // fabbricato lasciare a video il messaggio statico.
+                });
         }, WAIT_TIMEOUT_MS);
         return () => {
             clearInterval(rotateTimer);
             clearTimeout(timeoutTimer);
         };
-    }, [step]);
+    }, [step, winwinToken, router]);
 
     useEffect(() => {
         fetchInterviewProducts()
@@ -168,6 +209,7 @@ export function InterviewTreeFlow({
             if (result.completed || !result.question) {
                 setQuestion(null);
                 setScore(result.score);
+                setWinwinToken(result.winwin_report_token ?? null);
                 setStep('completed');
                 onCompleted?.(leadId);
             } else {

@@ -18,7 +18,7 @@
     'author': 'V6 Impresa AI',
     'website': 'https://v6impresa.ai',
     'license': 'LGPL-3',
-    'depends': [
+    'depends': ['erpv6_library', 
         'base', 
         'web', 
         'erpv6_kb', 
@@ -32,6 +32,7 @@
         'views/typst_document_views.xml',
         'views/typst_template_views.xml',
         'views/menu_views.xml',
+        'data/typst_template_winwin.xml',
         'data/typst_templates_data.xml',
     ],
     'demo': [],

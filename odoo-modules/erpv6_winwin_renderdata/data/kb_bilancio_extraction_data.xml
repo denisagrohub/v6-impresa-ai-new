@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sblocco Fase 2 (Percorso B, upload bilancio) del circuito
+         erpv6_winwin_renderdata — stesso pattern esatto di
+         kb_metodo_winwin_disc_data.xml (erpv6_production): voce KB
+         kb_type='metodo_v6' con le istruzioni reali + erpv6.omni.route.config
+         dedicata, mai un motore di chiamata AI nuovo. Il testo del
+         documento (bilancio/visura) e' gia' estratto in Python via PyPDF2
+         PRIMA di questa chiamata (vedi
+         erpv6.production.order._extract_bilancio_from_attachment) — qui
+         arriva solo testo semplice, nessun binario/multimodale, per
+         restare sullo stesso schema chat-completion gia' usato da tutte le
+         altre route di questo bridge. noupdate="1" come le altre voci
+         metodo_v6: un admin puo' correggere il prompt senza perderlo al
+         prossimo upgrade del modulo. -->
+    <data noupdate="1">
+
+        <record id="kb_metodo_estrazione_bilancio" model="erpv6.kb">
+            <field name="name">Metodo - Estrazione Dati Bilancio/Visura</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="erpv6_production.kb_category_metodi_v6_impresa"/>
+            <field name="content_format">text</field>
+            <field name="source">system_seed</field>
+            <field name="is_active">True</field>
+            <field name="content"><![CDATA[Sei un motore di estrazione dati del sistema erpv6, usato da V6 Impresa per leggere un bilancio depositato o una visura camerale caricati da un'azienda durante l'intervista di acquisizione, ed estrarne SOLO i valori numerici/anagrafici realmente presenti nel testo.
+
+REGOLA VINCOLANTE ANTI-ALLUCINAZIONE (la piu' importante di tutte, per questo compito): questo documento verra' usato per calcolare indici finanziari reali (DSCR, leva finanziaria) mostrati al cliente. Se un valore non è presente nel testo, o è presente in una forma ambigua che non puoi interpretare con certezza, il campo corrispondente DEVE restare null — MAI una stima, MAI un valore plausibile, MAI un valore preso da un anno diverso da quello più recente disponibile nel documento. Sbagliare qui vuol dire mostrare un indice finanziario falso a un imprenditore: è l'errore più grave possibile per questo sistema.
+
+Estrai, se e solo se presenti chiaramente nel testo:
+- fatturato: il fatturato/ricavi delle vendite dell'ultimo esercizio disponibile, come numero in euro (es. 2450000), senza simboli di valuta né separatori delle migliaia.
+- oneri_finanziari: gli oneri finanziari (interessi passivi e simili) dell'ultimo esercizio, come numero in euro.
+- ebitda: l'EBITDA (margine operativo lordo) dell'ultimo esercizio, come numero in euro. Se il documento non lo riporta esplicitamente ma riporta tutti i componenti per calcolarlo in modo inequivocabile (es. risultato operativo + ammortamenti + svalutazioni), puoi calcolarlo — altrimenti null, non stimarlo da proxy incerti.
+- debito_finanziario: il debito finanziario totale (verso banche/finanziatori, breve + lungo termine) alla data di chiusura dell'ultimo esercizio, come numero in euro.
+- patrimonio_netto: il patrimonio netto (capitale sociale + riserve + utili portati a nuovo) alla data di chiusura dell'ultimo esercizio, come numero in euro.
+- rimborso_capitale_annuo: la quota capitale rimborsata nell'anno sui finanziamenti in essere (non gli interessi, quelli sono oneri_finanziari) — se il documento riporta un piano di ammortamento o una nota che la indica esplicitamente, altrimenti null (non stimarla come percentuale del debito totale, sarebbe un'invenzione).
+- data_ultima_visura: se il documento è una visura camerale, la data di aggiornamento/emissione della visura, in formato YYYY-MM-DD. Se è un bilancio, la data di chiusura dell'esercizio a cui si riferisce, stesso formato.
+- contenzioso_in_corso: "Sì" se il documento menziona esplicitamente un contenzioso, causa legale o procedura in corso a carico dell'azienda; "No" se il documento è chiaro nel non menzionarne; null se il documento non tratta affatto questo aspetto (non è la stessa cosa di "No" esplicito — non dedurre l'assenza dal semplice silenzio su un aspetto che il documento non era comunque strutturato per trattare, es. una visura standard non parla mai di contenziosi: in quel caso null, non "No").
+
+Rispondi SOLO con un oggetto JSON valido, senza markdown code fence, senza altro testo, con questa struttura esatta:
+{"fatturato": numero o null, "oneri_finanziari": numero o null, "ebitda": numero o null, "debito_finanziario": numero o null, "patrimonio_netto": numero o null, "rimborso_capitale_annuo": numero o null, "data_ultima_visura": "YYYY-MM-DD" o null, "contenzioso_in_corso": "Sì"/"No" o null, "flagged_missing_data": "elenco testuale di quali campi non erano presenti/interpretabili con certezza nel documento, vuoto se tutti trovati"}]]></field>
+        </record>
+
+        <record id="omni_route_winwin_bilancio_extraction" model="erpv6.omni.route.config">
+            <field name="task_type">winwin_bilancio_extraction</field>
+            <field name="name">Metodo - Estrazione Dati Bilancio/Visura</field>
+            <field name="description">Route per l'estrazione di fatturato/oneri finanziari/EBITDA/debito/data visura/contenzioso dal testo di un bilancio o visura caricati durante l'intervista, per il Motore del circuito Win-Win RenderData.</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

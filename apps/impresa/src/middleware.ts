@@ -41,6 +41,13 @@ const PUBLIC_PATHS = [
   // pagina pubblica) verso erpv6.interview.session lato Odoo - visitatori
   // anonimi, stesso schema di /api/leads POST qui sotto.
   '/api/interview-tree',
+  // Report Win-Win asincrono (prompt web-async, 06/09/2026): la pagina
+  // /report/[token] e le sue due API di supporto sono raggiunte da un
+  // cliente anonimo via link email o redirect diretto a fine intervista -
+  // il token stesso e' l'unico segreto (non enumerabile), niente cookie di
+  // sessione da aspettarsi qui, stesso principio di /intervista/guidata.
+  '/api/winwin-report',
+  '/report',
 ];
 
 export function middleware(request: NextRequest) {

@@ -181,9 +181,27 @@ class InterviewAPIController(APIBaseController):
                 'prontezza_totale': matrix.prontezza_totale,
                 'prontezza_level': matrix.prontezza_level,
             }
+        # Token report Win-Win (prompt web-async, 06/09/2026): generato
+        # SUBITO al completamento, prima che il Gate 3B (lento) finisca -
+        # duck-typing, erpv6_api_gateway resta agnostico da
+        # erpv6_winwin_renderdata (stesso pattern hasattr gia' usato sopra
+        # per _start_production/_promote_to_opportunity).
+        winwin_token = None
+        if completed and 'erpv6.winwin.report.token' in env:
+            order = env['erpv6.production.order'].sudo().search(
+                [('lead_id', '=', session.lead_id.id)], order='create_date desc', limit=1)
+            if order:
+                try:
+                    token = env['erpv6.winwin.report.token'].create_for_order(order)
+                    winwin_token = token.token
+                except Exception:
+                    _logger.exception(
+                        "Sessione intervista #%s: creazione token report Win-Win fallita.", session.id)
+
         self._log_api_call('/api/v1/interview/answer', 'POST', None, 200, start_time)
         return self._json_response({
             'completed': completed,
             'question': payload,
             'score': score,
+            'winwin_report_token': winwin_token,
         }, 200)

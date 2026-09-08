@@ -5,7 +5,7 @@
     'summary': 'Orchestratore API per Next.js e AI',
     'depends': [
         'base', 'web', 'mail', 'crm',
-        'erpv6_core', 'erpv6_kb', 'erpv6_booking',
+        'erpv6_core', 'erpv6_kb', 'aeosv6_booking',
         'erpv6_consulting', 'erpv6_tracking',
         'erpv6_omni_bridge',  # 🔗 Aggiunto per integrazione AI
         'erpv6_bandi',        # richiesto da bandi_api.py

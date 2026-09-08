@@ -1,0 +1,41 @@
+<odoo>
+    <record id="view_send_project_email_wizard_form" model="ir.ui.view">
+        <field name="name">erpv6.project.relay.send.email.wizard.form</field>
+        <field name="model">erpv6.project.relay.send.email.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Invia Email dal Progetto">
+                <group>
+                    <field name="project_id" readonly="1"/>
+                    <field name="project_email" readonly="1"/>
+                    <field name="partner_ids" widget="many2many_tags"
+                           domain="[('id', 'in', available_partner_ids)]"/>
+                    <field name="available_partner_ids" invisible="1"/>
+                    <field name="extra_emails"/>
+                    <field name="subject"/>
+                </group>
+                <field name="body"/>
+                <footer>
+                    <button name="action_send" type="object" string="Invia" class="btn-primary"/>
+                    <button string="Annulla" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_tracking_relation_form_send_button" model="ir.ui.view">
+        <field name="name">erpv6.tracking.relation.form.send.button</field>
+        <field name="model">erpv6.tracking.relation</field>
+        <field name="inherit_id" ref="aeosv6_relation.view_tracking_relation_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_open_send_email_wizard" type="object"
+                            string="Invia Email dal Progetto" class="btn-primary"/>
+                </header>
+            </xpath>
+            <xpath expr="//field[@name='email_alias']" position="after">
+                <field name="email_alias_full" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

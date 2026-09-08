@@ -1,0 +1,348 @@
+// Dashboard Consulente Win-Win - palette v6impresa.it, stessi valori
+// esatti gia' usati nella pagina report pubblica (apps/impresa, BlurLock.tsx)
+// per coerenza di brand tra sito/PDF/strumento interno.
+$winwin-navy: #0F1E3C;
+$winwin-terracotta: #D4703A;
+$winwin-crema: #F7F3ED;
+$winwin-text: #1C2128;
+
+.o_winwin_dashboard {
+    padding: 24px;
+    background: $winwin-crema;
+    min-height: 100%;
+    font-family: inherit;
+    color: $winwin-text;
+    // 07/09/2026 (fix mobile, problema 1+2): niente in questo componente
+    // deve poter causare overflow orizzontale della pagina - su mobile,
+    // un overflow orizzontale anche minimo trasforma i tap in gesture di
+    // scroll (comportamento nativo dei browser mobile), che e' la causa
+    // piu' probabile per cui "i progetti non si aprono" al tocco anche
+    // quando il gestore click e' corretto. box-sizing globale +
+    // max-width: 100% su tutto cio' che potrebbe allargarsi.
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-x: hidden;
+
+    * {
+        box-sizing: border-box;
+    }
+
+    .o_winwin_header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: $winwin-navy;
+            margin: 0;
+        }
+    }
+
+    .o_winwin_tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        max-width: 100%;
+    }
+
+    .o_winwin_tab {
+        border: 1px solid rgba($winwin-navy, 0.2);
+        background: white;
+        color: $winwin-navy;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+
+        &.active {
+            background: $winwin-navy;
+            color: white;
+        }
+    }
+
+    // Schermi stretti (telefono, <576px): tab impilate su tutta la
+    // larghezza invece di affiancate - evita sia l'overflow sia tab
+    // troppo strette per il dito.
+    @media (max-width: 576px) {
+        padding: 12px;
+
+        .o_winwin_header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .o_winwin_tabs {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .o_winwin_tab {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .o_winwin_card, .o_winwin_project {
+            width: 100%;
+        }
+
+        .o_winwin_card {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .o_winwin_card_meta {
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .o_winwin_project_head {
+            flex-wrap: wrap;
+        }
+    }
+
+    .o_winwin_badge {
+        background: $winwin-terracotta;
+        color: white;
+        border-radius: 999px;
+        font-size: 11px;
+        padding: 1px 7px;
+        font-weight: 700;
+    }
+
+    .o_winwin_error {
+        background: #fdecea;
+        border: 1px solid #f5c2c0;
+        color: #842029;
+        padding: 10px 14px;
+        border-radius: 4px;
+        margin-bottom: 16px;
+    }
+
+    .o_winwin_loading, .o_winwin_empty {
+        color: rgba($winwin-text, 0.6);
+        padding: 24px 0;
+    }
+
+    .o_winwin_card, .o_winwin_project {
+        background: white;
+        border: 1px solid rgba($winwin-navy, 0.08);
+        border-radius: 6px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 2px rgba($winwin-navy, 0.04);
+    }
+
+    .o_winwin_card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .o_winwin_card_title {
+        font-weight: 700;
+        color: $winwin-navy;
+        font-size: 15px;
+    }
+
+    // 07/09/2026 (PARTE B): contatore notifiche non lette per progetto -
+    // stessa palette, terracotta per farlo risaltare come un vero avviso.
+    .o_winwin_badge {
+        display: inline-block;
+        margin-left: 8px;
+        min-width: 18px;
+        padding: 1px 6px;
+        border-radius: 10px;
+        background: $winwin-terracotta;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .o_winwin_card_sub {
+        font-size: 13px;
+        color: rgba($winwin-text, 0.65);
+    }
+
+    .o_winwin_notes {
+        font-size: 13px;
+        margin-top: 6px;
+        font-style: italic;
+        color: rgba($winwin-text, 0.75);
+    }
+
+    .o_winwin_card_meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .o_winwin_quadrante {
+        text-transform: capitalize;
+        background: rgba($winwin-navy, 0.08);
+        color: $winwin-navy;
+        border-radius: 4px;
+        padding: 3px 10px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .o_winwin_criticita {
+        color: #b02a2a;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .o_winwin_btn {
+        border: none;
+        border-radius: 4px;
+        padding: 8px 16px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .o_winwin_btn_primary {
+        background: $winwin-terracotta;
+        color: white;
+
+        &:hover {
+            filter: brightness(1.1);
+        }
+    }
+
+    // 07/09/2026 (fix, problema 2): la testata non e' piu' un unico div
+    // cliccabile - la parte "titolo" (o_winwin_project_head_main) apre/
+    // chiude il dettaglio inline, un bottone esplicito e separato apre la
+    // scheda nativa Odoo - due modi indipendenti di "aprire" il progetto,
+    // cosi' non dipende da un solo gestore di click su mobile.
+    .o_winwin_project_head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+    }
+
+    .o_winwin_project_head_main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
+        cursor: pointer;
+        // Area di tocco minima consigliata per mobile (~44px) - la
+        // testata con solo testo poteva essere piu' bassa del dito.
+        min-height: 32px;
+    }
+
+    .o_winwin_btn_open {
+        background: white;
+        border: 1px solid rgba($winwin-navy, 0.25);
+        color: $winwin-navy;
+        white-space: nowrap;
+        flex-shrink: 0;
+
+        &:hover {
+            background: rgba($winwin-navy, 0.06);
+        }
+    }
+
+    .o_winwin_badge_clickable {
+        cursor: pointer;
+
+        &:hover {
+            filter: brightness(1.15);
+        }
+    }
+
+    .o_winwin_project_body {
+        padding: 0 20px 20px 20px;
+        border-top: 1px solid rgba($winwin-navy, 0.08);
+    }
+
+    .o_winwin_section {
+        margin-top: 16px;
+
+        h3 {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: $winwin-terracotta;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+    }
+
+    .o_winwin_criticita_list li {
+        color: #b02a2a;
+    }
+
+    .o_winwin_urgenti_list li {
+        color: #a8710f;
+    }
+
+    .o_winwin_email_feed li {
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    // Tab Amministrazione (07/09/2026) - stessa palette, nessuna
+    // variabile nuova.
+    .o_winwin_admin_section {
+        background: #fff;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px rgba($winwin-navy, 0.08);
+
+        h3 {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: $winwin-terracotta;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+    }
+
+    .o_winwin_admin_form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+
+        input, select {
+            padding: 8px 10px;
+            border: 1px solid rgba($winwin-navy, 0.2);
+            border-radius: 6px;
+            font-size: 13px;
+        }
+    }
+
+    .o_winwin_admin_message {
+        background: rgba($winwin-terracotta, 0.1);
+        color: $winwin-navy;
+        padding: 8px 14px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-size: 13px;
+    }
+}

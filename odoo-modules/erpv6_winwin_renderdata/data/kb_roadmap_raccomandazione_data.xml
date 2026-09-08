@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Prompt "Roadmap + Raccomandazione" (06/09/2026): tempi e frasi
+             come dato KB, mai generati/hardcoded - stesso pattern di
+             kb_winwin_thresholds_data.xml (Fase 1). Collegati allo STESSO
+             nodo del circuito (node_winwin_renderdata_build) tramite
+             kb_link distinti per kb_category_id (name su erpv6.core.kb_link
+             e' un campo COMPUTATO - _compute_name, verificato leggendo il
+             codice - non utilizzabile come chiave di lookup manuale:
+             qualunque valore scritto in XML viene sovrascritto al primo
+             ricalcolo). _resolve_kb_link()/_winwin_build_raccomandazione()
+             cercano il kb_link per kb_category_id.name esplicito. -->
+
+        <record id="kb_category_winwin_tempistiche" model="erpv6.kb.category">
+            <field name="name">Tempistiche Standard Processo (Win-Win)</field>
+            <field name="kb_type">normativo</field>
+            <field name="is_transversal" eval="True"/>
+        </record>
+
+        <!-- Tempi dichiarati come stime plausibili (nessuna fonte
+             autorevole verificata puntualmente per ciascun bando/banca) -
+             il campo 'riferimento' lo dichiara esplicitamente per ogni
+             voce, cosi' chi legge la roadmap sa che non e' un dato
+             contrattuale. Punto di partenza: caso ISMEA/Credito 4.0 gia'
+             usato nei test precedenti del circuito (istruttoria bancaria
+             60-90gg e' la cifra ricorrente in quel contesto). -->
+        <record id="kb_winwin_tempistiche_standard" model="erpv6.kb">
+            <field name="name">Tempistiche Standard — Bandi e Istruttorie</field>
+            <field name="kb_type">normativo</field>
+            <field name="category_id" ref="kb_category_winwin_tempistiche"/>
+            <field name="content_format">json</field>
+            <field name="source">system_seed</field>
+            <field name="is_active" eval="True"/>
+            <field name="content"><![CDATA[{
+  "istruttoria_bancaria": {
+    "giorni_min": 60, "giorni_max": 90,
+    "descrizione": "Istruttoria bancaria/dell'ente erogatore dopo la presentazione della domanda di finanziamento.",
+    "riferimento": "stima plausibile (caso Credito 4.0/ISMEA), non verificata puntualmente sulla banca/ente specifico - da confermare caso per caso"
+  },
+  "finestra_bando_generica": {
+    "giorni_min": 30, "giorni_max": 60,
+    "descrizione": "Finestra tipica per la presentazione della domanda su un bando a sportello.",
+    "riferimento": "stima plausibile generica, varia molto per bando - da verificare sulla fonte ufficiale del bando specifico"
+  }
+}]]></field>
+        </record>
+
+        <record id="kb_link_winwin_tempistiche" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_winwin_renderdata_build"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="kb_winwin_tempistiche_standard"/>
+            <field name="kb_category_id" ref="kb_category_winwin_tempistiche"/>
+            <field name="data_format">json</field>
+        </record>
+
+        <record id="kb_category_winwin_raccomandazione" model="erpv6.kb.category">
+            <field name="name">Frasi Raccomandazione (Win-Win)</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal" eval="True"/>
+        </record>
+
+        <!-- Template a slot, non generativo (principio del prompt: "non
+             aprire una nuova chiamata generativa"). 3 varianti in base a
+             quali elementi sono presenti nel caso - se nessuna combinazione
+             matcha (nessun elemento bloccante NE' azione win-win), la
+             raccomandazione resta assente (None), mai un placeholder
+             generico: coerente col resto del circuito. -->
+        <record id="kb_winwin_frasi_raccomandazione" model="erpv6.kb">
+            <field name="name">Frasi Raccomandazione — Template a Slot</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_winwin_raccomandazione"/>
+            <field name="content_format">json</field>
+            <field name="source">system_seed</field>
+            <field name="is_active" eval="True"/>
+            <field name="content"><![CDATA[{
+  "tutti_presenti": "Procedere con {azione_winwin}, dando priorità a risolvere prima: {elemento_bloccante} — unico elemento bloccante identificato. La posizione dell'azienda nel quadrante \"{quadrante}\" conferma che è il momento giusto per muoversi.",
+  "solo_winwin": "Nessun elemento bloccante identificato: si può procedere direttamente con {azione_winwin}, coerentemente con la posizione dell'azienda nel quadrante \"{quadrante}\".",
+  "solo_bloccante": "Prima di ogni altro passo va risolto: {elemento_bloccante}. La posizione dell'azienda nel quadrante \"{quadrante}\" resta da confermare una volta superato questo punto."
+}]]></field>
+        </record>
+
+        <record id="kb_link_winwin_raccomandazione" model="erpv6.core.kb_link">
+            <field name="target_node_id" ref="node_winwin_renderdata_build"/>
+            <field name="resolution_mode">fixed_kb</field>
+            <field name="kb_id" ref="kb_winwin_frasi_raccomandazione"/>
+            <field name="kb_category_id" ref="kb_category_winwin_raccomandazione"/>
+            <field name="data_format">json</field>
+        </record>
+
+    </data>
+</odoo>

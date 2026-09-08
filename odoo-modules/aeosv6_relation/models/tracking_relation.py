@@ -1,0 +1,106 @@
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
+
+
+class Erpv6TrackingRelation(models.Model):
+    """Motore generico per archi/gerarchia progetto<->parte (Denis, prompt
+    TEE 04/09/2026). Non esisteva come modello reale prima di questo
+    modulo -- la sola menzione trovata nel codice era una decisione del
+    24/08 di NON costruirlo per gli archi concettuali agente<->proposta
+    (quelli restano su Neo4j, vedi erpv6_agent/models/agent_neo4j_client.py).
+    Questo modello copre un caso diverso: relazioni progetto/parte che
+    devono essere interrogabili subito da una view Odoo (dashboard OWL),
+    non archi concettuali per un motore di pattern-matching -- per questo
+    resta una tabella SQL semplice, non un arco Neo4j."""
+    _name = 'erpv6.tracking.relation'
+    _description = 'Relazione di Tracciamento Progetto/Parte'
+    _inherit = ['mail.thread']
+    _parent_name = 'parent_id'
+    _parent_store = True
+    _rec_name = 'name'
+
+    name = fields.Char(required=True, tracking=True)
+    active = fields.Boolean(default=True)
+
+    parent_id = fields.Many2one(
+        'erpv6.tracking.relation', string='Nodo Padre',
+        index=True, ondelete='cascade', tracking=True,
+    )
+    parent_path = fields.Char(index=True)
+    child_ids = fields.One2many(
+        'erpv6.tracking.relation', 'parent_id', string='Nodi Figlio',
+    )
+
+    partner_id = fields.Many2one(
+        'res.partner', string='Parte Collegata', tracking=True,
+        help="La controparte (cliente, trader, ente...) che questo nodo rappresenta. Vuoto sul nodo padre.",
+    )
+
+    ruolo = fields.Selection([
+        ('gestore', 'Gestore'),
+        ('parte_attiva', 'Parte Attiva'),
+        ('osservatore', 'Osservatore'),
+    ], string='Ruolo', tracking=True)
+
+    posta_in_gioco = fields.Selection([
+        ('standard', 'Standard'),
+        ('alta', 'Alta'),
+    ], string='Posta in Gioco', default='standard', tracking=True)
+
+    mandato = fields.Selection([
+        ('pieno', 'Pieno'),
+        ('parziale', 'Parziale'),
+        ('nessuno', 'Nessuno'),
+        ('non_applicabile', 'Non Applicabile'),
+    ], string='Mandato', help='Rilevante solo per archi tra parti che negoziano per conto di altre (es. consulente->trader).')
+
+    email_alias = fields.Char(
+        string='Alias Email (local-part)', tracking=True,
+        help="Dal 05/09/2026 va normalmente sul nodo PADRE (progetto): "
+             "es. 'progetto-tee' per progetto-tee@v6sviluppoimpresa.it, "
+             "l'indirizzo unico che le parti esterne mettono in copia "
+             "scrivendosi sulle loro email personali -- chi ha scritto si "
+             "riconosce dal mittente confrontato con partner_id.email dei "
+             "nodi figlio (vedi route_project_email in aeosv6_dispatch.py), "
+             "non serve un alias per parte. Resta comunque possibile un "
+             "alias diretto su un nodo figlio (pattern precedente) se serve "
+             "un indirizzo dedicato a una singola parte.",
+    )
+
+    richiede_nda = fields.Boolean(
+        string='Richiede NDA/Contratto prima di attivazione', default=False, tracking=True,
+    )
+    contract_ids = fields.One2many(
+        'erpv6.contract', 'relation_id', string='Contratti Collegati',
+    )
+    nda_gate_ok = fields.Boolean(
+        string='Gate NDA Soddisfatto', compute='_compute_nda_gate_ok', store=True,
+    )
+
+    @api.depends('richiede_nda', 'contract_ids.document_ids.doc_type', 'contract_ids.document_ids.signed_at')
+    def _compute_nda_gate_ok(self):
+        for rec in self:
+            if not rec.richiede_nda:
+                rec.nda_gate_ok = True
+                continue
+            signed_nda = rec.contract_ids.document_ids.filtered(
+                lambda d: d.doc_type == 'nda' and d.signed_at
+            )
+            rec.nda_gate_ok = bool(signed_nda)
+
+    _sql_constraints = [
+        ('email_alias_unique', 'unique(email_alias)',
+         "Questo alias email è già assegnato a un altro nodo."),
+    ]
+
+    @api.constrains('parent_id')
+    def _check_parent_not_self(self):
+        if self._has_cycle():
+            raise ValidationError(_("Non è possibile creare un ciclo tra nodi padre/figlio."))
+
+    def can_communicate(self):
+        """Usato dal parser email (Fase 2) e dal digest (Fase 3) come gate
+        unico prima di inviare qualunque comunicazione sostanziale verso
+        questo nodo."""
+        self.ensure_one()
+        return self.nda_gate_ok

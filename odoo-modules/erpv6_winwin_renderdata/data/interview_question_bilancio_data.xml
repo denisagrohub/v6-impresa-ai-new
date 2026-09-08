@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sblocco Fase 2 (raccolta dati bilancio) del circuito
+         erpv6_winwin_renderdata. Attaccata sotto
+         erpv6_production.interview_q_obiettivi (l'ultima domanda esistente
+         dell'albero, oggi senza figli) — estende l'intervista esistente
+         senza toccare erpv6_production. bando_target e' sempre chiesta
+         (non e' un dato che un bilancio possa contenere). Sotto di lei,
+         l'upload (Percorso B) e' il nodo padre; le 5 domande dirette sotto
+         sono il fallback Percorso A, proposte SOLO per i campi che
+         l'estrazione dal documento non ha trovato (vedi
+         erpv6.production.order._extract_bilancio_from_attachment, che crea
+         una risposta automatica per ogni campo estratto con successo — il
+         walker dell'albero, _find_next_question, invariato, salta di
+         conseguenza le domande gia' "risposte" automaticamente).
+         noupdate="1", stessa convenzione di interview_question_data.xml. -->
+    <data noupdate="1">
+
+        <!-- Sempre chiesta, indipendentemente dall'upload: non e' un dato
+             che un bilancio/visura possa contenere (e' un'intenzione del
+             cliente, non un fatto storico), quindi resta fuori dal ramo
+             condizionale upload/fallback sotto. -->
+        <record id="interview_q_bando_target" model="erpv6.interview.question">
+            <field name="name">bando_target</field>
+            <field name="question_text">C'è un bando o un'agevolazione specifica a cui vuoi accedere? Se sì, quale?</field>
+            <field name="parent_id" ref="erpv6_production.interview_q_obiettivi"/>
+            <field name="field_key">bando_target</field>
+            <field name="answer_type">text</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">5</field>
+        </record>
+
+        <record id="interview_q_bilancio_upload" model="erpv6.interview.question">
+            <field name="name">bilancio_upload</field>
+            <field name="question_text">Se hai un bilancio depositato o una visura camerale recente, caricali qui: estraiamo automaticamente i dati necessari senza altre domande. Puoi anche saltare questo passo.</field>
+            <field name="parent_id" ref="interview_q_bando_target"/>
+            <field name="answer_type">file</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="interview_q_oneri_finanziari" model="erpv6.interview.question">
+            <field name="name">oneri_finanziari</field>
+            <field name="question_text">Qual è l'importo annuo degli oneri finanziari (interessi passivi) della tua azienda, in euro?</field>
+            <field name="parent_id" ref="interview_q_bilancio_upload"/>
+            <field name="field_key">oneri_finanziari</field>
+            <field name="answer_type">number</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="interview_q_ebitda" model="erpv6.interview.question">
+            <field name="name">ebitda</field>
+            <field name="question_text">Qual è l'EBITDA (margine operativo lordo) dell'ultimo esercizio, in euro?</field>
+            <field name="parent_id" ref="interview_q_bilancio_upload"/>
+            <field name="field_key">ebitda</field>
+            <field name="answer_type">number</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">20</field>
+        </record>
+
+        <record id="interview_q_debito_finanziario" model="erpv6.interview.question">
+            <field name="name">debito_finanziario</field>
+            <field name="question_text">Qual è il debito finanziario totale (verso banche/finanziatori), in euro?</field>
+            <field name="parent_id" ref="interview_q_bilancio_upload"/>
+            <field name="field_key">debito_finanziario</field>
+            <field name="answer_type">number</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">30</field>
+        </record>
+
+        <record id="interview_q_patrimonio_netto" model="erpv6.interview.question">
+            <field name="name">patrimonio_netto</field>
+            <field name="question_text">Qual è il patrimonio netto dell'ultimo esercizio (capitale + riserve + utili portati a nuovo), in euro?</field>
+            <field name="parent_id" ref="interview_q_bilancio_upload"/>
+            <field name="field_key">patrimonio_netto</field>
+            <field name="answer_type">number</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">40</field>
+        </record>
+
+        <record id="interview_q_rimborso_capitale_annuo" model="erpv6.interview.question">
+            <field name="name">rimborso_capitale_annuo</field>
+            <field name="question_text">Quanto rimborsi ogni anno di sola quota capitale sui finanziamenti in corso (non gli interessi), in euro?</field>
+            <field name="parent_id" ref="interview_q_bilancio_upload"/>
+            <field name="field_key">rimborso_capitale_annuo</field>
+            <field name="answer_type">number</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">50</field>
+        </record>
+
+        <record id="interview_q_data_ultima_visura" model="erpv6.interview.question">
+            <field name="name">data_ultima_visura</field>
+            <field name="question_text">Qual è la data dell'ultima visura camerale (o della chiusura dell'ultimo bilancio)?</field>
+            <field name="parent_id" ref="interview_q_bilancio_upload"/>
+            <field name="field_key">data_ultima_visura</field>
+            <field name="answer_type">date</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">60</field>
+        </record>
+
+        <record id="interview_q_contenzioso_in_corso" model="erpv6.interview.question">
+            <field name="name">contenzioso_in_corso</field>
+            <field name="question_text">C'è un contenzioso legale in corso a carico dell'azienda?</field>
+            <field name="parent_id" ref="interview_q_bilancio_upload"/>
+            <field name="field_key">contenzioso_in_corso</field>
+            <field name="answer_type">select</field>
+            <field name="always_show_altro">False</field>
+            <field name="sequence">70</field>
+        </record>
+        <record id="interview_q_contenzioso_opt1" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_contenzioso_in_corso"/>
+            <field name="value">Sì</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="interview_q_contenzioso_opt2" model="erpv6.interview.question.option">
+            <field name="question_id" ref="interview_q_contenzioso_in_corso"/>
+            <field name="value">No</field>
+            <field name="sequence">20</field>
+        </record>
+
+    </data>
+</odoo>

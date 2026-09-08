@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- 06/09/2026 (prompt "Trigger progetto + Dashboard consulente"):
+             oggi CHIUNQUE con un utente Odoo interno puo' creare un nodo
+             erpv6.tracking.relation (base.group_user, perm_create=1 sotto).
+             Decisione dell'utente: restringere a admin + delegati nominati
+             esplicitamente. Il permesso va tolto sulla riga ACL originale
+             (ir.model.access.csv di questo modulo) e ricreato, additivo,
+             per il nuovo gruppo - i permessi Odoo sono un OR tra le righe
+             che matchano, quindi la restrizione DEVE avvenire sulla riga
+             originale, non puo' essere ottenuta aggiungendone una piu'
+             permissiva altrove.
+
+             Il gruppo vive QUI (non in erpv6_winwin_renderdata, dove era
+             stato creato inizialmente) perche' sia aeosv6_project_relay
+             sia erpv6_winwin_renderdata dipendono da aeosv6_relation, ma
+             erpv6_winwin_renderdata dipende a sua volta da
+             aeosv6_project_relay - definirlo in erpv6_winwin_renderdata e
+             referenziarlo dal menu "Nuovo Progetto" (aeosv6_project_relay)
+             avrebbe creato una dipendenza circolare. Spostato qui il
+             06/09/2026 dopo aver scoperto il problema durante la verifica
+             del rischio "wizard TEE senza sudo" (vedi
+             CIRCUITO_TRIGGER_DASHBOARD_TRACKING_RELATION.md). -->
+        <record id="group_project_relation_manager" model="res.groups">
+            <field name="name">Gestori Progetti (Tracking Relation)</field>
+            <field name="comment">Puo' creare nuovi progetti/partnership su erpv6.tracking.relation (es. "Progetto TEE" e simili) - admin + delegati nominati esplicitamente da un amministratore in Impostazioni &gt; Utenti.</field>
+        </record>
+    </data>
+</odoo>
