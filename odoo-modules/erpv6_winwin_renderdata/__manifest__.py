@@ -24,7 +24,7 @@
     'author': 'V6 Impresa AI',
     'license': 'LGPL-3',
     'depends': [
-        'mail', 'erpv6_core', 'erpv6_core_dispatch', 'erpv6_core_engine', 'erpv6_kb',
+        'mail', 'sale', 'payment', 'erpv6_core', 'erpv6_core_dispatch', 'erpv6_core_engine', 'erpv6_kb',
         'erpv6_production', 'erpv6_omni_bridge', 'erpv6_validation', 'erpv6_agent',
         'aeosv6_booking', 'aeosv6_relation', 'aeosv6_project_relay',
     ],
@@ -35,6 +35,7 @@
         'data/kb_bilancio_extraction_data.xml',
         'data/interview_question_bilancio_data.xml',
         'data/cron_report_token_data.xml',
+        'data/product_report_winwin_data.xml',
         'views/winwin_dashboard_views.xml',
     ],
     'assets': {

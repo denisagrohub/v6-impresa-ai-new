@@ -5,6 +5,9 @@
 export interface WinwinReportStatus {
     stato: 'in_elaborazione' | 'pronto';
     report_url: string | null;
+    // 09/09/2026 (pagamento reale, audit "Punto Zero"): stato pagamento
+    // vero (sale.order.state lato Odoo), mai un flag locale.
+    is_paid: boolean;
 }
 
 async function parseOrThrow(response: Response): Promise<any> {
@@ -38,11 +41,27 @@ export interface WinwinReportData {
     roadmap: Array<{ titolo: string; tempistica: string; descrizione: string }>;
     raccomandazione: string | null;
     fonti: string[];
-    preview: true;
+    // 09/09/2026: non e' piu' sempre true - riflette token.is_paid reale
+    // (roadmap arriva vuoto quando preview=true, mai piu' regalato).
+    preview: boolean;
     consultant_booking_id: number | false;
 }
 
 export async function fetchWinwinReportData(token: string): Promise<WinwinReportData> {
     const response = await fetch(`/api/winwin-report/data?token=${encodeURIComponent(token)}`);
+    return parseOrThrow(response);
+}
+
+// 09/09/2026 (pagamento reale, audit "Punto Zero"): avvia il pagamento
+// vero - crea/riusa il sale.order del report lato Odoo e ritorna l'URL
+// portale dove il cliente paga con Stripe (gia' configurato come
+// payment.provider). Nessuna integrazione Stripe qui: e' una semplice
+// redirect verso una pagina Odoo nativa.
+export async function requestWinwinReportPayment(token: string): Promise<{ payment_url?: string; already_paid?: boolean }> {
+    const response = await fetch('/api/winwin-report/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+    });
     return parseOrThrow(response);
 }

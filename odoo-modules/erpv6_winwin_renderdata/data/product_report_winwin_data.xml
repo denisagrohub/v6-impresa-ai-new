@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 09/09/2026 (audit "Punto Zero", pagamento reale del report Win-Win):
+         prodotto reale invece di un prezzo hardcoded nel frontend -
+         il "carrello" richiesto e' il sale.order nativo Odoo sotto, questo
+         e' l'unica riga che ci finisce dentro. -->
+    <record id="product_report_winwin" model="product.template">
+        <field name="name">Report Win-Win - Analisi Completa</field>
+        <field name="type">service</field>
+        <field name="invoice_policy">order</field>
+        <!-- 49,00€ IVA INCLUSA (decisione di Denis, 09/09/2026): nessuna
+             tassa in azienda ha price_include_override='tax_included' (solo
+             varianti "escluso" nel piano dei conti condiviso, non tocchiamo
+             i record account_tax) - prezzo netto calcolato a ritroso cosi'
+             il totale con il 22% IVA standard fa esattamente 49,00€
+             (40,16 + 8,84 IVA = 49,00, verificato dal vivo). -->
+        <field name="list_price">40.16</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+    </record>
+</odoo>

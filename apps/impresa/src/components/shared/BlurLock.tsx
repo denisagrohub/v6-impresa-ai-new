@@ -15,7 +15,13 @@
 // (nessun dato finanziario raccolto), vendere un'analisi a pagamento non
 // ha senso - la CTA diventa "prenota una chiamata", non "sblocca a 49€".
 interface BlurLockProps {
+  // 09/09/2026 (pagamento reale, audit "Punto Zero"): PRIMA sbloccava
+  // subito lato client (zero pagamento) - ora avvia davvero il pagamento
+  // (redirect verso il sale.order Odoo), il contenuto si sblocca solo al
+  // ricarico della pagina con is_paid=true da Odoo.
   onUnlock: () => void;
+  unlocking?: boolean;
+  unlockError?: string | null;
   previewLines?: string[];
   casoVuoto?: boolean;
   // 06/09/2026: link reale al consulente assegnato (aeosv6_booking),
@@ -27,6 +33,8 @@ interface BlurLockProps {
 
 export default function BlurLock({
   onUnlock,
+  unlocking = false,
+  unlockError = null,
   previewLines = [],
   casoVuoto = false,
   bookingHref = '/contatti',
@@ -65,13 +73,18 @@ export default function BlurLock({
             Prenota una chiamata con un consulente
           </a>
         ) : (
-          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-          <button
-            onClick={onUnlock}
-            className="rounded-sm bg-[#D4703A] px-5 py-2.5 font-semibold text-[#F8F6F2] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4703A]"
-          >
-            Sblocca l&rsquo;analisi completa &mdash; 49&euro;
-          </button>
+          <div className="flex flex-col items-center gap-2">
+            {unlockError && (
+              <p className="max-w-xs text-center text-xs text-red-600">{unlockError}</p>
+            )}
+            <button
+              onClick={onUnlock}
+              disabled={unlocking}
+              className="rounded-sm bg-[#D4703A] px-5 py-2.5 font-semibold text-[#F8F6F2] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4703A] disabled:opacity-60"
+            >
+              {unlocking ? 'Reindirizzamento al pagamento…' : 'Sblocca l’analisi completa — 49€'}
+            </button>
+          </div>
         )}
       </div>
     </div>

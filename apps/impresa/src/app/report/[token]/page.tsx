@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { Card, Badge, Button } from '@erpv6/ui';
 import BlurLock from '@/components/shared/BlurLock';
-import { fetchWinwinReportData, type WinwinReportData } from '@/lib/winwin/report-client';
+import { fetchWinwinReportData, requestWinwinReportPayment, type WinwinReportData } from '@/lib/winwin/report-client';
 
 const STATO_COLOR: Record<string, string> = {
     rosso: 'text-red-700 bg-red-50 border-red-200',
@@ -33,7 +33,29 @@ export default function WinwinReportPage() {
     const [data, setData] = useState<WinwinReportData | null>(null);
     const [notReady, setNotReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [unlocked, setUnlocked] = useState(false);
+    // 09/09/2026 (pagamento reale, audit "Punto Zero"): PRIMA questo era un
+    // semplice setUnlocked(true) al click, zero pagamento - lo stato reale
+    // arriva ora da data.preview (token.is_paid lato Odoo). paying/payError
+    // coprono solo l'avvio del pagamento (redirect verso l'ordine Odoo),
+    // non lo sblocco in se'.
+    const [paying, setPaying] = useState(false);
+    const [payError, setPayError] = useState<string | null>(null);
+
+    const handleRequestPayment = async () => {
+        setPaying(true);
+        setPayError(null);
+        try {
+            const result = await requestWinwinReportPayment(token);
+            if (result.payment_url) {
+                window.location.href = result.payment_url;
+            } else {
+                setPaying(false);
+            }
+        } catch (err: any) {
+            setPayError(err.message || 'Impossibile avviare il pagamento. Riprova o contattaci.');
+            setPaying(false);
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -221,7 +243,7 @@ export default function WinwinReportPage() {
                                 (vincolo esplicito del componente BlurLock) - fuori dall'area
                                 coperta dal BlurLock, mai sovrapposta al velo sfocato sotto. */}
                             <p className="font-semibold text-[#1C2128] mb-3">{data.schede[0].titolo}</p>
-                            {unlocked ? (
+                            {!data.preview ? (
                                 <div className="space-y-4">
                                     {data.schede.map((s, i) => (
                                         <div key={i} className="text-sm text-gray-700">
@@ -249,7 +271,9 @@ export default function WinwinReportPage() {
                             ) : (
                                 <div className="relative overflow-hidden rounded-lg" style={{ minHeight: 400 }}>
                                     <BlurLock
-                                        onUnlock={() => setUnlocked(true)}
+                                        onUnlock={handleRequestPayment}
+                                        unlocking={paying}
+                                        unlockError={payError}
                                         previewLines={previewLines}
                                         casoVuoto={casoVuoto}
                                         bookingHref={bookingHref}

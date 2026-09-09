@@ -59,9 +59,68 @@ class Erpv6WinwinReportToken(models.Model):
     errore = fields.Text()
     escalation_notificata = fields.Boolean(default=False)
 
+    # 09/09/2026 (audit "Punto Zero", pagamento reale): PRIMA lo sblocco a
+    # 49€ era un semplice setUnlocked(true) lato client, zero pagamento -
+    # il backend mandava GIA' i dati completi ad ogni chiamata (preview=true
+    # era solo un'etichetta ignorata dal frontend). Corretto qui: sale_order_id
+    # e' il "carrello" (richiesto da Denis: "solo la parte del carrello",
+    # riusa il sale.order nativo Odoo - portale/pagamento/conferma automatica
+    # su transazione riuscita sono gia' gestiti da payment/sale, nessun
+    # codice Stripe nuovo scritto qui). is_paid e' l'UNICO gate reale:
+    # winwin_report_api.py._data_ non manda piu' le sezioni pagate se e'
+    # False, non solo un flag ignorato lato frontend.
+    sale_order_id = fields.Many2one('sale.order', string='Ordine (pagamento report)', copy=False)
+    is_paid = fields.Boolean(compute='_compute_is_paid', string='Pagato')
+
+    @api.depends('sale_order_id.state')
+    def _compute_is_paid(self):
+        for token in self:
+            token.is_paid = token.sale_order_id.state in ('sale', 'done')
+
     _sql_constraints = [
         ('token_unique', 'unique(token)', 'Il token deve essere univoco.'),
     ]
+
+    def action_get_payment_url(self):
+        """Crea (o riusa) il sale.order del report e ritorna l'URL portale
+        nativo Odoo per pagarlo - NESSUNA integrazione Stripe scritta qui,
+        e' lo stesso meccanismo di pagamento online di un preventivo Odoo
+        qualsiasi (payment.transaction collegata via sale_order_ids conferma
+        l'ordine da sola su transazione riuscita, vedi sale/models/payment_transaction.py
+        core Odoo - verificato leggendo il codice, non assunto)."""
+        self.ensure_one()
+        if not self.sale_order_id or self.sale_order_id.state == 'cancel':
+            product = self.env.ref('erpv6_winwin_renderdata.product_report_winwin')
+            lead = self.production_order_id.lead_id
+            partner = lead.partner_id
+            if not partner:
+                # Lead pubblico senza partner_id risolto: stesso pattern di
+                # find_or_create gia' usato per i referral (admin_dashboard_extension.py) -
+                # cerca per email prima di creare, mai un duplicato.
+                Partner = self.env['res.partner'].sudo()
+                partner = Partner.search([('email', '=', lead.email_from)], limit=1) if lead.email_from else Partner
+                if not partner:
+                    partner = Partner.create({
+                        'name': lead.contact_name or lead.partner_name or lead.name or 'Cliente Win-Win',
+                        'email': lead.email_from or False,
+                        'phone': lead.phone or False,
+                    })
+            order = self.env['sale.order'].sudo().create({
+                'partner_id': partner.id,
+                # Verificato dal vivo: il default e' 'Firma e paga' (require_signature),
+                # un passo di firma senza senso per un report digitale da 49€ -
+                # richiede solo il pagamento.
+                'require_signature': False,
+                'require_payment': True,
+                'order_line': [(0, 0, {
+                    'product_id': product.product_variant_id.id,
+                    'product_uom_qty': 1,
+                    'price_unit': product.list_price,
+                })],
+            })
+            self.sale_order_id = order.id
+            self.env.cr.commit()
+        return self.sale_order_id.get_portal_url()
 
     @api.model
     def create_for_order(self, production_order):
