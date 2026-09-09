@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Award, Users, Target, Heart, CheckCircle2 } from "lucide-react";
+
+export const metadata: Metadata = {
+    title: "Chi Siamo",
+    description: "Un team di consulenti finanziari, analisti e strateghi: trasformiamo idee complesse in strutture finanziarie solide, approvate da banche e investitori.",
+};
 
 export default function ChiSiamoPage() {
     const team = [

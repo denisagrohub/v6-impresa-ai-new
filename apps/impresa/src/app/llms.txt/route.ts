@@ -33,6 +33,7 @@ Il metodo è lo stesso per ogni prodotto: diagnosi, struttura, verifica. Un'inte
 ## Altre pagine
 
 - [Intervista gratuita](${BASE_URL}/intervista): intervista guidata che genera una prima analisi/Relazione Win-Win in pochi minuti.
+- [Blog](${BASE_URL}/blog): approfondimenti metodologici (DSCR, Kaizen, business plan).
 - [Casi Studio](${BASE_URL}/casi-studio): casi reali documentati.
 - [Il Metodo](${BASE_URL}/metodo): come lavoriamo, in generale.
 - [Chi Siamo](${BASE_URL}/chi-siamo): il team.

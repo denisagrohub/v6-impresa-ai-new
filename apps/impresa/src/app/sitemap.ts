@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { blogArticles } from "@/data/blog-articles";
 
 // Convenzione Next.js App Router: compila a /sitemap.xml (09/09/2026,
 // analisi SEO). Prima non esisteva - stesso problema di /robots.txt
@@ -23,19 +24,30 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/formazione-aziendale", priority: 0.8, changeFrequency: "monthly" },
     { path: "/kaizen-lean", priority: 0.8, changeFrequency: "monthly" },
     { path: "/project-finance", priority: 0.7, changeFrequency: "monthly" },
-    { path: "/business-plan-pmi", priority: 0.6, changeFrequency: "monthly" },
-    { path: "/business-plan-startup", priority: 0.6, changeFrequency: "monthly" },
+    // business-plan-pmi/business-plan-startup RITIRATE (09/09/2026, vedi
+    // i rispettivi page.tsx) - ora redirect permanenti verso /business-plan,
+    // niente senso elencarle in un sitemap fresco.
     { path: "/partnership", priority: 0.6, changeFrequency: "monthly" },
     { path: "/casi-studio", priority: 0.6, changeFrequency: "monthly" },
     { path: "/metodo", priority: 0.6, changeFrequency: "monthly" },
+    { path: "/blog", priority: 0.6, changeFrequency: "weekly" },
     { path: "/chi-siamo", priority: 0.5, changeFrequency: "yearly" },
     { path: "/contatti", priority: 0.5, changeFrequency: "yearly" },
   ];
 
-  return pagine.map((p) => ({
+  const paginePagine = pagine.map((p) => ({
     url: `${BASE_URL}${p.path}`,
     lastModified: now,
     changeFrequency: p.changeFrequency,
     priority: p.priority,
   }));
+
+  const articoli = blogArticles.map((a) => ({
+    url: `${BASE_URL}/blog/${a.slug}`,
+    lastModified: new Date(a.date),
+    changeFrequency: "yearly" as const,
+    priority: 0.5,
+  }));
+
+  return [...paginePagine, ...articoli];
 }

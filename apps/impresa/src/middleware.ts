@@ -35,6 +35,7 @@ const PUBLIC_PATHS = [
   '/formazione-aziendale',
   '/kaizen-lean',
   '/partnership',
+  '/blog',
   // Convenzione Next.js App Router: src/app/robots.ts e src/app/sitemap.ts
   // compilano rispettivamente a /robots.txt e /sitemap.xml - senza
   // l'estensione .txt/.xml nel controllo statico piu' sotto, entrambi

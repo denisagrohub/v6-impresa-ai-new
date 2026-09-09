@@ -1,6 +1,12 @@
 import type { Route } from 'next';
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, TrendingUp, Building2, Briefcase, Landmark } from "lucide-react";
+
+export const metadata: Metadata = {
+    title: "Casi Studio",
+    description: "Storie reali di imprenditori che hanno trasformato la loro idea in struttura con il nostro supporto.",
+};
 
 export default function CasiStudioPage() {
     const casi = [

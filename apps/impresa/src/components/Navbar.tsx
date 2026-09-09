@@ -33,8 +33,9 @@ export default function Navbar() {
             <Link href="/" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Home</Link>
             <Link href="/chi-siamo" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/chi-siamo' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Chi Siamo</Link>
             <Link href="/metodo" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/metodo' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Il Metodo</Link>
-            <Link href="/premium" className="text-sm font-medium text-orange-600 hover:text-orange-700 font-semibold">💎 Pacchetti</Link>
-            <Link href="/brand" className="text-sm font-medium text-gray-700 hover:text-gray-900">🎨 Brand</Link>
+            <Link href="/blog" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/blog' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Blog</Link>
+            <Link href="/premium" className="text-sm font-medium text-orange-600 hover:text-orange-700 font-semibold">Pacchetti</Link>
+            <Link href="/brand" className="text-sm font-medium text-gray-700 hover:text-gray-900">Brand</Link>
             <Link href="/contatti" className="text-sm font-medium text-gray-700 hover:text-gray-900">Contatti</Link>
             
             {session ? (
@@ -64,8 +65,9 @@ export default function Navbar() {
             <Link href="/" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Home</Link>
             <Link href="/chi-siamo" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Chi Siamo</Link>
             <Link href="/metodo" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Il Metodo</Link>
-            <Link href="/premium" className="block px-4 py-2 rounded-lg hover:bg-orange-50 text-orange-600 font-semibold">💎 Pacchetti</Link>
-            <Link href="/brand" className="block px-4 py-2 rounded-lg hover:bg-gray-100">🎨 Brand</Link>
+            <Link href="/blog" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Blog</Link>
+            <Link href="/premium" className="block px-4 py-2 rounded-lg hover:bg-orange-50 text-orange-600 font-semibold">Pacchetti</Link>
+            <Link href="/brand" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Brand</Link>
             <Link href="/contatti" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Contatti</Link>
             {session ? (
               <>

@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Target, TrendingUp, Users, Shield, FileText, Clock, Sparkles, Compass, Radar, Gauge, Rocket } from "lucide-react";
+
+export const metadata: Metadata = {
+    title: "Il Metodo",
+    description: "6 fasi, 6 aree aziendali, 1 risultato: come lavoriamo per costruire un business plan che apre le porte di banche e investitori.",
+};
 
 export default function MetodoPage() {
     const fasi = [
