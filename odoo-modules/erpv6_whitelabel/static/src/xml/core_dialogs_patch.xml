@@ -3,11 +3,11 @@
 
     <t t-inherit="web.SessionExpiredDialog" t-inherit-mode="extension">
         <xpath expr="//Dialog" position="attributes">
-            <attribute name="title.translate">ERPV6 Session Expired</attribute>
+            <attribute name="title.translate">EAOSv6 Session Expired</attribute>
         </xpath>
         <xpath expr="//p[contains(text(),'Your Odoo session expired')]" position="replace">
             <p class="text-prewrap">
-                Your ERPV6 session expired. The current page is about to be refreshed.
+                Your EAOSv6 session expired. The current page is about to be refreshed.
             </p>
         </xpath>
     </t>
@@ -15,7 +15,7 @@
     <t t-inherit="web.NotificationAlert" t-inherit-mode="extension">
         <xpath expr="//div[hasclass('alert-primary')]" position="replace">
             <div t-if="isNotificationBlocked" class="alert alert-primary text-center">
-                ERPV6 Push notifications have been blocked. Go to your browser settings to allow them.
+                EAOSv6 Push notifications have been blocked. Go to your browser settings to allow them.
             </div>
         </xpath>
     </t>
@@ -29,7 +29,7 @@
          patch() come in error_dialogs_patch.js (B1): l'unica via e' il template QWeb. -->
     <t t-inherit="iap.InsufficientCreditDialog" t-inherit-mode="extension">
         <xpath expr="//Dialog" position="attributes">
-            <attribute name="title.translate">ERPV6 Credits</attribute>
+            <attribute name="title.translate">EAOSv6 Credits</attribute>
         </xpath>
         <xpath expr="//button[@t-on-click='buyCredits']" position="replace">
             <button class="btn btn-primary" t-on-click="buyCredits">Buy credits</button>

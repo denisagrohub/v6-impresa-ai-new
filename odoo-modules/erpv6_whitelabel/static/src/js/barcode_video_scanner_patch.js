@@ -54,7 +54,7 @@ patch(BarcodeVideoScanner.prototype, {
             } catch (err) {
                 const errors = {
                     NotFoundError: _t("No device can be found."),
-                    NotAllowedError: _t("ERPV6 needs your authorization first."),
+                    NotAllowedError: _t("EAOSv6 needs your authorization first."),
                 };
                 const errorMessage = _t("Could not start scanning. %(message)s", {
                     message: errors[err.name] || err.message,

@@ -16,8 +16,8 @@ import { markup } from "@odoo/owl";
  * registrazione. */
 
 const REPLACEMENTS = [
-    ["Odoo will save all modifications as you navigate.", "ERPV6 will save all modifications as you navigate."],
-    ["Odoo will automatically save it as you navigate.", "ERPV6 will automatically save it as you navigate."],
+    ["Odoo will save all modifications as you navigate.", "EAOSv6 will save all modifications as you navigate."],
+    ["Odoo will automatically save it as you navigate.", "EAOSv6 will automatically save it as you navigate."],
 ];
 
 function rebrandText(text) {

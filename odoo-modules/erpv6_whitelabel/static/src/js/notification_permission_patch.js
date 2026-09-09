@@ -57,12 +57,12 @@ patch(notificationPermissionService, {
                         await browser.Notification.requestPermission()
                     );
                     if (state.permission === "denied") {
-                        notification.add(_t("ERPV6 will not send notifications on this device."), {
+                        notification.add(_t("EAOSv6 will not send notifications on this device."), {
                             type: "warning",
                             title: _t("Notifications blocked"),
                         });
                     } else if (state.permission === "granted") {
-                        notification.add(_t("ERPV6 will send notifications on this device!"), {
+                        notification.add(_t("EAOSv6 will send notifications on this device!"), {
                             type: "success",
                             title: _t("Notifications allowed"),
                         });

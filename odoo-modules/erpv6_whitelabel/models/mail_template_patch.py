@@ -3,7 +3,7 @@ from odoo import api, models
 
 
 class MailTemplatePatch(models.AbstractModel):
-    """Applica il rebranding ERPV6 ai template email core (auth_signup, portal).
+    """Applica il rebranding EAOSv6 ai template email core (auth_signup, portal).
 
     Questi record sono dichiarati `noupdate="1"` dai moduli core: un semplice
     <record> con lo stesso xmlid viene ignorato da Odoo durante un `-u` su un
@@ -13,13 +13,13 @@ class MailTemplatePatch(models.AbstractModel):
     sia all'installazione che a ogni aggiornamento successivo.
     """
     _name = 'erpv6.whitelabel.mail_template_patch'
-    _description = 'ERPV6 Whitelabel - Patch Template Email Core'
+    _description = 'EAOSv6 Whitelabel - Patch Template Email Core'
 
     @api.model
     def apply_erpv6_branding(self):
         overrides = {
             'auth_signup.set_password_email': {
-                'subject': "{{ object.create_uid.name }} from {{ object.company_id.name }} invites you to connect to ERPV6",
+                'subject': "{{ object.create_uid.name }} from {{ object.company_id.name }} invites you to connect to EAOSv6",
                 'body_html': """
 <table border="0" cellpadding="0" cellspacing="0" style="padding-top: 16px; background-color: #FFFFFF; font-family:Verdana, Arial,sans-serif; color: #454748; width: 100%; border-collapse:separate;"><tr><td align="center">
 <table border="0" cellpadding="0" cellspacing="0" width="590" style="padding: 16px; background-color: #FFFFFF; color: #454748; border-collapse:separate;">
@@ -29,7 +29,7 @@ class MailTemplatePatch(models.AbstractModel):
         <td align="center" style="min-width: 590px;">
             <table border="0" cellpadding="0" cellspacing="0" width="590" style="min-width: 590px; background-color: white; padding: 0px 8px 0px 8px; border-collapse:separate;">
                 <tr><td valign="middle">
-                    <span style="font-size: 10px;">Welcome to ERPV6</span><br/>
+                    <span style="font-size: 10px;">Welcome to EAOSv6</span><br/>
                     <span style="font-size: 20px; font-weight: bold;">
                         <t t-out="object.name or ''">Marc Demo</t>
                     </span>
@@ -49,7 +49,7 @@ class MailTemplatePatch(models.AbstractModel):
                 <tr><td valign="top" style="font-size: 13px;">
                     <div>
                         Dear <t t-out="object.name or ''">Marc Demo</t>,<br /><br />
-                        You have been invited by <t t-out="object.create_uid.name or ''">OdooBot</t> of <t t-out="object.company_id.name or ''">YourCompany</t> to connect on ERPV6.
+                        You have been invited by <t t-out="object.create_uid.name or ''">OdooBot</t> of <t t-out="object.company_id.name or ''">YourCompany</t> to connect on EAOSv6.
                         <div style="margin: 16px 0px 16px 0px;">
                             <a t-att-href="object.partner_id._get_signup_url()"
                                 t-attf-style="background-color: {{object.company_id.email_secondary_color or '#875A7B'}}; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;">
@@ -58,13 +58,13 @@ class MailTemplatePatch(models.AbstractModel):
                         </div>
                         <b>  This link will remain valid during <t t-out="int(int(object.env['ir.config_parameter'].sudo().get_param('auth_signup.signup.validity.hours',144))/24)"></t> days </b> <br/>
                         <t t-set="website_url" t-value="object.get_base_url()"></t>
-                        Your ERPV6 domain is: <b><a t-att-href='website_url' t-out="website_url or ''">http://yourcompany.odoo.com</a></b><br />
+                        Your EAOSv6 domain is: <b><a t-att-href='website_url' t-out="website_url or ''">http://yourcompany.odoo.com</a></b><br />
                         Your sign in email is: <b><a t-attf-href="/web/login?login={{ object.email }}" target="_blank" t-out="object.email or ''">mark.brown23@example.com</a></b><br /><br />
-                        Never heard of ERPV6? It's an all-in-one business platform built on proven open-source technology. It will considerably improve your experience at work and increase your productivity.
+                        Never heard of EAOSv6? It's an all-in-one business platform built on proven open-source technology. It will considerably improve your experience at work and increase your productivity.
                         <br /><br />
-                        Have a look at the <a href="https://erp.v6sviluppoimpresa.it/" style="color: #875A7B;">ERPV6 Tour</a> to discover the tool.
+                        Have a look at the <a href="https://erp.v6sviluppoimpresa.it/" style="color: #875A7B;">EAOSv6 Tour</a> to discover the tool.
                         <br /><br />
-                        Enjoy ERPV6!<br />
+                        Enjoy EAOSv6!<br />
                         --<br/>The <t t-out="object.company_id.name or ''">YourCompany</t> Team
                     </div>
                 </td></tr>
@@ -100,7 +100,7 @@ class MailTemplatePatch(models.AbstractModel):
 <tr><td align="center" style="min-width: 590px;">
     <table border="0" cellpadding="0" cellspacing="0" width="590" style="min-width: 590px; background-color: #F1F1F1; color: #454748; padding: 8px; border-collapse:separate;">
       <tr><td style="text-align: center; font-size: 13px;">
-        Powered by <a target="_blank" href="https://www.odoo.com?utm_source=db&amp;utm_medium=auth" style="color: #875A7B;">ERPV6</a>
+        Powered by <a target="_blank" href="https://www.odoo.com?utm_source=db&amp;utm_medium=auth" style="color: #875A7B;">EAOSv6</a>
       </td></tr>
     </table>
 </td></tr>
@@ -184,7 +184,7 @@ class MailTemplatePatch(models.AbstractModel):
 <tr><td align="center" style="min-width: 590px;">
     <table border="0" cellpadding="0" cellspacing="0" width="590" style="min-width: 590px; background-color: #F1F1F1; color: #454748; padding: 8px; border-collapse:separate;">
       <tr><td style="text-align: center; font-size: 13px;">
-        Powered by <a target="_blank" href="https://www.odoo.com?utm_source=db&amp;utm_medium=auth" style="color: #875A7B;">ERPV6</a>
+        Powered by <a target="_blank" href="https://www.odoo.com?utm_source=db&amp;utm_medium=auth" style="color: #875A7B;">EAOSv6</a>
       </td></tr>
     </table>
 </td></tr>
@@ -265,7 +265,7 @@ class MailTemplatePatch(models.AbstractModel):
 <tr><td align="center" style="min-width: 590px;">
     <table border="0" cellpadding="0" cellspacing="0" width="590" style="min-width: 590px; background-color: #F1F1F1; color: #454748; padding: 8px; border-collapse:separate;">
       <tr><td style="text-align: center; font-size: 13px;">
-        Powered by <a target="_blank" href="https://www.odoo.com?utm_source=db&amp;utm_medium=portalinvite" style="color: #875A7B;">ERPV6</a>
+        Powered by <a target="_blank" href="https://www.odoo.com?utm_source=db&amp;utm_medium=portalinvite" style="color: #875A7B;">EAOSv6</a>
       </td></tr>
     </table>
 </td></tr>
