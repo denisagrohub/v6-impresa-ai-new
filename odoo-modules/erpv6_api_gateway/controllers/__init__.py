@@ -18,4 +18,5 @@ from . import project_api
 from . import library_api
 from . import sign_api
 from . import tracking_api
+from . import partnership_api
 

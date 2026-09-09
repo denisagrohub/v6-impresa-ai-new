@@ -270,6 +270,47 @@
                         </t>
                     </p>
                 </div>
+
+                <!-- 09/09/2026 (prompt "Candidatura partnership + routing
+                     token prodotto + rotazione claim homepage", Parte A
+                     punto 4): coda candidature raccolte dalla pagina
+                     pubblica /partnership - nessuna azione automatica
+                     oltre al cambio stato manuale. -->
+                <div class="o_winwin_admin_section">
+                    <h3>Candidature Partnership</h3>
+                    <p class="o_winwin_card_sub" t-if="!(state.adminData and state.adminData.candidacies and state.adminData.candidacies.length)">
+                        Nessuna candidatura ricevuta.
+                    </p>
+                    <div t-if="state.adminData and state.adminData.candidacies"
+                         t-foreach="state.adminData.candidacies" t-as="cand" t-key="cand.id"
+                         class="o_winwin_project">
+                        <div class="o_winwin_project_head">
+                            <div class="o_winwin_project_head_main" t-on-click="() => this.toggleExpandCandidacy(cand.id)">
+                                <div>
+                                    <div class="o_winwin_card_title" t-esc="cand.name"/>
+                                    <div class="o_winwin_card_sub" t-esc="cand.company_name || 'azienda non indicata'"/>
+                                </div>
+                            </div>
+                            <span class="o_winwin_badge" t-esc="cand.state"/>
+                        </div>
+                        <div t-if="state.expandedCandidacyId === cand.id" class="o_winwin_project_body">
+                            <div class="o_winwin_section">
+                                <p><strong>Email:</strong> <t t-esc="cand.email"/></p>
+                                <p t-if="cand.phone"><strong>Telefono:</strong> <t t-esc="cand.phone"/></p>
+                                <p t-if="cand.proposal"><strong>Proposta:</strong> <t t-esc="cand.proposal"/></p>
+                                <p><strong>Ricevuta il:</strong> <t t-esc="cand.create_date"/></p>
+                                <div class="o_winwin_admin_form">
+                                    <select t-att-value="cand.state"
+                                            t-on-change="(ev) => this.setCandidacyState(cand.id, ev.target.value)">
+                                        <option value="nuova">Nuova</option>
+                                        <option value="in_valutazione">In Valutazione</option>
+                                        <option value="archiviata">Archiviata</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </div>

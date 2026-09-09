@@ -44,6 +44,15 @@ class Erpv6ResUsersAdminDashboard(models.Model):
         Referrals = self.env['res.partner'].sudo()
         referrals = Referrals.search([('category_id', 'in', referral_tag.ids)]) if referral_tag else Referrals
 
+        # 09/09/2026 (prompt "Candidatura partnership + routing token
+        # prodotto + rotazione claim homepage", Parte A punto 4): coda
+        # candidature dentro la stessa tab Amministrazione gia'
+        # esistente, stesso controllo server-side is_admin_user() sopra -
+        # nessuna azione automatica oltre al cambio stato manuale
+        # (action_set_state_from_dashboard).
+        Candidacy = self.env['erpv6.partnership.candidacy'].sudo()
+        candidacies = Candidacy.search([])
+
         return {
             'users': [{'id': u.id, 'name': u.name} for u in candidati],
             'brands': [{'id': b.id, 'name': b.name} for b in brands],
@@ -52,6 +61,14 @@ class Erpv6ResUsersAdminDashboard(models.Model):
                 for c in Consultant.search([])
             ],
             'referrals': [{'id': r.id, 'name': r.name, 'email': r.email or ''} for r in referrals],
+            'candidacies': [
+                {
+                    'id': c.id, 'name': c.name, 'company_name': c.company_name or '',
+                    'email': c.email, 'phone': c.phone or '', 'proposal': c.proposal or '',
+                    'state': c.state, 'create_date': c.create_date and c.create_date.isoformat() or '',
+                }
+                for c in candidacies
+            ],
         }
 
 

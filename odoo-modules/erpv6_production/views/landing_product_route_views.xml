@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- 09/09/2026 (prompt "Candidatura partnership + routing token
+             prodotto + rotazione claim homepage", Parte B): vista admin
+             minima per gestire il mapping prodotto->consulente, altrimenti
+             la tabella non sarebbe raggiungibile da nessuna UI. -->
+        <record id="view_landing_product_route_list" model="ir.ui.view">
+            <field name="name">erpv6.landing.product.route.list</field>
+            <field name="model">erpv6.landing.product.route</field>
+            <field name="arch" type="xml">
+                <list>
+                    <field name="product_code"/>
+                    <field name="consultant_user_id"/>
+                    <field name="active" widget="boolean_toggle"/>
+                    <field name="note"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_landing_product_route_form" model="ir.ui.view">
+            <field name="name">erpv6.landing.product.route.form</field>
+            <field name="model">erpv6.landing.product.route</field>
+            <field name="arch" type="xml">
+                <form string="Routing Prodotto -&gt; Consulente">
+                    <sheet>
+                        <group>
+                            <field name="product_code" placeholder="es. esg, business-plan, ricambio-generazionale"/>
+                            <field name="consultant_user_id"/>
+                            <field name="active"/>
+                            <field name="note"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_landing_product_route" model="ir.actions.act_window">
+            <field name="name">Routing Prodotto -&gt; Consulente</field>
+            <field name="res_model">erpv6.landing.product.route</field>
+            <field name="view_mode">list,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Crea il primo routing prodotto -&gt; consulente
+                </p>
+                <p>
+                    Il codice prodotto deve combaciare col parametro ?source=... della landing
+                    di prodotto. Un lead con quel source arriva assegnato direttamente a questo
+                    consulente, saltando l'assegnazione automatica competenza/storico/zona.
+                </p>
+            </field>
+        </record>
+
+        <menuitem id="menu_landing_product_route" name="Routing Prodotti"
+                  parent="erpv6_production.menu_production_root" action="action_landing_product_route" sequence="41"/>
+    </data>
+</odoo>

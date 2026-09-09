@@ -141,6 +141,7 @@ class LeadAPIController(APIBaseController):
                     budget=data.get('budget'),
                     tempistiche=data.get('tempistiche'),
                     tipo_progetto=data.get('tipo_progetto') or data.get('tipoProgetto'),
+                    landing_source_code=data.get('landing_source_code') or data.get('source_prodotto'),
                     destinatario=data.get('destinatario'),
                     fatturato=data.get('fatturato'),
                 )
@@ -192,6 +193,7 @@ class LeadAPIController(APIBaseController):
                     budget=data.get('budget'),
                     tempistiche=data.get('tempistiche'),
                     tipo_progetto=data.get('tipo_progetto') or data.get('tipoProgetto'),
+                    landing_source_code=data.get('landing_source_code') or data.get('source_prodotto'),
                     destinatario=data.get('destinatario'),
                     fatturato=data.get('fatturato'),
                 )

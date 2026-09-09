@@ -4,3 +4,4 @@ access_erpv6_winwin_report_token_system,erpv6.winwin.report.token system,model_e
 access_erpv6_winwin_email_log_user,erpv6.winwin.email.log user,model_erpv6_winwin_email_log,base.group_user,1,1,1,0
 access_erpv6_winwin_email_log_system,erpv6.winwin.email.log system,model_erpv6_winwin_email_log,base.group_system,1,1,1,1
 access_tracking_relation_project_manager,erpv6.tracking.relation project manager,aeosv6_relation.model_erpv6_tracking_relation,aeosv6_relation.group_project_relation_manager,1,1,1,0
+access_erpv6_partnership_candidacy_system,erpv6.partnership.candidacy system,model_erpv6_partnership_candidacy,base.group_system,1,1,1,1

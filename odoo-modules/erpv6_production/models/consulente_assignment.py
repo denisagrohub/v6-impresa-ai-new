@@ -78,6 +78,7 @@ class Erpv6ProductionConsulenteLine(models.Model):
         ('richiesta_consulente', 'Richiesta del consulente, approvata dal responsabile'),
         ('fallback_team', 'Fallback round-robin sul team - verifica manuale richiesta'),
         ('sourcing_diretto', "Lead portato/creato direttamente dal consulente (dashboard)"),
+        ('landing_prodotto', "Routing diretto da landing di prodotto (erpv6.landing.product.route)"),
     ], string='Motivo assegnazione', help="Vuoto per le righe inserite a mano (es. referral).")
     note = fields.Char(string='Nota')
 
