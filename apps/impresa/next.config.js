@@ -14,5 +14,18 @@ const nextConfig = {
   outputFileTracingExcludes: {
     '/api/admin/deploy-odoo/**': ['../../odoo-modules/**'],
   },
+  // 09/09/2026 (ritiro business-plan-pmi/business-plan-startup, dati
+  // inventati + form mai collegato a Odoo): redirect() dentro il
+  // Server Component di quelle pagine produceva un 307 "lato client"
+  // (verificato dal vivo: nessun header Location, il corpo conteneva
+  // il marker NEXT_REDIRECT nel payload RSC per il router client-side) -
+  // curl/Googlebot non lo seguono affatto, serve un vero redirect HTTP
+  // gestito qui, prima che Next.js risolva la pagina.
+  async redirects() {
+    return [
+      { source: '/business-plan-pmi', destination: '/business-plan', permanent: true },
+      { source: '/business-plan-startup', destination: '/business-plan', permanent: true },
+    ];
+  },
 }
 module.exports = nextConfig

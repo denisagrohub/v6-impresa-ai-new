@@ -15,17 +15,18 @@ const PUBLIC_PATHS = [
   '/metodo',
   '/casi-studio',
   '/project-finance',
-  '/business-plan-pmi',
-  '/business-plan-startup',
+  // business-plan-pmi/business-plan-startup RITIRATE (09/09/2026) - ora
+  // redirect HTTP reali in next.config.js, non piu' pagine qui, rimosse
+  // da questa lista.
+  //
   // 09/09/2026 (analisi SEO, prompt "Candidatura partnership + routing
   // token prodotto + rotazione claim homepage" + seguito): bug PREESISTENTE
   // trovato qui, stesso pattern di /booking segnalato il 25/08/2026 -
   // queste landing pubbliche esistevano ma non erano in PUBLIC_PATHS,
   // quindi un visitatore anonimo (o Googlebot) veniva rimandato a /login
-  // prima di vedere il contenuto. Nessuna di queste pagine e' mai stata
-  // davvero raggiungibile senza login finora - business-plan-pmi/startup
-  // e project-finance sopra hanno lo stesso bug, aggiunte insieme a questo
-  // fix. Le nuove landing di prodotto (Parte D) vanno qui fin da subito.
+  // prima di vedere il contenuto. project-finance sopra ha lo stesso bug,
+  // aggiunta insieme a questo fix. Le nuove landing di prodotto (Parte D)
+  // vanno qui fin da subito.
   '/business-plan',
   '/analisi-aziendale',
   '/ricambio-generazionale',
