@@ -93,7 +93,7 @@
                 <field name="name"/>
                 <field name="company_id"/>
                 <field name="company_name"/>
-                <field name="primary_color" widget="color_picker"/>
+                <field name="primary_color" widget="color"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>
         </field>
@@ -128,7 +128,7 @@
                 Crea la tua prima configurazione White Label
             </p>
             <p>
-                Personalizza logo, colori e testi del tuo sistema ERPV6.
+                Personalizza logo, colori e testi del tuo sistema EAOSv6.
             </p>
         </field>
     </record>

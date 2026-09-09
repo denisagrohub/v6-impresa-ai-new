@@ -6,13 +6,13 @@
          installati (html_editor e web_editor): patchiamo entrambi. -->
     <t t-inherit="html_editor.ChatGPTPromptDialog" t-inherit-mode="extension">
         <xpath expr="//t[contains(@t-esc,'OdooBot')]" position="attributes">
-            <attribute name="t-esc">message.author === 'user' ? 'You' : 'ERPV6 Bot'</attribute>
+            <attribute name="t-esc">message.author === 'user' ? 'You' : 'EAOSv6 Bot'</attribute>
         </xpath>
     </t>
 
     <t t-inherit="web_editor.ChatGPTPromptDialog" t-inherit-mode="extension">
         <xpath expr="//t[contains(@t-esc,'OdooBot')]" position="attributes">
-            <attribute name="t-esc">message.author === 'user' ? 'You' : 'ERPV6 Bot'</attribute>
+            <attribute name="t-esc">message.author === 'user' ? 'You' : 'EAOSv6 Bot'</attribute>
         </xpath>
     </t>
 

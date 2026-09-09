@@ -4,7 +4,7 @@
     'version': '18.0.1.0.0',
     'summary': 'Modulo White Label per personalizzazione branding aziendale',
     'description': """
-        Modulo per personalizzare il branding ERPV6 (Odoo 18 Community).
+        Modulo per personalizzare il branding EAOSv6 (Odoo 18 Community).
         
         Funzionalità:
         - Personalizzazione logo aziendale

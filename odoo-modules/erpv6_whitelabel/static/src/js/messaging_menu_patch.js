@@ -13,7 +13,7 @@ patch(MessagingMenu.prototype, {
     get installationRequest() {
         return {
             ...super.installationRequest,
-            displayName: _t("Install ERPV6"),
+            displayName: _t("Install EAOSv6"),
         };
     },
 });

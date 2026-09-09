@@ -6,6 +6,7 @@
         <field name="code">default</field>
         <field name="sequence">1</field>
         <field name="company_id" ref="base.main_company"/>
+        <field name="company_name">EAOSv6</field>
         <field name="primary_color">#1a2744</field>
         <field name="secondary_color">#f97316</field>
         <field name="success_color">#10b981</field>
