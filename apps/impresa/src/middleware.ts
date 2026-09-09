@@ -43,6 +43,9 @@ const PUBLIC_PATHS = [
   // irraggiungibile e' un problema SEO serio quanto le pagine bloccate.
   '/robots.txt',
   '/sitemap.xml',
+  // llms.txt (09/09/2026, richiesto esplicitamente "leggibile dalle IA") -
+  // stesso identico bug di robots.txt/sitemap.xml sopra se non fosse qui.
+  '/llms.txt',
   // Pagina pubblica di prenotazione call (/booking/[consultantId]) -
   // bug pre-esistente trovato il 25/08/2026: la pagina esisteva ma non
   // era mai stata aggiunta qui, quindi un visitatore anonimo veniva
