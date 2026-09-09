@@ -12,9 +12,35 @@ const merriweather = Merriweather({
   display: "swap",
 });
 
+// 09/09/2026 (analisi SEO): metadataBase mancava - senza, i canonical/OG
+// generati da ogni pagina (relativi) non si risolvono in URL assoluti
+// corretti, e i social scraper (Facebook/LinkedIn/X) spesso scartano un
+// og:url relativo. openGraph/twitter di default qui, ogni pagina puo'
+// sovrascriverli (nessuna pagina lo fa oggi - da fare pagina per pagina
+// se serve un'immagine social specifica, non inventata qui).
 export const metadata: Metadata = {
-  title: "V6 Impresa AI - Business Plan, Brand & Marketing",
+  metadataBase: new URL("https://www.v6impresa.it"),
+  title: {
+    default: "V6 Impresa AI - Business Plan, Brand & Marketing",
+    template: "%s | V6 Impresa AI",
+  },
   description: "Piattaforma di consulenza avanzata per business plan, brand analysis e marketing strategico.",
+  openGraph: {
+    type: "website",
+    locale: "it_IT",
+    siteName: "V6 Impresa AI",
+    title: "V6 Impresa AI - Business Plan, Brand & Marketing",
+    description: "Piattaforma di consulenza avanzata per business plan, brand analysis e marketing strategico.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "V6 Impresa AI - Business Plan, Brand & Marketing",
+    description: "Piattaforma di consulenza avanzata per business plan, brand analysis e marketing strategico.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

@@ -14,6 +14,35 @@ const PUBLIC_PATHS = [
   '/chi-siamo',
   '/metodo',
   '/casi-studio',
+  '/project-finance',
+  '/business-plan-pmi',
+  '/business-plan-startup',
+  // 09/09/2026 (analisi SEO, prompt "Candidatura partnership + routing
+  // token prodotto + rotazione claim homepage" + seguito): bug PREESISTENTE
+  // trovato qui, stesso pattern di /booking segnalato il 25/08/2026 -
+  // queste landing pubbliche esistevano ma non erano in PUBLIC_PATHS,
+  // quindi un visitatore anonimo (o Googlebot) veniva rimandato a /login
+  // prima di vedere il contenuto. Nessuna di queste pagine e' mai stata
+  // davvero raggiungibile senza login finora - business-plan-pmi/startup
+  // e project-finance sopra hanno lo stesso bug, aggiunte insieme a questo
+  // fix. Le nuove landing di prodotto (Parte D) vanno qui fin da subito.
+  '/business-plan',
+  '/analisi-aziendale',
+  '/ricambio-generazionale',
+  '/acquisto-tee',
+  '/esg',
+  '/team-building',
+  '/formazione-aziendale',
+  '/kaizen-lean',
+  '/partnership',
+  // Convenzione Next.js App Router: src/app/robots.ts e src/app/sitemap.ts
+  // compilano rispettivamente a /robots.txt e /sitemap.xml - senza
+  // l'estensione .txt/.xml nel controllo statico piu' sotto, entrambi
+  // venivano rimandati a /login (verificato dal vivo: curl su
+  // www.v6impresa.it/robots.txt tornava 307 -> /login). Un robots.txt
+  // irraggiungibile e' un problema SEO serio quanto le pagine bloccate.
+  '/robots.txt',
+  '/sitemap.xml',
   // Pagina pubblica di prenotazione call (/booking/[consultantId]) -
   // bug pre-esistente trovato il 25/08/2026: la pagina esisteva ma non
   // era mai stata aggiunta qui, quindi un visitatore anonimo veniva
@@ -61,6 +90,12 @@ export function middleware(request: NextRequest) {
   // usato da visitatori anonimi: deve restare accessibile senza sessione.
   // GET/PUT restano protetti: espongono/agiscono sulla coda lead pendenti.
   if (pathname === '/api/leads' && request.method === 'POST') {
+    return NextResponse.next();
+  }
+
+  // POST /api/partnership è l'endpoint di invio candidatura da /partnership
+  // (pagina pubblica, Parte A), stesso schema di /api/leads sopra.
+  if (pathname === '/api/partnership' && request.method === 'POST') {
     return NextResponse.next();
   }
 
