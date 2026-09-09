@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 09/09/2026 (richiesto esplicitamente da Denis dopo la verifica del
+         pagamento reale): dopo il pagamento riuscito del report Win-Win,
+         il cliente restava sulla pagina portale Odoo (nessun redirect
+         automatico verso /report/[token]) - qui si avvisa e si
+         reindirizza dopo 10 secondi, SOLO quando l'ordine e' davvero
+         confermato (state='sale', quindi pagato) e ha un report Win-Win
+         collegato (sale_order.winwin_report_url, vedi
+         models/sale_order_extension.py) - mai un redirect per un ordine
+         qualsiasi non correlato al circuito Win-Win. -->
+    <template id="winwin_sale_order_portal_redirect" inherit_id="sale.sale_order_portal_template">
+        <xpath expr="//div[hasclass('o_portal_sale_sidebar')]" position="before">
+            <div t-if="sale_order.state == 'sale' and sale_order.winwin_report_url"
+                 class="alert alert-success d-print-none" role="status">
+                Pagamento ricevuto. Verrai reindirizzato al tuo report Win-Win completo in pochi secondi -
+                <a t-att-href="sale_order.winwin_report_url">clicca qui se non succede automaticamente</a>.
+            </div>
+            <script t-if="sale_order.state == 'sale' and sale_order.winwin_report_url" type="text/javascript">
+                setTimeout(function () {
+                    window.location.href = "<t t-esc="sale_order.winwin_report_url"/>";
+                }, 10000);
+            </script>
+        </xpath>
+    </template>
+</odoo>

@@ -37,6 +37,7 @@
         'data/cron_report_token_data.xml',
         'data/product_report_winwin_data.xml',
         'views/winwin_dashboard_views.xml',
+        'views/sale_order_portal_redirect.xml',
     ],
     'assets': {
         'web.assets_backend': [

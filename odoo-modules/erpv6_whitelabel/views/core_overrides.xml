@@ -80,4 +80,33 @@
         </xpath>
     </template>
 
+    <!-- 09/09/2026: badge "Powered by [logo Odoo] - Crea un sito web
+         gratuito" (web.brand_promotion_message) - trovato visibile sulla
+         pagina portale ordine/pagamento (/my/orders/<id>), non coperto da
+         nessun override precedente (template diverso, promo generica del
+         "sito web gratuito", non l'attribuzione legale). -->
+    <template id="white_label_brand_promotion" inherit_id="web.brand_promotion_message">
+        <!-- Il template originale fa 'final_message % (odoo_logo, ...)' -
+             sostituire solo t-set='final_message' con una stringa senza
+             %s%s rompe quella formattazione (TypeError verificato dal
+             vivo: 500 su ogni pagina che includeva questo template).
+             Sostituiamo l'intero t-out invece, bypassando del tutto la
+             sostituzione Python. -->
+        <xpath expr="//t[@t-out]" position="replace">
+            <t t-out="'Fornito da EAOSv6'"/>
+        </xpath>
+    </template>
+
+    <!-- 09/09/2026: footer "Powered by [logo Odoo]" nella sidebar portale
+         (/my/orders/<id> e altre pagine "My Account") - stesso motivo. -->
+    <template id="white_label_portal_sidebar_footer" inherit_id="portal.portal_record_sidebar">
+        <!-- "title" non e' un selettore ammesso per l'ereditarietà delle
+             view (verificato dal vivo: ParseError "View inheritance may
+             not use attribute 'title' as a selector") - href e' univoco
+             qui, usato invece. -->
+        <xpath expr="//a[@href='http://www.odoo.com?utm_source=db&amp;utm_medium=portal']" position="replace">
+            <span>EAOSv6</span>
+        </xpath>
+    </template>
+
 </odoo>

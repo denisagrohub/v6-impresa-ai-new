@@ -2,6 +2,7 @@ from . import aeosv6_dispatch
 from . import interview_extension
 from . import gate
 from . import report_token
+from . import sale_order_extension
 from . import tracking_relation_extension
 from . import booking_token_extension
 from . import production_order_dashboard_extension
