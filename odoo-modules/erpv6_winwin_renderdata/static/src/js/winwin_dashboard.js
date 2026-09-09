@@ -51,6 +51,10 @@ export class WinwinConsultantDashboard extends Component {
             newConsultant: { userId: "", brandId: "" },
             newReferral: { name: "", email: "", phone: "" },
             adminMessage: "",
+            // 09/09/2026 (prompt "Candidatura partnership...", Parte A
+            // punto 4): coda candidature dentro la stessa tab
+            // Amministrazione, stesso pattern di adminData sopra.
+            expandedCandidacyId: null,
         });
         onWillStart(() => this.loadAll());
     }
@@ -124,6 +128,23 @@ export class WinwinConsultantDashboard extends Component {
 
     setTab(tab) {
         this.state.tab = tab;
+    }
+
+    toggleExpandCandidacy(id) {
+        this.state.expandedCandidacyId = this.state.expandedCandidacyId === id ? null : id;
+    }
+
+    async setCandidacyState(candidacyId, newState) {
+        this.state.adminMessage = "";
+        try {
+            await this.orm.call("erpv6.partnership.candidacy", "action_set_state_from_dashboard", [
+                candidacyId,
+                newState,
+            ]);
+            await this.reloadAdminData();
+        } catch (e) {
+            this.state.adminMessage = (e && e.message) || "Errore durante il cambio di stato della candidatura";
+        }
     }
 
     toggleExpand(id) {

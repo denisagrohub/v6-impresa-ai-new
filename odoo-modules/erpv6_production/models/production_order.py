@@ -68,6 +68,24 @@ class Erpv6ProductionOrder(models.Model):
     interview_destinatario = fields.Char(string='Destinatario BP (intervista)')
     interview_fatturato = fields.Char(string='Fatturato Azienda (intervista)')
 
+    # 09/09/2026 (prompt "Candidatura partnership + routing token prodotto
+    # + rotazione claim homepage", Parte B): parametro di provenienza
+    # opzionale passato dalla landing di prodotto (es. ?source=esg),
+    # DIVERSO da interview_tipo_progetto sopra - quello e' una risposta
+    # BANT data A META' intervista (domanda esplicita), questo e' noto
+    # SUBITO all'arrivo, prima ancora che l'intervista inizi, e serve
+    # anche a saltare l'assegnazione automatica competenza/storico/zona
+    # quando esiste un routing dedicato (vedi
+    # erpv6.landing.product.route/crm_lead._promote_to_opportunity).
+    # Salvato SEMPRE quando presente, anche se non determina
+    # l'assegnazione diretta (utile al consulente che prende in carico
+    # dalla coda, per il contesto).
+    landing_source_code = fields.Char(
+        string='Provenienza Landing (prodotto)',
+        help="Codice prodotto della landing di provenienza (es. 'esg', 'business-plan') - "
+             "vuoto se il lead arriva dalla home generica o da un canale senza tracciamento.",
+    )
+
     # "Il metodo" (erpv6.kb.engine su KB kb_type=metodo_v6, gia' usato per
     # decidere l'avanzamento fase in _evaluate_and_advance_one) - risultato
     # dell'ultima analisi, cosi' resta visibile/consultabile invece di essere

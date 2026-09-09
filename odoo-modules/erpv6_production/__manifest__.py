@@ -60,6 +60,7 @@
         'views/typst_template_views.xml',
         'views/interview_views.xml',
         'views/consulente_assignment_views.xml',
+        'views/landing_product_route_views.xml',
     ],
     'installable': True,
     'application': True,

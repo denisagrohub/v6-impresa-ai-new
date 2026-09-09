@@ -67,6 +67,16 @@ function mapLeadDataForOdoo(data: Record<string, any>): Record<string, any> {
         tipo_progetto: data.tipoProgetto || '',
         destinatario: data.destinatario || '',
         fatturato: data.fatturato || '',
+        // 09/09/2026 (prompt "Candidatura partnership + routing token
+        // prodotto + rotazione claim homepage", Parte B): parametro di
+        // provenienza dalla landing di prodotto (?source=...). NESSUN
+        // fallback a '' (a differenza di budget/tempistiche sopra) -
+        // stesso pattern di score/package_hint: se questa chiamata non
+        // lo porta (es. il submit finale da /intervista/guidata, che non
+        // ce l'ha piu' nello stato locale), la chiave resta assente nel
+        // JSON e _start_production non sovrascrive un valore gia' salvato
+        // dalla chiamata iniziale con ''.
+        landing_source_code: data.landing_source_code,
     };
 }
 

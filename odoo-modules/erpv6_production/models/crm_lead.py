@@ -220,7 +220,7 @@ class CrmLead(models.Model):
 
     def _start_production(self, score=None, package_hint=None, verticale=None,
                            budget=None, tempistiche=None, tipo_progetto=None,
-                           destinatario=None, fatturato=None, **kwargs):
+                           destinatario=None, fatturato=None, landing_source_code=None, **kwargs):
         """Crea la prima erpv6.production.order per questo lead, in fase
         iniziale 'diagnostica'. Chiamato da lead_api.py (stesso pattern
         hasattr/duck-typing gia' usato per _start_funnel), sia sulla
@@ -250,6 +250,8 @@ class CrmLead(models.Model):
                 update_vals['interview_tempistiche'] = tempistiche
             if tipo_progetto is not None:
                 update_vals['interview_tipo_progetto'] = tipo_progetto
+            if landing_source_code is not None:
+                update_vals['landing_source_code'] = landing_source_code
             if destinatario is not None:
                 update_vals['interview_destinatario'] = destinatario
             if fatturato is not None:
@@ -270,6 +272,7 @@ class CrmLead(models.Model):
             'interview_tipo_progetto': tipo_progetto or '',
             'interview_destinatario': destinatario or '',
             'interview_fatturato': fatturato or '',
+            'landing_source_code': landing_source_code or '',
         })
         self.env['erpv6.production.event'].sudo().create({
             'order_id': order.id,
@@ -339,7 +342,22 @@ class CrmLead(models.Model):
                 self.message_post(body=f"Kairós: {kairos_label}")
         else:
             verticale_order = next((o for o in orders if o.verticale), orders[:1])
-            chosen, reason = self._auto_assign_consulente(order=verticale_order)
+
+            # 09/09/2026 (prompt "Candidatura partnership + routing token
+            # prodotto + rotazione claim homepage", Parte B, punto 1):
+            # se il lead arriva da una landing di prodotto con un routing
+            # dedicato (erpv6.landing.product.route), assegna DIRETTAMENTE
+            # quel consulente - saltando _auto_assign_consulente()
+            # (competenza/storico/zona) del tutto. Se il parametro non e'
+            # presente o non ha un routing attivo, comportamento invariato
+            # (punto 2 del prompt): _find_consultant_for_product ritorna un
+            # recordset vuoto, il flusso normale sotto prosegue identico.
+            landing_code = verticale_order.landing_source_code if verticale_order else False
+            routed_user = self.env['erpv6.landing.product.route']._find_consultant_for_product(landing_code)
+            if routed_user:
+                chosen, reason = routed_user, 'landing_prodotto'
+            else:
+                chosen, reason = self._auto_assign_consulente(order=verticale_order)
             team = self.team_id
             summary = f"Nuovo lead qualificato da gestire: {self.name}"
             if kairos_label:

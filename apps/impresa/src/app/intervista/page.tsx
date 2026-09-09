@@ -41,6 +41,14 @@ function InterviewContent() {
   const searchParams = useSearchParams();
   const packageId = searchParams.get('package');
   const packageName = searchParams.get('packageName');
+  // 09/09/2026 (prompt "Candidatura partnership + routing token prodotto
+  // + rotazione claim homepage", Parte B, punto 1-3): parametro opzionale
+  // di provenienza dalla landing di prodotto (es. /intervista?source=esg),
+  // passato SEMPRE alla prima chiamata createPartialLead cosi' arriva
+  // sull'erpv6.production.order fin dall'inizio - non serve rimandarlo
+  // nelle chiamate successive di /intervista/guidata (vedi mapLeadDataForOdoo,
+  // nessun fallback a '' che lo cancellerebbe).
+  const sourceProdotto = searchParams.get('source');
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
@@ -50,7 +58,12 @@ function InterviewContent() {
 
   const goToGuidata = async (finalAnswers: Answers) => {
     setRedirecting(true);
-    const result = await createPartialLead({ ...finalAnswers, package: packageName, packageId });
+    const result = await createPartialLead({
+      ...finalAnswers,
+      package: packageName,
+      packageId,
+      landing_source_code: sourceProdotto || undefined,
+    });
     const guidataParams = new URLSearchParams();
     if (result.success && result.leadId) guidataParams.set('lead_id', String(result.leadId));
     if (finalAnswers.nome) guidataParams.set('name', finalAnswers.nome);
