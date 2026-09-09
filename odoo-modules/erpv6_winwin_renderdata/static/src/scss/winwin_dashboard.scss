@@ -304,6 +304,15 @@ $winwin-text: #1C2128;
         margin-bottom: 4px;
     }
 
+    // 09/09/2026: le email erano solo testo, nessun modo di aprirle -
+    // ora cliccabili (apre la scheda nativa Odoo con il corpo reale).
+    .o_winwin_email_clickable {
+        cursor: pointer;
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
     // Tab Amministrazione (07/09/2026) - stessa palette, nessuna
     // variabile nuova.
     .o_winwin_admin_section {

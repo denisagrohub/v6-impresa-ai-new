@@ -60,6 +60,15 @@
     <menuitem id="menu_project_email_log" name="Email Progetti" parent="aeosv6_relation.menu_tracking_relation_root"
               action="action_project_email_log" sequence="20"/>
 
-    <menuitem id="menu_tracking_relation_projects_in_project_app" name="Progetti (Relay Email)"
+    <!-- 09/09/2026: era "Progetti (Relay Email)" - nome fuorviante, questa
+         azione mostra i Progetti (erpv6.tracking.relation), MAI le email
+         (quelle sono nel menu "Email Progetti" sopra) - segnalato da Denis
+         ("non vedo più la lista delle email"), cercava le email qui. -->
+    <menuitem id="menu_tracking_relation_projects_in_project_app" name="Progetti"
               parent="project.menu_main_pm" action="action_tracking_relation_projects" sequence="15"/>
+    <!-- Stesso link "Email Progetti" gia' esistente sotto aeosv6_relation,
+         duplicato qui accanto a "Progetti" dentro l'app Project - Denis
+         cercava le email proprio in questo punto, non nel menu separato. -->
+    <menuitem id="menu_project_email_log_in_project_app" name="Email Progetti"
+              parent="project.menu_main_pm" action="action_project_email_log" sequence="16"/>
 </odoo>

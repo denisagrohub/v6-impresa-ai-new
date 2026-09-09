@@ -172,6 +172,21 @@ export class WinwinConsultantDashboard extends Component {
         });
     }
 
+    // 09/09/2026 (bug segnalato da Denis: "vedo l'email in dashboard ma
+    // non posso cliccare per aprirla e leggerla") - le email erano solo
+    // testo statico (mittente/oggetto), nessuna azione. Stesso pattern di
+    // openProductionOrder/openTrackingRelation sopra: apre la scheda
+    // nativa Odoo (chatter con il corpo reale), non una vista nuova.
+    openEmailLog(id, model) {
+        this.actionService.doAction({
+            type: "ir.actions.act_window",
+            res_model: model,
+            res_id: id,
+            views: [[false, "form"]],
+            target: "current",
+        });
+    }
+
     openTrackingRelation(id) {
         this.actionService.doAction({
             type: "ir.actions.act_window",

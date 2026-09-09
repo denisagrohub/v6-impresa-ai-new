@@ -135,7 +135,9 @@
                             </p>
                             <p t-if="!p.emails.length">Nessuna email captata ancora.</p>
                             <ul class="o_winwin_email_feed" t-else="">
-                                <li t-foreach="p.emails" t-as="e" t-key="e.id">
+                                <li t-foreach="p.emails" t-as="e" t-key="e.id"
+                                    class="o_winwin_email_clickable"
+                                    t-on-click="() => this.openEmailLog(e.id, 'erpv6.winwin.email.log')">
                                     <b t-esc="e.sender_email"/> — <t t-esc="e.name"/>
                                 </li>
                             </ul>
@@ -191,7 +193,9 @@
                             <h3>Email di progetto</h3>
                             <p t-if="!rel.emails.length">Nessuna email captata ancora.</p>
                             <ul class="o_winwin_email_feed" t-else="">
-                                <li t-foreach="rel.emails" t-as="e" t-key="e.id">
+                                <li t-foreach="rel.emails" t-as="e" t-key="e.id"
+                                    class="o_winwin_email_clickable"
+                                    t-on-click="() => this.openEmailLog(e.id, 'erpv6.project.email.log')">
                                     <b t-esc="e.mittente"/> — <t t-esc="e.oggetto"/>
                                 </li>
                             </ul>
