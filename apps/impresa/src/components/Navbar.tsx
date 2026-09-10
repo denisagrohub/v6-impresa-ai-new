@@ -86,6 +86,7 @@ export default function Navbar() {
             </div>
 
             <Link href="/blog" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/blog' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Blog</Link>
+            <Link href="/partnership" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/partnership' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Partnership</Link>
             <Link href="/contatti" className="text-sm font-medium text-gray-700 hover:text-gray-900">Contatti</Link>
             
             {session ? (
@@ -122,6 +123,7 @@ export default function Navbar() {
               </Link>
             ))}
             <Link href="/blog" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Blog</Link>
+            <Link href="/partnership" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Partnership</Link>
             <Link href="/contatti" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Contatti</Link>
             {session ? (
               <>
