@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   } catch {
     return NextResponse.json({ success: false, error: 'JSON non valido' }, { status: 400 });
   }
-  const { name, email, phone, ruolo, mandato } = body || {};
+  const { name, email, phone, ruolo, mandato, partnerId: selectedPartnerId } = body || {};
   if (!name) {
     return NextResponse.json({ success: false, error: 'Il nome è obbligatorio' }, { status: 400 });
   }
@@ -23,8 +23,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     await odoo.connect();
 
-    let partnerId: number | false = false;
-    if (email) {
+    // 10/09/2026 (Denis: "deve essere possibile selezionarlo o crearlo") -
+    // partnerId valorizzato = contatto ESISTENTE scelto dall'autocomplete
+    // (nessuna ricerca/creazione, usato cosi' com'è); altrimenti stesso
+    // find-or-create per email di prima, per non duplicare un contatto se
+    // l'email coincide con uno già presente ma l'admin non l'ha selezionato.
+    let partnerId: number | false = selectedPartnerId || false;
+    if (!partnerId && email) {
       const existingPartners = await odoo.execute('res.partner', 'search_read', [
         [['email', '=', email]], ['id'], 0, 1,
       ]);

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Calendar, User, Building2, FileText, Download, MessageSquareText, ShieldCheck, UploadCloud } from "lucide-react";
+import { Loader2, ArrowLeft, Calendar, User, Building2, Download, MessageSquareText, ShieldCheck, UploadCloud } from "lucide-react";
 import HeinrichPanel from "@/components/admin/HeinrichPanel";
 import NotesBoard from "@/components/admin/NotesBoard";
 import AssistantChat from "@/components/admin/AssistantChat";
@@ -106,6 +106,10 @@ export default function AdminProjectDetail() {
     const [missingTemplateFor, setMissingTemplateFor] = useState<string | null>(null);
     const [templateSourceDraft, setTemplateSourceDraft] = useState('');
     const [docActionError, setDocActionError] = useState<string | null>(null);
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadCategory, setUploadCategory] = useState('other');
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
 
     const load = async () => {
         try {
@@ -183,6 +187,39 @@ export default function AdminProjectDetail() {
             await load();
         } finally {
             setGeneratingDoc(null);
+        }
+    };
+
+    const fileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+
+    const handleUploadFile = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!uploadFile) return;
+        setUploading(true);
+        setUploadError(null);
+        try {
+            const base64 = await fileToBase64(uploadFile);
+            const res = await fetch(`/api/admin/projects/${id}/documents/upload-file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: uploadFile.name, category: uploadCategory, fileBase64: base64, fileName: uploadFile.name }),
+            });
+            const data = await res.json();
+            if (!data.success) {
+                setUploadError(data.error || 'Caricamento fallito');
+                return;
+            }
+            setUploadFile(null);
+            await load();
+        } catch (err: any) {
+            setUploadError(err.message || 'Errore di rete');
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -272,24 +309,48 @@ export default function AdminProjectDetail() {
                         </div>
                     </div>
 
-                    {/* Colonna 2: contesto a colpo d'occhio */}
-                    <div className="space-y-6 min-w-0">
-                        {project.kairos && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Kairós</h2>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xl font-bold text-[#1a2744]">{project.kairos.score}/15</span>
-                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${QUADRANTE_COLOR[project.kairos.quadrante] || 'bg-gray-100 text-gray-700'}`}>
-                                        {project.kairos.quadrante.replace('_', ' ')}
-                                    </span>
+                    {/* Colonna 2: contesto a colpo d'occhio, raggruppato in zone
+                        colorate (Denis, 10/09/2026: "l'uso di zone colorate con
+                        colori differenti aiuta a referenziare meglio l'attenzione
+                        e il lavoro dando priorità visiva a quello che esiste sulla
+                        pagina") - ambra = salute/decisione, blu = documenti
+                        (prima erano due pannelli separati "Contratto & Documenti"
+                        e "Documenti", uniti qui), viola = assistente. */}
+                    <div className="space-y-5 min-w-0">
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5 space-y-4">
+                            <h2 className="text-xs font-bold text-amber-800 uppercase tracking-wide">Salute del Progetto</h2>
+                            {project.kairos && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xl font-bold text-[#1a2744]">{project.kairos.score}/15</span>
+                                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${QUADRANTE_COLOR[project.kairos.quadrante] || 'bg-gray-100 text-gray-700'}`}>
+                                            {project.kairos.quadrante.replace('_', ' ')}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-amber-700/80">Prontezza: {project.kairos.prontezzaLabel} · Impatto: {project.kairos.impattoLabel}</p>
                                 </div>
-                                <p className="text-xs text-gray-500">Prontezza: {project.kairos.prontezzaLabel} · Impatto: {project.kairos.impattoLabel}</p>
+                            )}
+                            <div className={project.kairos ? 'pt-3 border-t border-amber-200/70' : ''}>
+                                <HeinrichPanel resModel="erpv6.production.order" resId={project.id} compact />
                             </div>
-                        )}
+                            {hasIntervista && (
+                                <div className="pt-3 border-t border-amber-200/70">
+                                    <h3 className="text-[11px] font-bold text-amber-700 uppercase tracking-wide mb-2">Risposte Intervista</h3>
+                                    <dl className="space-y-1.5 text-sm">
+                                        {intervista?.tipoProgetto && <div><dt className="text-xs text-amber-700/70">Tipo Progetto</dt><dd className="text-[#1a2744]">{intervista.tipoProgetto}</dd></div>}
+                                        {intervista?.budget && <div><dt className="text-xs text-amber-700/70">Budget</dt><dd className="text-[#1a2744]">{intervista.budget}</dd></div>}
+                                        {intervista?.tempistiche && <div><dt className="text-xs text-amber-700/70">Tempistiche</dt><dd className="text-[#1a2744]">{intervista.tempistiche}</dd></div>}
+                                        {intervista?.destinatario && <div><dt className="text-xs text-amber-700/70">Destinatario</dt><dd className="text-[#1a2744]">{intervista.destinatario}</dd></div>}
+                                        {intervista?.fatturato && <div><dt className="text-xs text-amber-700/70">Fatturato</dt><dd className="text-[#1a2744]">{intervista.fatturato}</dd></div>}
+                                        {intervista?.score != null && <div><dt className="text-xs text-amber-700/70">Score</dt><dd className="text-[#1a2744]">{intervista.score}</dd></div>}
+                                    </dl>
+                                </div>
+                            )}
+                        </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                                <ShieldCheck size={14} /> Contratto &amp; Documenti
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5">
+                            <h2 className="text-xs font-bold text-blue-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                <ShieldCheck size={14} /> Documenti
                             </h2>
                             {contratto && (
                                 <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -358,49 +419,58 @@ export default function AdminProjectDetail() {
                                 })}
                                 {docActionError && <p className="text-xs text-red-600">{docActionError}</p>}
                             </div>
-                        </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Affidabilità</h2>
-                            <HeinrichPanel resModel="erpv6.production.order" resId={project.id} compact />
-                        </div>
-
-                        <AssistantChat resModel="erpv6.production.order" resId={project.id} />
-
-                        {hasIntervista && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Risposte Intervista</h2>
-                                <dl className="space-y-2 text-sm">
-                                    {intervista?.tipoProgetto && <div><dt className="text-xs text-gray-400">Tipo Progetto</dt><dd className="text-[#1a2744]">{intervista.tipoProgetto}</dd></div>}
-                                    {intervista?.budget && <div><dt className="text-xs text-gray-400">Budget</dt><dd className="text-[#1a2744]">{intervista.budget}</dd></div>}
-                                    {intervista?.tempistiche && <div><dt className="text-xs text-gray-400">Tempistiche</dt><dd className="text-[#1a2744]">{intervista.tempistiche}</dd></div>}
-                                    {intervista?.destinatario && <div><dt className="text-xs text-gray-400">Destinatario</dt><dd className="text-[#1a2744]">{intervista.destinatario}</dd></div>}
-                                    {intervista?.fatturato && <div><dt className="text-xs text-gray-400">Fatturato</dt><dd className="text-[#1a2744]">{intervista.fatturato}</dd></div>}
-                                    {intervista?.score != null && <div><dt className="text-xs text-gray-400">Score</dt><dd className="text-[#1a2744]">{intervista.score}</dd></div>}
-                                </dl>
+                            <div className="mt-4 pt-4 border-t border-blue-200/70">
+                                <h3 className="text-[11px] font-bold text-blue-700 uppercase tracking-wide mb-2">Altri Documenti</h3>
+                                {documenti.length === 0 ? (
+                                    <p className="text-xs text-blue-700/60 mb-3">Nessun documento generato.</p>
+                                ) : (
+                                    <div className="space-y-2 mb-3">
+                                        {documenti.map((d) => (
+                                            <a key={d.id} href={`/api/admin/documents/${d.id}/download`}
+                                                className="flex items-center justify-between p-2 rounded-lg bg-white/70 hover:bg-white text-sm">
+                                                <div>
+                                                    <div className="text-[#1a2744] font-medium">{d.nome}</div>
+                                                    <div className="text-xs text-gray-400">{d.categoria}{d.finale ? ' · finale' : ''}</div>
+                                                </div>
+                                                <Download size={14} className="text-gray-400" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
+                                <form onSubmit={handleUploadFile} className="space-y-2">
+                                    <input
+                                        type="file"
+                                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                                        className="w-full text-xs file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:bg-blue-600 file:text-white file:text-xs"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={uploadCategory}
+                                            onChange={(e) => setUploadCategory(e.target.value)}
+                                            className="flex-1 px-2 py-1.5 rounded-md border border-blue-200 text-xs bg-white"
+                                        >
+                                            <option value="other">Altro</option>
+                                            <option value="client_upload">Caricato dal Cliente</option>
+                                            <option value="business_plan">Business Plan</option>
+                                            <option value="proposal">Proposta</option>
+                                            <option value="final">Documento Finale</option>
+                                        </select>
+                                        <button
+                                            type="submit"
+                                            disabled={uploading || !uploadFile}
+                                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-40"
+                                        >
+                                            <UploadCloud size={12} /> {uploading ? 'Carico...' : 'Carica'}
+                                        </button>
+                                    </div>
+                                    {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
+                                </form>
                             </div>
-                        )}
+                        </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                                <FileText size={14} /> Documenti
-                            </h2>
-                            {documenti.length === 0 ? (
-                                <p className="text-sm text-gray-400">Nessun documento generato.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {documenti.map((d) => (
-                                        <a key={d.id} href={`/api/admin/documents/${d.id}/download`}
-                                            className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm">
-                                            <div>
-                                                <div className="text-[#1a2744] font-medium">{d.nome}</div>
-                                                <div className="text-xs text-gray-400">{d.categoria}{d.finale ? ' · finale' : ''}</div>
-                                            </div>
-                                            <Download size={14} className="text-gray-400" />
-                                        </a>
-                                    ))}
-                                </div>
-                            )}
+                        <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-1">
+                            <AssistantChat resModel="erpv6.production.order" resId={project.id} />
                         </div>
                     </div>
 

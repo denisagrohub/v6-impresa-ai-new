@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Mail, Send, ChevronDown, ChevronUp, UserPlus, Sparkles } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Send, ChevronDown, ChevronUp, UserPlus, Sparkles, Download, UploadCloud } from "lucide-react";
 import HeinrichPanel from "@/components/admin/HeinrichPanel";
 import NotesBoard from "@/components/admin/NotesBoard";
 import AssistantChat from "@/components/admin/AssistantChat";
@@ -65,6 +65,19 @@ export default function PartnerProjectDetailPage() {
     const [partMandato, setPartMandato] = useState("");
     const [savingPart, setSavingPart] = useState(false);
     const [addPartError, setAddPartError] = useState<string | null>(null);
+    const [partnerResults, setPartnerResults] = useState<{ id: number; name: string; email: string | null; phone: string | null }[]>([]);
+    const [selectedExistingPartnerId, setSelectedExistingPartnerId] = useState<number | null>(null);
+
+    const [documents, setDocuments] = useState<{ id: number; name: string; file_size: number; create_date: string }[]>([]);
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+
+    const loadDocuments = async () => {
+        const res = await fetch(`/api/admin/partner-projects/${id}/documents`);
+        const data = await res.json();
+        if (data.success) setDocuments(data.documents || []);
+    };
 
     const load = async () => {
         try {
@@ -77,10 +90,42 @@ export default function PartnerProjectDetailPage() {
             setProject(data.project);
             setPartners(data.partners || []);
             setEmails(data.emails || []);
+            loadDocuments();
         } catch (error: any) {
             setLoadError(error.message || 'Errore di rete');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUploadDocument = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!uploadFile) return;
+        setUploading(true);
+        setUploadError(null);
+        try {
+            const base64: string = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
+                reader.onerror = reject;
+                reader.readAsDataURL(uploadFile);
+            });
+            const res = await fetch(`/api/admin/partner-projects/${id}/documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileBase64: base64, fileName: uploadFile.name, mimetype: uploadFile.type }),
+            });
+            const data = await res.json();
+            if (!data.success) {
+                setUploadError(data.error || 'Caricamento fallito');
+                return;
+            }
+            setUploadFile(null);
+            await loadDocuments();
+        } catch (err: any) {
+            setUploadError(err.message || 'Errore di rete');
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -181,6 +226,32 @@ export default function PartnerProjectDetailPage() {
         }
     };
 
+    // 10/09/2026 (Denis: "deve essere possibile selezionarlo o crearlo") -
+    // ricerca live su res.partner mentre si digita il nome: selezionando un
+    // risultato si passa partnerId (nessuna creazione), altrimenti resta
+    // un nuovo contatto da creare col nome/email/telefono scritti a mano.
+    useEffect(() => {
+        if (selectedExistingPartnerId || partName.trim().length < 2) {
+            setPartnerResults([]);
+            return;
+        }
+        const t = setTimeout(() => {
+            fetch(`/api/admin/partners/search?q=${encodeURIComponent(partName.trim())}`)
+                .then((res) => res.json())
+                .then((data) => { if (data.success) setPartnerResults(data.partners || []); })
+                .catch(() => { });
+        }, 300);
+        return () => clearTimeout(t);
+    }, [partName, selectedExistingPartnerId]);
+
+    const handleSelectExistingPartner = (p: { id: number; name: string; email: string | null; phone: string | null }) => {
+        setSelectedExistingPartnerId(p.id);
+        setPartName(p.name);
+        setPartEmail(p.email || "");
+        setPartPhone(p.phone || "");
+        setPartnerResults([]);
+    };
+
     const handleAddPart = async (e: React.FormEvent) => {
         e.preventDefault();
         setSavingPart(true);
@@ -189,7 +260,11 @@ export default function PartnerProjectDetailPage() {
             const res = await fetch(`/api/admin/partner-projects/${id}/parts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: partName, email: partEmail, phone: partPhone, ruolo: partRuolo || undefined, mandato: partMandato || undefined }),
+                body: JSON.stringify({
+                    name: partName, email: partEmail, phone: partPhone,
+                    ruolo: partRuolo || undefined, mandato: partMandato || undefined,
+                    partnerId: selectedExistingPartnerId || undefined,
+                }),
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
@@ -197,6 +272,7 @@ export default function PartnerProjectDetailPage() {
                 return;
             }
             setPartName(""); setPartEmail(""); setPartPhone(""); setPartRuolo(""); setPartMandato("");
+            setSelectedExistingPartnerId(null);
             setShowAddPart(false);
             load();
         } catch (err: any) {
@@ -318,13 +394,16 @@ export default function PartnerProjectDetailPage() {
                         </div>
                     </div>
 
-                    {/* Colonna 2: parti collegate + invio */}
-                    <div className="space-y-6 min-w-0">
-                        {project && <AssistantChat resModel="erpv6.tracking.relation" resId={project.id} />}
-
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    {/* Colonna 2: parti collegate + invio, raggruppate in zone
+                        colorate (Denis, 10/09/2026: "zone colorate con colori
+                        differenti aiuta a referenziare meglio l'attenzione e il
+                        lavoro") - stessa palette della pagina Progetti: ambra =
+                        contesto/affidabilità, blu = azione/comunicazione,
+                        viola = assistente. */}
+                    <div className="space-y-5 min-w-0">
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
                             <div className="flex items-center justify-between mb-3">
-                                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Parti Collegate</h2>
+                                <h2 className="text-xs font-bold text-amber-800 uppercase tracking-wide">Parti Collegate</h2>
                                 <button onClick={() => setShowAddPart(!showAddPart)} className="text-[#1a2744]" title="Aggiungi Parte Collegata">
                                     <UserPlus size={16} />
                                 </button>
@@ -332,12 +411,44 @@ export default function PartnerProjectDetailPage() {
 
                             {showAddPart && (
                                 <form onSubmit={handleAddPart} className="bg-gray-50 rounded-xl p-3 mb-4 space-y-2">
-                                    <input required placeholder="Nome *" value={partName} onChange={(e) => setPartName(e.target.value)}
-                                        className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-xs" />
+                                    <div className="relative">
+                                        <input
+                                            required placeholder="Nome * (cerca un contatto esistente o scrivine uno nuovo)"
+                                            value={partName}
+                                            onChange={(e) => { setPartName(e.target.value); setSelectedExistingPartnerId(null); }}
+                                            className={`w-full px-3 py-1.5 rounded-lg border text-xs ${selectedExistingPartnerId ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}
+                                        />
+                                        {selectedExistingPartnerId && (
+                                            <button type="button"
+                                                onClick={() => { setSelectedExistingPartnerId(null); setPartName(""); setPartEmail(""); setPartPhone(""); }}
+                                                className="absolute right-2 top-1.5 text-xs text-gray-400 hover:text-gray-700"
+                                            >✕</button>
+                                        )}
+                                        {partnerResults.length > 0 && (
+                                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                                {partnerResults.map((p) => (
+                                                    <button
+                                                        type="button"
+                                                        key={p.id}
+                                                        onClick={() => handleSelectExistingPartner(p)}
+                                                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                                                    >
+                                                        <div className="font-medium text-[#1a2744]">{p.name}</div>
+                                                        {p.email && <div className="text-gray-400">{p.email}</div>}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {selectedExistingPartnerId && (
+                                        <p className="text-[11px] text-green-700">Contatto esistente selezionato — non verrà creato un duplicato.</p>
+                                    )}
                                     <input type="email" placeholder="Email" value={partEmail} onChange={(e) => setPartEmail(e.target.value)}
-                                        className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-xs" />
+                                        disabled={!!selectedExistingPartnerId}
+                                        className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-xs disabled:bg-gray-100" />
                                     <input placeholder="Telefono" value={partPhone} onChange={(e) => setPartPhone(e.target.value)}
-                                        className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-xs" />
+                                        disabled={!!selectedExistingPartnerId}
+                                        className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-xs disabled:bg-gray-100" />
                                     <select value={partRuolo} onChange={(e) => setPartRuolo(e.target.value)}
                                         className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-xs bg-white">
                                         <option value="">Ruolo —</option>
@@ -362,11 +473,11 @@ export default function PartnerProjectDetailPage() {
                             )}
 
                             {partners.length === 0 ? (
-                                <p className="text-sm text-gray-400">Nessuna parte collegata ancora.</p>
+                                <p className="text-sm text-amber-700/70">Nessuna parte collegata ancora.</p>
                             ) : (
                                 <div className="space-y-3">
                                     {partners.map((p) => (
-                                        <div key={p.id} className="border border-gray-100 rounded-lg p-3">
+                                        <div key={p.id} className="border border-amber-200/70 bg-white/60 rounded-lg p-3">
                                             <div className="text-sm font-semibold text-[#1a2744] mb-1">
                                                 {p.partnerName || p.name}
                                                 {p.ruolo && <span className="ml-2 text-xs text-gray-400 font-normal">({p.ruolo.replace('_', ' ')})</span>}
@@ -378,8 +489,8 @@ export default function PartnerProjectDetailPage() {
                             )}
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Invia Email dal Progetto</h2>
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5">
+                            <h2 className="text-xs font-bold text-blue-800 uppercase tracking-wide mb-3">Invia Email dal Progetto</h2>
                             <form onSubmit={handleSend} className="space-y-3">
                                 {partners.length > 0 && (
                                     <div className="flex flex-wrap gap-1.5">
@@ -437,6 +548,44 @@ export default function PartnerProjectDetailPage() {
                                 </button>
                             </form>
                         </div>
+
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5">
+                            <h2 className="text-xs font-bold text-blue-800 uppercase tracking-wide mb-3">Documenti</h2>
+                            {documents.length === 0 ? (
+                                <p className="text-xs text-blue-700/60 mb-3">Nessun documento caricato.</p>
+                            ) : (
+                                <div className="space-y-2 mb-3">
+                                    {documents.map((d) => (
+                                        <a key={d.id} href={`/api/admin/attachments/${d.id}/download`}
+                                            className="flex items-center justify-between p-2 rounded-lg bg-white/70 hover:bg-white text-sm">
+                                            <div className="text-[#1a2744] font-medium truncate">{d.name}</div>
+                                            <Download size={14} className="text-gray-400 flex-shrink-0" />
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                            <form onSubmit={handleUploadDocument} className="space-y-2">
+                                <input
+                                    type="file"
+                                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                                    className="w-full text-xs file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:bg-blue-600 file:text-white file:text-xs"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={uploading || !uploadFile}
+                                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-40"
+                                >
+                                    <UploadCloud size={12} /> {uploading ? 'Carico...' : 'Carica'}
+                                </button>
+                                {uploadError && <p className="text-xs text-red-600">{uploadError}</p>}
+                            </form>
+                        </div>
+
+                        {project && (
+                            <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-1">
+                                <AssistantChat resModel="erpv6.tracking.relation" resId={project.id} />
+                            </div>
+                        )}
                     </div>
 
                     {/* Colonna 3: lavagna di lavoro */}

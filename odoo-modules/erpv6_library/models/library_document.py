@@ -11,11 +11,19 @@ class LibraryDocument(models.Model):
     _inherit = ['erpv6.tracking.mixin']
     _order = 'create_date desc'
 
-    # Progetto correlato (CRM Lead)
+    # Progetto correlato (CRM Lead) - 10/09/2026 (Denis: "manca sui
+    # progetti sia progetti che progetti partner la possibilità di upload
+    # documenti"): required=True rimosso. erpv6.tracking.relation
+    # (Progetti Partner) non ha nessun crm.lead collegato - non e' un
+    # lead del funnel commerciale, e' un nodo progetto/parte indipendente
+    # (aeosv6_relation) - quindi un documento caricato lì non può
+    # valorizzare questo campo. source_model/source_res_id sotto (già
+    # usati per i documenti generati) restano il modo REALE di collegare
+    # un documento al suo progetto per qualunque modello, project_id resta
+    # solo per i documenti legati a un vero lead (erpv6.production.order).
     project_id = fields.Many2one(
         'crm.lead',
         string='Progetto',
-        required=True,
         ondelete='cascade'
     )
 

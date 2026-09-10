@@ -77,6 +77,23 @@ class Erpv6TrackingRelation(models.Model):
         string='Gate NDA Soddisfatto', compute='_compute_nda_gate_ok', store=True,
     )
 
+    # 10/09/2026 (Denis: "manca sui progetti sia progetti che progetti
+    # partner la possibilità di upload documenti") - stesso pattern
+    # polimorfico già usato da erpv6.production.order.document_ids
+    # (source_model/source_res_id su erpv6.library.document), qui senza
+    # nessun crm.lead intermedio (questo modello non ne ha uno).
+    document_ids = fields.Many2many(
+        'erpv6.library.document', string='Documenti', compute='_compute_document_ids',
+    )
+
+    def _compute_document_ids(self):
+        Document = self.env['erpv6.library.document']
+        for rec in self:
+            rec.document_ids = Document.search([
+                ('source_model', '=', 'erpv6.tracking.relation'),
+                ('source_res_id', '=', rec.id),
+            ])
+
     @api.depends('richiede_nda', 'contract_ids.document_ids.doc_type', 'contract_ids.document_ids.signed_at')
     def _compute_nda_gate_ok(self):
         for rec in self:
