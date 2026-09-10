@@ -24,7 +24,7 @@ export default function EsgPage() {
         { n: "03", title: "Reportistica", desc: "Costruiamo un dossier ESG coerente, pronto per chi lo richiede." },
         { n: "04", title: "Aggiornamento", desc: "Impostiamo un processo che regga anche alla prossima richiesta, non solo a questa." },
       ]}
-      primaryCtaHref="/contatti"
+      primaryCtaHref="/booking/1"
     />
   );
 }

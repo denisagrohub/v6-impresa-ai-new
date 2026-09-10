@@ -24,7 +24,7 @@ export default function AnalisiAziendalePage() {
         { n: "03", title: "Piano di intervento", desc: "Definiamo l'ordine in cui affrontare le criticità, con obiettivi misurabili per ciascuna." },
         { n: "04", title: "Verifica", desc: "Torniamo sui dati dopo l'intervento per confermare che il risultato sia reale, non presunto." },
       ]}
-      primaryCtaHref="/contatti"
+      primaryCtaHref="/booking/1"
     />
   );
 }

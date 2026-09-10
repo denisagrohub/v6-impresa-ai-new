@@ -24,7 +24,7 @@ export default function FormazioneAziendalePage() {
         { n: "03", title: "Formazione", desc: "Conduciamo il corso in azienda, con un formato pratico e non solo teorico." },
         { n: "04", title: "Verifica", desc: "Controlliamo con voi, dopo qualche settimana, se il comportamento è davvero cambiato." },
       ]}
-      primaryCtaHref="/contatti"
+      primaryCtaHref="/booking/1"
     />
   );
 }

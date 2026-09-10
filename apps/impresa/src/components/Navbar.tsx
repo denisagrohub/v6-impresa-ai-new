@@ -10,6 +10,11 @@ import { Logo } from "./Logo";
 // rotazione in homepage, mai da nessun link di menu - da qui la
 // sensazione di "sito vecchio" anche con l'ultimo deploy live. Elenco
 // unico qui, riusato da dropdown desktop e lista mobile sotto.
+//
+// Stesso giro: rimossi "Pacchetti" (/premium) e "Brand" (/brand) dal
+// menu su richiesta esplicita di Denis ("non servono sul menu") - le
+// pagine restano raggiungibili via URL diretto, solo tolte dalla
+// navigazione.
 const PRODOTTI = [
   { href: "/business-plan", label: "Business Plan" },
   { href: "/analisi-aziendale", label: "Analisi Aziendale" },
@@ -81,8 +86,6 @@ export default function Navbar() {
             </div>
 
             <Link href="/blog" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/blog' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Blog</Link>
-            <Link href="/premium" className="text-sm font-medium text-orange-600 hover:text-orange-700 font-semibold">Pacchetti</Link>
-            <Link href="/brand" className="text-sm font-medium text-gray-700 hover:text-gray-900">Brand</Link>
             <Link href="/contatti" className="text-sm font-medium text-gray-700 hover:text-gray-900">Contatti</Link>
             
             {session ? (
@@ -119,8 +122,6 @@ export default function Navbar() {
               </Link>
             ))}
             <Link href="/blog" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Blog</Link>
-            <Link href="/premium" className="block px-4 py-2 rounded-lg hover:bg-orange-50 text-orange-600 font-semibold">Pacchetti</Link>
-            <Link href="/brand" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Brand</Link>
             <Link href="/contatti" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Contatti</Link>
             {session ? (
               <>

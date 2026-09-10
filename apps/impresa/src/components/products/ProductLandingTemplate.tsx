@@ -45,9 +45,18 @@ export interface ProductLandingProps {
     whyBody: string;
     phases: ProductPhase[];
     caseStudy?: ProductCaseStudy;
-    /** Href reale per "Prenota una call" - /booking/[id] solo se un consulente
-     * e' davvero configurato per questo prodotto (erpv6.landing.product.route),
-     * altrimenti /contatti (mai un consultantId indovinato). */
+    /** Href reale per "Prenota una call" - deve puntare al sistema di
+     * booking vero (/booking/[consultantId], aeosv6_booking), MAI a
+     * /contatti come fallback (corretto il 10/09/2026 su richiesta
+     * esplicita di Denis: "quando prenoto una call non devo essere
+     * reindirizzato ai contatti"). Oggi punta a /booking/1 (Stefano
+     * Puglisi, erpv6.consulting.consultant id=1) per tutti i prodotti:
+     * e' l'UNICO consulente con link di prenotazione reali e non scaduti
+     * al momento della scrittura (verificato su erpv6_booking_token) -
+     * nessun altro consulente aveva slot validi. Quando
+     * erpv6.landing.product.route (Parte B) sara' popolata per prodotto,
+     * questo default va sostituito con un lookup dinamico per prodotto
+     * invece di un id fisso uguale per tutti. */
     primaryCtaHref: string;
 }
 
