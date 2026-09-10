@@ -31,16 +31,19 @@ export async function GET() {
     await odoo.connect();
 
     const orders = await odoo.execute('erpv6.production.order', 'search_read', [
-      [], ['id', 'name', 'lead_id', 'phase_id', 'create_date'], 0, 200, 'id desc',
+      [], ['id', 'name', 'lead_id', 'phase_id', 'create_date', 'write_date'], 0, 200, 'id desc',
     ]);
 
     const leadIds = Array.from(new Set((orders || []).map((o: any) => Array.isArray(o.lead_id) ? o.lead_id[0] : null).filter(Boolean)));
     const orderIds = (orders || []).map((o: any) => o.id);
 
     const [leads, kairosRows] = await Promise.all([
+      // priority: campo NATIVO Odoo (crm.lead, mai usato finora in questo
+      // progetto) - 10/09/2026 (Denis: "un'azione importante che colora il
+      // lead di giallo o arancio"), riusato invece di inventare un campo.
       leadIds.length
         ? odoo.execute('crm.lead', 'search_read', [
-            [['id', 'in', leadIds]], ['id', 'partner_name', 'contact_name', 'name', 'user_id'],
+            [['id', 'in', leadIds]], ['id', 'partner_name', 'contact_name', 'name', 'user_id', 'priority'],
           ])
         : Promise.resolve([]),
       orderIds.length
@@ -63,12 +66,15 @@ export async function GET() {
       const kairos = latestKairosByOrder.get(o.id);
       return {
         id: o.id,
+        leadId,
         nome: o.name || '',
         cliente: lead?.partner_name || lead?.contact_name || lead?.name || '—',
         stato: Array.isArray(o.phase_id) ? o.phase_id[1] : 'Senza fase',
         consulente: Array.isArray(lead?.user_id) ? lead.user_id[1] : 'Non assegnato',
         consulenteId: Array.isArray(lead?.user_id) ? lead.user_id[0] : null,
         dataInizio: o.create_date || null,
+        ultimoAggiornamento: o.write_date || o.create_date || null,
+        priorita: lead?.priority || '0',
         kairos: kairos ? {
           score: kairos.prontezza_totale,
           quadrante: QUADRANTE_MAP[kairos.quadrante] || kairos.quadrante,

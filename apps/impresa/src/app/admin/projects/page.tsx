@@ -4,19 +4,39 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
     Loader2, ArrowLeft, Search, Filter, Eye, MoreVertical,
-    TrendingUp, AlertCircle, CheckCircle2, Clock
+    TrendingUp, AlertTriangle, Clock3
 } from "lucide-react";
 
 interface Project {
     id: number;
+    leadId: number | null;
     nome: string;
     cliente: string;
     stato: string;
     consulente: string;
     consulenteId: number | null;
     dataInizio: string | null;
+    ultimoAggiornamento: string | null;
+    priorita: string;
     kairos: { score: number; quadrante: string } | null;
 }
+
+const STALE_DAYS = 14;
+
+// 10/09/2026 (Denis: "voglio vedere se può esserci una sistemazione lean
+// e kaizen migliore"): le due card "Con valutazione Kairós"/"Fasi
+// distinte" erano vanity metric (nessuna decisione dipende da quei
+// numeri) - sostituite con "Bloccati" (nessun aggiornamento da
+// STALE_DAYS) e "Urgenti" (priority >= '2', vedi sotto), entrambe
+// azionabili: dicono a chi guarda la pagina DOVE guardare per primo,
+// stesso principio Pareto del resto del sistema. priority è il campo
+// NATIVO crm.lead ("un'azione che colora il lead di giallo o arancio"),
+// mai usato prima in questo progetto - riusato, non inventato.
+const PRIORITY_STYLE: Record<string, { rowBg: string; label: string; dot: string }> = {
+    '1': { rowBg: 'bg-yellow-50/60', label: 'Da monitorare', dot: 'bg-yellow-400' },
+    '2': { rowBg: 'bg-orange-50/70', label: 'Urgente', dot: 'bg-orange-500' },
+    '3': { rowBg: 'bg-orange-50/70', label: 'Urgente', dot: 'bg-orange-500' },
+};
 
 export default function AdminProjectsPage() {
     const router = useRouter();
@@ -26,11 +46,13 @@ export default function AdminProjectsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterConsultant, setFilterConsultant] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
+    const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const [updatingId, setUpdatingId] = useState<number | null>(null);
 
     useEffect(() => {
         const session = localStorage.getItem("pi_session");
         if (!session) {
-            router.push("/admin/login");
+            router.push("/login");
             return;
         }
         loadProjects();
@@ -52,6 +74,32 @@ export default function AdminProjectsPage() {
             setLoading(false);
         }
     };
+
+    const handleSetPriority = async (project: Project, priority: string) => {
+        if (!project.leadId) return;
+        setUpdatingId(project.id);
+        setOpenMenuId(null);
+        try {
+            const res = await fetch(`/api/admin/leads/${project.leadId}/priority`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ priority }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setProjects((prev) => prev.map((p) => p.id === project.id ? { ...p, priorita: priority } : p));
+            }
+        } finally {
+            setUpdatingId(null);
+        }
+    };
+
+    const isStale = (p: Project) => {
+        if (!p.ultimoAggiornamento) return false;
+        const days = (Date.now() - new Date(p.ultimoAggiornamento).getTime()) / (1000 * 60 * 60 * 24);
+        return days > STALE_DAYS;
+    };
+    const isUrgent = (p: Project) => p.priorita === '2' || p.priorita === '3';
 
     // Consulenti per il filtro: derivati dai progetti reali appena caricati
     // (non da /api/admin/partners, che oggi passa dal gateway mock -
@@ -75,6 +123,8 @@ export default function AdminProjectsPage() {
     });
 
     const statuses = Array.from(new Set(projects.map(p => p.stato)));
+    const staleCount = projects.filter(isStale).length;
+    const urgentCount = projects.filter(isUrgent).length;
 
     const getKairosColor = (quadrante?: string) => {
         if (!quadrante) return 'bg-gray-100';
@@ -96,7 +146,7 @@ export default function AdminProjectsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc]">
+        <div className="min-h-screen bg-[#f8fafc]" onClick={() => setOpenMenuId(null)}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
@@ -118,7 +168,7 @@ export default function AdminProjectsPage() {
                 )}
 
                 {/* Stats Cards */}
-                <div className="grid md:grid-cols-4 gap-6 mb-8">
+                <div className="grid md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white rounded-2xl border border-gray-100 p-6">
                         <div className="flex items-center justify-between mb-4">
                             <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -128,32 +178,23 @@ export default function AdminProjectsPage() {
                         <div className="text-3xl font-bold text-[#1a2744] mb-1">{projects.length}</div>
                         <div className="text-sm text-gray-500">Progetti Totali</div>
                     </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                    <div className={`rounded-2xl border p-6 ${staleCount > 0 ? 'bg-gray-50 border-gray-300' : 'bg-white border-gray-100'}`}>
                         <div className="flex items-center justify-between mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                                <CheckCircle2 size={24} className="text-green-600" />
+                            <div className="w-12 h-12 rounded-xl bg-gray-200 flex items-center justify-center">
+                                <Clock3 size={24} className="text-gray-600" />
                             </div>
                         </div>
-                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{projects.filter(p => p.kairos).length}</div>
-                        <div className="text-sm text-gray-500">Con valutazione Kairós</div>
+                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{staleCount}</div>
+                        <div className="text-sm text-gray-500">Bloccati (&gt;{STALE_DAYS}gg senza aggiornamenti)</div>
                     </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                    <div className={`rounded-2xl border p-6 ${urgentCount > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'}`}>
                         <div className="flex items-center justify-between mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center">
-                                <Clock size={24} className="text-yellow-600" />
+                            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+                                <AlertTriangle size={24} className="text-orange-600" />
                             </div>
                         </div>
-                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{statuses.length}</div>
-                        <div className="text-sm text-gray-500">Fasi distinte</div>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                                <AlertCircle size={24} className="text-red-600" />
-                            </div>
-                        </div>
-                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{consultants.length}</div>
-                        <div className="text-sm text-gray-500">Consulenti coinvolti</div>
+                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{urgentCount}</div>
+                        <div className="text-sm text-gray-500">Segnati urgenti</div>
                     </div>
                 </div>
 
@@ -217,7 +258,7 @@ export default function AdminProjectsPage() {
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Consulente</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Kairós</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stato</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Data Inizio</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ultimo Aggiornamento</th>
                                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Azioni</th>
                                 </tr>
                             </thead>
@@ -229,59 +270,106 @@ export default function AdminProjectsPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredProjects.map((project) => (
-                                        <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
-                                                #{project.id}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-sm font-semibold text-[#1a2744]">{project.nome}</div>
-                                                <div className="text-xs text-gray-500">{project.cliente}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                                                        {project.consulente?.charAt(0) || '?'}
-                                                    </div>
-                                                    <span className="text-sm text-gray-700">{project.consulente}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                {project.kairos ? (
+                                    filteredProjects.map((project) => {
+                                        const priorityStyle = PRIORITY_STYLE[project.priorita];
+                                        const stale = isStale(project);
+                                        return (
+                                            <tr key={project.id} className={`hover:brightness-95 transition-all ${priorityStyle?.rowBg || ''}`}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-bold text-gray-700">{project.kairos.score}/15</span>
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getKairosColor(project.kairos.quadrante)}`}>
-                                                            {project.kairos.quadrante.replace('_', ' ')}
-                                                        </span>
+                                                        {priorityStyle && <span className={`w-2 h-2 rounded-full ${priorityStyle.dot}`} title={priorityStyle.label} />}
+                                                        #{project.id}
                                                     </div>
-                                                ) : (
-                                                    <span className="text-xs text-gray-400">N/A</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">
-                                                    {project.stato}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {project.dataInizio ? new Date(project.dataInizio).toLocaleDateString('it-IT') : '—'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <Link
-                                                        href={`/admin/projects/${project.id}`}
-                                                        className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
-                                                        title="Supervisione Progetto"
-                                                    >
-                                                        <Eye size={18} />
-                                                    </Link>
-                                                    <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
-                                                        <MoreVertical size={18} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm font-semibold text-[#1a2744]">{project.nome}</div>
+                                                    <div className="text-xs text-gray-500">{project.cliente}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                                                            {project.consulente?.charAt(0) || '?'}
+                                                        </div>
+                                                        <span className="text-sm text-gray-700">{project.consulente}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {project.kairos ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-bold text-gray-700">{project.kairos.score}/15</span>
+                                                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getKairosColor(project.kairos.quadrante)}`}>
+                                                                {project.kairos.quadrante.replace('_', ' ')}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">N/A</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">
+                                                        {project.stato}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                    <span className={stale ? 'text-gray-500 font-semibold' : 'text-gray-500'}>
+                                                        {project.ultimoAggiornamento ? new Date(project.ultimoAggiornamento).toLocaleDateString('it-IT') : '—'}
+                                                    </span>
+                                                    {stale && <span className="ml-1.5 text-xs text-gray-400">(fermo)</span>}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                    <div className="flex items-center justify-end gap-2 relative">
+                                                        <Link
+                                                            href={`/admin/projects/${project.id}`}
+                                                            className="p-2 rounded-lg hover:bg-blue-50 text-blue-600"
+                                                            title="Supervisione Progetto"
+                                                        >
+                                                            <Eye size={18} />
+                                                        </Link>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === project.id ? null : project.id); }}
+                                                            disabled={updatingId === project.id}
+                                                            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                                                        >
+                                                            {updatingId === project.id ? <Loader2 size={18} className="animate-spin" /> : <MoreVertical size={18} />}
+                                                        </button>
+                                                        {openMenuId === project.id && (
+                                                            <div
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="absolute right-0 top-10 z-10 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 text-left"
+                                                            >
+                                                                <Link href={`/admin/projects/${project.id}`} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                                    Apri progetto
+                                                                </Link>
+                                                                <button
+                                                                    disabled={!project.leadId}
+                                                                    onClick={() => handleSetPriority(project, '2')}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 flex items-center gap-2 disabled:opacity-40"
+                                                                >
+                                                                    <span className="w-2 h-2 rounded-full bg-orange-500" /> Segna urgente (arancio)
+                                                                </button>
+                                                                <button
+                                                                    disabled={!project.leadId}
+                                                                    onClick={() => handleSetPriority(project, '1')}
+                                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 flex items-center gap-2 disabled:opacity-40"
+                                                                >
+                                                                    <span className="w-2 h-2 rounded-full bg-yellow-400" /> Segna da monitorare (giallo)
+                                                                </button>
+                                                                {project.priorita !== '0' && (
+                                                                    <button
+                                                                        disabled={!project.leadId}
+                                                                        onClick={() => handleSetPriority(project, '0')}
+                                                                        className="w-full text-left px-4 py-2 text-sm text-gray-500 hover:bg-gray-50"
+                                                                    >
+                                                                        Rimuovi evidenziazione
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
