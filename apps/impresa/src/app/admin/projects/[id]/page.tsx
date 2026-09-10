@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Calendar, User, Building2 } from "lucide-react";
+import { Loader2, ArrowLeft, Calendar, User, Building2, FileText, Download, MessageSquareText } from "lucide-react";
 import HeinrichPanel from "@/components/admin/HeinrichPanel";
 import NotesBoard from "@/components/admin/NotesBoard";
 
@@ -13,7 +13,28 @@ interface Project {
     fase: string;
     consulente: string;
     dataInizio: string | null;
+    emailDestinatario: string | null;
     kairos: { score: number; prontezzaLabel: string; impattoLabel: string; quadrante: string } | null;
+}
+
+interface Intervista {
+    score: number | null;
+    pacchetto: string | null;
+    budget: string | null;
+    tempistiche: string | null;
+    tipoProgetto: string | null;
+    destinatario: string | null;
+    fatturato: string | null;
+}
+
+interface Documento {
+    id: number;
+    nome: string;
+    categoria: string;
+    fileName: string | null;
+    finale: boolean;
+    blockchainStatus: string | null;
+    data: string;
 }
 
 interface Interazione {
@@ -29,6 +50,14 @@ const QUADRANTE_COLOR: Record<string, string> = {
     PARCHEGGIO: 'bg-gray-100 text-gray-700',
 };
 
+// 10/09/2026 (Denis: "fai una analisi della pagina dei dettagli di
+// tutti i progetti per renderla una suite di lavoro, non un elenco di
+// caselle... performante e lean") - layout a due colonne invece di
+// blocchi impilati: colonna principale = lavoro attivo (lavagna,
+// interazioni), colonna laterale = contesto a colpo d'occhio (Kairós,
+// affidabilità, risposte intervista, documenti). Niente dati caricati
+// per pagine mai aperte: una sola chiamata per il dettaglio, il resto
+// (Heinrich) si carica da solo quando il pannello è visibile.
 export default function AdminProjectDetail() {
     const router = useRouter();
     const params = useParams();
@@ -37,6 +66,8 @@ export default function AdminProjectDetail() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [project, setProject] = useState<Project | null>(null);
+    const [intervista, setIntervista] = useState<Intervista | null>(null);
+    const [documenti, setDocumenti] = useState<Documento[]>([]);
     const [interazioni, setInterazioni] = useState<Interazione[]>([]);
 
     useEffect(() => {
@@ -54,6 +85,8 @@ export default function AdminProjectDetail() {
                     return;
                 }
                 setProject(data.project);
+                setIntervista(data.intervista);
+                setDocumenti(data.documenti || []);
                 setInterazioni(data.interazioni || []);
             } catch (error: any) {
                 setLoadError(error.message || 'Errore di rete');
@@ -62,6 +95,24 @@ export default function AdminProjectDetail() {
             }
         })();
     }, [id, router]);
+
+    const handleSendEmail = async (note: { title: string; body: string; note_type: string }) => {
+        if (!project?.emailDestinatario) {
+            return { ok: false, text: 'Nessuna email sul contatto di questo progetto.' };
+        }
+        const res = await fetch(`/api/admin/projects/${id}/send-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subject: note.title || (note.note_type === 'brief' ? 'Brief progetto' : note.note_type === 'debrief' ? 'Debrief progetto' : 'Aggiornamento progetto'),
+                message: note.body,
+            }),
+        });
+        const data = await res.json();
+        return data.success
+            ? { ok: true, text: `Inviata a ${data.sentTo}` }
+            : { ok: false, text: data.error || 'Invio fallito' };
+    };
 
     if (loading) {
         return (
@@ -74,7 +125,7 @@ export default function AdminProjectDetail() {
     if (loadError || !project) {
         return (
             <div className="min-h-screen bg-[#f8fafc]">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <Link href="/admin/projects" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6">
                         <ArrowLeft size={16} /> Torna ai progetti
                     </Link>
@@ -84,62 +135,111 @@ export default function AdminProjectDetail() {
         );
     }
 
+    const hasIntervista = intervista && (intervista.budget || intervista.tempistiche || intervista.tipoProgetto || intervista.destinatario || intervista.fatturato || intervista.score);
+
     return (
         <div className="min-h-screen bg-[#f8fafc]">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <Link href="/admin/projects" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <Link href="/admin/projects" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-4">
                     <ArrowLeft size={16} /> Torna ai progetti
                 </Link>
 
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-[#1a2744]">{project.nome}</h1>
-                    <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                        <span className="flex items-center gap-1"><Building2 size={14} /> {project.cliente}</span>
-                        <span className="flex items-center gap-1"><User size={14} /> {project.consulente}</span>
-                        {project.dataInizio && (
-                            <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(project.dataInizio).toLocaleDateString('it-IT')}</span>
-                        )}
-                        <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">{project.fase}</span>
-                    </div>
-                </div>
-
-                {project.kairos && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-8">
-                        <h2 className="text-sm font-bold text-[#1a2744] mb-3">Kairós</h2>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <span className="text-2xl font-bold text-[#1a2744]">{project.kairos.score}/15</span>
-                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${QUADRANTE_COLOR[project.kairos.quadrante] || 'bg-gray-100 text-gray-700'}`}>
-                                {project.kairos.quadrante.replace('_', ' ')}
-                            </span>
-                            <span className="text-xs text-gray-500">Prontezza: {project.kairos.prontezzaLabel} · Impatto: {project.kairos.impattoLabel}</span>
+                <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-bold text-[#1a2744]">{project.nome}</h1>
+                        <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                            <span className="flex items-center gap-1"><Building2 size={14} /> {project.cliente}</span>
+                            <span className="flex items-center gap-1"><User size={14} /> {project.consulente}</span>
+                            {project.dataInizio && (
+                                <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(project.dataInizio).toLocaleDateString('it-IT')}</span>
+                            )}
                         </div>
                     </div>
-                )}
-
-                <div className="mb-8">
-                    <NotesBoard resModel="erpv6.production.order" resId={project.id} />
+                    <span className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">{project.fase}</span>
                 </div>
 
-                <div className="mb-8">
-                    <HeinrichPanel resModel="erpv6.production.order" resId={project.id} />
-                </div>
+                <div className="grid lg:grid-cols-3 gap-6">
+                    {/* Colonna principale: lavoro attivo */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <NotesBoard resModel="erpv6.production.order" resId={project.id} onSendEmail={handleSendEmail} />
 
-                <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                    <h2 className="text-sm font-bold text-[#1a2744] mb-3">Ultime Interazioni</h2>
-                    {interazioni.length === 0 ? (
-                        <p className="text-sm text-gray-400">Nessuna interazione registrata.</p>
-                    ) : (
-                        <div className="space-y-2 max-h-96 overflow-y-auto">
-                            {interazioni.map((int, i) => (
-                                <div key={i} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50">
-                                    <div className="flex-1">
-                                        <span className="text-sm">{int.tipo}{int.descrizione ? `: ${int.descrizione}` : ''}</span>
-                                        <div className="text-xs text-gray-400">{int.data ? new Date(int.data).toLocaleString('it-IT') : ''}</div>
-                                    </div>
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <h2 className="text-sm font-bold text-[#1a2744] mb-3 flex items-center gap-2">
+                                <MessageSquareText size={16} className="text-gray-400" /> Ultime Interazioni
+                            </h2>
+                            {interazioni.length === 0 ? (
+                                <p className="text-sm text-gray-400">Nessuna interazione registrata.</p>
+                            ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                    {interazioni.map((int, i) => (
+                                        <div key={i} className="flex items-start gap-3 p-2 rounded-lg bg-gray-50">
+                                            <div className="flex-1">
+                                                <span className="text-sm">{int.tipo}{int.descrizione ? `: ${int.descrizione}` : ''}</span>
+                                                <div className="text-xs text-gray-400">{int.data ? new Date(int.data).toLocaleString('it-IT') : ''}</div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            )}
                         </div>
-                    )}
+                    </div>
+
+                    {/* Colonna laterale: contesto a colpo d'occhio */}
+                    <div className="space-y-6">
+                        {project.kairos && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Kairós</h2>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xl font-bold text-[#1a2744]">{project.kairos.score}/15</span>
+                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${QUADRANTE_COLOR[project.kairos.quadrante] || 'bg-gray-100 text-gray-700'}`}>
+                                        {project.kairos.quadrante.replace('_', ' ')}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-500">Prontezza: {project.kairos.prontezzaLabel} · Impatto: {project.kairos.impattoLabel}</p>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Affidabilità</h2>
+                            <HeinrichPanel resModel="erpv6.production.order" resId={project.id} compact />
+                        </div>
+
+                        {hasIntervista && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Risposte Intervista</h2>
+                                <dl className="space-y-2 text-sm">
+                                    {intervista?.tipoProgetto && <div><dt className="text-xs text-gray-400">Tipo Progetto</dt><dd className="text-[#1a2744]">{intervista.tipoProgetto}</dd></div>}
+                                    {intervista?.budget && <div><dt className="text-xs text-gray-400">Budget</dt><dd className="text-[#1a2744]">{intervista.budget}</dd></div>}
+                                    {intervista?.tempistiche && <div><dt className="text-xs text-gray-400">Tempistiche</dt><dd className="text-[#1a2744]">{intervista.tempistiche}</dd></div>}
+                                    {intervista?.destinatario && <div><dt className="text-xs text-gray-400">Destinatario</dt><dd className="text-[#1a2744]">{intervista.destinatario}</dd></div>}
+                                    {intervista?.fatturato && <div><dt className="text-xs text-gray-400">Fatturato</dt><dd className="text-[#1a2744]">{intervista.fatturato}</dd></div>}
+                                    {intervista?.score != null && <div><dt className="text-xs text-gray-400">Score</dt><dd className="text-[#1a2744]">{intervista.score}</dd></div>}
+                                </dl>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                <FileText size={14} /> Documenti
+                            </h2>
+                            {documenti.length === 0 ? (
+                                <p className="text-sm text-gray-400">Nessun documento generato.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {documenti.map((d) => (
+                                        <a key={d.id} href={`/api/admin/documents/${d.id}/download`}
+                                            className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-sm">
+                                            <div>
+                                                <div className="text-[#1a2744] font-medium">{d.nome}</div>
+                                                <div className="text-xs text-gray-400">{d.categoria}{d.finale ? ' · finale' : ''}</div>
+                                            </div>
+                                            <Download size={14} className="text-gray-400" />
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

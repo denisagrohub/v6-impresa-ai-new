@@ -16,6 +16,13 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   risorsa_assegnata: '👤 Risorsa assegnata',
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  nda: 'NDA', proposal: 'Proposta', sal: 'SAL', contract: 'Contratto',
+  business_plan: 'Business Plan', final: 'Documento Finale', client_upload: 'Caricato dal Cliente',
+  other: 'Altro', brand_logo: 'Logo Brand', brand_asset: 'Altro Asset Brand',
+  kb_source: 'Sorgente KB', kb_case_study: 'Caso Studio', agent_knowledge: 'Conoscenza Agente',
+};
+
 // 10/09/2026 (Denis: "allora la parte che abbiamo la colleghiamo") -
 // dettaglio reale del progetto, in sostituzione del mockup che c'era
 // prima (sei_aree/livello/settore/deliverable/richieste sconto: nessuno
@@ -29,17 +36,23 @@ export async function GET(request: Request, { params }: { params: { id: string }
     await odoo.connect();
 
     const orders = await odoo.execute('erpv6.production.order', 'search_read', [
-      [['id', '=', id]], ['id', 'name', 'lead_id', 'phase_id', 'create_date'],
+      [['id', '=', id]], [
+        'id', 'name', 'lead_id', 'phase_id', 'create_date',
+        'interview_score', 'interview_package_hint', 'interview_budget',
+        'interview_tempistiche', 'interview_tipo_progetto', 'interview_destinatario',
+        'interview_fatturato', 'document_ids',
+      ],
     ]);
     if (!orders || !orders.length) {
       return NextResponse.json({ success: false, error: 'Progetto non trovato' }, { status: 404 });
     }
     const order = orders[0];
     const leadId = Array.isArray(order.lead_id) ? order.lead_id[0] : null;
+    const documentIds: number[] = order.document_ids || [];
 
-    const [leads, kairosRows, events] = await Promise.all([
+    const [leads, kairosRows, events, documents] = await Promise.all([
       leadId
-        ? odoo.execute('crm.lead', 'search_read', [[['id', '=', leadId]], ['partner_name', 'contact_name', 'name', 'user_id']])
+        ? odoo.execute('crm.lead', 'search_read', [[['id', '=', leadId]], ['partner_name', 'contact_name', 'name', 'user_id', 'email_from']])
         : Promise.resolve([]),
       odoo.execute('erpv6.kairos.matrix', 'search_read', [
         [['res_model', '=', 'erpv6.production.order'], ['res_id', '=', id]],
@@ -48,6 +61,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
       odoo.execute('erpv6.production.event', 'search_read', [
         [['order_id', '=', id]], ['event_type', 'description', 'create_date'], 0, 30, 'create_date desc',
       ]),
+      documentIds.length
+        ? odoo.execute('erpv6.library.document', 'search_read', [
+            [['id', 'in', documentIds]], ['id', 'name', 'category', 'file_name', 'is_final_client_facing', 'blockchain_status', 'create_date'],
+          ])
+        : Promise.resolve([]),
     ]);
 
     const lead = leads && leads[0];
@@ -62,6 +80,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         fase: Array.isArray(order.phase_id) ? order.phase_id[1] : 'Senza fase',
         consulente: Array.isArray(lead?.user_id) ? lead.user_id[1] : 'Non assegnato',
         dataInizio: order.create_date || null,
+        emailDestinatario: lead?.email_from || null,
         kairos: kairos ? {
           score: kairos.prontezza_totale,
           prontezzaLabel: PRONTEZZA_LABEL[kairos.prontezza_level] || kairos.prontezza_level,
@@ -69,6 +88,24 @@ export async function GET(request: Request, { params }: { params: { id: string }
           quadrante: QUADRANTE_MAP[kairos.quadrante] || kairos.quadrante,
         } : null,
       },
+      intervista: {
+        score: order.interview_score || null,
+        pacchetto: order.interview_package_hint || null,
+        budget: order.interview_budget || null,
+        tempistiche: order.interview_tempistiche || null,
+        tipoProgetto: order.interview_tipo_progetto || null,
+        destinatario: order.interview_destinatario || null,
+        fatturato: order.interview_fatturato || null,
+      },
+      documenti: (documents || []).map((d: any) => ({
+        id: d.id,
+        nome: d.name,
+        categoria: CATEGORY_LABELS[d.category] || d.category,
+        fileName: d.file_name || null,
+        finale: d.is_final_client_facing,
+        blockchainStatus: d.blockchain_status || null,
+        data: d.create_date,
+      })),
       interazioni: (events || []).map((e: any) => ({
         tipo: EVENT_TYPE_LABELS[e.event_type] || e.event_type,
         descrizione: e.description || '',
