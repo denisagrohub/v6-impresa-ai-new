@@ -4,3 +4,4 @@ from . import kairos_matrix
 from . import matrix5s_assessment
 from . import matrix5s_line
 from . import heinrich_indicator
+from . import project_note

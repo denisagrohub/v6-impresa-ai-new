@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, ArrowLeft, Mail, Send, ChevronDown, ChevronUp } from "lucide-react";
+import HeinrichPanel from "@/components/admin/HeinrichPanel";
+import NotesBoard from "@/components/admin/NotesBoard";
 
 interface Partner {
     id: number;
@@ -165,6 +167,30 @@ export default function PartnerProjectDetailPage() {
                         <p className="text-gray-500 flex items-center gap-1 mt-1"><Mail size={14} /> {project.emailAlias}</p>
                     )}
                 </div>
+
+                {project && (
+                    <div className="mb-8">
+                        <NotesBoard resModel="erpv6.tracking.relation" resId={project.id} />
+                    </div>
+                )}
+
+                {/* Parti collegate + affidabilità (Heinrich) */}
+                {partners.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-8">
+                        <h2 className="text-lg font-bold text-[#1a2744] mb-4">Parti Collegate</h2>
+                        <div className="space-y-4">
+                            {partners.map((p) => (
+                                <div key={p.id} className="border border-gray-100 rounded-xl p-4">
+                                    <div className="text-sm font-semibold text-[#1a2744] mb-2">
+                                        {p.partnerName || p.name}
+                                        {p.ruolo && <span className="ml-2 text-xs text-gray-400 font-normal">({p.ruolo.replace('_', ' ')})</span>}
+                                    </div>
+                                    <HeinrichPanel resModel="erpv6.tracking.relation" resId={p.id} compact />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Compose */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-8">
