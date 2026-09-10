@@ -31,18 +31,20 @@ class Erpv6BandoSource(models.Model):
         """Recupera o crea una configurazione erpv6.deep.source.config per questa fonte."""
         self.ensure_one()
         
-        # Cerca categoria KB 'bandi' o crea se non esiste
-        kb_category = self.env['erpv6.kb.category'].search([
-            ('name', '=ilike', '%bandi%')
-        ], limit=1)
-        
-        if not kb_category:
-            # Crea categoria bandi se non esiste
-            kb_category = self.env['erpv6.kb.category'].create({
-                'name': 'Bandi e Finanziamenti',
-                'description': 'Categoria per bandi di finanziamento e agevolazioni',
-            })
-            _logger.info(f"Creata categoria KB per bandi: {kb_category.id}")
+        # 10/09/2026: creava la categoria con create() diretto, senza
+        # 'kb_type' (required=True su erpv6.kb.category) - falliva SEMPRE
+        # con un vincolo NOT NULL a livello DB, mai una volta scraping
+        # riuscito da quando esiste questo modulo (scoperto riattivando
+        # i cron, fermi dal 20/08). get_or_create() esiste gia' su
+        # erpv6.kb.category apposta per questo (stessa chiave logica
+        # name+kb_type) - riusato invece di reinventare la ricerca/
+        # creazione qui. 'normativo' perche' i bandi sono programmi di
+        # finanziamento pubblici/regolamentari, nessun kb_type esistente
+        # e' piu' specifico di questo per l'ambito bandi.
+        kb_category = self.env['erpv6.kb.category'].get_or_create(
+            'Bandi e Finanziamenti', 'normativo',
+            description='Categoria per bandi di finanziamento e agevolazioni',
+        )
         
         # Schema di estrazione default per bandi
         extraction_schema = {
