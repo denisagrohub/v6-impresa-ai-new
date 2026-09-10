@@ -96,6 +96,10 @@ const PUBLIC_PATHS = [
   // (/api/booking, /api/consultant/public-slots) erano gia' pubbliche,
   // solo la pagina no.
   '/booking',
+  // 10/09/2026: pagina pubblica di conferma orario call - il cliente
+  // arriva qui da un link email, mai loggato. Il token stesso e' il
+  // segreto (stesso principio di /report/[token]).
+  '/api/booking-confirm',
   '/api/auth/client-login',
   '/api/auth/login',
   '/api/auth/logout',

@@ -10,7 +10,8 @@ export async function GET() {
     await odoo.connect();
     const tokens = await odoo.execute('erpv6.booking.token', 'search_read', [
       [['status', '=', 'booked']],
-      ['id', 'token', 'consultant_id', 'client_name', 'client_email', 'client_phone', 'notes', 'booked_at', 'expires_at'],
+      ['id', 'token', 'consultant_id', 'client_name', 'client_email', 'client_phone', 'notes', 'booked_at', 'expires_at',
+       'scheduled_at', 'confirmation_state', 'reschedule_note'],
       0, 200, 'booked_at desc',
     ]);
     return NextResponse.json({
@@ -25,6 +26,9 @@ export async function GET() {
         notes: t.notes || '',
         bookedAt: t.booked_at || null,
         expiresAt: t.expires_at || null,
+        scheduledAt: t.scheduled_at || null,
+        confirmationState: t.confirmation_state,
+        rescheduleNote: t.reschedule_note || '',
       })),
     });
   } catch (error: any) {
