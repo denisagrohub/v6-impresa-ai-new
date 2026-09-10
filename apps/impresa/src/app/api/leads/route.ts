@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         // niente coda locale di fallback qui, il chiamante puo' semplicemente
         // riprovare o ripiegare sul submit finale completo.
         if (partial) {
-            const partialResult = await createPartialLead(data);
+            const partialResult = await createPartialLead(data, source);
             return NextResponse.json(partialResult);
         }
 

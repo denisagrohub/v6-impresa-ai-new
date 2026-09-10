@@ -40,9 +40,17 @@ function formatExtraAnswers(data: Record<string, any>): string {
         .join('\n');
 }
 
-function mapLeadDataForOdoo(data: Record<string, any>): Record<string, any> {
+function mapLeadDataForOdoo(data: Record<string, any>, source?: string): Record<string, any> {
     const extra = formatExtraAnswers(data);
     return {
+        // 10/09/2026 (Denis: "perché non vedo da dove arriva"): 'source'
+        // (es. 'contatti', passato da saveLead() qui sotto) veniva già
+        // raccolto ma non arrivava mai a Odoo sul percorso normale (solo
+        // nella coda locale di fallback, mai usata quando Odoo funziona).
+        // page_source è letto da lead_api.py e scritto su crm.lead.source_id
+        // (campo standard Odoo per la provenienza, gia' presente, mai
+        // valorizzato prima d'ora).
+        page_source: source,
         name: data.nome || '',
         email: data.email || '',
         phone: data.telefono || '',
@@ -110,7 +118,7 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
             // Prova a inviare a Odoo
             const result = await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
-                body: JSON.stringify(mapLeadDataForOdoo(leadData)),
+                body: JSON.stringify(mapLeadDataForOdoo(leadData, source)),
             });
 
             lead.synced = true;
@@ -138,14 +146,14 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
 // dati minimi sono disponibili, così un abbandono a metà form non perde
 // tutto. Nessun fallback su coda locale qui - se fallisce (rete, Odoo giù),
 // la submitAnswers finale ricade comunque su saveLead() come sempre.
-export async function createPartialLead(leadData: Record<string, any>): Promise<{ success: boolean; leadId?: number }> {
+export async function createPartialLead(leadData: Record<string, any>, source?: string): Promise<{ success: boolean; leadId?: number }> {
     if (!isOdooEnabled()) {
         return { success: false };
     }
     try {
         const result = await callOdooAPI('/api/v1/leads', {
             method: 'POST',
-            body: JSON.stringify({ ...mapLeadDataForOdoo(leadData), qualified: false }),
+            body: JSON.stringify({ ...mapLeadDataForOdoo(leadData, source), qualified: false }),
         });
         return { success: true, leadId: result?.data?.id ?? result?.id };
     } catch (error) {
@@ -228,7 +236,7 @@ export async function syncPendingLeads(): Promise<{ synced: number; failed: numb
         try {
             await callOdooAPI('/api/v1/leads', {
                 method: 'POST',
-                body: JSON.stringify(mapLeadDataForOdoo(lead.data)),
+                body: JSON.stringify(mapLeadDataForOdoo(lead.data, lead.source)),
             });
 
             lead.synced = true;

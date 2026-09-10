@@ -101,6 +101,22 @@ class LeadAPIController(APIBaseController):
         if 'x_fenice_source' not in vals and hasattr(env['crm.lead'], 'x_fenice_source'):
             vals['x_fenice_source'] = 'sito_web'
 
+        # 10/09/2026 (Denis, su "Lead Web: Buffetti": "perché non vedo da
+        # dove arriva, come faccio a saperlo") - bug reale trovato: il
+        # frontend gia' mandava quale pagina/form avesse generato il lead
+        # (parametro 'source' passato a saveLead() in lead-queue.ts, es.
+        # 'contatti'), ma qui non veniva mai letto ne' scritto da nessuna
+        # parte - andava perso ad ogni lead, non solo su questo. source_id
+        # e' il campo STANDARD di Odoo per la provenienza (utm.source, gia'
+        # presente su crm.lead, sempre rimasto NULL): niente di nuovo
+        # inventato, solo smesso di ignorare un campo gia' esistente.
+        page_source = (data.get('page_source') or '').strip()
+        if page_source:
+            utm_source = env['utm.source'].sudo().search([('name', '=', page_source)], limit=1)
+            if not utm_source:
+                utm_source = env['utm.source'].sudo().create({'name': page_source})
+            vals['source_id'] = utm_source.id
+
         try:
             lead = env['crm.lead'].sudo().create(vals)
         except Exception as e:
