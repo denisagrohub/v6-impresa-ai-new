@@ -1,154 +1,172 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, User, FileText, CheckCircle, Copy, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
+
+interface Brand {
+    id: number;
+    name: string;
+    default_hourly_rate: number;
+    default_commission_rate: number;
+}
 
 export default function NewConsultantPage() {
-    const router = useRouter();
-    const [step, setStep] = useState(1);
+    const [brands, setBrands] = useState<Brand[]>([]);
     const [loading, setLoading] = useState(false);
-    const [onboardingLink, setOnboardingLink] = useState("");
-    const [copied, setCopied] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<{ consultantId: number } | null>(null);
 
-    const [formData, setFormData] = useState({
-        name: "", email: "", phone: "", company: "", vatNumber: "",
-        contractType: "percentage", commissionRate: 10, fixedFee: 0, hourlyRate: 100, maxDiscount: 5,
-        specialties: [] as string[]
+    const [form, setForm] = useState({
+        name: "", email: "", phone: "", vatNumber: "", fiscalCode: "",
+        zone: "", languages: "", specialties: "",
+        brandId: "", hourlyRate: "", commissionRate: "",
     });
 
-    const updateField = (field: string, value: any) => {
-        setFormData({ ...formData, [field]: value });
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch('/api/admin/brands');
+                const data = await res.json();
+                if (data.success) setBrands(data.brands || []);
+            } catch { /* silenzioso, la select resta vuota */ }
+        })();
+    }, []);
+
+    const updateField = (field: string, value: string) => setForm({ ...form, [field]: value });
+
+    const handleBrandChange = (brandId: string) => {
+        const brand = brands.find((b) => String(b.id) === brandId);
+        setForm({
+            ...form,
+            brandId,
+            hourlyRate: brand ? String(brand.default_hourly_rate) : form.hourlyRate,
+            commissionRate: brand ? String(brand.default_commission_rate) : form.commissionRate,
+        });
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         setLoading(true);
+        setError(null);
         try {
-            const res = await fetch('/api/admin/consultants/create', {
+            const res = await fetch('/api/admin/consultants', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(form),
             });
             const data = await res.json();
-            if (data.success) {
-                setOnboardingLink(data.onboardingLink);
-                setStep(3);
+            if (!res.ok || !data.success) {
+                setError(data.error || 'Creazione fallita');
+                return;
             }
-        } catch (error) {
-            alert("Errore durante la creazione");
+            setSuccess({ consultantId: data.consultantId });
+        } catch (err: any) {
+            setError(err.message || 'Errore di rete');
         } finally {
             setLoading(false);
         }
     };
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(onboardingLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
     return (
         <div className="min-h-screen bg-[#f8fafc]">
-            <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <Link href="/admin/partners" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6">
                     <ArrowLeft size={16} /> Torna ai Partner
                 </Link>
 
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-[#1a2744]">Nuovo Consulente</h1>
-                        <p className="text-gray-500 text-sm mt-1">Step {step} di 3</p>
-                        <div className="w-full h-2 bg-gray-100 rounded-full mt-3">
-                            <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${(step / 3) * 100}%` }}></div>
-                        </div>
-                    </div>
+                    <h1 className="text-2xl font-bold text-[#1a2744] mb-1">Nuovo Consulente</h1>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Crea un consulente reale su Odoo (erpv6.consulting.consultant). Nessun accesso di login viene creato qui — solo il collegamento partner/brand e le condizioni economiche.
+                    </p>
 
-                    {/* Step 1: Anagrafica */}
-                    {step === 1 && (
-                        <div className="space-y-4">
-                            <h2 className="text-lg font-semibold text-[#1a2744] flex items-center gap-2"><User size={20} /> Dati Anagrafici</h2>
-                            <div className="grid md:grid-cols-2 gap-4">
+                    {success ? (
+                        <div className="rounded-xl bg-green-50 border border-green-200 p-6 text-center">
+                            <CheckCircle2 className="mx-auto text-green-600 mb-2" size={32} />
+                            <p className="text-green-700 font-semibold">Consulente creato (id {success.consultantId}).</p>
+                            <Link href="/admin/partners" className="inline-block mt-4 text-sm text-[#1a2744] font-medium hover:underline">
+                                Torna ai Partner
+                            </Link>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="grid sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
-                                    <input type="text" value={formData.name} onChange={(e) => updateField('name', e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500/20" placeholder="Mario Rossi" />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                                    <input required value={form.name} onChange={(e) => updateField('name', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                                    <input type="email" value={formData.email} onChange={(e) => updateField('email', e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500/20" placeholder="mario@esempio.it" />
+                                    <input required type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                                    <input type="text" value={formData.phone} onChange={(e) => updateField('phone', e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500/20" placeholder="+39 333 1234567" />
+                                    <input value={form.phone} onChange={(e) => updateField('phone', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Azienda / P.IVA</label>
-                                    <input type="text" value={formData.company} onChange={(e) => updateField('company', e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500/20" placeholder="Nome Azienda" />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
+                                    <input value={form.vatNumber} onChange={(e) => updateField('vatNumber', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                                    <input value={form.fiscalCode} onChange={(e) => updateField('fiscalCode', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Zona Geografica</label>
+                                    <input value={form.zone} onChange={(e) => updateField('zone', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Lingue (es. IT, EN)</label>
+                                    <input value={form.languages} onChange={(e) => updateField('languages', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Specializzazioni</label>
+                                    <input value={form.specialties} onChange={(e) => updateField('specialties', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
                                 </div>
                             </div>
-                            <div className="flex justify-end mt-6">
-                                <button onClick={() => setStep(2)} className="px-6 py-2 bg-[#1a2744] text-white rounded-lg font-medium hover:bg-[#0f3460]">Avanti</button>
-                            </div>
-                        </div>
-                    )}
 
-                    {/* Step 2: Contratto */}
-                    {step === 2 && (
-                        <div className="space-y-4">
-                            <h2 className="text-lg font-semibold text-[#1a2744] flex items-center gap-2"><FileText size={20} /> Condizioni Contrattuali</h2>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Contratto</label>
-                                    <select value={formData.contractType} onChange={(e) => updateField('contractType', e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-white">
-                                        <option value="percentage">Solo % Provvigione</option>
-                                        <option value="fixed_plus_percentage">Fisso + % Provvigione</option>
-                                        <option value="fixed">Solo Fisso</option>
-                                    </select>
-                                </div>
+                            <div className="border-t border-gray-100 pt-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Brand *</label>
+                                <select required value={form.brandId} onChange={(e) => handleBrandChange(e.target.value)}
+                                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-white">
+                                    <option value="">Seleziona un brand</option>
+                                    {brands.map((b) => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Tariffa Oraria (€)</label>
-                                    <input type="number" value={formData.hourlyRate} onChange={(e) => updateField('hourlyRate', e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                                    <input type="number" step="0.01" value={form.hourlyRate} onChange={(e) => updateField('hourlyRate', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">% Provvigione</label>
-                                    <input type="number" value={formData.commissionRate} onChange={(e) => updateField('commissionRate', e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sconto Max Concedibile (%)</label>
-                                    <input type="number" value={formData.maxDiscount} onChange={(e) => updateField('maxDiscount', e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Provvigione (%)</label>
+                                    <input type="number" step="0.01" value={form.commissionRate} onChange={(e) => updateField('commissionRate', e.target.value)}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
                                 </div>
                             </div>
-                            <div className="flex justify-between mt-6">
-                                <button onClick={() => setStep(1)} className="px-6 py-2 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50">Indietro</button>
-                                <button onClick={handleSubmit} disabled={loading} className="px-6 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 flex items-center gap-2">
-                                    {loading ? <Loader2 size={18} className="animate-spin" /> : 'Genera Link di Invito'}
-                                </button>
-                            </div>
-                        </div>
-                    )}
 
-                    {/* Step 3: Link Generato */}
-                    {step === 3 && (
-                        <div className="text-center space-y-6">
-                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                                <CheckCircle size={32} className="text-green-600" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-[#1a2744]">Consulente Creato con Successo!</h2>
-                                <p className="text-gray-500 mt-2">Copia il link sottostante e invialo via email o WhatsApp al consulente. Il link scadrà tra 7 giorni.</p>
-                            </div>
+                            {error && (
+                                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>
+                            )}
 
-                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-4">
-                                <code className="text-sm text-gray-700 break-all text-left flex-1">{onboardingLink}</code>
-                                <button onClick={copyToClipboard} className="px-4 py-2 bg-[#1a2744] text-white rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-[#0f3460] whitespace-nowrap">
-                                    <Copy size={16} /> {copied ? 'Copiato!' : 'Copia'}
-                                </button>
-                            </div>
-
-                            <button onClick={() => router.push('/admin/partners')} className="mt-4 text-gray-500 hover:text-gray-900 text-sm font-medium">
-                                Torna alla lista Partner
+                            <button type="submit" disabled={loading}
+                                className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-[#1a2744] text-white font-medium hover:bg-[#0f3460] disabled:opacity-50">
+                                {loading ? <Loader2 size={18} className="animate-spin" /> : null}
+                                Crea Consulente
                             </button>
-                        </div>
+                        </form>
                     )}
                 </div>
             </div>
