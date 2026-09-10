@@ -19,21 +19,31 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   risorsa_assegnata: '👤 Risorsa assegnata',
 };
 
+// Formato datetime atteso da Odoo nei domini di ricerca ('YYYY-MM-DD HH:MM:SS', UTC).
+function odooDatetime(d: Date): string {
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 export async function GET() {
   try {
     await odoo.connect();
+
+    const last24h = odooDatetime(new Date(Date.now() - 24 * 3600 * 1000));
 
     const [
       modules,
       productionOrderCount,
       relationsWithPartner,
-      brandProjectsCount,
+      partnershipProjectsCount,
       kbRequestsPendingCount,
       certifiedDocsCount,
       consultants,
       candidacies,
       recentEvents,
       productionEventCount,
+      projectsNeedingDecisionCount,
+      newCandidaciesCount,
+      certifiedDocsRecentCount,
     ] = await Promise.all([
       odoo.execute('ir.module.module', 'search_read', [[['name', 'ilike', 'erpv6_'], ['state', '=', 'installed']], ['name']]),
       // "Progetti Totali" deve contare la STESSA cosa mostrata aprendo
@@ -43,7 +53,10 @@ export async function GET() {
       // erpv6.production.order come la pagina Progetti.
       odoo.execute('erpv6.production.order', 'search_count', [[]]),
       odoo.execute('erpv6.tracking.relation', 'search_read', [[['partner_id', '!=', false]], ['partner_id']]),
-      odoo.execute('erpv6.brand.project', 'search_count', [[]]),
+      // "Brand Projects" -> "Partnership Projects" (10/09/2026, Denis:
+      // "al posto di brand projects metti i partnership project") -
+      // stesso numero gia' mostrato dalla lista candidacies sotto.
+      odoo.execute('erpv6.partnership.candidacy', 'search_count', [[]]),
       odoo.execute('erpv6.kb.request', 'search_count', [[['status', '=', 'pending']]]),
       odoo.execute('erpv6.library.document', 'search_count', [[['blockchain_record_id', '!=', false]]]),
       odoo.execute('erpv6.consulting.consultant', 'search_read', [[], ['id']]),
@@ -54,6 +67,26 @@ export async function GET() {
         [], ['event_type', 'description', 'create_date', 'order_id'], 0, 8, 'create_date desc',
       ]),
       odoo.execute('erpv6.production.event', 'search_count', [[]]),
+      // "Nuovo" per ciascuna delle 4 card (10/09/2026, Denis: "fai in
+      // modo che su tutti e 4 se ci sono notifiche nuove il bordo
+      // lampeggi rosso") - un segnale reale per ognuna, mai inventato:
+      // - Progetti: erpv6.production.order con un phase_gate_task_id
+      //   aperto (task di decisione fase non ancora completato, vedi
+      //   production_order.py advance_phase/_request_phase_decision).
+      odoo.execute('erpv6.production.order', 'search_count', [
+        [['phase_gate_task_id', '!=', false], ['phase_gate_task_id.state', '!=', '1_done']],
+      ]),
+      // - Partnership: candidature con state='nuova' (valore di default
+      //   alla creazione, prima che qualcuno le apra/valuti).
+      odoo.execute('erpv6.partnership.candidacy', 'search_count', [[['state', '=', 'nuova']]]),
+      // - Documenti Certificati: nessuno stato "da rivedere" esiste per
+      //   un documento gia' certificato - unica soglia reale disponibile
+      //   e' la freschezza (certificato nelle ultime 24h). Richieste KB
+      //   e' gia' filtrata su status='pending' sopra, quindi "nuove" e'
+      //   lo stesso conteggio (nessuna query aggiuntiva).
+      odoo.execute('erpv6.library.document', 'search_count', [
+        [['blockchain_record_id', '!=', false], ['create_date', '>=', last24h]],
+      ]),
     ]);
 
     const distinctClientPartnerIds = new Set(
@@ -73,13 +106,19 @@ export async function GET() {
       success: true,
       stats: {
         projects: productionOrderCount || 0,
-        brandProjects: brandProjectsCount || 0,
+        partnershipProjects: partnershipProjectsCount || 0,
         kbRequests: kbRequestsPendingCount || 0,
         certifiedDocs: certifiedDocsCount || 0,
         consultants: (consultants || []).length,
         clients: distinctClientPartnerIds.size,
         modulesActive: (modules || []).length,
         auditLogCount: productionEventCount || 0,
+      },
+      newCounts: {
+        projects: projectsNeedingDecisionCount || 0,
+        partnershipProjects: newCandidaciesCount || 0,
+        kbRequests: kbRequestsPendingCount || 0,
+        certifiedDocs: certifiedDocsRecentCount || 0,
       },
       candidacies: candidacies || [],
       recentActivities,

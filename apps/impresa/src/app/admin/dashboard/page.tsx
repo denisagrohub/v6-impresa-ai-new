@@ -14,13 +14,19 @@ export default function AdminDashboard() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     projects: 0,
-    brandProjects: 0,
+    partnershipProjects: 0,
     kbRequests: 0,
     certifiedDocs: 0,
     consultants: 0,
     clients: 0,
     modulesActive: 0,
     auditLogCount: 0,
+  });
+  const [newCounts, setNewCounts] = useState({
+    projects: 0,
+    partnershipProjects: 0,
+    kbRequests: 0,
+    certifiedDocs: 0,
   });
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [candidacies, setCandidacies] = useState<any[]>([]);
@@ -29,7 +35,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const session = localStorage.getItem("pi_session");
     if (!session) {
-      window.location.href = "/admin/login";
+      window.location.href = "/login";
       return;
     }
     setUser(JSON.parse(session));
@@ -47,6 +53,7 @@ export default function AdminDashboard() {
       }
 
       setStats(data.stats);
+      setNewCounts(data.newCounts || { projects: 0, partnershipProjects: 0, kbRequests: 0, certifiedDocs: 0 });
       setRecentActivities(data.recentActivities || []);
       setCandidacies(data.candidacies || []);
     } catch (error: any) {
@@ -150,35 +157,50 @@ export default function AdminDashboard() {
           )}
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className={`bg-white rounded-2xl border p-6 ${newCounts.projects > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center"><FolderKanban size={24} className="text-blue-600" /></div>
+                {newCounts.projects > 0 && <span className="text-xs font-bold text-red-600">{newCounts.projects} da decidere</span>}
               </div>
               <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.projects}</div>
               <div className="text-sm text-gray-500">Progetti Totali</div>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className={`bg-white rounded-2xl border p-6 ${newCounts.partnershipProjects > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center"><Palette size={24} className="text-orange-600" /></div>
+                <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center"><Users size={24} className="text-orange-600" /></div>
+                {newCounts.partnershipProjects > 0 && <span className="text-xs font-bold text-red-600">{newCounts.partnershipProjects} nuove</span>}
               </div>
-              <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.brandProjects}</div>
-              <div className="text-sm text-gray-500">Brand Projects</div>
+              <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.partnershipProjects}</div>
+              <div className="text-sm text-gray-500">Partnership Projects</div>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className={`bg-white rounded-2xl border p-6 ${newCounts.kbRequests > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center"><Brain size={24} className="text-purple-600" /></div>
+                {newCounts.kbRequests > 0 && <span className="text-xs font-bold text-red-600">{newCounts.kbRequests} in attesa</span>}
               </div>
               <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.kbRequests}</div>
               <div className="text-sm text-gray-500">Richieste KB</div>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className={`bg-white rounded-2xl border p-6 ${newCounts.certifiedDocs > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center"><Shield size={24} className="text-green-600" /></div>
+                {newCounts.certifiedDocs > 0 && <span className="text-xs font-bold text-red-600">{newCounts.certifiedDocs} nuovi</span>}
               </div>
               <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.certifiedDocs}</div>
               <div className="text-sm text-gray-500">Documenti Certificati</div>
             </div>
           </div>
+
+          <style jsx global>{`
+            @keyframes blink-alert-border {
+              0%, 100% { border-color: rgb(239 68 68); box-shadow: 0 0 0 1px rgb(239 68 68 / 0.3); }
+              50% { border-color: rgb(254 202 202); box-shadow: 0 0 0 1px transparent; }
+            }
+            .blink-alert-border {
+              border-width: 2px;
+              animation: blink-alert-border 1.2s ease-in-out infinite;
+            }
+          `}</style>
 
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
