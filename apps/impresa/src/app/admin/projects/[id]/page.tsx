@@ -168,7 +168,7 @@ export default function AdminProjectDetail() {
 
     return (
         <div className="min-h-screen bg-[#f8fafc]">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
                 <Link href="/admin/projects" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-4">
                     <ArrowLeft size={16} /> Torna ai progetti
                 </Link>
@@ -187,11 +187,9 @@ export default function AdminProjectDetail() {
                     <span className="px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">{project.fase}</span>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-6">
-                    {/* Colonna principale: lavoro attivo */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <NotesBoard resModel="erpv6.production.order" resId={project.id} onSendEmail={handleSendEmail} />
-
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px_380px] gap-6 items-start">
+                    {/* Colonna 1: lavoro attivo */}
+                    <div className="space-y-6 min-w-0">
                         <div className="bg-white rounded-2xl border border-gray-100 p-6">
                             <h2 className="text-sm font-bold text-[#1a2744] mb-3 flex items-center gap-2">
                                 <MessageSquareText size={16} className="text-gray-400" /> Ultime Interazioni
@@ -213,8 +211,8 @@ export default function AdminProjectDetail() {
                         </div>
                     </div>
 
-                    {/* Colonna laterale: contesto a colpo d'occhio */}
-                    <div className="space-y-6">
+                    {/* Colonna 2: contesto a colpo d'occhio */}
+                    <div className="space-y-6 min-w-0">
                         {project.kairos && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-5">
                                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Kairós</h2>
@@ -293,6 +291,11 @@ export default function AdminProjectDetail() {
                                 </div>
                             )}
                         </div>
+                    </div>
+
+                    {/* Colonna 3: lavagna di lavoro */}
+                    <div className="lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] min-w-0">
+                        <NotesBoard resModel="erpv6.production.order" resId={project.id} onSendEmail={handleSendEmail} />
                     </div>
                 </div>
             </div>

@@ -17,7 +17,12 @@ class Erpv6ProjectNote(models.Model):
     deciso di scrivere - un brief, un debrief, una nota libera."""
     _name = 'erpv6.project.note'
     _description = 'Nota/Brief/Debrief di progetto'
-    _order = 'create_date desc'
+    # 10/09/2026 (Denis: "posso modificare l'ordine prendendoli con il
+    # mouse"): sequence prima di create_date - senza un ordine manuale
+    # esplicito, il drag&drop lato frontend non avrebbe nessun campo
+    # reale su cui salvare la nuova posizione (create_date da solo non
+    # e' riordinabile a mano).
+    _order = 'sequence, create_date desc'
 
     res_model = fields.Char(string='Modello Collegato', required=True, index=True)
     res_id = fields.Integer(string='ID Record', required=True, index=True)
@@ -31,6 +36,7 @@ class Erpv6ProjectNote(models.Model):
     title = fields.Char(string='Titolo')
     body = fields.Text(string='Contenuto', required=True)
     author_id = fields.Many2one('res.users', string='Autore', default=lambda self: self.env.user, required=True)
+    sequence = fields.Integer(default=10)
 
     @api.model
     def get_board(self, res_model, res_id):
@@ -42,4 +48,14 @@ class Erpv6ProjectNote(models.Model):
             'body': n.body,
             'author': n.author_id.name,
             'create_date': n.create_date.isoformat() if n.create_date else False,
+            'sequence': n.sequence,
         } for n in notes]
+
+    @api.model
+    def reorder(self, ordered_ids):
+        """Riscrive sequence in base al nuovo ordine passato dal drag&drop
+        lato frontend - un multiplo di 10 per lasciare spazio a
+        inserimenti futuri senza dover risequenziare tutto ogni volta."""
+        for position, note_id in enumerate(ordered_ids):
+            self.browse(note_id).sudo().write({'sequence': (position + 1) * 10})
+        return True
