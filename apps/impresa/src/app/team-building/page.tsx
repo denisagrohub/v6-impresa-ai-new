@@ -24,7 +24,7 @@ export default function TeamBuildingPage() {
         { n: "03", title: "Evento", desc: "Conduciamo la giornata con attenzione a quello che emerge, non solo al programma previsto." },
         { n: "04", title: "Follow-up", desc: "Restituiamo alcune osservazioni concrete utili al lavoro quotidiano del team, non solo foto e ricordi." },
       ]}
-      primaryCtaHref="/booking/1"
+      primaryCtaHref="/booking"
     />
   );
 }

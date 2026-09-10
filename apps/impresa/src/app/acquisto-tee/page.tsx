@@ -24,7 +24,7 @@ export default function AcquistoTeePage() {
         { n: "03", title: "Verifica", desc: "Controlliamo l'affidabilità della controparte e la conformità dell'operazione." },
         { n: "04", title: "Chiusura", desc: "Vi accompagniamo nella chiusura dell'operazione, non solo nella scelta iniziale." },
       ]}
-      primaryCtaHref="/booking/1"
+      primaryCtaHref="/booking"
     />
   );
 }

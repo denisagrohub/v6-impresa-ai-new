@@ -54,6 +54,48 @@ class BookingAPIController(APIBaseController):
             } for t in tokens],
         })
 
+    # 10/09/2026 (Denis, sulle 8 pagine pubbliche che linkavano tutte
+    # "/booking/1" scritto a mano, quindi sempre lo stesso consulente
+    # (Stefano Puglisi): "deve andare ad un qualsiasi altro consulente
+    # diverso da me solo se io non ho slot"). Il consulente marcato
+    # is_default_public_contact ha la precedenza; un altro consulente
+    # ATTIVO con almeno un token disponibile e' il fallback, mai un id
+    # scritto a mano nel frontend. Stessa logica "disponibile" di
+    # list_available_tokens sopra, non duplicata a caso.
+    @http.route('/api/v1/booking/resolve-consultant', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def resolve_public_consultant(self, **kwargs):
+        start_time = time.time()
+        Consultant = request.env['erpv6.consulting.consultant'].sudo()
+        Token = request.env['erpv6.booking.token'].sudo()
+        now = fields.Datetime.now()
+
+        def has_available_token(consultant):
+            tokens = Token.search([('consultant_id', '=', consultant.id), ('status', '=', 'available')])
+            return bool(tokens.filtered(lambda t: not t.expires_at or t.expires_at > now))
+
+        default_consultant = Consultant.search([('is_default_public_contact', '=', True), ('is_active', '=', True)], limit=1)
+        chosen = default_consultant if default_consultant and has_available_token(default_consultant) else False
+
+        if not chosen:
+            others = Consultant.search([
+                ('is_active', '=', True),
+                ('id', '!=', default_consultant.id if default_consultant else 0),
+            ])
+            chosen = next((c for c in others if has_available_token(c)), False)
+
+        # Nessuno ha slot disponibili: torna comunque il contatto
+        # predefinito (o il primo consulente attivo trovato) cosi' il
+        # visitatore vede almeno "nessuna disponibilita' al momento"
+        # invece di un errore muto - mai inventare uno slot che non c'e'.
+        if not chosen:
+            chosen = default_consultant or Consultant.search([('is_active', '=', True)], limit=1)
+
+        if not chosen:
+            return self._json_response({'error': 'Nessun consulente disponibile'}, 404)
+
+        self._log_api_call('/api/v1/booking/resolve-consultant', 'GET', None, 200, start_time)
+        return self._json_response({'consultant_id': chosen.id})
+
     @http.route('/api/v1/booking/generate', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def generate_tokens(self, **kwargs):  # pylint: disable=unused-argument
         start_time = time.time()

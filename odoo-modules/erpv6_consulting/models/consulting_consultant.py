@@ -25,6 +25,18 @@ class ConsultingConsultant(models.Model):
     languages = fields.Char('Lingue Parlate', help='Es: IT, EN, DE')
     specialties = fields.Char('Specializzazioni', help='Es: Fiscale, Psicologico')
     conversion_rate = fields.Float('Tasso Conversione (%)')
+    # 10/09/2026 (Denis, sulle pagine pubbliche che linkavano tutte
+    # "/booking/1" scritto a mano: "deve andare ad un qualsiasi altro
+    # consulente diverso da me solo se io non ho slot") - il consulente
+    # con questo flag e' il primo scelto da /api/v1/booking/
+    # resolve-consultant; un altro consulente ATTIVO con almeno un token
+    # disponibile e' il fallback, solo se questo non ne ha. Al massimo un
+    # consulente dovrebbe averlo True per volta (nessun vincolo SQL: e'
+    # una scelta editoriale, non un invariante tecnico).
+    is_default_public_contact = fields.Boolean(
+        'Contatto Pubblico Predefinito',
+        help="Consulente mostrato per primo sulle pagine pubbliche di prenotazione, "
+             "se ha almeno uno slot disponibile.")
 
     @api.onchange('brand_id')
     def _onchange_brand_id(self):

@@ -43,7 +43,7 @@ export default function BusinessPlanPage() {
         dichiarazione:
           "Il nostro stesso progetto agricolo aveva bisogno di un piano industriale a sostegno di un finanziamento ISMEA. Abbiamo costruito il modello finanziario e verificato la sua tenuta con uno stress test sugli stessi parametri usati in istruttoria: il risultato è un DSCR di 3,18x, ben al di sopra della soglia minima richiesta, e il finanziamento è stato approvato.",
       }}
-      primaryCtaHref="/booking/1"
+      primaryCtaHref="/booking"
     />
   );
 }

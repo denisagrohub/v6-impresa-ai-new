@@ -24,7 +24,7 @@ export default function KaizenLeanPage() {
         { n: "03", title: "Piccoli interventi", desc: "Proponiamo correzioni mirate e verificabili, non una riorganizzazione generale." },
         { n: "04", title: "Ripetizione", desc: "Impostiamo il ciclo perché il miglioramento continui anche dopo il nostro intervento." },
       ]}
-      primaryCtaHref="/booking/1"
+      primaryCtaHref="/booking"
     />
   );
 }

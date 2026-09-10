@@ -24,7 +24,7 @@ export default function RicambioGenerazionalePage() {
         { n: "03", title: "Piano di transizione", desc: "Definiamo tempi, ruoli e responsabilità del passaggio, con tappe verificabili." },
         { n: "04", title: "Accompagnamento", desc: "Restiamo al fianco di chi lascia e di chi arriva finché la transizione non è davvero completata." },
       ]}
-      primaryCtaHref="/booking/1"
+      primaryCtaHref="/booking"
     />
   );
 }
