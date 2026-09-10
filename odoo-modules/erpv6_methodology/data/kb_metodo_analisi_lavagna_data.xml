@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- "Analisi Lavagna" (Denis, 10/09/2026: "dare in pasto a metodology
+         tutta la lavagna e avere un responso") - stesso pattern gia' in
+         uso da ogni "metodo" del sistema (kb_metodo_winwin_disc_data.xml
+         in erpv6_production e' il gemello piu' vicino: voce erpv6.kb
+         kb_type='metodo_v6' con le istruzioni reali + erpv6.omni.route.config
+         dedicata, mai un motore nuovo). A differenza di quello, questo
+         vive QUI (erpv6_methodology) perche' l'utente ha chiesto
+         esplicitamente "metodology": e' il motore generico Pareto/Kairós/
+         5S che legge la lavagna di erpv6.project.note (stesso modulo),
+         non una conoscenza di verticale. Chiamato da
+         erpv6.project.note.analyze_board() in models/project_note.py.
+         noupdate="1" come gli altri kb_metodo_*: un admin puo' correggere
+         il prompt a mano senza perderlo al prossimo aggiornamento modulo. -->
+    <data noupdate="1">
+        <record id="kb_category_metodi_engine" model="erpv6.kb.category">
+            <field name="name">Metodi - Motore Generico</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="is_transversal">True</field>
+            <field name="description">Istruzioni dei "metodi" applicati direttamente dai motori generici a-settoriali (erpv6_methodology: Pareto/Kairós/5S), a differenza di "Metodi V6 Impresa" (erpv6_production) che sono conoscenza di verticale.</field>
+        </record>
+
+        <record id="kb_metodo_analisi_lavagna" model="erpv6.kb">
+            <field name="name">Metodo - Analisi Lavagna di Progetto</field>
+            <field name="kb_type">metodo_v6</field>
+            <field name="category_id" ref="kb_category_metodi_engine"/>
+            <field name="content_format">text</field>
+            <field name="source">system_seed</field>
+            <field name="is_active">True</field>
+            <field name="content"><![CDATA[Sei l'analista del "Metodo V6" applicato alla lavagna di lavoro di un progetto (brief, debrief, note libere scritte da un consulente durante il progetto) - il tuo compito e' leggere TUTTO cio' che e' stato scritto finora e restituire un responso utile a chi gestisce il progetto, ragionando con gli stessi strumenti del Metodo V6 gia' in uso nel sistema:
+
+- KAIRÓS (prontezza del cliente × impatto del progetto): la lavagna conferma o mette in dubbio la prontezza/impatto gia' valutati? Segnala esplicitamente se emergono segnali (nella lavagna) che contraddicono la classificazione Kairós fornita nel contesto, se presente.
+- PARETO (80/20): tra tutto cio' che e' scritto in lavagna, quali sono le 2-3 cose che pesano di piu' sull'esito del progetto (il 20% che conta), distinte dal resto (rumore/dettaglio operativo)?
+- 5S (ordine/metodo): la lavagna segnala confusione, azioni non chiuse, decisioni prese ma non ancora comunicate, o mancanza di un prossimo passo chiaro?
+
+REGOLA VINCOLANTE ANTI-ALLUCINAZIONE: basati SOLO su cio' che e' scritto davvero nella lavagna e nel contesto fornito (Kairós, risposte intervista, email, se presenti) - non inventare fatti sul cliente o sul progetto che non siano lì. Se la lavagna e' troppo scarna per dire qualcosa di utile su un punto, dillo esplicitamente in "flagged_missing_data" invece di riempirlo con generico.
+
+Scrivi per il consulente che gestisce il progetto (uso interno, mai per il cliente finale): diretto, concreto, in italiano.
+
+Rispondi SOLO con un oggetto JSON valido, senza markdown code fence, senza altro testo, con questa struttura esatta:
+{"punti_chiave_pareto": ["il 20% che conta davvero, 2-3 punti concreti tratti dalla lavagna"], "coerenza_kairos": "se e come la lavagna conferma/mette in dubbio la classificazione Kairós fornita, o 'nessun dato Kairós disponibile'", "rischi_o_blocchi": ["azioni aperte, decisioni non comunicate, confusione emersa dalla lavagna - vuoto se nessuno"], "prossimo_passo_consigliato": "una azione concreta e specifica, ancorata a quanto scritto in lavagna", "flagged_missing_data": "cosa manca per un'analisi più solida, vuoto se la lavagna bastava"}]]></field>
+        </record>
+
+        <record id="omni_route_methodology_board_analysis" model="erpv6.omni.route.config">
+            <field name="task_type">methodology_board_analysis</field>
+            <field name="name">Metodo - Analisi Lavagna di Progetto</field>
+            <field name="description">Route per l'analisi della lavagna di lavoro di un progetto (erpv6.project.note) attraverso le lenti del Metodo V6 (Kairós/Pareto/5S) - stessi provider gia' in uso per le altre route di analisi/proposta.</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+        </record>
+    </data>
+</odoo>

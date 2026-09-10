@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Loader2, ArrowLeft, Calendar, User, Building2, FileText, Download, MessageSquareText, ShieldCheck, UploadCloud } from "lucide-react";
 import HeinrichPanel from "@/components/admin/HeinrichPanel";
 import NotesBoard from "@/components/admin/NotesBoard";
+import AssistantChat from "@/components/admin/AssistantChat";
 
 interface Project {
     id: number;
@@ -363,6 +364,8 @@ export default function AdminProjectDetail() {
                             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Affidabilità</h2>
                             <HeinrichPanel resModel="erpv6.production.order" resId={project.id} compact />
                         </div>
+
+                        <AssistantChat resModel="erpv6.production.order" resId={project.id} />
 
                         {hasIntervista && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-5">

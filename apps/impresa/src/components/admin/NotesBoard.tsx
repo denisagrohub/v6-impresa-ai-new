@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ClipboardList, Loader2, Send, GripVertical } from "lucide-react";
+import { ClipboardList, Loader2, Send, GripVertical, Sparkles } from "lucide-react";
 
 interface Note {
     id: number;
-    note_type: 'brief' | 'debrief' | 'nota';
+    note_type: 'brief' | 'debrief' | 'nota' | 'analisi';
     title: string;
     body: string;
     author: string;
@@ -14,11 +14,14 @@ interface Note {
 
 // 10/09/2026 (Denis: "la immagino come una lavagna dove scrivi e quando
 // salvi appare un post it... colori diversi in base a cosa è"): un
-// colore per tipo, sempre lo stesso.
+// colore per tipo, sempre lo stesso. 'analisi' aggiunto lo stesso
+// giorno (Denis: "dare in pasto a metodology tutta la lavagna e avere
+// un responso") - mai scritto da una persona, solo da analyze_board().
 const TYPE_STYLE: Record<string, { bg: string; badge: string; label: string }> = {
     brief: { bg: 'bg-blue-100', badge: 'bg-blue-500 text-white', label: '📋 Brief' },
     debrief: { bg: 'bg-green-100', badge: 'bg-green-600 text-white', label: '📝 Debrief' },
     nota: { bg: 'bg-yellow-100', badge: 'bg-yellow-500 text-white', label: '🗒️ Nota' },
+    analisi: { bg: 'bg-purple-100', badge: 'bg-purple-600 text-white', label: '✨ Analisi Metodologica' },
 };
 const ROTATIONS = ['-rotate-1', 'rotate-1', 'rotate-0'];
 
@@ -47,6 +50,8 @@ export default function NotesBoard({
     const [justAddedId, setJustAddedId] = useState<number | null>(null);
     const [dragOverId, setDragOverId] = useState<number | null>(null);
     const dragIdRef = useRef<number | null>(null);
+    const [analyzing, setAnalyzing] = useState(false);
+    const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
     const load = async () => {
         try {
@@ -96,6 +101,30 @@ export default function NotesBoard({
         }
     };
 
+    const handleAnalyze = async () => {
+        setAnalyzing(true);
+        setAnalyzeError(null);
+        try {
+            const res = await fetch('/api/admin/notes/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resModel, resId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setNotes(data.notes || []);
+                if (data.notes?.length) {
+                    setJustAddedId(data.notes[0].id);
+                    setTimeout(() => setJustAddedId(null), 600);
+                }
+            } else {
+                setAnalyzeError(data.error || 'Analisi fallita');
+            }
+        } finally {
+            setAnalyzing(false);
+        }
+    };
+
     const persistOrder = async (ordered: Note[]) => {
         try {
             await fetch('/api/admin/notes/reorder', {
@@ -134,9 +163,20 @@ export default function NotesBoard({
                 .postit-pop { animation: postit-pop 0.35s ease-out; }
             `}</style>
 
-            <h3 className="text-sm font-bold text-[#1a2744] mb-3 flex items-center gap-2">
-                <ClipboardList size={16} className="text-blue-500" /> Lavagna di Lavoro
-            </h3>
+            <div className="flex items-center justify-between mb-3 gap-2">
+                <h3 className="text-sm font-bold text-[#1a2744] flex items-center gap-2">
+                    <ClipboardList size={16} className="text-blue-500" /> Lavagna di Lavoro
+                </h3>
+                <button
+                    onClick={handleAnalyze}
+                    disabled={analyzing || notes.filter((n) => n.note_type !== 'analisi').length === 0}
+                    title="Analizza la lavagna con il Metodo V6 (Kairós/Pareto/5S)"
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-40 flex-shrink-0"
+                >
+                    <Sparkles size={12} /> {analyzing ? 'Analizzo...' : 'Analizza'}
+                </button>
+            </div>
+            {analyzeError && <p className="text-xs text-red-600 mb-2">{analyzeError}</p>}
 
             <form onSubmit={handleSubmit} className="mb-4 border border-gray-200 rounded-xl overflow-hidden">
                 <div className="flex items-center gap-2 bg-gray-50 px-2 py-2 border-b border-gray-200">

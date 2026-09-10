@@ -2,6 +2,7 @@ import json
 import logging
 
 from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 from odoo.tools import html2plaintext
 
 _logger = logging.getLogger(__name__)
@@ -559,6 +560,224 @@ class Erpv6AgentConfig(models.Model):
                 'description': raw_action.get('descrizione') or question_text,
             }
         return message, pending_action
+
+    def _build_resource_context(self, res_model, res_id):
+        """Contesto REALE specifico di UN SOLO progetto (Denis, 10/09/2026:
+        "un assistente dentro i progetti che abbia il contesto specifico
+        del progetto") - a differenza di _compute_live_briefing sopra
+        (quadro d'insieme di TUTTO il sistema, solo per Susanna), questo e'
+        generico per qualunque agente e si limita ai dati del singolo
+        res_model/res_id passato. Stesso pattern soft-optional gia' in uso
+        li' (erpv6_agent non dipende da erpv6_production/aeosv6_relation):
+        accede a un modello solo se esiste davvero nell'ambiente corrente,
+        mai un errore se il modulo non e' installato."""
+        self.ensure_one()
+        if res_model not in self.env:
+            return ''
+        record = self.env[res_model].sudo().browse(res_id)
+        if not record.exists():
+            return ''
+        sections = []
+
+        if 'erpv6.project.note' in self.env:
+            notes = self.env['erpv6.project.note'].sudo().search(
+                [('res_model', '=', res_model), ('res_id', '=', res_id)], order='sequence, create_date desc')
+            if notes:
+                lines = ["- [%s] %s: %s (%s, %s)" % (
+                    n.note_type, n.title or '(senza titolo)', n.body, n.author_id.name,
+                    n.create_date.strftime('%d/%m %H:%M') if n.create_date else '') for n in notes]
+                sections.append("LAVAGNA DI LAVORO DEL PROGETTO (%d note):\n%s" % (len(notes), "\n".join(lines)))
+
+        if res_model == 'erpv6.production.order':
+            sections.append("PROGETTO: %s (fase: %s)" % (record.name, record.phase_id.name if record.phase_id else '-'))
+            interview_bits = []
+            for fname, label in [
+                ('interview_tipo_progetto', 'Tipo progetto'), ('interview_budget', 'Budget'),
+                ('interview_tempistiche', 'Tempistiche'), ('interview_destinatario', 'Destinatario'),
+                ('interview_fatturato', 'Fatturato'),
+            ]:
+                val = getattr(record, fname, False)
+                if val:
+                    interview_bits.append("%s: %s" % (label, val))
+            if interview_bits:
+                sections.append("RISPOSTE INTERVISTA:\n" + "\n".join("- %s" % b for b in interview_bits))
+            if 'erpv6.kairos.matrix' in self.env:
+                kairos = self.env['erpv6.kairos.matrix'].sudo().search(
+                    [('res_model', '=', res_model), ('res_id', '=', res_id)], limit=1, order='id desc')
+                if kairos:
+                    sections.append("KAIRÓS: quadrante %s, prontezza %s, impatto %s" % (
+                        kairos.quadrante, kairos.prontezza_level, kairos.impatto_level))
+
+        elif res_model == 'erpv6.tracking.relation':
+            sections.append("PROGETTO PARTNER: %s" % record.name)
+            if 'erpv6.project.email.log' in self.env:
+                emails = self.env['erpv6.project.email.log'].sudo().search(
+                    [('relation_id', '=', res_id)], order='create_date desc', limit=15)
+                if emails:
+                    lines = ["- [%s] %s (%s)" % (
+                        'inviata' if e.direction == 'inviata' else 'ricevuta', e.name,
+                        e.create_date.strftime('%d/%m %H:%M') if e.create_date else '') for e in emails]
+                    sections.append("EMAIL DEL PROGETTO (ultime %d, dalla più recente):\n%s" % (len(emails), "\n".join(lines)))
+
+        return "\n\n".join(sections)
+
+    def answer_about_resource(self, res_model, res_id, thread_history, question_text):
+        """Assistente 'dentro' un progetto specifico (Denis, 10/09/2026) -
+        a differenza di answer_conversationally sopra (contesto GLOBALE,
+        protocollo azione_proposta pensato per Telegram) qui il contesto e'
+        SOLO quello del progetto (_build_resource_context sopra), risposta
+        in testo libero, NESSUNA azione proposta: e' uno strumento per
+        scrivere/analizzare insieme un progetto, non un canale che innesca
+        task per altri agenti. Ritorna sempre una stringa (mai None)."""
+        self.ensure_one()
+        fallback = _("Non sono riuscita a rispondere in questo momento -- riprova.")
+        if not self.omni_task_type:
+            return fallback
+        resource_context = self._build_resource_context(res_model, res_id)
+        persona_text = self._get_persona_text()
+        system_prompt = (
+            "Sei '%(name)s'%(persona)s Stai aiutando Denis a scrivere e analizzare UN progetto "
+            "specifico (non il quadro d'insieme del sistema): usa SOLO i dati reali del progetto "
+            "elencati sotto, mai dati di altri progetti e mai inventati -- se un dato non è "
+            "presente nel contesto, dillo esplicitamente invece di inventarlo o supporlo. "
+            "Rispondi in modo colloquiale, breve, in italiano, testo semplice (NON JSON, NON "
+            "markdown, nessuna azione da eseguire: qui parli solo, non agisci).\n\n"
+            "CONTESTO DEL PROGETTO:\n%(context)s"
+        ) % {
+            'name': self.name,
+            'persona': (" " + persona_text) if persona_text else '',
+            'context': resource_context or '(nessun dato reale disponibile per questo progetto al momento)',
+        }
+        user_content = _("STORICO DELLA CONVERSAZIONE FINORA:\n%(thread)s\n\nNUOVO MESSAGGIO:\n%(question)s") % {
+            'thread': thread_history or _('(nessuno)'), 'question': question_text,
+        }
+        bridge = self.env['erpv6.omni.bridge']
+        result = bridge.execute_ai_task(
+            task_type=self.omni_task_type,
+            payload={
+                'temperature': 0.3,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_content},
+                ],
+            },
+            context={'source': 'erpv6_agent:answer_about_resource', 'agent_code': self.code,
+                     'res_model': res_model, 'res_id': res_id},
+        )
+        if not result.get('success'):
+            _logger.warning("Agente %s: chiamata AI fallita per l'assistente di progetto: %s",
+                             self.code, result.get('error'))
+            return fallback
+        try:
+            return result['data']['choices'][0]['message']['content'].strip() or fallback
+        except (KeyError, IndexError, TypeError):
+            return fallback
+
+    @api.model
+    def get_resource_chat_history(self, agent_code, res_model, res_id):
+        """Storico della chat di progetto (frontend: apertura pannello) -
+        stesso erpv6.agent.chat.log gia' usato per Telegram, chat_key
+        dedicata per non mischiare lo storico di progetti diversi."""
+        config = self.search([('code', '=', agent_code), ('active', '=', True)], limit=1)
+        if not config:
+            return []
+        chat_key = 'project:%s:%s' % (res_model, res_id)
+        logs = self.env['erpv6.agent.chat.log'].sudo().search(
+            [('agent_config_id', '=', config.id), ('chat_key', '=', chat_key)], order='create_date asc')
+        return [{
+            'direction': l.direction, 'text': l.text,
+            'date': l.create_date.isoformat() if l.create_date else False,
+        } for l in logs]
+
+    @api.model
+    def send_resource_chat_message(self, agent_code, res_model, res_id, question_text):
+        """Punto di ingresso unico per il frontend (via JSON-RPC): carica
+        storico, chiama answer_about_resource, salva la risposta - stessa
+        sequenza di agent_telegram_config.py._handle_incoming_message, qui
+        senza Telegram nel mezzo."""
+        config = self.search([('code', '=', agent_code), ('active', '=', True)], limit=1)
+        if not config:
+            raise UserError(_("Agente '%s' non trovato o non attivo.") % agent_code)
+        chat_key = 'project:%s:%s' % (res_model, res_id)
+        ChatLog = self.env['erpv6.agent.chat.log']
+        thread_history = ChatLog.log_and_get_history(self.env, config.id, chat_key, question_text)
+        answer = config.answer_about_resource(res_model, res_id, thread_history, question_text)
+        ChatLog.log_reply(self.env, config.id, chat_key, answer)
+        return answer
+
+    def suggest_email_reply(self, res_model, res_id, email_subject, email_body):
+        """Bozza di risposta a UN'email ricevuta in un progetto (Denis,
+        10/09/2026: "susanna che consiglia le risposte... faccia da
+        segretaria del sistema progetti partner", gia' discusso in
+        precedenza) - stesso contesto reale di _build_resource_context,
+        ma qui il compito e' proporre un TESTO PRONTO da rivedere prima
+        di inviarlo (mai inviato in automatico: solo testo, come
+        answer_about_resource sopra). Ritorna sempre una stringa."""
+        self.ensure_one()
+        fallback = _("Non sono riuscita a proporre una risposta in questo momento -- riprova.")
+        if not self.omni_task_type:
+            return fallback
+        resource_context = self._build_resource_context(res_model, res_id)
+        persona_text = self._get_persona_text()
+        system_prompt = (
+            "Sei '%(name)s'%(persona)s Stai aiutando Denis a rispondere a un'email ricevuta su "
+            "UN progetto specifico. Proponi il TESTO di una risposta pronta da rivedere (Denis "
+            "puo' modificarla prima di inviarla, tu non invii nulla) - usa SOLO i dati reali del "
+            "progetto sotto per personalizzarla, mai dati inventati; se ti mancano informazioni "
+            "per rispondere nel merito, scrivi una risposta che le richiede esplicitamente invece "
+            "di inventarle. Tono professionale ma diretto, in italiano. Rispondi SOLO con il testo "
+            "della risposta email (nessun oggetto, nessuna firma esplicita 'Denis' — la firma la "
+            "aggiunge il sistema di invio —, NON JSON, NON markdown).\n\n"
+            "CONTESTO DEL PROGETTO:\n%(context)s"
+        ) % {
+            'name': self.name,
+            'persona': (" " + persona_text) if persona_text else '',
+            'context': resource_context or '(nessun dato reale disponibile per questo progetto al momento)',
+        }
+        user_content = _("EMAIL RICEVUTA A CUI RISPONDERE:\nOggetto: %(subject)s\n\n%(body)s") % {
+            'subject': email_subject or '(nessun oggetto)', 'body': email_body,
+        }
+        bridge = self.env['erpv6.omni.bridge']
+        result = bridge.execute_ai_task(
+            task_type=self.omni_task_type,
+            payload={
+                'temperature': 0.4,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_content},
+                ],
+            },
+            context={'source': 'erpv6_agent:suggest_email_reply', 'agent_code': self.code,
+                     'res_model': res_model, 'res_id': res_id},
+        )
+        if not result.get('success'):
+            _logger.warning("Agente %s: chiamata AI fallita per il suggerimento di risposta email: %s",
+                             self.code, result.get('error'))
+            return fallback
+        try:
+            return result['data']['choices'][0]['message']['content'].strip() or fallback
+        except (KeyError, IndexError, TypeError):
+            return fallback
+
+    @api.model
+    def draft_email_reply(self, agent_code, res_model, res_id, email_log_id):
+        """Punto di ingresso per il frontend: legge il corpo reale
+        dell'email (chatter nativo su erpv6.project.email.log, stessa
+        query gia' usata da /api/admin/partner-projects/[id]/emails/
+        [emailId] lato Next.js - MAI un secondo modo di leggerla) e chiama
+        suggest_email_reply."""
+        config = self.search([('code', '=', agent_code), ('active', '=', True)], limit=1)
+        if not config:
+            raise UserError(_("Agente '%s' non trovato o non attivo.") % agent_code)
+        messages = self.env['mail.message'].sudo().search([
+            ('model', '=', 'erpv6.project.email.log'), ('res_id', '=', email_log_id),
+            ('message_type', '!=', 'notification'),
+        ], order='date asc', limit=5)
+        msg_with_body = messages.filtered(lambda m: m.body and m.body.strip())[:1]
+        if not msg_with_body:
+            raise UserError(_("Corpo dell'email #%s non disponibile.") % email_log_id)
+        email_body = html2plaintext(msg_with_body.body)
+        return config.suggest_email_reply(res_model, res_id, msg_with_body.subject, email_body)
 
     def reflect_on_negative_feedback(self, flagged_text, thread_history, denis_reason=None):
         """Autocritica GENUINA (25/08/2026, richiesta esplicita di Denis:

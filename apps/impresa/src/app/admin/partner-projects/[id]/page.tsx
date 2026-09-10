@@ -2,9 +2,10 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Mail, Send, ChevronDown, ChevronUp, UserPlus } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Send, ChevronDown, ChevronUp, UserPlus, Sparkles } from "lucide-react";
 import HeinrichPanel from "@/components/admin/HeinrichPanel";
 import NotesBoard from "@/components/admin/NotesBoard";
+import AssistantChat from "@/components/admin/AssistantChat";
 
 interface Partner {
     id: number;
@@ -46,6 +47,8 @@ export default function PartnerProjectDetailPage() {
     const [openEmailId, setOpenEmailId] = useState<number | null>(null);
     const [emailBodies, setEmailBodies] = useState<Record<number, string | null>>({});
     const [loadingBodyId, setLoadingBodyId] = useState<number | null>(null);
+    const [suggestingId, setSuggestingId] = useState<number | null>(null);
+    const [suggestError, setSuggestError] = useState<string | null>(null);
 
     const [selectedPartnerIds, setSelectedPartnerIds] = useState<number[]>([]);
     const [extraEmails, setExtraEmails] = useState("");
@@ -108,6 +111,34 @@ export default function PartnerProjectDetailPage() {
             } finally {
                 setLoadingBodyId(null);
             }
+        }
+    };
+
+    // 10/09/2026 (Denis: "manca la parte di susanna nell'analisi delle
+    // email di ogni progetto partner... susanna che consiglia le
+    // risposte", già discusso in precedenza) - propone un testo pronto
+    // da rivedere, mai inviato in automatico: precompila il form di
+    // invio già esistente sotto, l'admin lo rivede/modifica e invia lui.
+    const handleSuggestReply = async (e: EmailLog) => {
+        setSuggestingId(e.id);
+        setSuggestError(null);
+        try {
+            const res = await fetch('/api/admin/assistant/suggest-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resModel: 'erpv6.tracking.relation', resId: Number(id), emailLogId: e.id }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setSubject(e.subject?.toLowerCase().startsWith('re:') ? e.subject : `Re: ${e.subject || ''}`);
+                setMessage(data.draft);
+            } else {
+                setSuggestError(data.error || 'Suggerimento fallito');
+            }
+        } catch (err: any) {
+            setSuggestError(err.message || 'Errore di rete');
+        } finally {
+            setSuggestingId(null);
         }
     };
 
@@ -233,6 +264,7 @@ export default function PartnerProjectDetailPage() {
                     <div className="space-y-6 min-w-0">
                         <div className="bg-white rounded-2xl border border-gray-100 p-6">
                             <h2 className="text-sm font-bold text-[#1a2744] mb-4">Cronologia Email</h2>
+                            {suggestError && <p className="text-xs text-red-600 mb-3">{suggestError}</p>}
                             {emails.length === 0 ? (
                                 <p className="text-sm text-gray-400">Nessuna email registrata per questo progetto.</p>
                             ) : (
@@ -268,6 +300,15 @@ export default function PartnerProjectDetailPage() {
                                                     ) : (
                                                         <p className="text-sm text-gray-400">Corpo non disponibile.</p>
                                                     )}
+                                                    {e.direction === 'ricevuta' && (
+                                                        <button
+                                                            onClick={() => handleSuggestReply(e)}
+                                                            disabled={suggestingId === e.id}
+                                                            className="mt-2 flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-purple-600 text-white font-medium hover:bg-purple-700 disabled:opacity-40"
+                                                        >
+                                                            <Sparkles size={12} /> {suggestingId === e.id ? 'Preparo la bozza...' : 'Suggerisci risposta (Susanna)'}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -279,6 +320,8 @@ export default function PartnerProjectDetailPage() {
 
                     {/* Colonna 2: parti collegate + invio */}
                     <div className="space-y-6 min-w-0">
+                        {project && <AssistantChat resModel="erpv6.tracking.relation" resId={project.id} />}
+
                         <div className="bg-white rounded-2xl border border-gray-100 p-5">
                             <div className="flex items-center justify-between mb-3">
                                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Parti Collegate</h2>
