@@ -1,5 +1,46 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
+
+// 10/09/2026 (Denis: "mi fai accedere alla dashboard senza mettere
+// nemmeno un login... non mi sembra corretto"): il controllo qui sotto
+// verificava SOLO che un cookie chiamato pi_session esistesse, mai il suo
+// contenuto - chiunque poteva scrivere document.cookie="pi_session=x" da
+// devtools ed entrare in /admin/dashboard, /consultant/dashboard, ecc.
+// senza nessuna credenziale reale (verificato dal vivo con un cookie
+// finto). Il login vero genera gia' un JWT firmato da Odoo
+// (erpv6_api_gateway._generate_jwt, ora con 'role' incluso nel payload
+// firmato) - qui lo verifichiamo davvero (firma + scadenza) invece di
+// fidarci del JSON leggibile nel cookie, e usiamo il ruolo DAL TOKEN
+// (non dal JSON del cookie, che chiunque puo' riscrivere) per decidere
+// se /admin/* e /consultant/* sono permessi.
+const JWT_SECRET = process.env.JWT_SECRET ? new TextEncoder().encode(process.env.JWT_SECRET) : null;
+
+async function getVerifiedSession(request: NextRequest): Promise<{ userId: number; role: string } | null> {
+  if (!JWT_SECRET) return null;
+
+  let rawToken = request.cookies.get('token')?.value;
+  if (!rawToken) {
+    const sessionCookie = request.cookies.get('pi_session')?.value;
+    if (sessionCookie) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(sessionCookie));
+        rawToken = parsed?.token;
+      } catch {
+        return null;
+      }
+    }
+  }
+  if (!rawToken) return null;
+
+  try {
+    const { payload } = await jwtVerify(rawToken, JWT_SECRET);
+    if (!payload.role || typeof payload.user_id !== 'number') return null;
+    return { userId: payload.user_id as number, role: payload.role as string };
+  } catch {
+    return null;
+  }
+}
 
 const PUBLIC_PATHS = [
   '/',
@@ -84,7 +125,7 @@ const PUBLIC_PATHS = [
   '/report',
 ];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.includes(pathname) || PUBLIC_PATHS.some(p => pathname.startsWith(p + '/'))) {
@@ -108,15 +149,32 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get('token')?.value;
-  const sessionCookie = request.cookies.get('pi_session')?.value;
-
-  if (!token && !sessionCookie) {
+  const unauthorized = () => {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const url = new URL('/login', request.url);
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(new URL('/login', request.url));
+  };
+
+  const session = await getVerifiedSession(request);
+  if (!session) {
+    return unauthorized();
+  }
+
+  // Il ruolo qui viene dal JWT verificato sopra, mai dal JSON del cookie:
+  // un utente autenticato ma con ruolo 'client'/'consultant' non deve
+  // poter entrare in /admin/* solo perche' ha una sessione valida.
+  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && session.role !== 'admin') {
+    return unauthorized();
+  }
+  if ((pathname === '/consultant' || pathname.startsWith('/consultant/')) && session.role !== 'admin' && session.role !== 'consultant') {
+    return unauthorized();
+  }
+  if ((pathname === '/api/admin' || pathname.startsWith('/api/admin/')) && session.role !== 'admin') {
+    return unauthorized();
+  }
+  if ((pathname === '/api/consultant' || pathname.startsWith('/api/consultant/')) && session.role !== 'admin' && session.role !== 'consultant') {
+    return unauthorized();
   }
 
   return NextResponse.next();

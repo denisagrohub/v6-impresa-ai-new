@@ -66,7 +66,7 @@ class APIBaseController(http.Controller):
         except Exception:
             return None
 
-    def _generate_jwt(self, user):
+    def _generate_jwt(self, user, role=None):
         if not HAS_JWT:
             return None
         secret = request.env['ir.config_parameter'].sudo().get_param('api.jwt_secret')
@@ -74,7 +74,19 @@ class APIBaseController(http.Controller):
             import secrets
             secret = secrets.token_urlsafe(32)
             request.env['ir.config_parameter'].sudo().set_param('api.jwt_secret', secret)
-        return jwt.encode({'user_id': user.id, 'exp': datetime.utcnow() + timedelta(hours=24)}, secret, algorithm='HS256')
+        # role incluso nel payload firmato (10/09/2026, Denis: "mi fai
+        # accedere alla dashboard senza mettere nemmeno un login") - prima
+        # il ruolo viaggiava SOLO nel cookie pi_session lato client (JSON
+        # leggibile/modificabile), mai verificato dal server: il
+        # middleware Next.js controllava solo che un cookie esistesse, non
+        # che fosse valido ne' che il ruolo dichiarato corrispondesse a
+        # quello reale. Firmandolo qui, il middleware puo' fidarsi del
+        # ruolo letto dal JWT invece che di un valore che chiunque puo'
+        # riscrivere da devtools.
+        payload = {'user_id': user.id, 'exp': datetime.utcnow() + timedelta(hours=24)}
+        if role:
+            payload['role'] = role
+        return jwt.encode(payload, secret, algorithm='HS256')
 
     def _log_api_call(self, endpoint, method, user_id, status_code, start_time):
         try:
@@ -140,7 +152,7 @@ class HealthController(APIBaseController):
         else:
             role = 'client'
 
-        token = self._generate_jwt(user)
+        token = self._generate_jwt(user, role)
         # consultant_id (erpv6.consulting.consultant, non res.users) serve
         # subito al frontend per il link pubblico di prenotazione
         # (/booking/<consultant_id>) - evita un secondo giro su
