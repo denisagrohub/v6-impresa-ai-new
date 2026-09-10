@@ -25,6 +25,16 @@
     # estende erpv6.sign.request per chiudere l'esecuzione quando arriva il
     # completamento vero (webhook o poll) -- stesso pattern gia' in uso per
     # validation_session_ext.py su erpv6_validation.
+    # 10/09/2026 (incidente in produzione): dopo due tentativi falliti di
+    # tagliare 'erpv6_production'/'erpv6_sign' da QUI (rompevano ref= XML
+    # e un _inherit reale), il fix vero e' stato tagliare l'arco opposto,
+    # erpv6_library -> erpv6_core_engine (vedi erpv6_library/__manifest__.py):
+    # era l'arco CONDIVISO da entrambi i cicli reali che bloccavano l'avvio
+    # (erpv6_library->erpv6_core_engine->erpv6_production->erpv6_library, e
+    # ...->erpv6_sign->erpv6_typst->erpv6_library), tollerati per settimane
+    # dal registro gia' in memoria finche' una serie di `-u all` stanotte
+    # non ha forzato una ricostruzione completa del grafo. Questo modulo
+    # resta quindi INVARIATO rispetto a prima dell'incidente.
     'depends': [
         'base', 'mail', 'web_hierarchy', 'erpv6_core', 'erpv6_core_dispatch', 'erpv6_kb',
         'erpv6_validation', 'erpv6_production', 'erpv6_sign',
