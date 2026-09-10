@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@erpv6/ui";
@@ -11,9 +11,15 @@ import StateBadge from "@/components/shared/StateBadge";
 // SEMPRE presente, prova SOLO se reale - uno slot senza `prova` mostra
 // solo claim + CTA, mai un numero/placeholder inventato per "riempire".
 //
-// Navigazione SEMPRE manuale (freccie/pallini), MAI automatica a tempo:
-// un dato che richiede un secondo per essere letto (traduzione DSCR-style)
-// non va fatto scorrere da solo (motivazione esplicita del prompt).
+// 10/09/2026 (Denis, esplicito): rotazione ora AUTOMATICA - inverte la
+// regola originale di questo stesso file ("mai automatica a tempo",
+// perche' un dato come il DSCR richiede un secondo per essere letto).
+// Intervallo lungo (8s, piu' di un dato di marketing normale, pensato
+// apposta per lasciare il tempo di leggere una prova reale) + pausa al
+// passaggio del mouse/focus tastiera, cosi' non scorre via un dato
+// mentre lo si sta leggendo davvero. Le frecce/pallini restano, sempre
+// utilizzabili per saltare avanti/indietro manualmente.
+const AUTOPLAY_MS = 8000;
 export interface ClaimSlot {
     key: string;
     claim: string;
@@ -33,13 +39,28 @@ export interface ClaimSlot {
 
 export default function ClaimRotator({ slots }: { slots: ClaimSlot[] }) {
     const [active, setActive] = useState(0);
+    const [paused, setPaused] = useState(false);
+
+    useEffect(() => {
+        if (paused || slots.length <= 1) return;
+        const id = setInterval(() => {
+            setActive((i) => (i + 1) % slots.length);
+        }, AUTOPLAY_MS);
+        return () => clearInterval(id);
+    }, [paused, slots.length]);
+
     if (!slots.length) return null;
     const slot = slots[active];
 
     const goTo = (i: number) => setActive((i + slots.length) % slots.length);
 
     return (
-        <div>
+        <div
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+            onFocus={() => setPaused(true)}
+            onBlur={() => setPaused(false)}
+        >
             {/* HERO - navy, claim sempre presente */}
             <section className="bg-[#0F1E3C] px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:px-8 lg:pt-24">
                 <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">

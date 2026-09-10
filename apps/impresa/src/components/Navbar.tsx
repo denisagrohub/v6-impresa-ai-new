@@ -2,11 +2,28 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, User, LogOut, ArrowRight } from "lucide-react";
+import { Menu, X, User, LogOut, ArrowRight, ChevronDown } from "lucide-react";
 import { Logo } from "./Logo";
+
+// 10/09/2026 (Denis: "non vedo le pagine dedicate nuove") - le 8 landing
+// di prodotto (Parte D) erano raggiungibili SOLO dalle CTA della
+// rotazione in homepage, mai da nessun link di menu - da qui la
+// sensazione di "sito vecchio" anche con l'ultimo deploy live. Elenco
+// unico qui, riusato da dropdown desktop e lista mobile sotto.
+const PRODOTTI = [
+  { href: "/business-plan", label: "Business Plan" },
+  { href: "/analisi-aziendale", label: "Analisi Aziendale" },
+  { href: "/ricambio-generazionale", label: "Ricambio Generazionale" },
+  { href: "/acquisto-tee", label: "Acquisto TEE" },
+  { href: "/esg", label: "ESG" },
+  { href: "/team-building", label: "Team Building" },
+  { href: "/formazione-aziendale", label: "Formazione Aziendale" },
+  { href: "/kaizen-lean", label: "Kaizen & Lean" },
+] as const;
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [productsOpen, setProductsOpen] = useState(false);
   const [session, setSession] = useState<any>(null);
   const pathname = usePathname();
 
@@ -33,6 +50,36 @@ export default function Navbar() {
             <Link href="/" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Home</Link>
             <Link href="/chi-siamo" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/chi-siamo' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Chi Siamo</Link>
             <Link href="/metodo" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/metodo' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Il Metodo</Link>
+
+            <div
+              className="relative"
+              onMouseEnter={() => setProductsOpen(true)}
+              onMouseLeave={() => setProductsOpen(false)}
+            >
+              <button
+                type="button"
+                className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900"
+                aria-expanded={productsOpen}
+              >
+                Prodotti <ChevronDown size={14} />
+              </button>
+              {productsOpen && (
+                <div className="absolute left-0 top-full pt-2">
+                  <div className="w-64 rounded-xl border border-gray-100 bg-white p-2 shadow-lg">
+                    {PRODOTTI.map((p) => (
+                      <Link
+                        key={p.href}
+                        href={p.href}
+                        className="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      >
+                        {p.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Link href="/blog" className={`text-sm font-medium hover:text-gray-900 ${pathname === '/blog' ? 'text-[#1a2744] font-semibold' : 'text-gray-700'}`}>Blog</Link>
             <Link href="/premium" className="text-sm font-medium text-orange-600 hover:text-orange-700 font-semibold">Pacchetti</Link>
             <Link href="/brand" className="text-sm font-medium text-gray-700 hover:text-gray-900">Brand</Link>
@@ -65,6 +112,12 @@ export default function Navbar() {
             <Link href="/" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Home</Link>
             <Link href="/chi-siamo" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Chi Siamo</Link>
             <Link href="/metodo" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Il Metodo</Link>
+            <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Prodotti</div>
+            {PRODOTTI.map((p) => (
+              <Link key={p.href} href={p.href} className="block px-6 py-2 rounded-lg hover:bg-gray-100 text-sm">
+                {p.label}
+              </Link>
+            ))}
             <Link href="/blog" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Blog</Link>
             <Link href="/premium" className="block px-4 py-2 rounded-lg hover:bg-orange-50 text-orange-600 font-semibold">Pacchetti</Link>
             <Link href="/brand" className="block px-4 py-2 rounded-lg hover:bg-gray-100">Brand</Link>

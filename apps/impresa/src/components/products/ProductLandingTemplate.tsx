@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, PhoneCall, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, PhoneCall, Sparkles } from "lucide-react";
 import { Button } from "@erpv6/ui";
 import StateBadge from "@/components/shared/StateBadge";
 
@@ -61,7 +61,19 @@ export default function ProductLandingTemplate(props: ProductLandingProps) {
         <main className="min-h-screen bg-[#F7F3ED]">
             {/* HERO */}
             <section className="bg-[#0F1E3C] px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:px-8 lg:pt-24">
-                <div className="mx-auto max-w-4xl text-center">
+                <div className="mx-auto max-w-4xl">
+                    {/* 10/09/2026 (Denis: "serve il pulsante indietro") - le
+                        landing di prodotto non avevano nessun link esplicito
+                        per tornare indietro oltre il "Home" nel menu, poco
+                        riconoscibile come "indietro". */}
+                    <Link
+                        href="/"
+                        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-stone-300 transition-colors hover:text-white"
+                    >
+                        <ArrowLeft size={14} aria-hidden="true" />
+                        Torna alla home
+                    </Link>
+                    <div className="text-center">
                     <p className="text-sm font-semibold uppercase tracking-widest text-[#D4703A]">{eyebrow}</p>
                     <h1 className="mt-4 text-balance font-serif text-4xl font-bold leading-[1.1] text-[#F8F6F2] sm:text-5xl">
                         {title}
@@ -70,6 +82,7 @@ export default function ProductLandingTemplate(props: ProductLandingProps) {
                         {subtitle}
                     </p>
                     <DualCta productCode={productCode} primaryCtaHref={primaryCtaHref} className="mt-8 justify-center" />
+                    </div>
                 </div>
             </section>
 
