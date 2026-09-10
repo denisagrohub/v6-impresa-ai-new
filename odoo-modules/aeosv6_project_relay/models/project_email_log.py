@@ -1,6 +1,7 @@
 import logging
 
 from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -99,3 +100,35 @@ class Erpv6ProjectEmailLog(models.Model):
                     )
 
         return thread_id
+
+    def action_open_reply_wizard(self):
+        """Apre il wizard 'Invia Email dal Progetto' precompilato per
+        rispondere a questa email loggata (Denis, 10/09/2026: 'non riesco
+        piu inviare una email da dentro al progetto, ora che le hai
+        divise dal progetto' -- il bottone di invio e' sempre esistito
+        solo sulla scheda erpv6.tracking.relation, MAI su questo log,
+        quindi aprendo un'email captata qui non c'era alcun modo di
+        rispondere senza uscire e cercare la scheda del progetto a mano.
+        Il bottone qui chiude quel salto: riusa lo stesso wizard/nodo
+        gia' esistente, non ne inventa uno nuovo)."""
+        self.ensure_one()
+        if not self.relation_id:
+            raise UserError(_(
+                "Questa email non e' collegata a nessun progetto riconosciuto "
+                "(stato: %s) -- non posso determinare da quale alias rispondere."
+            ) % (self.match_status or ''))
+        root = self.relation_id
+        while root.parent_id:
+            root = root.parent_id
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Invia Email dal Progetto',
+            'res_model': 'erpv6.project.relay.send.email.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_project_id': root.id,
+                'default_subject': _('Re: %s') % (self.name or ''),
+                'default_extra_emails': self.sender_email or '',
+            },
+        }
