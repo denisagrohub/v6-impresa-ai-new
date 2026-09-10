@@ -4,6 +4,15 @@ from odoo import api, fields, models
 class ConsultingConsultant(models.Model):
     _name = 'erpv6.consulting.consultant'
     _description = 'Consulente'
+    # 10/09/2026: nessun campo 'name'/_rec_name era mai stato definito -
+    # ovunque Odoo dovesse mostrare questo record come testo (Many2one
+    # in un altro modello, come erpv6.booking.token.consultant_id) cadeva
+    # sul fallback tecnico "nome.modello,id" (es. "erpv6.consulting.
+    # consultant,1") invece del nome della persona - scoperto costruendo
+    # la vista Call Prenotate. related+store cosi' resta un campo reale
+    # ricercabile/ordinabile, non solo un display_name calcolato al volo.
+    name = fields.Char(related='partner_id.name', store=True, string='Nome')
+    _rec_name = 'name'
 
     partner_id = fields.Many2one('res.partner', string='Persona', required=True)
     brand_id = fields.Many2one('erpv6.consulting.brand', string='Brand', required=True)

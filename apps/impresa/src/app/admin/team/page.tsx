@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Plus, Ticket, ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { Loader2, ArrowLeft, Plus, Ticket, ChevronDown, ChevronUp, Copy, Pencil } from "lucide-react";
 
 interface Consultant {
     id: number;
@@ -178,6 +178,10 @@ export default function TeamPage() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            <Link href={`/admin/consultants/${c.id}/edit`} title="Modifica dati consulente"
+                                                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+                                                <Pencil size={16} />
+                                            </Link>
                                             <button onClick={() => copyBookingLink(c.id)} title="Copia link di prenotazione"
                                                 className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
                                                 <Copy size={16} />

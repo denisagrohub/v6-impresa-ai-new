@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FolderKanban, CheckCircle2, Mail, Users,
   Settings, LogOut, TrendingUp, Clock, FileText, Building2,
   Briefcase, Landmark, Palette, Target, Server, Calculator,
-  AlertTriangle, Brain, Shield, Key, Plus, Package, UserCog
+  AlertTriangle, Brain, Shield, Key, Plus, Package, UserCog, Phone
 } from "lucide-react";
 import { OdooStatus } from "@/components/admin/OdooStatus";
 
@@ -75,6 +75,7 @@ export default function AdminDashboard() {
     { icon: FolderKanban, label: "Progetti", href: "/admin/projects" },
     { icon: Users, label: "Progetti Partner", href: "/admin/partner-projects" },
     { icon: UserCog, label: "Team (Consulenti/Referral/Slot)", href: "/admin/team" },
+    { icon: Phone, label: "Call Prenotate", href: "/admin/bookings" },
     { icon: CheckCircle2, label: "Validazione", href: "/admin/validazione" },
     { icon: Users, label: "Coda Lead", href: "/admin/leads" },
 
@@ -157,38 +158,38 @@ export default function AdminDashboard() {
           )}
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className={`bg-white rounded-2xl border p-6 ${newCounts.projects > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
+            <Link href="/admin/projects" className={`block bg-white rounded-2xl border p-6 hover:shadow-md transition-shadow ${newCounts.projects > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center"><FolderKanban size={24} className="text-blue-600" /></div>
                 {newCounts.projects > 0 && <span className="text-xs font-bold text-red-600">{newCounts.projects} da decidere</span>}
               </div>
               <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.projects}</div>
               <div className="text-sm text-gray-500">Progetti Totali</div>
-            </div>
-            <div className={`bg-white rounded-2xl border p-6 ${newCounts.partnershipProjects > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
+            </Link>
+            <a href="#candidature-partnership" className={`block bg-white rounded-2xl border p-6 hover:shadow-md transition-shadow ${newCounts.partnershipProjects > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center"><Users size={24} className="text-orange-600" /></div>
                 {newCounts.partnershipProjects > 0 && <span className="text-xs font-bold text-red-600">{newCounts.partnershipProjects} nuove</span>}
               </div>
               <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.partnershipProjects}</div>
               <div className="text-sm text-gray-500">Partnership Projects</div>
-            </div>
-            <div className={`bg-white rounded-2xl border p-6 ${newCounts.kbRequests > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
+            </a>
+            <Link href="/admin/kb" className={`block bg-white rounded-2xl border p-6 hover:shadow-md transition-shadow ${newCounts.kbRequests > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center"><Brain size={24} className="text-purple-600" /></div>
                 {newCounts.kbRequests > 0 && <span className="text-xs font-bold text-red-600">{newCounts.kbRequests} in attesa</span>}
               </div>
               <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.kbRequests}</div>
               <div className="text-sm text-gray-500">Richieste KB</div>
-            </div>
-            <div className={`bg-white rounded-2xl border p-6 ${newCounts.certifiedDocs > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
+            </Link>
+            <Link href="/admin/library" className={`block bg-white rounded-2xl border p-6 hover:shadow-md transition-shadow ${newCounts.certifiedDocs > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center"><Shield size={24} className="text-green-600" /></div>
                 {newCounts.certifiedDocs > 0 && <span className="text-xs font-bold text-red-600">{newCounts.certifiedDocs} nuovi</span>}
               </div>
               <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.certifiedDocs}</div>
               <div className="text-sm text-gray-500">Documenti Certificati</div>
-            </div>
+            </Link>
           </div>
 
           <style jsx global>{`
@@ -244,7 +245,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <div id="candidature-partnership" className="bg-white rounded-2xl border border-gray-100 p-6 scroll-mt-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-[#1a2744]">🤝 Candidature Partnership</h2>
               <span className="text-xs text-gray-400">{candidacies.length} totali</span>

@@ -30,3 +30,33 @@ export async function GET() {
     return NextResponse.json({ success: false, error: error.message || 'Errore di connessione a Odoo' }, { status: 503 });
   }
 }
+
+// 10/09/2026 (Denis: "inserisci il pulsante per creare un nuovo
+// progetto"): crea un nuovo nodo radice erpv6.tracking.relation - stesso
+// modello, nessun campo diverso da quelli reali gia' usati altrove
+// (name required, email_alias opzionale, mai un partner_id sul nodo
+// radice per costruzione del modello).
+export async function POST(request: Request) {
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ success: false, error: 'JSON non valido' }, { status: 400 });
+  }
+  const { name, emailAlias } = body || {};
+  if (!name) {
+    return NextResponse.json({ success: false, error: 'Il nome è obbligatorio' }, { status: 400 });
+  }
+
+  try {
+    await odoo.connect();
+    const projectId = await odoo.execute('erpv6.tracking.relation', 'create', [{
+      name,
+      email_alias: emailAlias || false,
+    }]);
+    return NextResponse.json({ success: true, projectId });
+  } catch (error: any) {
+    console.error('❌ Errore POST /api/admin/partner-projects:', error.message);
+    return NextResponse.json({ success: false, error: error.message || 'Creazione fallita' }, { status: 502 });
+  }
+}

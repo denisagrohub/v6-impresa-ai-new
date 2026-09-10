@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Mail, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Send, ChevronDown, ChevronUp, UserPlus } from "lucide-react";
 import HeinrichPanel from "@/components/admin/HeinrichPanel";
 import NotesBoard from "@/components/admin/NotesBoard";
 
@@ -46,6 +46,15 @@ export default function PartnerProjectDetailPage() {
     const [sending, setSending] = useState(false);
     const [sendResult, setSendResult] = useState<{ ok: boolean; text: string } | null>(null);
 
+    const [showAddPart, setShowAddPart] = useState(false);
+    const [partName, setPartName] = useState("");
+    const [partEmail, setPartEmail] = useState("");
+    const [partPhone, setPartPhone] = useState("");
+    const [partRuolo, setPartRuolo] = useState("");
+    const [partMandato, setPartMandato] = useState("");
+    const [savingPart, setSavingPart] = useState(false);
+    const [addPartError, setAddPartError] = useState<string | null>(null);
+
     const load = async () => {
         try {
             const res = await fetch(`/api/admin/partner-projects/${id}`);
@@ -67,7 +76,7 @@ export default function PartnerProjectDetailPage() {
     useEffect(() => {
         const session = localStorage.getItem("pi_session");
         if (!session) {
-            router.push("/admin/login");
+            router.push("/login");
             return;
         }
         if (id) load();
@@ -133,6 +142,31 @@ export default function PartnerProjectDetailPage() {
         }
     };
 
+    const handleAddPart = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSavingPart(true);
+        setAddPartError(null);
+        try {
+            const res = await fetch(`/api/admin/partner-projects/${id}/parts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: partName, email: partEmail, phone: partPhone, ruolo: partRuolo || undefined, mandato: partMandato || undefined }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                setAddPartError(data.error || 'Creazione fallita');
+                return;
+            }
+            setPartName(""); setPartEmail(""); setPartPhone(""); setPartRuolo(""); setPartMandato("");
+            setShowAddPart(false);
+            load();
+        } catch (err: any) {
+            setAddPartError(err.message || 'Errore di rete');
+        } finally {
+            setSavingPart(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
@@ -175,9 +209,65 @@ export default function PartnerProjectDetailPage() {
                 )}
 
                 {/* Parti collegate + affidabilità (Heinrich) */}
-                {partners.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-8">
-                        <h2 className="text-lg font-bold text-[#1a2744] mb-4">Parti Collegate</h2>
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold text-[#1a2744]">Parti Collegate</h2>
+                        <button onClick={() => setShowAddPart(!showAddPart)} className="flex items-center gap-1 text-sm text-[#1a2744] font-semibold hover:underline">
+                            <UserPlus size={16} /> {showAddPart ? 'Annulla' : 'Aggiungi Parte Collegata'}
+                        </button>
+                    </div>
+
+                    {showAddPart && (
+                        <form onSubmit={handleAddPart} className="bg-gray-50 rounded-xl p-4 mb-4 space-y-3">
+                            <div className="grid sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Nome *</label>
+                                    <input required value={partName} onChange={(e) => setPartName(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                                    <input type="email" value={partEmail} onChange={(e) => setPartEmail(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Telefono</label>
+                                    <input value={partPhone} onChange={(e) => setPartPhone(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Ruolo</label>
+                                    <select value={partRuolo} onChange={(e) => setPartRuolo(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
+                                        <option value="">—</option>
+                                        <option value="gestore">Gestore</option>
+                                        <option value="parte_attiva">Parte Attiva</option>
+                                        <option value="osservatore">Osservatore</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Mandato</label>
+                                    <select value={partMandato} onChange={(e) => setPartMandato(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
+                                        <option value="">—</option>
+                                        <option value="pieno">Pieno</option>
+                                        <option value="parziale">Parziale</option>
+                                        <option value="nessuno">Nessuno</option>
+                                        <option value="non_applicabile">Non Applicabile</option>
+                                    </select>
+                                </div>
+                            </div>
+                            {addPartError && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">{addPartError}</div>}
+                            <button type="submit" disabled={savingPart}
+                                className="px-4 py-2 rounded-lg bg-[#1a2744] text-white text-sm font-medium hover:bg-[#0f3460] disabled:opacity-50">
+                                {savingPart ? 'Salvo...' : 'Aggiungi'}
+                            </button>
+                        </form>
+                    )}
+
+                    {partners.length === 0 ? (
+                        <p className="text-sm text-gray-400">Nessuna parte collegata ancora.</p>
+                    ) : (
                         <div className="space-y-4">
                             {partners.map((p) => (
                                 <div key={p.id} className="border border-gray-100 rounded-xl p-4">
@@ -189,8 +279,8 @@ export default function PartnerProjectDetailPage() {
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 {/* Compose */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-8">
