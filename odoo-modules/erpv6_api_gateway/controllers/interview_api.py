@@ -120,6 +120,45 @@ class InterviewAPIController(APIBaseController):
         self._log_api_call('/api/v1/interview/start', 'POST', None, 201, start_time)
         return self._json_response({'lead_id': lead.id, 'question': payload}, 201)
 
+    @http.route('/api/v1/interview/upload', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
+    def upload_interview_document(self, **kwargs):  # pylint: disable=unused-argument
+        """Carica un documento per la domanda corrente (answer_type='file',
+        Denis 10/09/2026: "upload documenti manca anche su una domanda
+        dell'intervista guidata") - ir.attachment reale collegato alla
+        sessione, nessun campo nuovo su erpv6.interview.answer/session."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+
+        try:
+            data = json.loads(request.httprequest.data)
+        except json.JSONDecodeError:
+            return self._json_response({'error': 'Invalid JSON'}, 400)
+
+        env = self._env_public()
+        if 'erpv6.interview.session' not in env:
+            return self._not_installed('/api/v1/interview/upload', start_time)
+
+        session_id = data.get('session_id')
+        session = env['erpv6.interview.session'].sudo().browse(session_id)
+        if not session.exists():
+            return self._json_response({'error': 'Session not found'}, 404)
+
+        file_base64 = data.get('file_base64')
+        file_name = data.get('file_name') or 'documento'
+        if not file_base64:
+            return self._json_response({'error': 'file_base64 richiesto'}, 400)
+
+        attachment = env['ir.attachment'].sudo().create({
+            'name': file_name,
+            'res_model': 'erpv6.interview.session',
+            'res_id': session.id,
+            'datas': file_base64,
+            'mimetype': data.get('mimetype') or 'application/octet-stream',
+        })
+        self._log_api_call('/api/v1/interview/upload', 'POST', None, 201, start_time)
+        return self._json_response({'attachment_id': attachment.id, 'file_name': file_name}, 201)
+
     @http.route('/api/v1/interview/answer', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def answer_interview(self, **kwargs):  # pylint: disable=unused-argument
         """Registra una risposta alla domanda corrente della sessione e

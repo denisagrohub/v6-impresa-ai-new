@@ -24,7 +24,7 @@ export interface InterviewQuestionOption {
     value: string;
 }
 
-export type InterviewAnswerType = 'select' | 'text' | 'textarea' | 'number';
+export type InterviewAnswerType = 'select' | 'text' | 'textarea' | 'number' | 'file';
 
 export interface InterviewQuestionPayload {
     session_id: number;
@@ -112,6 +112,25 @@ export async function answerInterview(params: {
     is_altro?: boolean;
 }): Promise<AnswerInterviewResult> {
     const response = await fetch('/api/interview-tree/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+    });
+    return parseOrThrow(response);
+}
+
+// 10/09/2026 (Denis: "upload documenti manca anche su una domanda
+// dell'intervista guidata") - carica il file come ir.attachment reale
+// collegato alla sessione, poi il chiamante invia il riferimento come
+// value_text di una normale answerInterview (nessun endpoint di risposta
+// separato per le domande di tipo 'file').
+export async function uploadInterviewDocument(params: {
+    session_id: number;
+    file_base64: string;
+    file_name: string;
+    mimetype: string;
+}): Promise<{ attachment_id: number; file_name: string }> {
+    const response = await fetch('/api/interview-tree/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),

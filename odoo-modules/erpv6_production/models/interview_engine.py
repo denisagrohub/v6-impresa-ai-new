@@ -43,6 +43,13 @@ class Erpv6InterviewQuestion(models.Model):
         ('text', 'Testo breve'),
         ('textarea', 'Testo lungo'),
         ('number', 'Numero'),
+        # 10/09/2026 (Denis: "upload documenti manca anche su una domanda
+        # dell'intervista guidata") - nessun campo nuovo su
+        # erpv6.interview.answer: il file caricato diventa un
+        # ir.attachment reale collegato alla sessione (vedi
+        # /api/v1/interview/upload in erpv6_api_gateway), value_text sotto
+        # porta solo un riferimento leggibile ("Documento: nome (#id)").
+        ('file', 'Caricamento Documento'),
     ], string='Tipo risposta', required=True, default='select')
     option_ids = fields.One2many('erpv6.interview.question.option', 'question_id', string='Opzioni proposte')
     always_show_altro = fields.Boolean(

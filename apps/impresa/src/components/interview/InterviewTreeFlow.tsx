@@ -8,6 +8,7 @@ import {
     fetchInterviewProducts,
     startInterview,
     answerInterview,
+    uploadInterviewDocument,
     type InterviewProduct,
     type InterviewQuestionPayload,
     type InterviewScore,
@@ -95,6 +96,9 @@ export function InterviewTreeFlow({
     // libero gia' esistente (righe piu' sotto) invece di sottomettere subito
     // "Altro" come valore letterale. Si azzera ad ogni nuova domanda.
     const [altroActive, setAltroActive] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
     const [waitPhraseIndex, setWaitPhraseIndex] = useState(0);
     const [waitTimedOut, setWaitTimedOut] = useState(false);
     // Token report Win-Win (prompt web-async, 06/09/2026): arrivato subito
@@ -230,6 +234,32 @@ export function InterviewTreeFlow({
         const value = freeTextValue.trim();
         if (!value) return;
         submitAnswer({ value_text: value, is_altro: isAltro });
+    }
+
+    async function handleFileSubmit() {
+        if (!uploadedFile || !question) return;
+        setUploading(true);
+        setUploadError(null);
+        try {
+            const base64: string = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve((reader.result as string).split(',')[1] || '');
+                reader.onerror = reject;
+                reader.readAsDataURL(uploadedFile);
+            });
+            const result = await uploadInterviewDocument({
+                session_id: question.session_id,
+                file_base64: base64,
+                file_name: uploadedFile.name,
+                mimetype: uploadedFile.type,
+            });
+            setUploadedFile(null);
+            await submitAnswer({ value_text: `Documento: ${result.file_name} (#${result.attachment_id})` });
+        } catch (err: any) {
+            setUploadError(err.message || 'Caricamento fallito');
+        } finally {
+            setUploading(false);
+        }
     }
 
     const isConsultant = variant === 'consultant';
@@ -391,7 +421,23 @@ export function InterviewTreeFlow({
                         </div>
                     )}
 
-                    {question.answer_type !== 'select' && (
+                    {question.answer_type === 'file' && (
+                        <div className="mb-4">
+                            <input
+                                type="file"
+                                onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+                                className="w-full text-sm file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-orange-500 file:text-white file:font-medium"
+                            />
+                            {uploadError && <p className="text-sm text-red-600 mt-2">{uploadError}</p>}
+                            <div className="flex justify-end mt-4">
+                                <Button onClick={handleFileSubmit} disabled={uploading || loading || !uploadedFile}>
+                                    {uploading ? 'Carico...' : 'Avanti'} <ArrowRight size={18} />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {question.answer_type !== 'select' && question.answer_type !== 'file' && (
                         <div className="mb-4">
                             {question.answer_type === 'textarea' ? (
                                 <textarea
