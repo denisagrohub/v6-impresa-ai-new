@@ -15,6 +15,11 @@ class Erpv6ContractDocument(models.Model):
         # incassato - "una promessa di pagherò", stessa infrastruttura firma,
         # contenuto diverso (Denis). Vedi erpv6.production.order._ensure_contratto_o_promessa.
         ('promise_to_pay', 'Promessa di Pagamento'),
+        # 10/09/2026 (Denis: "crea documenti... scegliere tra i template
+        # nda contratto ncnd") - NCND (Non-Circumvention/Non-Disclosure),
+        # distinto da NDA: impegna anche a non scavalcare le parti messe
+        # in contatto, non solo a non divulgare informazioni.
+        ('ncnd', 'NCND'),
         ('terms', 'Termini'),
         ('privacy', 'Privacy'),
         ('custom', 'Custom'),

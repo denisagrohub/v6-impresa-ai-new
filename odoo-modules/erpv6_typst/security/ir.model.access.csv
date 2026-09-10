@@ -5,3 +5,5 @@ access_erpv6_typst_document_user,erpv6.typst.document.user,model_erpv6_typst_doc
 access_erpv6_typst_document_manager,erpv6.typst.document.manager,model_erpv6_typst_document,base.group_system,1,1,1,1
 access_erpv6_typst_document_log_user,erpv6.typst.document.log.user,model_erpv6_typst_document_log,base.group_user,1,0,0,0
 access_erpv6_typst_document_log_manager,erpv6.typst.document.log.manager,model_erpv6_typst_document_log,base.group_system,1,1,1,1
+access_erpv6_typst_template_block_user,erpv6.typst.template.block.user,model_erpv6_typst_template_block,base.group_user,1,1,1,0
+access_erpv6_typst_template_block_manager,erpv6.typst.template.block.manager,model_erpv6_typst_template_block,base.group_system,1,1,1,1

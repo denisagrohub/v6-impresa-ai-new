@@ -69,13 +69,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
           ])
         : Promise.resolve([]),
       contractId
-        ? odoo.execute('erpv6.contract', 'search_read', [[['id', '=', contractId]], ['id', 'status', 'is_certified', 'signed_at']])
+        ? odoo.execute('erpv6.contract', 'search_read', [[['id', '=', contractId]], ['id', 'status', 'is_certified', 'signed_at', 'document_ids']])
         : Promise.resolve([]),
     ]);
 
     const lead = leads && leads[0];
     const kairos = kairosRows && kairosRows[0];
     const contract = contractRows && contractRows[0];
+
+    const contractDocIds: number[] = contract?.document_ids || [];
+    const contractDocs = contractDocIds.length
+      ? await odoo.execute('erpv6.contract.document', 'search_read', [
+          [['id', 'in', contractDocIds]], ['id', 'doc_type', 'name', 'file_name', 'hash', 'is_certified', 'signed_at'],
+        ])
+      : [];
 
     return NextResponse.json({
       success: true,
@@ -99,6 +106,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
         stato: contract.status,
         certificato: contract.is_certified,
         firmatoIl: contract.signed_at || null,
+        documenti: contractDocs.map((d: any) => ({
+          id: d.id,
+          docType: d.doc_type,
+          nome: d.name,
+          hasPdf: !!d.hash,
+          certificato: d.is_certified,
+          firmatoIl: d.signed_at || null,
+        })),
       } : null,
       intervista: {
         score: order.interview_score || null,

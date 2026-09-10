@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Calendar, User, Building2, FileText, Download, MessageSquareText, ShieldCheck } from "lucide-react";
+import { Loader2, ArrowLeft, Calendar, User, Building2, FileText, Download, MessageSquareText, ShieldCheck, UploadCloud } from "lucide-react";
 import HeinrichPanel from "@/components/admin/HeinrichPanel";
 import NotesBoard from "@/components/admin/NotesBoard";
 
@@ -43,16 +43,36 @@ interface Interazione {
     data: string;
 }
 
+interface ContractDoc {
+    id: number;
+    docType: string;
+    nome: string;
+    hasPdf: boolean;
+    certificato: boolean;
+    firmatoIl: string | null;
+}
+
 interface ContrattoInfo {
     id: number;
     stato: string;
     certificato: boolean;
     firmatoIl: string | null;
+    documenti: ContractDoc[];
 }
 
 const CONTRACT_STATE_LABEL: Record<string, string> = {
     draft: 'Bozza', sent: 'Inviato', signed: 'Firmato', certified: 'Certificato', expired: 'Scaduto',
 };
+
+// 10/09/2026 (Denis: "crea documenti, e poi scegliere tra i template dei
+// documenti nda contratto ncnd") - i 3 tipi che l'utente puo' generare a
+// mano da qui (promise_to_pay/terms/privacy restano gestiti solo dai gate
+// automatici di fase, mai da questa UI).
+const MANUAL_DOC_TYPES: { key: string; label: string }[] = [
+    { key: 'nda', label: 'NDA' },
+    { key: 'service', label: 'Contratto' },
+    { key: 'ncnd', label: 'NCND' },
+];
 
 const QUADRANTE_COLOR: Record<string, string> = {
     KAIROS_AUTENTICO: 'bg-green-100 text-green-700',
@@ -81,7 +101,10 @@ export default function AdminProjectDetail() {
     const [documenti, setDocumenti] = useState<Documento[]>([]);
     const [interazioni, setInterazioni] = useState<Interazione[]>([]);
     const [contratto, setContratto] = useState<ContrattoInfo | null>(null);
-    const [creatingContract, setCreatingContract] = useState(false);
+    const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
+    const [missingTemplateFor, setMissingTemplateFor] = useState<string | null>(null);
+    const [templateSourceDraft, setTemplateSourceDraft] = useState('');
+    const [docActionError, setDocActionError] = useState<string | null>(null);
 
     const load = async () => {
         try {
@@ -113,15 +136,52 @@ export default function AdminProjectDetail() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id, router]);
 
-    const handleCreateContract = async () => {
-        setCreatingContract(true);
+    const handleGenerateDoc = async (docType: string) => {
+        setGeneratingDoc(docType);
+        setDocActionError(null);
         try {
-            const res = await fetch(`/api/admin/projects/${id}/create-contract`, { method: 'POST' });
+            const res = await fetch(`/api/admin/projects/${id}/documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ docType }),
+            });
             const data = await res.json();
-            if (data.success) load();
-            else alert(data.error || 'Creazione fallita');
+            if (!data.success) {
+                setDocActionError(data.error || 'Creazione fallita');
+                return;
+            }
+            if (data.templateMissing) {
+                setMissingTemplateFor(docType);
+                setTemplateSourceDraft('');
+            } else {
+                setMissingTemplateFor(null);
+                await load();
+            }
         } finally {
-            setCreatingContract(false);
+            setGeneratingDoc(null);
+        }
+    };
+
+    const handleUploadTemplate = async (docType: string) => {
+        if (!templateSourceDraft.trim()) return;
+        setGeneratingDoc(docType);
+        setDocActionError(null);
+        try {
+            const res = await fetch(`/api/admin/projects/${id}/documents/upload-template`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ docType, typstSource: templateSourceDraft }),
+            });
+            const data = await res.json();
+            if (!data.success) {
+                setDocActionError(data.error || 'Caricamento fallito');
+                return;
+            }
+            setMissingTemplateFor(null);
+            setTemplateSourceDraft('');
+            await load();
+        } finally {
+            setGeneratingDoc(null);
         }
     };
 
@@ -227,11 +287,11 @@ export default function AdminProjectDetail() {
                         )}
 
                         <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-2">
-                                <ShieldCheck size={14} /> Contratto
+                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                <ShieldCheck size={14} /> Contratto &amp; Documenti
                             </h2>
-                            {contratto ? (
-                                <div className="flex items-center gap-2 flex-wrap">
+                            {contratto && (
+                                <div className="flex items-center gap-2 flex-wrap mb-3">
                                     <span className="text-sm font-medium text-[#1a2744]">{CONTRACT_STATE_LABEL[contratto.stato] || contratto.stato}</span>
                                     {contratto.certificato && (
                                         <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">Certificato</span>
@@ -240,15 +300,63 @@ export default function AdminProjectDetail() {
                                         <span className="text-xs text-gray-400">Firmato il {new Date(contratto.firmatoIl).toLocaleDateString('it-IT')}</span>
                                     )}
                                 </div>
-                            ) : (
-                                <button
-                                    onClick={handleCreateContract}
-                                    disabled={creatingContract}
-                                    className="w-full px-3 py-2 rounded-lg bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460] disabled:opacity-50"
-                                >
-                                    {creatingContract ? 'Creo...' : 'Crea Contratto'}
-                                </button>
                             )}
+
+                            <div className="space-y-2">
+                                {MANUAL_DOC_TYPES.map(({ key, label }) => {
+                                    const existing = contratto?.documenti.find((d) => d.docType === key);
+                                    const isGenerating = generatingDoc === key;
+                                    const showUploader = missingTemplateFor === key;
+                                    return (
+                                        <div key={key} className="rounded-lg bg-gray-50 p-2.5">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs font-medium text-[#1a2744]">{label}</span>
+                                                {existing?.hasPdf ? (
+                                                    <a
+                                                        href={`/api/admin/contract-documents/${existing.id}/download`}
+                                                        target="_blank" rel="noopener noreferrer"
+                                                        className="flex items-center gap-1 text-xs text-[#1a2744] hover:underline"
+                                                    >
+                                                        <Download size={12} /> Vedi bozza
+                                                    </a>
+                                                ) : existing && !existing.hasPdf ? (
+                                                    <span className="text-xs text-gray-400">Creato, PDF non generato</span>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleGenerateDoc(key)}
+                                                        disabled={isGenerating}
+                                                        className="text-xs px-2.5 py-1 rounded-md bg-[#1a2744] text-white font-medium hover:bg-[#0f3460] disabled:opacity-50"
+                                                    >
+                                                        {isGenerating ? 'Creo...' : 'Genera'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {showUploader && (
+                                                <div className="mt-2 space-y-2">
+                                                    <p className="text-xs text-orange-600">
+                                                        Nessun template Typst disponibile per &ldquo;{label}&rdquo;. Incolla il sorgente .typ per crearlo e generare subito il documento.
+                                                    </p>
+                                                    <textarea
+                                                        rows={5}
+                                                        value={templateSourceDraft}
+                                                        onChange={(e) => setTemplateSourceDraft(e.target.value)}
+                                                        placeholder={'#set page(paper: "a4")\n...'}
+                                                        className="w-full px-2 py-1.5 rounded-md border border-gray-200 text-xs font-mono"
+                                                    />
+                                                    <button
+                                                        onClick={() => handleUploadTemplate(key)}
+                                                        disabled={isGenerating || !templateSourceDraft.trim()}
+                                                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-[#1a2744] text-white font-medium hover:bg-[#0f3460] disabled:opacity-50"
+                                                    >
+                                                        <UploadCloud size={12} /> {isGenerating ? 'Carico...' : 'Carica template e genera'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {docActionError && <p className="text-xs text-red-600">{docActionError}</p>}
+                            </div>
                         </div>
 
                         <div className="bg-white rounded-2xl border border-gray-100 p-5">

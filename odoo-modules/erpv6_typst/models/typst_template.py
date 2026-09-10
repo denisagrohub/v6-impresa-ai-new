@@ -39,6 +39,11 @@ class TypstTemplate(models.Model):
         # servizio - vedi erpv6.contract.document.doc_type='nda', gia'
         # esistente, che questa categoria affianca lato template.
         ('nda', 'NDA'),
+        # 10/09/2026 (Denis: "crea documenti... nda contratto ncnd, e se
+        # non ci sono un pulsante che carichi template typst") - stesso
+        # principio di 'nda' sopra: NCND e' un tipo di documento distinto
+        # da NDA/contratto (vedi erpv6.contract.document.doc_type='ncnd').
+        ('ncnd', 'NCND'),
         ('relazione', 'Relazione'),
         ('manuale', 'Manuale'),
         ('custom', 'Personalizzato'),

@@ -860,7 +860,14 @@ class Erpv6ProductionOrder(models.Model):
         contratto riguarda l'ESISTENZA del record documento, non la
         riuscita della sua stampa."""
         self.ensure_one()
-        template = self.env.ref(template_xmlid, raise_if_not_found=False)
+        # 10/09/2026: template_xmlid resta il nome del parametro per non
+        # toccare le chiamate esistenti sopra (tutte passano una xmlid
+        # string), ma accetta anche un record erpv6.typst.template gia'
+        # risolto - serve alla creazione manuale sotto (action_generate_
+        # contract_document), dove un template caricato dall'utente non ha
+        # nessuna xmlid (creato a runtime, non da dati XML).
+        template = (self.env.ref(template_xmlid, raise_if_not_found=False)
+                    if isinstance(template_xmlid, str) else template_xmlid)
         if not template:
             _logger.warning(
                 "Template Typst '%s' non trovato: PDF non generato per erpv6.contract.document #%s.",
@@ -1146,6 +1153,94 @@ class Erpv6ProductionOrder(models.Model):
             'view_mode': 'form',
             'target': 'current',
         }
+
+    # Template per doc_type, per la creazione MANUALE (sotto) - a
+    # differenza dei gate automatici sopra, che decidono da soli
+    # nda/service/promise_to_pay in base alla fase. Qui l'utente sceglie
+    # esplicitamente il tipo (Denis, 10/09/2026: "crea documenti...
+    # scegliere tra i template nda contratto ncnd").
+    _MANUAL_DOC_TEMPLATE_XMLID = {
+        'nda': 'erpv6_production.typst_template_nda',
+        'service': 'erpv6_production.typst_template_contratto_consulenza',
+    }
+    # Categoria erpv6.typst.template corrispondente a ciascun doc_type, usata
+    # per: 1) cercare un template gia' caricato quando non esiste una xmlid
+    # statica sopra (es. 'ncnd', che non ha ancora un template di sistema);
+    # 2) valorizzare 'category' quando l'utente ne carica uno nuovo.
+    _MANUAL_DOC_TEMPLATE_CATEGORY = {'nda': 'nda', 'service': 'contract', 'ncnd': 'ncnd'}
+
+    def action_generate_contract_document(self, doc_type):
+        """Creazione MANUALE di un documento contrattuale (Denis,
+        10/09/2026: dopo aver premuto 'Crea Contratto' su 'Lead Web:
+        Buffetti' il contratto risultava creato ma senza nulla da vedere -
+        perche' il PDF viene generato solo dai gate automatici sopra,
+        legati all'avanzamento di fase, mai da un'azione esplicita
+        dell'utente). Stessa infrastruttura reale dei gate (_ensure_contract,
+        _generate_contract_document_pdf, motore Typst) - nessun motore
+        nuovo, solo un innesco manuale in piu'. Idempotente per doc_type
+        come i gate: se esiste gia' un documento di questo tipo sul
+        contratto, ritorna quello invece di duplicarlo."""
+        self.ensure_one()
+        contract = self._ensure_contract()
+        existing = contract.document_ids.filtered(lambda d: d.doc_type == doc_type)
+        if existing:
+            doc = existing[0]
+            return {'document_id': doc.id, 'has_pdf': bool(doc.content), 'template_missing': False}
+
+        doc_labels = dict(self.env['erpv6.contract.document']._fields['doc_type'].selection)
+        doc = self.env['erpv6.contract.document'].sudo().create({
+            'name': _("%(tipo)s - %(nome)s") % {'tipo': doc_labels.get(doc_type, doc_type), 'nome': self.name},
+            'contract_id': contract.id,
+            'doc_type': doc_type,
+        })
+
+        template_xmlid = self._MANUAL_DOC_TEMPLATE_XMLID.get(doc_type)
+        template = self.env.ref(template_xmlid, raise_if_not_found=False) if template_xmlid else False
+        if not template:
+            category = self._MANUAL_DOC_TEMPLATE_CATEGORY.get(doc_type)
+            template = self.env['erpv6.typst.template'].search([('category', '=', category)], limit=1) if category else False
+        if not template:
+            self.env['erpv6.production.event'].create({
+                'order_id': self.id, 'event_type': 'interazione_consulente', 'decision_method': 'deterministico',
+                'description': _("%(tipo)s (documento #%(id)s) creato manualmente da %(user)s - "
+                                  "nessun template Typst ancora disponibile per questo tipo, PDF non generato."
+                                  ) % {'tipo': doc_labels.get(doc_type, doc_type), 'id': doc.id, 'user': self.env.user.name},
+                'phase_before_id': self.phase_id.id, 'phase_after_id': self.phase_id.id,
+            })
+            return {'document_id': doc.id, 'has_pdf': False, 'template_missing': True}
+
+        typst_doc = self._generate_contract_document_pdf(doc, template)
+        self.env['erpv6.production.event'].create({
+            'order_id': self.id, 'event_type': 'interazione_consulente', 'decision_method': 'deterministico',
+            'description': _("%(tipo)s (documento #%(id)s) creato manualmente da %(user)s.") % {
+                'tipo': doc_labels.get(doc_type, doc_type), 'id': doc.id, 'user': self.env.user.name},
+            'phase_before_id': self.phase_id.id, 'phase_after_id': self.phase_id.id,
+        })
+        return {'document_id': doc.id, 'has_pdf': bool(typst_doc), 'template_missing': False}
+
+    def action_upload_contract_template(self, doc_type, typst_source, name=None):
+        """Carica un template Typst nuovo per un doc_type che non ne ha
+        ancora uno di sistema (es. NCND, Denis 10/09/2026: "se non ci sono
+        un pulsante che carichi template typst") e genera subito il
+        documento con quel template. Salvato come erpv6.typst.template
+        vero (stesso modello dei template di sistema, stessa infrastruttura
+        di rendering) - non un file statico separato: da qui in poi e'
+        anche il template riusato per i prossimi documenti dello stesso tipo
+        (idempotenza di action_generate_contract_document sopra)."""
+        self.ensure_one()
+        if not (typst_source or '').strip():
+            raise UserError(_("Il sorgente Typst del template non può essere vuoto."))
+        category = self._MANUAL_DOC_TEMPLATE_CATEGORY.get(doc_type, 'custom')
+        doc_labels = dict(self.env['erpv6.contract.document']._fields['doc_type'].selection)
+        self.env['erpv6.typst.template'].sudo().create({
+            'name': name or _("%s (caricato manualmente)") % doc_labels.get(doc_type, doc_type),
+            'code': f"{doc_type.upper()}-MANUALE-{self.id}-{fields.Datetime.now().strftime('%Y%m%d%H%M%S')}",
+            'category': category,
+            'language': 'it',
+            'version': '1.0',
+            'typst_source': typst_source,
+        })
+        return self.action_generate_contract_document(doc_type)
 
     # ------------------------------------------------------------------
     # Metodi "analisi win-win" e "profilo DISC" (Compito Denis, notte
