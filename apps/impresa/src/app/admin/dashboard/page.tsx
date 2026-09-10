@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, FolderKanban, CheckCircle2, Mail, Users,
@@ -10,6 +11,7 @@ import {
 import { OdooStatus } from "@/components/admin/OdooStatus";
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -30,6 +32,7 @@ export default function AdminDashboard() {
   });
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [candidacies, setCandidacies] = useState<any[]>([]);
+  const [candidacyActionId, setCandidacyActionId] = useState<number | null>(null);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -61,6 +64,37 @@ export default function AdminDashboard() {
       setDataError(error.message || 'Errore di rete');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateProjectFromCandidacy = async (candidacyId: number) => {
+    setCandidacyActionId(candidacyId);
+    try {
+      const res = await fetch(`/api/admin/candidacies/${candidacyId}/create-project`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        router.push(`/admin/partner-projects/${data.projectId}`);
+      } else {
+        alert(data.error || 'Creazione fallita');
+      }
+    } finally {
+      setCandidacyActionId(null);
+    }
+  };
+
+  const handleDeleteCandidacy = async (candidacyId: number) => {
+    if (!confirm('Eliminare questa candidatura? Non si può annullare.')) return;
+    setCandidacyActionId(candidacyId);
+    try {
+      const res = await fetch(`/api/admin/candidacies/${candidacyId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setCandidacies((prev) => prev.filter((c) => c.id !== candidacyId));
+      } else {
+        alert(data.error || 'Eliminazione fallita');
+      }
+    } finally {
+      setCandidacyActionId(null);
     }
   };
 
@@ -262,6 +296,20 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-3">
                       <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">{c.state}</span>
                       <span className="text-xs text-gray-400">{c.create_date ? new Date(c.create_date).toLocaleDateString('it-IT') : ''}</span>
+                      <button
+                        onClick={() => handleCreateProjectFromCandidacy(c.id)}
+                        disabled={candidacyActionId === c.id}
+                        className="text-xs px-2 py-1 rounded-lg bg-[#1a2744] text-white font-medium hover:bg-[#0f3460] disabled:opacity-50"
+                      >
+                        Crea Progetto Partner
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCandidacy(c.id)}
+                        disabled={candidacyActionId === c.id}
+                        className="text-xs px-2 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        Elimina
+                      </button>
                     </div>
                   </div>
                 ))}
