@@ -110,11 +110,18 @@ class Erpv6DeepSourceEngine(models.AbstractModel):
         Salva i dati estratti in erpv6.kb, creando o aggiornando un record esistente.
         """
         kb_model = self.env['erpv6.kb']
-        
-        # Determina kb_type in base alla categoria
-        # Verifica i kb_type esistenti in erpv6_kb/models/kb_knowledge.py
-        # Usiamo 'document' come default se non troviamo una corrispondenza specifica
-        kb_type = 'document'  # Default, da adattare in base alla categoria
+
+        # 10/09/2026: 'document' era un placeholder mai completato ("da
+        # adattare in base alla categoria") - non e' nemmeno un valore
+        # valido di KB_TYPE_SELECTION (erpv6_kb/models/kb_knowledge.py),
+        # quindi ogni salvataggio falliva sempre con un ValidationError
+        # a livello DB (scoperto scrapando bandi, ma questo motore e'
+        # generico: qualunque altro chiamante avrebbe lo stesso errore).
+        # config.kb_category_id.kb_type e' gia' il campo reale pensato
+        # esattamente per questo (kb_category_id e' required su
+        # erpv6.deep.source.config) - nessuna euristica nuova, solo
+        # smesso di ignorare un dato gia' disponibile.
+        kb_type = config.kb_category_id.kb_type
         
         # Cerca record esistente con stesso source e category
         existing_kb = kb_model.search([
@@ -133,8 +140,13 @@ class Erpv6DeepSourceEngine(models.AbstractModel):
             _logger.info(f"Updated KB record {existing_kb.id} for source {source_identifier}")
             return existing_kb
         else:
-            # Crea nuovo record
+            # Crea nuovo record - 'name' (Titolo) e' required su erpv6.kb,
+            # mai valorizzato qui prima d'ora (stesso giro di scraping
+            # mai riuscito fino in fondo, 10/09/2026): config.name e'
+            # gia' un identificativo leggibile reale (es. "MIMIT -
+            # Ministero Imprese"), non una stringa inventata.
             new_kb = kb_model.create({
+                'name': config.name,
                 'kb_type': kb_type,
                 'category_id': config.kb_category_id.id,
                 'source': source_identifier,
