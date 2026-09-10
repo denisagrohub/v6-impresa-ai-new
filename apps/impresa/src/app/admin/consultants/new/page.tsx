@@ -70,8 +70,8 @@ export default function NewConsultantPage() {
     return (
         <div className="min-h-screen bg-[#f8fafc]">
             <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <Link href="/admin/partners" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6">
-                    <ArrowLeft size={16} /> Torna ai Partner
+                <Link href="/admin/team" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-6">
+                    <ArrowLeft size={16} /> Torna al Team
                 </Link>
 
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
@@ -84,8 +84,8 @@ export default function NewConsultantPage() {
                         <div className="rounded-xl bg-green-50 border border-green-200 p-6 text-center">
                             <CheckCircle2 className="mx-auto text-green-600 mb-2" size={32} />
                             <p className="text-green-700 font-semibold">Consulente creato (id {success.consultantId}).</p>
-                            <Link href="/admin/partners" className="inline-block mt-4 text-sm text-[#1a2744] font-medium hover:underline">
-                                Torna ai Partner
+                            <Link href="/admin/team" className="inline-block mt-4 text-sm text-[#1a2744] font-medium hover:underline">
+                                Torna al Team
                             </Link>
                         </div>
                     ) : (

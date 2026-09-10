@@ -88,7 +88,6 @@ export default function AdminDashboard() {
     { icon: Palette, label: "Brand Projects", href: "/admin/brand" },
     { icon: TrendingUp, label: "Marketing Plans", href: "/admin/marketing" },
     { icon: Shield, label: "Sicurezza", href: "/admin/security" },
-    { icon: Users, label: "Partner", href: "/admin/partners" },
     { icon: Settings, label: "Impostazioni", href: "/admin/settings/system" },
     { icon: AlertTriangle, label: "Richieste", href: "/admin/requests" },
     { icon: Package, label: "Prodotti Custom", href: "/admin/products" },
