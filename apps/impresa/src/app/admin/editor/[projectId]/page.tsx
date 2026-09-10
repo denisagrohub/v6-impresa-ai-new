@@ -11,8 +11,8 @@ export default function EditorPage() {
     const [activeTab, setActiveTab] = useState("contenuto");
 
     useEffect(() => {
-        const session = localStorage.getItem("odoo_session");
-        if (!session) router.push("/admin/login");
+        const session = localStorage.getItem("pi_session");
+        if (!session) router.push("/login");
         else setTimeout(() => setLoading(false), 400);
     }, [router]);
 

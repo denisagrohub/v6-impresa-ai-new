@@ -15,9 +15,9 @@ export default function LeadsQueuePage() {
     const [syncResult, setSyncResult] = useState<{ synced: number; failed: number } | null>(null);
 
     useEffect(() => {
-        const session = localStorage.getItem("odoo_session");
+        const session = localStorage.getItem("pi_session");
         if (!session) {
-            router.push("/admin/login");
+            router.push("/login");
         } else {
             loadLeads();
         }

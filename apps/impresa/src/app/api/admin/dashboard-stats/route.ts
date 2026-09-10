@@ -25,7 +25,7 @@ export async function GET() {
 
     const [
       modules,
-      rootProjects,
+      productionOrderCount,
       relationsWithPartner,
       brandProjectsCount,
       kbRequestsPendingCount,
@@ -36,7 +36,12 @@ export async function GET() {
       productionEventCount,
     ] = await Promise.all([
       odoo.execute('ir.module.module', 'search_read', [[['name', 'ilike', 'erpv6_'], ['state', '=', 'installed']], ['name']]),
-      odoo.execute('erpv6.tracking.relation', 'search_count', [[['parent_id', '=', false]]]),
+      // "Progetti Totali" deve contare la STESSA cosa mostrata aprendo
+      // /admin/projects (10/09/2026, Denis: "i valori dei progetti...
+      // non sono corretti") - prima contava erpv6.tracking.relation
+      // (i "Progetti Partner" tipo TEE, un concetto diverso), qui invece
+      // erpv6.production.order come la pagina Progetti.
+      odoo.execute('erpv6.production.order', 'search_count', [[]]),
       odoo.execute('erpv6.tracking.relation', 'search_read', [[['partner_id', '!=', false]], ['partner_id']]),
       odoo.execute('erpv6.brand.project', 'search_count', [[]]),
       odoo.execute('erpv6.kb.request', 'search_count', [[['status', '=', 'pending']]]),
@@ -67,7 +72,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       stats: {
-        projects: rootProjects || 0,
+        projects: productionOrderCount || 0,
         brandProjects: brandProjectsCount || 0,
         kbRequests: kbRequestsPendingCount || 0,
         certifiedDocs: certifiedDocsCount || 0,

@@ -57,9 +57,9 @@ export default function SystemSettingsPage() {
     const [adminPassword, setAdminPassword] = useState('');
 
     useEffect(() => {
-        const session = localStorage.getItem("odoo_session");
+        const session = localStorage.getItem("pi_session");
         if (!session) {
-            router.push("/admin/login");
+            router.push("/login");
         } else {
             loadSettings();
         }

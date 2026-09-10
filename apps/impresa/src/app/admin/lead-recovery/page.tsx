@@ -10,8 +10,8 @@ export default function LeadRecoveryPage() {
     const [drafts, setDrafts] = useState<any[]>([]);
 
     useEffect(() => {
-        const session = localStorage.getItem("odoo_session");
-        if (!session) router.push("/admin/login");
+        const session = localStorage.getItem("pi_session");
+        if (!session) router.push("/login");
         else loadDrafts();
     }, [router]);
 

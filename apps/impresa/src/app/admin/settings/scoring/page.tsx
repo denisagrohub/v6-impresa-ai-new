@@ -27,8 +27,8 @@ export default function ScoringSettingsPage() {
     });
 
     useEffect(() => {
-        const session = localStorage.getItem("odoo_session");
-        if (!session) router.push("/admin/login");
+        const session = localStorage.getItem("pi_session");
+        if (!session) router.push("/login");
         else loadConfig();
     }, [router]);
 

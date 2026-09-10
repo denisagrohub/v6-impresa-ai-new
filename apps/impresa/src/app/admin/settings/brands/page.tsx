@@ -18,9 +18,9 @@ export default function BrandsSettingsPage() {
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
     useEffect(() => {
-        const session = localStorage.getItem("odoo_session");
+        const session = localStorage.getItem("pi_session");
         if (!session) {
-            router.push("/admin/login");
+            router.push("/login");
         } else {
             loadBrands();
         }
