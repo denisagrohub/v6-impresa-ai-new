@@ -4,31 +4,28 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
     Loader2, ArrowLeft, Search, Filter, Eye, MoreVertical,
-    Users, TrendingUp, AlertCircle, CheckCircle2, Clock
+    TrendingUp, AlertCircle, CheckCircle2, Clock
 } from "lucide-react";
 
 interface Project {
-    id: string;
+    id: number;
     nome: string;
     cliente: string;
-    settore: string;
-    livello: string;
-    stato: "in_corso" | "completato" | "in_attesa" | "bloccato";
+    stato: string;
     consulente: string;
-    consulenteId: string;
-    dataInizio: string;
-    kairos?: { score: number; quadrante: string };
+    consulenteId: number | null;
+    dataInizio: string | null;
+    kairos: { score: number; quadrante: string } | null;
 }
 
 export default function AdminProjectsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [projects, setProjects] = useState<Project[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterConsultant, setFilterConsultant] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
-    const [filterSector, setFilterSector] = useState("");
-    const [consultants, setConsultants] = useState<any[]>([]);
 
     useEffect(() => {
         const session = localStorage.getItem("pi_session");
@@ -37,93 +34,47 @@ export default function AdminProjectsPage() {
             return;
         }
         loadProjects();
-        loadConsultants();
     }, [router]);
 
     const loadProjects = async () => {
         try {
             const res = await fetch('/api/admin/projects');
-            if (res.ok) {
-                const data = await res.json();
-                setProjects(data.projects || []);
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                setLoadError(data.error || 'Odoo non raggiungibile');
+                return;
             }
-        } catch (error) {
+            setProjects(data.projects || []);
+        } catch (error: any) {
             console.error('Errore caricamento progetti:', error);
-            // Fallback mock data
-            setProjects([
-                {
-                    id: "PI-2026-0024",
-                    nome: "Business Plan Startup Tech",
-                    cliente: "Innovazione S.p.A.",
-                    settore: "tech",
-                    livello: "L1",
-                    stato: "in_corso",
-                    consulente: "Christian Rossi",
-                    consulenteId: "PART-004",
-                    dataInizio: "2026-07-10",
-                    kairos: { score: 11, quadrante: "KAIROS_AUTENTICO" }
-                },
-                {
-                    id: "PI-2026-0025",
-                    nome: "Piano Industriale PMI",
-                    cliente: "Metalmeccanica Srl",
-                    settore: "manifatturiero",
-                    livello: "L2",
-                    stato: "in_attesa",
-                    consulente: "Laura Neri",
-                    consulenteId: "PART-003",
-                    dataInizio: "2026-07-15",
-                    kairos: { score: 8, quadrante: "PREPARA" }
-                },
-                {
-                    id: "PI-2026-0026",
-                    nome: "Advisory M&A",
-                    cliente: "Banca Generali",
-                    settore: "finance",
-                    livello: "L3",
-                    stato: "completato",
-                    consulente: "Davide Bianchi",
-                    consulenteId: "PART-001",
-                    dataInizio: "2026-06-01",
-                    kairos: { score: 14, quadrante: "KAIROS_AUTENTICO" }
-                },
-            ]);
+            setLoadError(error.message || 'Errore di rete');
         } finally {
             setLoading(false);
         }
     };
 
-    const loadConsultants = async () => {
-        try {
-            const res = await fetch('/api/admin/partners?type=consultant');
-            if (res.ok) {
-                const data = await res.json();
-                setConsultants(data.partners || []);
-            }
-        } catch (error) {
-            console.error('Errore caricamento consulenti:', error);
-        }
-    };
+    // Consulenti per il filtro: derivati dai progetti reali appena caricati
+    // (non da /api/admin/partners, che oggi passa dal gateway mock -
+    // avrebbe ID diversi da quelli reali e il filtro non avrebbe mai
+    // trovato corrispondenze).
+    const consultants = Array.from(
+        new Map(
+            projects
+                .filter((p): p is Project & { consulenteId: number } => p.consulenteId != null)
+                .map(p => [p.consulenteId, { id: p.consulenteId, name: p.consulente }])
+        ).values()
+    );
 
     const filteredProjects = projects.filter(p => {
         const matchSearch = p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.id.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchConsultant = !filterConsultant || p.consulenteId === filterConsultant;
+            String(p.id).includes(searchTerm);
+        const matchConsultant = !filterConsultant || String(p.consulenteId) === filterConsultant;
         const matchStatus = !filterStatus || p.stato === filterStatus;
-        const matchSector = !filterSector || p.settore === filterSector;
-        return matchSearch && matchConsultant && matchStatus && matchSector;
+        return matchSearch && matchConsultant && matchStatus;
     });
 
-    const getStatusBadge = (stato: string) => {
-        switch (stato) {
-            case "in_corso": return <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">In Corso</span>;
-            case "completato": return <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">Completato</span>;
-            case "in_attesa": return <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-bold">In Attesa</span>;
-            case "bloccato": return <span className="px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold">Bloccato</span>;
-            default: return <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">{stato}</span>;
-        }
-    };
+    const statuses = Array.from(new Set(projects.map(p => p.stato)));
 
     const getKairosColor = (quadrante?: string) => {
         if (!quadrante) return 'bg-gray-100';
@@ -158,13 +109,13 @@ export default function AdminProjectsPage() {
                             <p className="text-gray-500">Panoramica e controllo di tutti i progetti attivi</p>
                         </div>
                     </div>
-                    <Link
-                        href="/admin/projects/new"
-                        className="px-4 py-2 rounded-lg bg-[#1a2744] text-white font-medium hover:bg-[#0f3460] flex items-center gap-2"
-                    >
-                        + Nuovo Progetto
-                    </Link>
                 </div>
+
+                {loadError && (
+                    <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        Dati non aggiornati: {loadError}
+                    </div>
+                )}
 
                 {/* Stats Cards */}
                 <div className="grid md:grid-cols-4 gap-6 mb-8">
@@ -183,8 +134,8 @@ export default function AdminProjectsPage() {
                                 <CheckCircle2 size={24} className="text-green-600" />
                             </div>
                         </div>
-                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{projects.filter(p => p.stato === 'in_corso').length}</div>
-                        <div className="text-sm text-gray-500">In Corso</div>
+                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{projects.filter(p => p.kairos).length}</div>
+                        <div className="text-sm text-gray-500">Con valutazione Kairós</div>
                     </div>
                     <div className="bg-white rounded-2xl border border-gray-100 p-6">
                         <div className="flex items-center justify-between mb-4">
@@ -192,8 +143,8 @@ export default function AdminProjectsPage() {
                                 <Clock size={24} className="text-yellow-600" />
                             </div>
                         </div>
-                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{projects.filter(p => p.stato === 'in_attesa').length}</div>
-                        <div className="text-sm text-gray-500">In Attesa</div>
+                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{statuses.length}</div>
+                        <div className="text-sm text-gray-500">Fasi distinte</div>
                     </div>
                     <div className="bg-white rounded-2xl border border-gray-100 p-6">
                         <div className="flex items-center justify-between mb-4">
@@ -201,8 +152,8 @@ export default function AdminProjectsPage() {
                                 <AlertCircle size={24} className="text-red-600" />
                             </div>
                         </div>
-                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{projects.filter(p => p.stato === 'bloccato').length}</div>
-                        <div className="text-sm text-gray-500">Bloccati</div>
+                        <div className="text-3xl font-bold text-[#1a2744] mb-1">{consultants.length}</div>
+                        <div className="text-sm text-gray-500">Consulenti coinvolti</div>
                     </div>
                 </div>
 
@@ -240,32 +191,16 @@ export default function AdminProjectsPage() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Fase</label>
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
                                 className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-white"
                             >
-                                <option value="">Tutti gli stati</option>
-                                <option value="in_corso">In Corso</option>
-                                <option value="completato">Completato</option>
-                                <option value="in_attesa">In Attesa</option>
-                                <option value="bloccato">Bloccato</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Settore</label>
-                            <select
-                                value={filterSector}
-                                onChange={(e) => setFilterSector(e.target.value)}
-                                className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 bg-white"
-                            >
-                                <option value="">Tutti i settori</option>
-                                <option value="tech">Tech</option>
-                                <option value="manifatturiero">Manifatturiero</option>
-                                <option value="finance">Finance</option>
-                                <option value="food">Food</option>
-                                <option value="hospitality">Hospitality</option>
+                                <option value="">Tutte le fasi</option>
+                                {statuses.map((s) => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
                             </select>
                         </div>
                     </div>
@@ -279,7 +214,6 @@ export default function AdminProjectsPage() {
                                 <tr>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ID Progetto</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Nome / Cliente</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Livello</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Consulente</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Kairós</th>
                                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stato</th>
@@ -290,7 +224,7 @@ export default function AdminProjectsPage() {
                             <tbody className="divide-y divide-gray-200">
                                 {filteredProjects.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                                        <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                                             Nessun progetto trovato
                                         </td>
                                     </tr>
@@ -298,19 +232,11 @@ export default function AdminProjectsPage() {
                                     filteredProjects.map((project) => (
                                         <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
-                                                {project.id}
+                                                #{project.id}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="text-sm font-semibold text-[#1a2744]">{project.nome}</div>
-                                                <div className="text-xs text-gray-500">{project.cliente} • {project.settore}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${project.livello === 'L3' ? 'bg-purple-100 text-purple-700' :
-                                                        project.livello === 'L2' ? 'bg-blue-100 text-blue-700' :
-                                                            'bg-gray-100 text-gray-700'
-                                                    }`}>
-                                                    {project.livello}
-                                                </span>
+                                                <div className="text-xs text-gray-500">{project.cliente}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
@@ -333,10 +259,12 @@ export default function AdminProjectsPage() {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                {getStatusBadge(project.stato)}
+                                                <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-bold">
+                                                    {project.stato}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {new Date(project.dataInizio).toLocaleDateString('it-IT')}
+                                                {project.dataInizio ? new Date(project.dataInizio).toLocaleDateString('it-IT') : '—'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                                 <div className="flex items-center justify-end gap-2">
