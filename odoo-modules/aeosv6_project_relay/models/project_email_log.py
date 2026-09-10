@@ -30,6 +30,19 @@ class Erpv6ProjectEmailLog(models.Model):
     recipient_emails = fields.Char(string='Destinatari (To)')
     cc_emails = fields.Char(string='Destinatari (Cc)')
 
+    # 10/09/2026 (Denis: "esistevano solo le email ricevute nel progetto
+    # TEE, e non le email inviate, cosi' si perde la continuita' della
+    # conversazione") - il wizard di invio (send_project_email_wizard.py)
+    # creava solo un mail.mail, mai una riga qui: le risposte mandate DAL
+    # progetto restavano invisibili in questo stesso log. direction
+    # separa le due direzioni nello stesso elenco invece di duplicare il
+    # modello - 'ricevuta' resta il default per non toccare il
+    # comportamento gia' verificato del flusso catch-all esistente.
+    direction = fields.Selection([
+        ('ricevuta', 'Ricevuta'),
+        ('inviata', 'Inviata'),
+    ], string='Direzione', required=True, default='ricevuta', tracking=True)
+
     match_status = fields.Selection([
         ('matched', 'Collegata a nodo progetto'),
         ('alias_riconosciuto_nodo_mancante', 'Alias su v6sviluppoimpresa.it riconosciuto, nessun nodo collegato'),

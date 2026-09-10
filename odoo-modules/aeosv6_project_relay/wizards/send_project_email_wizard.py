@@ -89,4 +89,33 @@ class Erpv6ProjectRelaySendEmailWizard(models.TransientModel):
             'auto_delete': False,
         })
         mail.send()
+
+        # 10/09/2026 (Denis: "esistevano solo le email ricevute nel
+        # progetto TEE, e non le email inviate, cosi' si perde la
+        # continuita' della conversazione") - stesso log delle email in
+        # arrivo (erpv6.project.email.log), direction='inviata' invece di
+        # un modello separato: la vista "Email" del progetto le mostra
+        # gia' tutte insieme, ordinate per data. Corpo salvato nel
+        # chatter nativo del log (message_post), stesso posto in cui il
+        # flusso in ricezione lo mette per le email in arrivo - cosi'
+        # riaprire un'email inviata funziona con lo stesso meccanismo,
+        # nessuna UI diversa per le due direzioni.
+        log = self.env['erpv6.project.email.log'].sudo().create({
+            'name': self.subject,
+            'sender_email': project_email,
+            'recipient_emails': ','.join(recipients),
+            'match_status': 'matched',
+            'matched_alias': self.project_id.email_alias,
+            'relation_id': self.project_id.id,
+            'direction': 'inviata',
+        })
+        # message_type='comment' esplicito: il default di message_post()
+        # senza subtype produce 'notification' (verificato dal vivo, non
+        # assunto) - il frontend legge il corpo filtrando
+        # message_type != 'notification' per coerenza con le email in
+        # ricezione (message_type='email' via message_process()), quindi
+        # senza questo la risposta inviata restava illeggibile li'.
+        log.message_post(body=body_with_signature, subject=self.subject,
+                          message_type='comment', subtype_xmlid='mail.mt_comment')
+
         return {'type': 'ir.actions.act_window_close'}

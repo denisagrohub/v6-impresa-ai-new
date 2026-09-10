@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const relationIds = [id, ...(children || []).map((c: any) => c.id)];
     const emails = await odoo.execute('erpv6.project.email.log', 'search_read', [
       [['relation_id', 'in', relationIds]],
-      ['id', 'name', 'sender_email', 'recipient_emails', 'cc_emails', 'match_status', 'create_date'],
+      ['id', 'name', 'sender_email', 'recipient_emails', 'cc_emails', 'match_status', 'direction', 'create_date'],
       0, 100, 'create_date desc',
     ]);
 
@@ -48,6 +48,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         recipientEmails: e.recipient_emails || '',
         ccEmails: e.cc_emails || '',
         matchStatus: e.match_status,
+        direction: e.direction || 'ricevuta',
         date: e.create_date,
       })),
     });

@@ -21,6 +21,7 @@ interface EmailLog {
     recipientEmails: string;
     ccEmails: string;
     matchStatus: string;
+    direction: 'ricevuta' | 'inviata';
     date: string;
 }
 
@@ -235,7 +236,7 @@ export default function PartnerProjectDetailPage() {
                         )}
 
                         <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                            <h2 className="text-sm font-bold text-[#1a2744] mb-4">Email ricevute</h2>
+                            <h2 className="text-sm font-bold text-[#1a2744] mb-4">Cronologia Email</h2>
                             {emails.length === 0 ? (
                                 <p className="text-sm text-gray-400">Nessuna email registrata per questo progetto.</p>
                             ) : (
@@ -247,8 +248,15 @@ export default function PartnerProjectDetailPage() {
                                                 className="w-full flex items-center justify-between py-3 text-left hover:bg-gray-50 px-2 rounded-lg"
                                             >
                                                 <div>
-                                                    <div className="text-sm font-semibold text-[#1a2744]">{e.subject}</div>
-                                                    <div className="text-xs text-gray-500">{e.senderEmail} · {e.date ? new Date(e.date).toLocaleString('it-IT') : ''}</div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${e.direction === 'inviata' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                            {e.direction === 'inviata' ? '📤 Inviata' : '📥 Ricevuta'}
+                                                        </span>
+                                                        <div className="text-sm font-semibold text-[#1a2744]">{e.subject}</div>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 mt-0.5">
+                                                        {e.direction === 'inviata' ? `a: ${e.recipientEmails}` : `da: ${e.senderEmail}`} · {e.date ? new Date(e.date).toLocaleString('it-IT') : ''}
+                                                    </div>
                                                 </div>
                                                 {openEmailId === e.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
                                             </button>
