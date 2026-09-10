@@ -11,16 +11,19 @@ import { OdooStatus } from "@/components/admin/OdooStatus";
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     projects: 0,
     brandProjects: 0,
-    marketingPlans: 0,
     kbRequests: 0,
     certifiedDocs: 0,
     consultants: 0,
     clients: 0,
+    modulesActive: 0,
+    auditLogCount: 0,
   });
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [candidacies, setCandidacies] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -35,30 +38,20 @@ export default function AdminDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [projectsRes, partnersRes] = await Promise.all([
-        fetch('/api/admin/projects'),
-        fetch('/api/admin/partners'),
-      ]);
+      const res = await fetch('/api/admin/dashboard-stats');
+      const data = await res.json();
 
-      const projects = await projectsRes.json();
-      const partners = await partnersRes.json();
+      if (!data.success) {
+        setDataError(data.error || 'Odoo non raggiungibile');
+        return;
+      }
 
-      setStats({
-        projects: projects.projects?.length || 0,
-        brandProjects: 0,
-        marketingPlans: 0,
-        kbRequests: 0,
-        certifiedDocs: 0,
-        consultants: partners.partners?.filter((p: any) => p.type === 'consultant').length || 0,
-        clients: projects.projects?.filter((p: any) => p.cliente).length || 0,
-      });
-
-      setRecentActivities([
-        { type: 'system', icon: '🔵', title: 'Dashboard caricata', time: 'ora' },
-      ]);
-
-    } catch (error) {
+      setStats(data.stats);
+      setRecentActivities(data.recentActivities || []);
+      setCandidacies(data.candidacies || []);
+    } catch (error: any) {
       console.error('Errore caricamento dashboard:', error);
+      setDataError(error.message || 'Errore di rete');
     } finally {
       setLoading(false);
     }
@@ -111,9 +104,6 @@ export default function AdminDashboard() {
               <div className="text-xs text-gray-500">Admin Panel</div>
             </div>
           </div>
-          <div className="mt-2 text-xs text-green-600">
-            🔵 Odoo: {process.env.NEXT_PUBLIC_USE_ODOO === 'true' ? 'Connesso' : 'Mock'}
-          </div>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {menuItems.map((item, i) => {
@@ -152,6 +142,12 @@ export default function AdminDashboard() {
             <OdooStatus />
           </div>
 
+          {dataError && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              Dati non aggiornati: {dataError}
+            </div>
+          )}
+
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <div className="flex items-center justify-between mb-4">
@@ -187,17 +183,21 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h2 className="text-lg font-bold text-[#1a2744] mb-4">🔐 Stato Sistema</h2>
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                  <span className="text-sm font-medium text-green-700">🟢 Odoo</span>
-                  <span className="text-xs text-green-600">{process.env.NEXT_PUBLIC_USE_ODOO === 'true' ? 'Connesso' : 'Mock'}</span>
-                </div>
                 <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <span className="text-sm font-medium text-blue-700">🔵 Moduli V6</span>
-                  <span className="text-xs text-blue-600">✅ 17 attivi</span>
+                  <span className="text-sm font-medium text-blue-700">🔵 Moduli V6 attivi</span>
+                  <span className="text-xs text-blue-600">{stats.modulesActive}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                  <span className="text-sm font-medium text-yellow-700">🟡 Audit log</span>
-                  <span className="text-xs text-yellow-600">1.256 operazioni</span>
+                  <span className="text-sm font-medium text-yellow-700">🟡 Audit log (eventi produzione)</span>
+                  <span className="text-xs text-yellow-600">{stats.auditLogCount.toLocaleString('it-IT')} operazioni</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                  <span className="text-sm font-medium text-purple-700">👤 Consulenti</span>
+                  <span className="text-xs text-purple-600">{stats.consultants}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <span className="text-sm font-medium text-green-700">🟢 Clienti collegati</span>
+                  <span className="text-xs text-green-600">{stats.clients}</span>
                 </div>
               </div>
             </div>
@@ -205,17 +205,45 @@ export default function AdminDashboard() {
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h2 className="text-lg font-bold text-[#1a2744] mb-4">📌 Attività Recenti</h2>
               <div className="space-y-3">
+                {recentActivities.length === 0 && (
+                  <div className="text-sm text-gray-400">Nessuna attività registrata.</div>
+                )}
                 {recentActivities.map((act, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <div className="text-lg">{act.icon}</div>
                     <div className="flex-1">
                       <span className="text-sm">{act.title}</span>
-                      <div className="text-xs text-gray-400">{act.time}</div>
+                      <div className="text-xs text-gray-400">{act.time ? new Date(act.time).toLocaleString('it-IT') : ''}</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-[#1a2744]">🤝 Candidature Partnership</h2>
+              <span className="text-xs text-gray-400">{candidacies.length} totali</span>
+            </div>
+            {candidacies.length === 0 ? (
+              <div className="text-sm text-gray-400">Nessuna candidatura ricevuta finora.</div>
+            ) : (
+              <div className="space-y-2">
+                {candidacies.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="text-sm font-medium text-[#1a2744]">{c.company_name || c.name}</div>
+                      <div className="text-xs text-gray-500">{c.email}{c.phone ? ` · ${c.phone}` : ''}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">{c.state}</span>
+                      <span className="text-xs text-gray-400">{c.create_date ? new Date(c.create_date).toLocaleDateString('it-IT') : ''}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

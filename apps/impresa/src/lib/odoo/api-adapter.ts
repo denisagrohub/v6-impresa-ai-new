@@ -93,7 +93,7 @@ class OdooApiAdapter {
         throw new Error(resp.data.error.message);
       }
 
-      return resp.data.result || [];
+      return resp.data.result !== undefined ? resp.data.result : [];
 
     } catch (e: any) {
       console.error(`❌ Errore ${model}.${method}:`, e.message);
