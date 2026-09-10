@@ -114,7 +114,8 @@ export default function AdminDashboard() {
     { icon: Users, label: "Coda Lead", href: "/admin/leads" },
 
     { icon: Calculator, label: "Pagamenti", href: "/admin/payments" },
-    { icon: Landmark, label: "Contabilità", href: "/admin/accounting" },
+    { icon: Landmark, label: "Commissioni", href: "/admin/accounting" },
+    { icon: FileText, label: "Contratti", href: "/admin/contracts" },
     { icon: Mail, label: "Email", href: "/admin/email" },
 
     { icon: Brain, label: "Knowledge Base", href: "/admin/kb" },

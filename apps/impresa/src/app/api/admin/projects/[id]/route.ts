@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         'id', 'name', 'lead_id', 'phase_id', 'create_date',
         'interview_score', 'interview_package_hint', 'interview_budget',
         'interview_tempistiche', 'interview_tipo_progetto', 'interview_destinatario',
-        'interview_fatturato', 'document_ids',
+        'interview_fatturato', 'document_ids', 'contract_id',
       ],
     ]);
     if (!orders || !orders.length) {
@@ -50,7 +50,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const leadId = Array.isArray(order.lead_id) ? order.lead_id[0] : null;
     const documentIds: number[] = order.document_ids || [];
 
-    const [leads, kairosRows, events, documents] = await Promise.all([
+    const contractId = Array.isArray(order.contract_id) ? order.contract_id[0] : null;
+
+    const [leads, kairosRows, events, documents, contractRows] = await Promise.all([
       leadId
         ? odoo.execute('crm.lead', 'search_read', [[['id', '=', leadId]], ['partner_name', 'contact_name', 'name', 'user_id', 'email_from']])
         : Promise.resolve([]),
@@ -66,10 +68,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
             [['id', 'in', documentIds]], ['id', 'name', 'category', 'file_name', 'is_final_client_facing', 'blockchain_status', 'create_date'],
           ])
         : Promise.resolve([]),
+      contractId
+        ? odoo.execute('erpv6.contract', 'search_read', [[['id', '=', contractId]], ['id', 'status', 'is_certified', 'signed_at']])
+        : Promise.resolve([]),
     ]);
 
     const lead = leads && leads[0];
     const kairos = kairosRows && kairosRows[0];
+    const contract = contractRows && contractRows[0];
 
     return NextResponse.json({
       success: true,
@@ -88,6 +94,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
           quadrante: QUADRANTE_MAP[kairos.quadrante] || kairos.quadrante,
         } : null,
       },
+      contratto: contract ? {
+        id: contract.id,
+        stato: contract.status,
+        certificato: contract.is_certified,
+        firmatoIl: contract.signed_at || null,
+      } : null,
       intervista: {
         score: order.interview_score || null,
         pacchetto: order.interview_package_hint || null,

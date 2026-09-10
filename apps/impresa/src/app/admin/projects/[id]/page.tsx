@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Calendar, User, Building2, FileText, Download, MessageSquareText } from "lucide-react";
+import { Loader2, ArrowLeft, Calendar, User, Building2, FileText, Download, MessageSquareText, ShieldCheck } from "lucide-react";
 import HeinrichPanel from "@/components/admin/HeinrichPanel";
 import NotesBoard from "@/components/admin/NotesBoard";
 
@@ -43,6 +43,17 @@ interface Interazione {
     data: string;
 }
 
+interface ContrattoInfo {
+    id: number;
+    stato: string;
+    certificato: boolean;
+    firmatoIl: string | null;
+}
+
+const CONTRACT_STATE_LABEL: Record<string, string> = {
+    draft: 'Bozza', sent: 'Inviato', signed: 'Firmato', certified: 'Certificato', expired: 'Scaduto',
+};
+
 const QUADRANTE_COLOR: Record<string, string> = {
     KAIROS_AUTENTICO: 'bg-green-100 text-green-700',
     QUICK_WIN: 'bg-blue-100 text-blue-700',
@@ -69,6 +80,28 @@ export default function AdminProjectDetail() {
     const [intervista, setIntervista] = useState<Intervista | null>(null);
     const [documenti, setDocumenti] = useState<Documento[]>([]);
     const [interazioni, setInterazioni] = useState<Interazione[]>([]);
+    const [contratto, setContratto] = useState<ContrattoInfo | null>(null);
+    const [creatingContract, setCreatingContract] = useState(false);
+
+    const load = async () => {
+        try {
+            const res = await fetch(`/api/admin/projects/${id}`);
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                setLoadError(data.error || 'Odoo non raggiungibile');
+                return;
+            }
+            setProject(data.project);
+            setIntervista(data.intervista);
+            setDocumenti(data.documenti || []);
+            setInterazioni(data.interazioni || []);
+            setContratto(data.contratto || null);
+        } catch (error: any) {
+            setLoadError(error.message || 'Errore di rete');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         const session = localStorage.getItem("pi_session");
@@ -76,25 +109,21 @@ export default function AdminProjectDetail() {
             router.push("/login");
             return;
         }
-        (async () => {
-            try {
-                const res = await fetch(`/api/admin/projects/${id}`);
-                const data = await res.json();
-                if (!res.ok || !data.success) {
-                    setLoadError(data.error || 'Odoo non raggiungibile');
-                    return;
-                }
-                setProject(data.project);
-                setIntervista(data.intervista);
-                setDocumenti(data.documenti || []);
-                setInterazioni(data.interazioni || []);
-            } catch (error: any) {
-                setLoadError(error.message || 'Errore di rete');
-            } finally {
-                setLoading(false);
-            }
-        })();
+        load();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id, router]);
+
+    const handleCreateContract = async () => {
+        setCreatingContract(true);
+        try {
+            const res = await fetch(`/api/admin/projects/${id}/create-contract`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) load();
+            else alert(data.error || 'Creazione fallita');
+        } finally {
+            setCreatingContract(false);
+        }
+    };
 
     const handleSendEmail = async (note: { title: string; body: string; note_type: string }) => {
         if (!project?.emailDestinatario) {
@@ -198,6 +227,31 @@ export default function AdminProjectDetail() {
                                 <p className="text-xs text-gray-500">Prontezza: {project.kairos.prontezzaLabel} · Impatto: {project.kairos.impattoLabel}</p>
                             </div>
                         )}
+
+                        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-2">
+                                <ShieldCheck size={14} /> Contratto
+                            </h2>
+                            {contratto ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-medium text-[#1a2744]">{CONTRACT_STATE_LABEL[contratto.stato] || contratto.stato}</span>
+                                    {contratto.certificato && (
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">Certificato</span>
+                                    )}
+                                    {contratto.firmatoIl && (
+                                        <span className="text-xs text-gray-400">Firmato il {new Date(contratto.firmatoIl).toLocaleDateString('it-IT')}</span>
+                                    )}
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleCreateContract}
+                                    disabled={creatingContract}
+                                    className="w-full px-3 py-2 rounded-lg bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460] disabled:opacity-50"
+                                >
+                                    {creatingContract ? 'Creo...' : 'Crea Contratto'}
+                                </button>
+                            )}
+                        </div>
 
                         <div className="bg-white rounded-2xl border border-gray-100 p-5">
                             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Affidabilità</h2>
