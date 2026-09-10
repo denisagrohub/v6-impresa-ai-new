@@ -66,6 +66,7 @@ export default function AdminDashboard() {
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
     { icon: FolderKanban, label: "Progetti", href: "/admin/projects" },
+    { icon: Users, label: "Progetti Partner", href: "/admin/partner-projects" },
     { icon: CheckCircle2, label: "Validazione", href: "/admin/validazione" },
     { icon: Users, label: "Coda Lead", href: "/admin/leads" },
 
