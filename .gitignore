@@ -99,3 +99,7 @@ erpv6_devtools/alessandro/dispatched_proposals.json
 *.pre-*
 *.orig
 *.rej
+
+# Backup locali (17-18/09/2026)
+.backup-*
+odoo-addons-backup-*
