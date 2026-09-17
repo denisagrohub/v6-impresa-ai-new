@@ -18,6 +18,14 @@ class Erpv6TrackingRelation(models.Model):
         compute='_compute_email_alias_full',
     )
 
+    # 14/09/2026: segna fino a quando le email del log catch-all sono
+    # state VISTE dall'utente nel workbench (impostato dall'API Next al
+    # primo caricamento della pagina progetto). Il conteggio "non lette"
+    # e' sempre calcolato lato lettura: email.log.create_date > seen_at
+    # sulla radice del progetto -- mai un contatore duplicato da tenere
+    # allineato, una sola fonte di verita' (il log) + un timestamp.
+    x_v6_emails_seen_at = fields.Datetime(string='Email viste fino a')
+
     @api.depends('email_alias')
     def _compute_email_alias_full(self):
         for rec in self:

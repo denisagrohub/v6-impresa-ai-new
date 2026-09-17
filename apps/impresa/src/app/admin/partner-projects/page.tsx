@@ -39,6 +39,12 @@ export default function PartnerProjectsPage() {
         }
     };
 
+    const [unread, setUnread] = useState<Record<number, number>>({});
+    // 14/09/2026: badge email non viste per progetto (giallo/numero sulla card)
+    useEffect(() => {
+        fetch('/api/admin/partner-projects/unread-summary').then(r => r.json())
+            .then(d => d.success && setUnread(d.summary)).catch(() => {});
+    }, []);
     useEffect(() => {
         const session = localStorage.getItem("pi_session");
         if (!session) {
@@ -143,6 +149,9 @@ export default function PartnerProjectsPage() {
                                     <div className="text-lg font-bold text-[#1a2744]">{p.name}</div>
                                     <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
                                         <span className="flex items-center gap-1"><Users size={14} /> {p.partnerCount} parti collegate</span>
+                                        {unread[p.id] > 0 && (
+                                            <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-white">✉ {unread[p.id]}</span>
+                                        )}
                                         {p.emailAlias && (
                                             <span className="flex items-center gap-1"><Mail size={14} /> {p.emailAlias}</span>
                                         )}

@@ -92,3 +92,10 @@ erpv6_devtools/alessandro/.env
 # nel repo.
 erpv6_devtools/claudio/dispatched_proposals.json
 erpv6_devtools/alessandro/dispatched_proposals.json
+
+# Backup file locali (page.tsx.bak2, .pre-*, .bak, ecc.) - mai da tracciare
+*.bak
+*.bak[0-9]*
+*.pre-*
+*.orig
+*.rej

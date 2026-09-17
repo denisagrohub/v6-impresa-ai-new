@@ -40,8 +40,10 @@ class OdooApiAdapter {
       });
 
       if (resp.data.error) {
+        console.error('ODOO RAW ERROR:', JSON.stringify(resp.data.error, null, 2));
         throw new Error(resp.data.error.message);
       }
+
 
       const uid = resp.data.result;
 
