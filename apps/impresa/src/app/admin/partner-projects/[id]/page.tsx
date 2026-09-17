@@ -21,7 +21,7 @@ import Link from "next/link";
 import {
     Loader2, ArrowLeft, Send, ChevronDown, ChevronUp, UserPlus,
     Sparkles, Download, Settings, LayoutGrid, Table, UploadCloud,
-    Activity, FileText, Zap, Video, Monitor, ChevronDown as ChevD, } from "lucide-react";
+    Activity, FileText, Zap, Video, Monitor, ChevronDown as ChevD, Layers, Plus, ChevronRight, } from "lucide-react";
 // DOMPurify: i body email arrivano come HTML da Odoo → vanno SANITIZZATI (anti-XSS)
 import DOMPurify from "dompurify";
 // Componenti laterali: pannelli AI/note incastonati nelle card delle parti
@@ -76,7 +76,7 @@ export default function PartnerProjectDetailPage() {
     const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
     const [viewMode, setViewMode] = useState<'workbench' | 'lavagna'>('workbench');
     const [activeEngine, setActiveEngine] = useState<IntelligenceEngine>('susanna');
-    const [openSections, setOpenSections] = useState<Record<string, boolean>>({ intelligence: true, parti: true, documenti: true, attivita: true });
+    const [openSections, setOpenSections] = useState<Record<string, boolean>>({ intelligence: true, sottoprogetti: true, parti: true, documenti: true, attivita: true });
     const toggleSection = (k: string) => setOpenSections(s => ({ ...s, [k]: !s[k] }));
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isRichPartOpen, setIsRichPartOpen] = useState(false);
@@ -88,12 +88,16 @@ export default function PartnerProjectDetailPage() {
         id: number; name: string; emailAlias: string | null; parent_id?: number | null;
     charter?: CharterData | null } | null>(null);
     const [partners, setPartners] = useState<Partner[]>([]);
+    // 17/09/2026 (Denis): figli non-parte = rami operativi con pipeline propria
+    const [subprojects, setSubprojects] = useState<{ id: number; name: string; emailAlias: string | null; child_kind: string }[]>([]);
     const [emails, setEmails] = useState<EmailLog[]>([]);
     const [showAcqModal, setShowAcqModal] = useState(false);
     const [acqName, setAcqName] = useState('Acquisizione Aziende');
     const [acqAlias, setAcqAlias] = useState('');
     const [acqError, setAcqError] = useState<string | null>(null);
     const [acqBusy, setAcqBusy] = useState(false);
+    const [acqKind, setAcqKind] = useState('sotto_progetto');
+    const [acqPipeline, setAcqPipeline] = useState('acquisition');
 
     // 14/09/2026: soglia "visto" — le email dopo questa sono NUOVE (ambra).
     // Nota: al load segnamo seen=adesso, quindi il highlight vale per il
@@ -193,6 +197,7 @@ export default function PartnerProjectDetailPage() {
             // 14/09/2026: segna le email come viste (badge/highlight si spengono al prossimo giro)
             fetch(`/api/admin/partner-projects/${id}/emails-seen`, { method: 'POST' }).catch(() => {});
             setPartners(data.partners || []);
+            setSubprojects(data.subprojects || []);
             setEmails(data.emails || []);
             loadDocuments(); // fire-and-forget
         } catch (error: any) {
@@ -809,6 +814,47 @@ export default function PartnerProjectDetailPage() {
                         )}
                     </section>
 
+                    {/* SOTTO-PROGETTI: rami operativi figli con pipeline propria
+                        (17/09/2026 Denis). Visibili solo sul progetto radice. */}
+                    {!project?.parent_id && (
+                    <section className="border-t border-gray-200/60 pt-4">
+                        <div onClick={() => toggleSection('sottoprogetti')} className="flex items-center justify-between mb-2.5 cursor-pointer select-none">
+                            <h2 className="text-[11px] font-bold tracking-wider text-indigo-600 uppercase flex items-center gap-1.5">
+                                <Layers size={13} /> Sotto-progetti
+                            </h2>
+                            <button onClick={(ev) => { ev.stopPropagation(); setShowAcqModal(true); }} className="text-indigo-600 hover:text-indigo-800 cursor-pointer" title="Crea sotto-progetto">
+                                <Plus size={14} />
+                            </button>
+                            <ChevD size={14} className={`text-gray-400 transition-transform ${openSections.sottoprogetti ? '' : '-rotate-90'}`} />
+                        </div>
+                        {openSections.sottoprogetti && (
+                        <>
+                        {subprojects.length === 0 ? (
+                            <p className="text-xs text-gray-400 italic">Nessun sotto-progetto. Premi + per crearne uno (es. Acquisizione Aziende).</p>
+                        ) : (
+                            <div className="space-y-1.5">
+                                {subprojects.map((sp) => (
+                                    <Link key={sp.id} href={`/admin/partner-projects/${sp.id}`}
+                                        className="flex items-center justify-between bg-indigo-50/50 hover:bg-indigo-100/60 rounded border border-indigo-100 p-2.5 text-xs transition-colors">
+                                        <div>
+                                            <div className="font-semibold text-[#0f172a]">{sp.name}</div>
+                                            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-500">
+                                                <span className="px-1.5 py-0.5 rounded bg-indigo-200/50 text-indigo-800 font-medium">
+                                                    {sp.child_kind === 'pipeline' ? 'pipeline' : 'sotto-progetto'}
+                                                </span>
+                                                {sp.emailAlias && <span className="font-mono">{sp.emailAlias}</span>}
+                                            </div>
+                                        </div>
+                                        <ChevronRight size={16} className="text-indigo-400" />
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
+                        </>
+                        )}
+                    </section>
+                    )}
+
                     {/* PARTI: elenco + form inline con autocomplete res.partner */}
                     <section className="border-t border-gray-200/60 pt-4">
                         <div onClick={() => toggleSection('parti')} className="flex items-center justify-between mb-2.5 cursor-pointer select-none">
@@ -1379,8 +1425,23 @@ export default function PartnerProjectDetailPage() {
                 
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                     <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
-                        <h3 className="mb-3 text-sm font-bold">Avvia Acquisizione Aziende</h3>
-                        <label className="block text-xs font-semibold text-gray-600">Nome progetto figlio</label>
+                        <h3 className="mb-3 text-sm font-bold">Crea sotto-progetto</h3>
+
+                        <label className="block text-xs font-semibold text-gray-600">Tipo di sotto-progetto</label>
+                        <select value={acqKind} onChange={(e) => setAcqKind(e.target.value)}
+                            className="mb-3 w-full rounded border px-2 py-1.5 text-sm">
+                            <option value="sotto_progetto">Sotto-progetto (generico)</option>
+                            <option value="pipeline">Pipeline operativa</option>
+                        </select>
+
+                        <label className="block text-xs font-semibold text-gray-600">Pipeline di default</label>
+                        <select value={acqPipeline} onChange={(e) => setAcqPipeline(e.target.value)}
+                            className="mb-3 w-full rounded border px-2 py-1.5 text-sm">
+                            <option value="acquisition">Acquisizione Aziende (scouting → contatto → risultato)</option>
+                            <option value="">Nessuna (personalizzata)</option>
+                        </select>
+
+                        <label className="block text-xs font-semibold text-gray-600">Nome sotto-progetto</label>
                         <input value={acqName} onChange={(e) => setAcqName(e.target.value)}
                             placeholder="Acquisizione Aziende" className="mb-3 w-full rounded border px-2 py-1.5 text-sm" />
                         <label className="block text-xs font-semibold text-gray-600">Alias email (opzionale)</label>
@@ -1397,7 +1458,12 @@ export default function PartnerProjectDetailPage() {
                                 try {
                                     const res = await fetch(`/api/admin/partner-projects/${project!.id}/start-acquisition`, {
                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ name: acqName, emailAlias: acqAlias }),
+                                        body: JSON.stringify({
+                                            name: acqName,
+                                            emailAlias: acqAlias,
+                                            kind: acqKind,
+                                            pipelineTemplate: acqPipeline || null,
+                                        }),
                                     });
                                     const j = await res.json();
                                     if (!res.ok) throw new Error(j.error || 'Errore');

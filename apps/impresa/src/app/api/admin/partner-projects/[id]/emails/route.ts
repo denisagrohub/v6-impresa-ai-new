@@ -16,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     // scrivono sullo stesso filone -> matchiamo radice+discendenti via
     // parent path: v1 semplice = leggo il log del progetto e delle sue
     // relazioni dirette (relation_id in root + figli).
-    const root = await odoo.execute('erpv6.tracking.relation', 'read', [[projectId]], { fields: ['id', 'parent_id'] });
+    const root = await odoo.execute('erpv6.tracking.relation', 'read', [[projectId], ['id', 'parent_id']]);
     const rec = root?.[0];
     if (!rec) return NextResponse.json({ success: false, error: 'Progetto non trovato' }, { status: 404 });
     // se sono gia' su una parte, risalgo alla radice

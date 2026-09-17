@@ -31,9 +31,35 @@ class Erpv6TrackingRelation(models.Model):
         'erpv6.tracking.relation', 'parent_id', string='Nodi Figlio',
     )
 
+    # 17/09/2026 (Denis): distinguere "parti" (controparti reali con
+    # partner_id) da "sotto-progetti" (rami operativi con pipeline
+    # propria, es. acquisizione aziende). Senza questo campo i figli
+    # finivano tutti nella tab Persone/Parti del padre.
+    child_kind = fields.Selection([
+        ('parte', 'Parte'),
+        ('sotto_progetto', 'Sotto-progetto'),
+        ('pipeline', 'Pipeline operativa'),
+    ], string='Tipo Nodo', default='parte', tracking=True,
+        help="Classifica il ruolo del nodo rispetto al padre: 'parte' per "
+             "controparti reali (tipicamente con partner_id valorizzato), "
+             "'sotto_progetto'/'pipeline' per rami operativi con vita "
+             "propria (es. acquisizione aziende con la sua pipeline).")
+
+    # Specifica futura (Denis, 17/09/2026): access control per-utente.
+    # Oggi Denis vede tutto. Record rules Odoo filtreranno su questi
+    # campi quando ci saranno utenti reali oltre a Denis.
+    owner_user_id = fields.Many2one(
+        'res.users', string='Responsabile',
+        help="Utente con responsabilita' principale del nodo.")
+    access_user_ids = fields.Many2many(
+        'res.users', 'erpv6_tracking_relation_access_rel',
+        'relation_id', 'user_id', string='Accesso consentito',
+        help="Utenti autorizzati a vedere il nodo oltre al responsabile.")
+
     partner_id = fields.Many2one(
         'res.partner', string='Parte Collegata', tracking=True,
-        help="La controparte (cliente, trader, ente...) che questo nodo rappresenta. Vuoto sul nodo padre.",
+        help="La controparte (cliente, trader, ente...) che questo nodo "
+             "rappresenta. Vuoto sul nodo padre.",
     )
 
     ruolo = fields.Selection([
@@ -52,7 +78,9 @@ class Erpv6TrackingRelation(models.Model):
         ('parziale', 'Parziale'),
         ('nessuno', 'Nessuno'),
         ('non_applicabile', 'Non Applicabile'),
-    ], string='Mandato', help='Rilevante solo per archi tra parti che negoziano per conto di altre (es. consulente->trader).')
+    ], string='Mandato',
+        help='Rilevante solo per archi tra parti che negoziano per conto '
+             'di altre (es. consulente->trader).')
 
     email_alias = fields.Char(
         string='Alias Email (local-part)', tracking=True,
@@ -68,7 +96,8 @@ class Erpv6TrackingRelation(models.Model):
     )
 
     richiede_nda = fields.Boolean(
-        string='Richiede NDA/Contratto prima di attivazione', default=False, tracking=True,
+        string='Richiede NDA/Contratto prima di attivazione',
+        default=False, tracking=True,
     )
     contract_ids = fields.One2many(
         'erpv6.contract', 'relation_id', string='Contratti Collegati',
@@ -77,13 +106,9 @@ class Erpv6TrackingRelation(models.Model):
         string='Gate NDA Soddisfatto', compute='_compute_nda_gate_ok', store=True,
     )
 
-    # 10/09/2026 (Denis: "manca sui progetti sia progetti che progetti
-    # partner la possibilità di upload documenti") - stesso pattern
-    # polimorfico già usato da erpv6.production.order.document_ids
-    # (source_model/source_res_id su erpv6.library.document), qui senza
-    # nessun crm.lead intermedio (questo modello non ne ha uno).
     document_ids = fields.Many2many(
-        'erpv6.library.document', string='Documenti', compute='_compute_document_ids',
+        'erpv6.library.document', string='Documenti',
+        compute='_compute_document_ids',
     )
 
     def _compute_document_ids(self):
@@ -94,7 +119,8 @@ class Erpv6TrackingRelation(models.Model):
                 ('source_res_id', '=', rec.id),
             ])
 
-    @api.depends('richiede_nda', 'contract_ids.document_ids.doc_type', 'contract_ids.document_ids.signed_at')
+    @api.depends('richiede_nda', 'contract_ids.document_ids.doc_type',
+                 'contract_ids.document_ids.signed_at')
     def _compute_nda_gate_ok(self):
         for rec in self:
             if not rec.richiede_nda:
@@ -107,13 +133,22 @@ class Erpv6TrackingRelation(models.Model):
 
     _sql_constraints = [
         ('email_alias_unique', 'unique(email_alias)',
-         "Questo alias email è già assegnato a un altro nodo."),
+         "Questo alias email e' gia' assegnato a un altro nodo."),
     ]
 
     @api.constrains('parent_id')
     def _check_parent_not_self(self):
         if self._has_cycle():
-            raise ValidationError(_("Non è possibile creare un ciclo tra nodi padre/figlio."))
+            raise ValidationError(
+                _("Non e' possibile creare un ciclo tra nodi padre/figlio."))
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Default owner_user_id: chi crea (17/09/2026)."""
+        for vals in vals_list:
+            if not vals.get('owner_user_id'):
+                vals['owner_user_id'] = self.env.uid
+        return super().create(vals_list)
 
     def can_communicate(self):
         """Usato dal parser email (Fase 2) e dal digest (Fase 3) come gate

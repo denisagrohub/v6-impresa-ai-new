@@ -9,7 +9,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (!projectId) return NextResponse.json({ success: false, error: 'ID non valido' }, { status: 400 });
   try {
     await odoo.connect();
-    const rec = await odoo.execute('erpv6.tracking.relation', 'read', [[projectId]], { fields: ['parent_id'] });
+    const rec = await odoo.execute('erpv6.tracking.relation', 'read', [[projectId], ['parent_id']]);
     const rootId = rec?.[0]?.parent_id ? rec[0].parent_id[0] : projectId;
     await odoo.execute('erpv6.tracking.relation', 'write', [[rootId], { x_v6_emails_seen_at: new Date().toISOString().replace('T', ' ').slice(0, 19) }]);
     return NextResponse.json({ success: true });

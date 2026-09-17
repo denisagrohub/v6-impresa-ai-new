@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { odoo } from '@/lib/odoo/api-adapter';
 
+// 17/09/2026 (Denis): separati "partners" (controparti reali, tab Persone/Parti)
+// da "subprojects" (rami operativi con pipeline propria, es. Acquisizione Aziende).
+// Aggiunti al PATCH i campi settings: child_kind default, owner, access.
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const id = parseInt(params.id, 10);
   if (!id) return NextResponse.json({ success: false, error: 'ID non valido' }, { status: 400 });
@@ -9,13 +12,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
     await odoo.connect();
 
     const projects = await odoo.execute('erpv6.tracking.relation', 'search_read', [
-      [['id', '=', id]], ['id', 'name', 'email_alias', 'partner_id', 'x_v6_charter', 'x_v6_emails_seen_at'],
+      [['id', '=', id]],
+      ['id', 'name', 'email_alias', 'partner_id', 'x_v6_charter', 'x_v6_emails_seen_at', 'child_kind', 'parent_id'],
     ]);
     if (!projects || !projects.length) {
       return NextResponse.json({ success: false, error: 'Progetto non trovato' }, { status: 404 });
     }
     const project = projects[0];
-    // Mark-seen: aggiorniamo il timestamp di ultima lettura (Denis, 14/09/2026)
+
+    // Mark-seen
     try {
       await odoo.execute('erpv6.tracking.relation', 'write', [[id], {
         x_v6_emails_seen_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -25,10 +30,18 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     const children = await odoo.execute('erpv6.tracking.relation', 'search_read', [
-      [['parent_id', '=', id]], ['id', 'name', 'ruolo', 'partner_id'], 0, 0, 'name asc',
+      [['parent_id', '=', id]],
+      ['id', 'name', 'ruolo', 'partner_id', 'child_kind', 'email_alias'],
+      0, 0, 'name asc',
     ]);
 
-    const relationIds = [id, ...(children || []).map((c: any) => c.id)];
+    const allChildren = children || [];
+    const parts = allChildren.filter((c: any) =>
+      c.child_kind !== 'sotto_progetto' && c.child_kind !== 'pipeline');
+    const subprojects = allChildren.filter((c: any) =>
+      c.child_kind === 'sotto_progetto' || c.child_kind === 'pipeline');
+
+    const relationIds = [id, ...allChildren.map((c: any) => c.id)];
     const emails = await odoo.execute('erpv6.project.email.log', 'search_read', [
       [['relation_id', 'in', relationIds]],
       ['id', 'name', 'sender_email', 'recipient_emails', 'cc_emails', 'match_status', 'direction', 'create_date'],
@@ -46,14 +59,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
         emailAlias: project.email_alias ? `${project.email_alias}@v6sviluppoimpresa.it` : null,
         x_v6_emails_seen_at: project.x_v6_emails_seen_at || null,
         charter,
+        child_kind: project.child_kind || 'parte',
+        parent_id: Array.isArray(project.parent_id) ? project.parent_id[0] : null,
       },
-
-      partners: (children || []).map((c: any) => ({
+      partners: parts.map((c: any) => ({
         id: c.id,
         name: c.name,
         ruolo: c.ruolo || null,
         partnerId: Array.isArray(c.partner_id) ? c.partner_id[0] : null,
         partnerName: Array.isArray(c.partner_id) ? c.partner_id[1] : null,
+      })),
+      subprojects: subprojects.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        emailAlias: c.email_alias ? `${c.email_alias}@v6sviluppoimpresa.it` : null,
+        child_kind: c.child_kind,
       })),
       emails: (emails || []).map((e: any) => ({
         id: e.id,
@@ -72,47 +92,63 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
+// PATCH: aggiorna charter e/o settings (owner, access, child_kind default).
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const id = parseInt(params.id, 10);
   if (!id) return NextResponse.json({ success: false, error: 'ID non valido' }, { status: 400 });
 
   try {
-    const { charter } = await request.json();
-    if (!charter || typeof charter !== 'object') {
-      return NextResponse.json({ success: false, error: 'Charter non valido' }, { status: 400 });
-    }
-
-    // Versioning: il charter salvato contiene version, updatedAt, history, data
-    const payload = {
-      version: (charter as any).version || 1,
-      updatedAt: new Date().toISOString(),
-      history: (charter as any).history || [],
-      data: (charter as any).data || charter,
-    };
-    // Se l'utente sta aggiornando una scheda esistente, archivia la versione corrente
-    const existing = await odoo.execute('erpv6.tracking.relation', 'search_read', [
-      [['id', '=', id]], ['x_v6_charter'],
-    ]);
-    if (existing && existing[0]?.x_v6_charter) {
-      try {
-        const prev = JSON.parse(existing[0].x_v6_charter);
-        if (prev?.version) {
-          payload.version = prev.version + 1;
-          payload.history = [
-            ...(prev.history || []),
-            { version: prev.version, updatedAt: prev.updatedAt, data: prev.data },
-          ];
-        }
-      } catch { /* charter precedente corrotto: ripartiamo da v1 */ }
-    }
+    const body = await request.json();
+    const { charter, settings } = body as { charter?: any; settings?: any };
 
     await odoo.connect();
-    await odoo.execute('erpv6.tracking.relation', 'write', [[id], {
-      x_v6_charter: JSON.stringify(payload),
-    }]);
-    return NextResponse.json({ success: true, version: payload.version });
+    const writeVals: any = {};
+
+    // --- charter (con versioning) ---
+    if (charter && typeof charter === 'object') {
+      const payload = {
+        version: (charter as any).version || 1,
+        updatedAt: new Date().toISOString(),
+        history: (charter as any).history || [],
+        data: (charter as any).data || charter,
+      };
+      const existing = await odoo.execute('erpv6.tracking.relation', 'search_read', [
+        [['id', '=', id]], ['x_v6_charter'],
+      ]);
+      if (existing && existing[0]?.x_v6_charter) {
+        try {
+          const prev = JSON.parse(existing[0].x_v6_charter);
+          if (prev?.version) {
+            payload.version = prev.version + 1;
+            payload.history = [
+              ...(prev.history || []),
+              { version: prev.version, updatedAt: prev.updatedAt, data: prev.data },
+            ];
+          }
+        } catch { /* charter precedente corrotto: ripartiamo da v1 */ }
+      }
+      writeVals.x_v6_charter = JSON.stringify(payload);
+    }
+
+    // --- settings (owner, access, kind) ---
+    if (settings && typeof settings === 'object') {
+      if ('owner_user_id' in settings) writeVals.owner_user_id = settings.owner_user_id || false;
+      if ('access_user_ids' in settings && Array.isArray(settings.access_user_ids)) {
+        writeVals.access_user_ids = [[6, 0, settings.access_user_ids]];
+      }
+      if ('child_kind' in settings && settings.child_kind) {
+        writeVals.child_kind = settings.child_kind;
+      }
+    }
+
+    if (Object.keys(writeVals).length === 0) {
+      return NextResponse.json({ success: false, error: 'Nessun campo da aggiornare' }, { status: 400 });
+    }
+
+    await odoo.execute('erpv6.tracking.relation', 'write', [[id], writeVals]);
+    return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('❌ Errore PATCH charter:', error.message);
+    console.error('❌ Errore PATCH:', error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 503 });
   }
 }

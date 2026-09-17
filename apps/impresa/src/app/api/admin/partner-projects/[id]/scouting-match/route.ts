@@ -20,13 +20,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     await odoo.connect();
 
     // profilo progetto: nome della tracking.relation padre
-    const proj = await odoo.execute('erpv6.tracking.relation', 'read', [[projectId]], { fields: ['name'] });
+    const proj = await odoo.execute('erpv6.tracking.relation', 'read', [[projectId], ['name']]);
     const projName: string = (proj?.[0]?.name || '').toLowerCase();
 
     // keyword: profilo noto + parole lunghe dal nome progetto
-    let keywords = [...new Set(Object.entries(PROFILI).find(([k]) => projName.includes(k))?.[1] || [])];
+    let keywords: string[] = Array.from(new Set(Object.entries(PROFILI).find(([k]) => projName.includes(k))?.[1] || []));
     for (const w of projName.split(/[^a-zà-ù]+/)) if (w.length >= 5) keywords.push(w);
-    keywords = [...new Set(keywords)].filter(Boolean);
+    keywords = Array.from(new Set(keywords)).filter(Boolean);
 
     // tutti gli scouting livello 1
     const partners = await odoo.execute('res.partner', 'search_read', [
