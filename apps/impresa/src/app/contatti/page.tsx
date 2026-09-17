@@ -93,10 +93,10 @@ export default function ContattiPage() {
 
                             <div className="space-y-4">
                                 {[
-                                    { icon: Mail, label: "Email", value: "info@progettoimpresa.it", sub: "Risposta entro 24h" },
-                                    { icon: Phone, label: "Telefono", value: "+39 02 123 4567", sub: "Lun-Ven 9:00-18:00" },
-                                    { icon: MapPin, label: "Sede", value: "Via Monte Napoleone, 8", sub: "20121 Milano MI" },
-                                    { icon: Clock, label: "Orari", value: "Lunedì - Venerdì", sub: "9:00 - 18:00" },
+                                    { icon: Mail, label: "Email", value: "info@v6impresa.it", sub: "Risposta entro 24h" },
+                                    { icon: Phone, label: "Telefono", value: "+39 351 99 88 083", sub: "Lun-Ven 9:00-21:00" },
+                                    { icon: MapPin, label: "Sede", value: "Via Trentino, 22", sub: "30010 Venezia VE" },
+                                    { icon: Clock, label: "Orari", value: "Lunedì - Venerdì", sub: "9:00 - 21:00" },
                                 ].map((item, i) => (
                                     <div key={i} className="flex items-start gap-4 p-4 bg-white rounded-xl border border-gray-100">
                                         <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
