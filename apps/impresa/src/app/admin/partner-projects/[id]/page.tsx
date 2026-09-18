@@ -21,7 +21,7 @@ import Link from "next/link";
 import {
     Loader2, ArrowLeft, Send, ChevronDown, ChevronUp, UserPlus,
     Sparkles, Download, Settings, LayoutGrid, Table, UploadCloud,
-    Activity, FileText, Zap, Video, Monitor, ChevronDown as ChevD, Layers, Plus, ChevronRight, } from "lucide-react";
+    Activity, FileText, Zap, Video, Monitor, ChevronDown as ChevD, Layers, Plus, ChevronRight, Phone, } from "lucide-react";
 // DOMPurify: i body email arrivano come HTML da Odoo → vanno SANITIZZATI (anti-XSS)
 import DOMPurify from "dompurify";
 // Componenti laterali: pannelli AI/note incastonati nelle card delle parti
@@ -31,6 +31,7 @@ import { WorkAreaPanel } from "@/components/admin/WorkAreaPanel";
 import { RichPartModal } from "@/components/admin/RichPartModal";
 import { ScoutingModal, type ScoutingData } from "@/components/admin/ScoutingModal";
 import { CharterEditor, type CharterData } from "@/components/CharterEditor";
+import LiveCallDrawer from "@/components/admin/LiveCallDrawer";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -98,6 +99,10 @@ export default function PartnerProjectDetailPage() {
     const [acqBusy, setAcqBusy] = useState(false);
     const [acqKind, setAcqKind] = useState('sotto_progetto');
     const [acqPipeline, setAcqPipeline] = useState('acquisition');
+    // 18/09/2026 (Denis): Live Call Mode
+    const [liveCallOpen, setLiveCallOpen] = useState(false);
+    const [liveCallPartnerId, setLiveCallPartnerId] = useState<number | null>(null);
+    const [liveCallPartnerName, setLiveCallPartnerName] = useState('');
 
     // 14/09/2026: soglia "visto" — le email dopo questa sono NUOVE (ambra).
     // Nota: al load segnamo seen=adesso, quindi il highlight vale per il
@@ -909,12 +914,21 @@ export default function PartnerProjectDetailPage() {
                                         {/* Pannello AI per singola parte (analisi del rapporto) */}
                                         <div className="mt-1 flex items-center gap-1">
                                             {p.partnerId && (
+                                                <>
+                                                <button
+                                                    onClick={() => { setLiveCallPartnerId(p.partnerId!); setLiveCallPartnerName(p.partnerName || p.name); setLiveCallOpen(true); }}
+                                                    className="text-red-600 hover:text-red-800 cursor-pointer"
+                                                    title="Avvia Live Call"
+                                                >
+                                                    <Phone size={12} />
+                                                </button>
                                                 <ScoutingModal
                                                     partnerId={p.partnerId}
                                                     partnerName={p.partnerName || p.name}
                                                     scouting={partnerScouting[p.partnerId] ?? null}
                                                     onChanged={(s) => setPartnerScouting(prev => ({ ...prev, [p.partnerId!]: s }))}
                                                 />
+                                                </>
                                             )}
                                             <HeinrichPanel resModel="erpv6.tracking.relation" resId={p.id} compact />
                                         </div>
@@ -1478,6 +1492,17 @@ export default function PartnerProjectDetailPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {liveCallOpen && liveCallPartnerId && (
+                <LiveCallDrawer
+                    partnerId={liveCallPartnerId}
+                    partnerName={liveCallPartnerName}
+                    relationId={project?.id}
+                    scouting={partnerScouting[liveCallPartnerId] ?? null}
+                    onClose={() => { setLiveCallOpen(false); setLiveCallPartnerId(null); }}
+                    onScoutingUpdated={(s) => setPartnerScouting(prev => ({ ...prev, [liveCallPartnerId!]: s }))}
+                />
             )}
 
         </div>
