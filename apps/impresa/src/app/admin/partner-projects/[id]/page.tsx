@@ -32,6 +32,7 @@ import { RichPartModal } from "@/components/admin/RichPartModal";
 import { ScoutingModal, type ScoutingData } from "@/components/admin/ScoutingModal";
 import { CharterEditor, type CharterData } from "@/components/CharterEditor";
 import LiveCallDrawer from "@/components/admin/LiveCallDrawer";
+import Dropdown from "@/components/ui/Dropdown";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
@@ -172,6 +173,8 @@ export default function PartnerProjectDetailPage() {
 
     /* ── STATO BRIEF / DEBRIEF ── */
     const [isBriefModalOpen, setIsBriefModalOpen] = useState(false);
+    // 18/09/2026 (Denis): Scouting Relazione (profilo target del progetto)
+    const [isRelationScoutingOpen, setIsRelationScoutingOpen] = useState(false);
     const [briefType, setBriefType] = useState<'brief' | 'debrief'>('brief');
     const [briefData, setBriefData] = useState({ objective: '', targetAudience: '', keyDeliverables: '', risksOrNotes: '' });
 
@@ -571,7 +574,9 @@ export default function PartnerProjectDetailPage() {
             <header className="bg-white border-b border-[#e2e8f0] px-5 py-2.5 shrink-0 z-20">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                        <Link href="/admin/partner-projects" className="text-gray-400 hover:text-gray-800 transition-colors">
+                        <Link href={project?.parent_id ? `/admin/partner-projects/${project.parent_id}` : "/admin/partner-projects"}
+                            className="text-gray-400 hover:text-gray-800 transition-colors"
+                            title={project?.parent_id ? "Torna al progetto padre" : "Torna ai progetti"}>
                             <ArrowLeft size={16} />
                         </Link>
                         <h1 className="text-[15px] font-bold text-[#0f172a] tracking-tight flex items-center gap-2">
@@ -588,10 +593,45 @@ export default function PartnerProjectDetailPage() {
                             charter={project?.charter ?? null}
                             onChanged={(c) => setProject(p => p ? { ...p, charter: c } : p)}
                         />
+
+                        {/* 📞 Nuova Call ▾ — pre/in/post in un unico punto */}
+                        <Dropdown
+                            label="📞 Nuova Call"
+                            variant="primary"
+                            items={[
+                                { label: "🎥 Video + Live Note", hint: "Apre Discuss + drawer note", onClick: () => setIsCreateCallModalOpen(true) },
+                                { label: "📝 Solo Live Note", hint: "Call già iniziata (telefono)", onClick: () => setLiveCallOpen(true) },
+                                { label: "📋 Prepara Brief", hint: "Pre-call, prima di chiamare", onClick: () => { setBriefType('brief'); setIsBriefModalOpen(true); } },
+                            ]}
+                        />
+
+                        {/* 🔍 Scouting ▾ */}
+                        <Dropdown
+                            label="🔍 Scouting"
+                            items={[
+                                { label: "🏢 Scouting Azienda", hint: "Per una parte del progetto", onClick: () => setShowAddPart(true) },
+                                { label: "🎯 Scouting Relazione", hint: "Profilo target del progetto", onClick: () => setIsRelationScoutingOpen(true) },
+                            ]}
+                        />
+
+                        {/* 🎤 Presenta */}
+                        <button
+                            onClick={() => setIsPresentationMode(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
+                            title="Modalità Presentazione"
+                        >
+                            <Monitor size={13} />
+                            Presenta
+                        </button>
+
+                        {/* + Crea sotto-progetto — solo su progetto radice */}
                         {!project?.parent_id && (
-                            <button onClick={() => setShowAcqModal(true)} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">
-                                Avvia Acquisizione
-                            </button>
+                            <Dropdown
+                                label="+ Nuovo"
+                                items={[
+                                    { label: "📁 Crea sotto-progetto", onClick: () => setShowAcqModal(true) },
+                                ]}
+                            />
                         )}
 
                         <button
@@ -656,24 +696,6 @@ export default function PartnerProjectDetailPage() {
                                 >
                                     <Send size={12} />
                                     Scrivi Email
-                                </button>
-                            </div>
-
-                            {/* Azioni sincrone: call video e modalità proiezione */}
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setIsCreateCallModalOpen(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors cursor-pointer shadow-sm"
-                                >
-                                    <Video size={13} />
-                                    Nuova Call Discuss
-                                </button>
-                                <button
-                                    onClick={() => setIsPresentationMode(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-300 bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors cursor-pointer shadow-sm"
-                                >
-                                    <Monitor size={13} />
-                                    Modalità Presentazione
                                 </button>
                             </div>
 
