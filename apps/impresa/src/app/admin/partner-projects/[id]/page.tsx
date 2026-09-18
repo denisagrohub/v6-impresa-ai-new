@@ -35,6 +35,7 @@ import LiveCallDrawer from "@/components/admin/LiveCallDrawer";
 import Dropdown from "@/components/ui/Dropdown";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 import RelationScoutingPanel, { type RelationScoutingData } from "@/components/admin/RelationScoutingPanel";
+import CallEndPanel from "@/components/admin/CallEndPanel";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -177,6 +178,8 @@ export default function PartnerProjectDetailPage() {
     const [isBriefModalOpen, setIsBriefModalOpen] = useState(false);
     // 18/09/2026 (Denis): Scouting Relazione (profilo target del progetto)
     const [isRelationScoutingOpen, setIsRelationScoutingOpen] = useState(false);
+    // 18/09/2026 (Denis): pannello post-call (debrief + lead + email)
+    const [lastCallEnd, setLastCallEnd] = useState<{ callId: number; durationSeconds: number } | null>(null);
     const [briefType, setBriefType] = useState<'brief' | 'debrief'>('brief');
     const [briefData, setBriefData] = useState({ objective: '', targetAudience: '', keyDeliverables: '', risksOrNotes: '' });
 
@@ -1572,6 +1575,31 @@ export default function PartnerProjectDetailPage() {
                     scouting={partnerScouting[liveCallPartnerId] ?? null}
                     onClose={() => { setLiveCallOpen(false); setLiveCallPartnerId(null); }}
                     onScoutingUpdated={(s) => setPartnerScouting(prev => ({ ...prev, [liveCallPartnerId!]: s }))}
+                    onEnd={(info) => {
+                        setLiveCallOpen(false);
+                        setLiveCallPartnerId(null);
+                        setLastCallEnd({ callId: info.callId, durationSeconds: info.durationSeconds });
+                    }}
+                />
+            )}
+
+            {lastCallEnd && (
+                <CallEndPanel
+                    callId={lastCallEnd.callId}
+                    durationSeconds={lastCallEnd.durationSeconds}
+                    onClose={() => setLastCallEnd(null)}
+                    onOpenDebrief={(prefill) => {
+                        setBriefType('debrief');
+                        setBriefData(prefill);
+                        setIsBriefModalOpen(true);
+                        setLastCallEnd(null);
+                    }}
+                    onOpenEmail={(prefill) => {
+                        setSubject(prefill.subject);
+                        setMessage(prefill.body);
+                        setIsEmailModalOpen(true);
+                        setLastCallEnd(null);
+                    }}
                 />
             )}
 

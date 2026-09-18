@@ -37,6 +37,7 @@ export default function LiveCallDrawer({
   scouting,
   onClose,
   onScoutingUpdated,
+  onEnd,
 }: {
   partnerId: number;
   partnerName: string;
@@ -45,6 +46,7 @@ export default function LiveCallDrawer({
   scouting: ScoutingData | null;
   onClose: () => void;
   onScoutingUpdated?: (s: ScoutingData) => void;
+  onEnd?: (info: { callId: number; notes: number; outcomes: number; durationSeconds: number }) => void;
 }) {
   const [callId, setCallId] = useState<number | null>(null);
   const [starting, setStarting] = useState(true);
@@ -161,7 +163,14 @@ export default function LiveCallDrawer({
     setEnding(true);
     try {
       await fetch(`/api/admin/calls/${callId}/end`, { method: "POST" });
-      onClose();
+      // 18/09/2026: se il parent passa onEnd, apre il pannello post-call
+      // invece di chiudere e basta (debrief pre-compilato, genera lead, email).
+      if (onEnd) {
+        const outcomeCount = notes.filter((n) => n.promoted_to === "outcome").length;
+        onEnd({ callId, notes: notes.length, outcomes: outcomeCount, durationSeconds: elapsed });
+      } else {
+        onClose();
+      }
     } finally {
       setEnding(false);
     }
