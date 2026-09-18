@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const projects = await odoo.execute('erpv6.tracking.relation', 'search_read', [
       [['id', '=', id]],
-      ['id', 'name', 'email_alias', 'partner_id', 'x_v6_charter', 'x_v6_emails_seen_at', 'child_kind', 'parent_id'],
+      ['id', 'name', 'email_alias', 'partner_id', 'x_v6_charter', 'x_v6_emails_seen_at', 'child_kind', 'parent_id', 'x_v6_scouting'],
     ]);
     if (!projects || !projects.length) {
       return NextResponse.json({ success: false, error: 'Progetto non trovato' }, { status: 404 });
@@ -51,6 +51,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     let charter = null;
     try { charter = project.x_v6_charter ? JSON.parse(project.x_v6_charter) : null; } catch { charter = null; }
 
+    let relationScouting = null;
+    try { relationScouting = project.x_v6_scouting ? JSON.parse(project.x_v6_scouting) : null; } catch { relationScouting = null; }
+
     return NextResponse.json({
       success: true,
       project: {
@@ -59,6 +62,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         emailAlias: project.email_alias ? `${project.email_alias}@v6sviluppoimpresa.it` : null,
         x_v6_emails_seen_at: project.x_v6_emails_seen_at || null,
         charter,
+        relationScouting,
         child_kind: project.child_kind || 'parte',
         parent_id: Array.isArray(project.parent_id) ? project.parent_id[0] : null,
       },
@@ -99,7 +103,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   try {
     const body = await request.json();
-    const { charter, settings } = body as { charter?: any; settings?: any };
+    const { charter, settings, scouting } = body as { charter?: any; settings?: any; scouting?: any };
 
     await odoo.connect();
     const writeVals: any = {};
@@ -139,6 +143,32 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       if ('child_kind' in settings && settings.child_kind) {
         writeVals.child_kind = settings.child_kind;
       }
+    }
+
+    // --- scouting relazione (18/09/2026) ---
+    // JSON versionato: aggiunge/aggiorna x_v6_scouting con version bump e provenance
+    if (scouting && typeof scouting === 'object') {
+      const existingScouting = await odoo.execute('erpv6.tracking.relation', 'read', [[id], ['x_v6_scouting']]);
+      let prev: any = null;
+      try {
+        const raw = existingScouting?.[0]?.x_v6_scouting;
+        prev = raw ? JSON.parse(raw) : null;
+      } catch { prev = null; }
+
+      const payload = {
+        schemaVersion: scouting.schemaVersion || prev?.schemaVersion || 1,
+        version: (prev?.version || 0) + 1,
+        savedAt: new Date().toISOString(),
+        data: scouting.data || scouting,
+        history: prev?.history || [],
+      };
+      if (prev?.data) {
+        payload.history = [
+          ...(prev.history || []),
+          { version: prev.version, savedAt: prev.savedAt, data: prev.data },
+        ];
+      }
+      writeVals.x_v6_scouting = JSON.stringify(payload);
     }
 
     if (Object.keys(writeVals).length === 0) {

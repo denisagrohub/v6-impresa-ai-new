@@ -82,6 +82,18 @@ class Erpv6TrackingRelation(models.Model):
         help='Rilevante solo per archi tra parti che negoziano per conto '
              'di altre (es. consulente->trader).')
 
+    # 18/09/2026 (Denis: "Scouting Relazione = profilo target del progetto,
+    # non di singola azienda"): JSON versionato col profilo di eleggibilità
+    # (settore target, fatturato minimo, area geo, criteri fit). Stessa
+    # struttura del x_v6_scouting su res.partner (schemaVersion/version/...)
+    # ma applicato alla relazione progetto/sotto-progetto.
+    x_v6_scouting = fields.Text(
+        string='Scouting Relazione (JSON)',
+        help="Profilo target del progetto: settore, dimensioni, area "
+             "geografica, criteri di eleggibilita'. Alimenta lo scoring "
+             "dello scouting aziende e resta storicizzato per versione.",
+    )
+
     email_alias = fields.Char(
         string='Alias Email (local-part)', tracking=True,
         help="Dal 05/09/2026 va normalmente sul nodo PADRE (progetto): "

@@ -34,6 +34,7 @@ import { CharterEditor, type CharterData } from "@/components/CharterEditor";
 import LiveCallDrawer from "@/components/admin/LiveCallDrawer";
 import Dropdown from "@/components/ui/Dropdown";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
+import RelationScoutingPanel, { type RelationScoutingData } from "@/components/admin/RelationScoutingPanel";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -90,7 +91,8 @@ export default function PartnerProjectDetailPage() {
     const [project, setProject] = useState<{
         id: number; name: string; emailAlias: string | null; parent_id?: number | null;
         child_kind?: string;
-    charter?: CharterData | null } | null>(null);
+    charter?: CharterData | null;
+    relationScouting?: RelationScoutingData | null } | null>(null);
     // 18/09/2026 (Denis): se il nodo è un sotto-progetto con pipeline
     // configurata, mostriamo il kanban al posto della pagina standard.
     const [isKanbanBoard, setIsKanbanBoard] = useState(false);
@@ -1553,6 +1555,16 @@ export default function PartnerProjectDetailPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {isRelationScoutingOpen && project && (
+                <RelationScoutingPanel
+                    relationId={project.id}
+                    relationName={project.name}
+                    scouting={project.relationScouting ?? null}
+                    onClose={() => setIsRelationScoutingOpen(false)}
+                    onSaved={(s) => setProject((p) => p ? { ...p, relationScouting: s } : p)}
+                />
             )}
 
             {liveCallOpen && liveCallPartnerId && (
