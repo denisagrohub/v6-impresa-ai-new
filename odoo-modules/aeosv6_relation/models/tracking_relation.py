@@ -45,6 +45,55 @@ class Erpv6TrackingRelation(models.Model):
              "'sotto_progetto'/'pipeline' per rami operativi con vita "
              "propria (es. acquisizione aziende con la sua pipeline).")
 
+    # 18/09/2026 (Denis): modello "progetto root + figli target".
+    # Root = gestione progetto (scouting + committente + parti non-target).
+    # Figlio = azienda target lavorata, con pipeline condivisa dal padre.
+    funzione_progetto = fields.Selection([
+        ('target', 'Target progetto'),
+        ('committente', 'Committente'),
+        ('partner_finanziario', 'Partner finanziario'),
+        ('intermediario', 'Intermediario'),
+        ('consulente_operativo', 'Consulente operativo'),
+        ('referente_tecnico', 'Referente tecnico'),
+        ('fornitore', 'Fornitore'),
+        ('osservatore', 'Osservatore'),
+        ('altro', 'Altro'),
+    ], string='Funzione nel progetto', tracking=True)
+
+    contatto_principale_id = fields.Many2one(
+        'res.partner', string='Contatto principale',
+        domain=[('is_company', '=', False)],
+        help="La persona fisica con cui si parla in quella azienda.")
+
+    ruolo_contatto = fields.Selection([
+        ('titolare', 'Titolare'),
+        ('direttore', 'Direttore'),
+        ('tecnico', 'Tecnico'),
+        ('commerciale', 'Commerciale'),
+        ('amministrativo', 'Amministrativo'),
+        ('consulente', 'Consulente esterno'),
+        ('altro', 'Altro'),
+    ], string='Ruolo del contatto')
+
+    x_v6_dossier = fields.Text(
+        string='Dossier progetto',
+        help="Dati specifici della relazione con questa azienda SU QUESTO "
+             "progetto: rilevanza, capacita', contatto umano, fonti, esito.")
+
+    call_id_origine = fields.Many2one(
+        'erpv6.call.log', string='Call di origine',
+        help="Se questo nodo e' nato da una call.")
+
+    stage_id = fields.Many2one(
+        'erpv6.acquisition.stage', string='Fase pipeline')
+
+    state = fields.Selection([
+        ('attivo', 'Attivo'),
+        ('promosso', 'Promosso'),
+        ('bocciato', 'Bocciato'),
+        ('archiviato', 'Archiviato'),
+    ], string='Stato', default='attivo', required=True, tracking=True)
+
     # Specifica futura (Denis, 17/09/2026): access control per-utente.
     # Oggi Denis vede tutto. Record rules Odoo filtreranno su questi
     # campi quando ci saranno utenti reali oltre a Denis.
