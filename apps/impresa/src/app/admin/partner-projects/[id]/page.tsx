@@ -214,12 +214,9 @@ export default function PartnerProjectDetailPage() {
             setPartners(data.partners || []);
             setSubprojects(data.subprojects || []);
 
-            // Se è un sotto-progetto, controlla se ha una pipeline configurata
-            if (data.project?.child_kind === 'sotto_progetto' || data.project?.child_kind === 'pipeline') {
-                fetch(`/api/admin/acquisition/${data.project.id}/board`)
-                    .then(r => r.json())
-                    .then(b => { if (b.success && (b.stages || []).length > 0) setIsKanbanBoard(true); })
-                    .catch(() => {});
+            // 18/09/2026: detection kanban SINCRONA — arriva nel payload principale
+            if (data.project?.hasPipelineBoard === true) {
+                setIsKanbanBoard(true);
             }
             setEmails(data.emails || []);
             loadDocuments(); // fire-and-forget
@@ -612,7 +609,7 @@ export default function PartnerProjectDetailPage() {
                             label="🔍 Scouting"
                             items={[
                                 { label: "🏢 Scouting Azienda", hint: "Per una parte del progetto", onClick: () => setShowAddPart(true) },
-                                { label: "🎯 Scouting Relazione", hint: "Profilo target del progetto", onClick: () => setIsRelationScoutingOpen(true) },
+                                { label: "🎯 Scouting Relazione", hint: "Profilo target del progetto", onClick: () => { console.log("[Scouting Relazione] click"); setIsRelationScoutingOpen(true); } },
                             ]}
                         />
 

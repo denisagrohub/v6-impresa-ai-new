@@ -54,6 +54,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
     let relationScouting = null;
     try { relationScouting = project.x_v6_scouting ? JSON.parse(project.x_v6_scouting) : null; } catch { relationScouting = null; }
 
+    // 18/09/2026 (Denis): verifica sincrona della pipeline per evitare il flash
+    // "pagina standard -> kanban" sui sotto-progetti.
+    let hasPipelineBoard = false;
+    if (project.child_kind === 'sotto_progetto' || project.child_kind === 'pipeline') {
+      const stagesCount = await odoo.execute('erpv6.acquisition.stage', 'search_count', [
+        [['relation_id', '=', id]],
+      ]);
+      hasPipelineBoard = (stagesCount || 0) > 0;
+    }
+
     return NextResponse.json({
       success: true,
       project: {
@@ -64,6 +74,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         charter,
         relationScouting,
         child_kind: project.child_kind || 'parte',
+        hasPipelineBoard,
         parent_id: Array.isArray(project.parent_id) ? project.parent_id[0] : null,
       },
       partners: parts.map((c: any) => ({
