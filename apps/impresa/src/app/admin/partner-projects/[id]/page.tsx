@@ -609,7 +609,7 @@ export default function PartnerProjectDetailPage() {
                             label="🔍 Scouting"
                             items={[
                                 { label: "🏢 Scouting Azienda", hint: "Per una parte del progetto", onClick: () => setShowAddPart(true) },
-                                { label: "🎯 Scouting Relazione", hint: "Profilo target del progetto", onClick: () => { console.log("[Scouting Relazione] click"); setIsRelationScoutingOpen(true); } },
+                                { label: "🎯 Scouting Relazione", hint: "Profilo target del progetto", onClick: () => setIsRelationScoutingOpen(true) },
                             ]}
                         />
 
