@@ -118,7 +118,10 @@ export default function LiveCallDrawer({
       const res = await fetch(`/api/admin/calls/${callId}/note`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: body.trim() }),
+        body: JSON.stringify({
+          body: body.trim(),
+          promotedTo: isOutcome ? "outcome" : undefined,
+        }),
       });
       const data = await res.json();
       if (data.success) {

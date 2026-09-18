@@ -2,19 +2,19 @@ import { NextResponse } from 'next/server';
 import { odoo } from '@/lib/odoo/api-adapter';
 
 // POST /api/admin/calls/[id]/note — aggiunge una nota
-// body: { body }
+// body: { body, promotedTo?: 'outcome' | 'scouting_*' | ... }
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const callId = parseInt(params.id, 10);
   if (!callId) return NextResponse.json({ success: false, error: 'ID non valido' }, { status: 400 });
   try {
-    const { body } = await request.json();
+    const { body, promotedTo } = await request.json();
     if (!body?.trim()) return NextResponse.json({ success: false, error: 'body obbligatorio' }, { status: 400 });
 
+    const vals: any = { call_id: callId, body: body.trim() };
+    if (promotedTo) vals.promoted_to = promotedTo;
+
     await odoo.connect();
-    const noteId = await odoo.execute('erpv6.call.note', 'create', [{
-      call_id: callId,
-      body: body.trim(),
-    }]);
+    const noteId = await odoo.execute('erpv6.call.note', 'create', [vals]);
     return NextResponse.json({ success: true, noteId });
   } catch (e: any) {
     console.error('calls/note error:', e.message);
