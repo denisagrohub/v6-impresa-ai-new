@@ -32,6 +32,7 @@ import { RichPartModal } from "@/components/admin/RichPartModal";
 import { ScoutingModal, type ScoutingData } from "@/components/admin/ScoutingModal";
 import { CharterEditor, type CharterData } from "@/components/CharterEditor";
 import LiveCallDrawer from "@/components/admin/LiveCallDrawer";
+import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -87,7 +88,11 @@ export default function PartnerProjectDetailPage() {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [project, setProject] = useState<{
         id: number; name: string; emailAlias: string | null; parent_id?: number | null;
+        child_kind?: string;
     charter?: CharterData | null } | null>(null);
+    // 18/09/2026 (Denis): se il nodo è un sotto-progetto con pipeline
+    // configurata, mostriamo il kanban al posto della pagina standard.
+    const [isKanbanBoard, setIsKanbanBoard] = useState(false);
     const [partners, setPartners] = useState<Partner[]>([]);
     // 17/09/2026 (Denis): figli non-parte = rami operativi con pipeline propria
     const [subprojects, setSubprojects] = useState<{ id: number; name: string; emailAlias: string | null; child_kind: string }[]>([]);
@@ -203,6 +208,14 @@ export default function PartnerProjectDetailPage() {
             fetch(`/api/admin/partner-projects/${id}/emails-seen`, { method: 'POST' }).catch(() => {});
             setPartners(data.partners || []);
             setSubprojects(data.subprojects || []);
+
+            // Se è un sotto-progetto, controlla se ha una pipeline configurata
+            if (data.project?.child_kind === 'sotto_progetto' || data.project?.child_kind === 'pipeline') {
+                fetch(`/api/admin/acquisition/${data.project.id}/board`)
+                    .then(r => r.json())
+                    .then(b => { if (b.success && (b.stages || []).length > 0) setIsKanbanBoard(true); })
+                    .catch(() => {});
+            }
             setEmails(data.emails || []);
             loadDocuments(); // fire-and-forget
         } catch (error: any) {
@@ -525,6 +538,32 @@ export default function PartnerProjectDetailPage() {
     }
 
     // 3. Layout: header compatto + griglia [contenuto 1fr | sidebar 380px]
+    // Vista KANBAN: sotto-progetto con pipeline (es. Acquisizione Aziende)
+    if (isKanbanBoard && project) {
+        return (
+            <div className="min-h-screen bg-[#f8fafc]">
+                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Link href={project.parent_id ? `/admin/partner-projects/${project.parent_id}` : "/admin/partner-projects"}
+                            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors">
+                            <ArrowLeft size={18} className="text-gray-600" />
+                        </Link>
+                        <div className="flex-1">
+                            <h1 className="text-xl font-bold text-[#1a2744] flex items-center gap-2">
+                                {project.name}
+                                <span className="text-[10px] font-medium text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full uppercase">
+                                    Pipeline
+                                </span>
+                            </h1>
+                            <p className="text-xs text-gray-500">Trascina le aziende tra le fasi · 📞 per live call · sposta ad altro progetto</p>
+                        </div>
+                    </div>
+                    <AcquisitionKanban relationId={project.id} relationName={project.name} />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-screen w-full bg-[#f8fafc] text-[#2b3440] font-sans text-[13px] overflow-hidden">
 
