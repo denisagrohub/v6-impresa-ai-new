@@ -103,3 +103,7 @@ erpv6_devtools/alessandro/dispatched_proposals.json
 # Backup locali (17-18/09/2026)
 .backup-*
 odoo-addons-backup-*
+
+# File temporanei di edit
+*.primarimozione
+*.tmp.tsx
