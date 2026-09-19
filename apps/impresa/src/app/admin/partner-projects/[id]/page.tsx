@@ -91,15 +91,17 @@ export default function PartnerProjectDetailPage() {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [project, setProject] = useState<{
         id: number; name: string; emailAlias: string | null; parent_id?: number | null;
-        child_kind?: string;
+        funzione_progetto?: string | null;
+        contatto_principale_id?: number | null;
+        state?: string;
     charter?: CharterData | null;
     relationScouting?: RelationScoutingData | null } | null>(null);
-    // 18/09/2026 (Denis): se il nodo è un sotto-progetto con pipeline
-    // configurata, mostriamo il kanban al posto della pagina standard.
+    // 18/09/2026 (Denis): se il nodo ha figli target -> dashboard kanban.
     const [isKanbanBoard, setIsKanbanBoard] = useState(false);
     const [partners, setPartners] = useState<Partner[]>([]);
     // 17/09/2026 (Denis): figli non-parte = rami operativi con pipeline propria
-    const [subprojects, setSubprojects] = useState<{ id: number; name: string; emailAlias: string | null; child_kind: string }[]>([]);
+    // 19/09/2026: target = figli con funzione_progetto='target' (kanban)
+    const [targets, setTargets] = useState<{ id: number; name: string; partnerName: string | null; contattoName: string | null; stageId: number | null; state: string }[]>([]);
     const [emails, setEmails] = useState<EmailLog[]>([]);
     const [showAcqModal, setShowAcqModal] = useState(false);
     const [acqName, setAcqName] = useState('Acquisizione Aziende');
@@ -215,7 +217,7 @@ export default function PartnerProjectDetailPage() {
             // 14/09/2026: segna le email come viste (badge/highlight si spengono al prossimo giro)
             fetch(`/api/admin/partner-projects/${id}/emails-seen`, { method: 'POST' }).catch(() => {});
             setPartners(data.partners || []);
-            setSubprojects(data.subprojects || []);
+            setTargets(data.targets || []);
 
             // 18/09/2026: detection kanban SINCRONA — arriva nel payload principale
             if (data.project?.hasPipelineBoard === true) {
@@ -881,47 +883,6 @@ export default function PartnerProjectDetailPage() {
                         </>
                         )}
                     </section>
-
-                    {/* SOTTO-PROGETTI: rami operativi figli con pipeline propria
-                        (17/09/2026 Denis). Visibili solo sul progetto radice. */}
-                    {!project?.parent_id && (
-                    <section className="border-t border-gray-200/60 pt-4">
-                        <div onClick={() => toggleSection('sottoprogetti')} className="flex items-center justify-between mb-2.5 cursor-pointer select-none">
-                            <h2 className="text-[11px] font-bold tracking-wider text-indigo-600 uppercase flex items-center gap-1.5">
-                                <Layers size={13} /> Sotto-progetti
-                            </h2>
-                            <button onClick={(ev) => { ev.stopPropagation(); setShowAcqModal(true); }} className="text-indigo-600 hover:text-indigo-800 cursor-pointer" title="Crea sotto-progetto">
-                                <Plus size={14} />
-                            </button>
-                            <ChevD size={14} className={`text-gray-400 transition-transform ${openSections.sottoprogetti ? '' : '-rotate-90'}`} />
-                        </div>
-                        {openSections.sottoprogetti && (
-                        <>
-                        {subprojects.length === 0 ? (
-                            <p className="text-xs text-gray-400 italic">Nessun sotto-progetto. Premi + per crearne uno (es. Acquisizione Aziende).</p>
-                        ) : (
-                            <div className="space-y-1.5">
-                                {subprojects.map((sp) => (
-                                    <Link key={sp.id} href={`/admin/partner-projects/${sp.id}`}
-                                        className="flex items-center justify-between bg-indigo-50/50 hover:bg-indigo-100/60 rounded border border-indigo-100 p-2.5 text-xs transition-colors">
-                                        <div>
-                                            <div className="font-semibold text-[#0f172a]">{sp.name}</div>
-                                            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-500">
-                                                <span className="px-1.5 py-0.5 rounded bg-indigo-200/50 text-indigo-800 font-medium">
-                                                    {sp.child_kind === 'pipeline' ? 'pipeline' : 'sotto-progetto'}
-                                                </span>
-                                                {sp.emailAlias && <span className="font-mono">{sp.emailAlias}</span>}
-                                            </div>
-                                        </div>
-                                        <ChevronRight size={16} className="text-indigo-400" />
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                        </>
-                        )}
-                    </section>
-                    )}
 
                     {/* PARTI: elenco + form inline con autocomplete res.partner */}
                     <section className="border-t border-gray-200/60 pt-4">

@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const projects = await odoo.execute('erpv6.tracking.relation', 'search_read', [
       [['id', '=', id]],
-      ['id', 'name', 'email_alias', 'partner_id', 'x_v6_charter', 'x_v6_emails_seen_at', 'child_kind', 'parent_id', 'x_v6_scouting'],
+      ['id', 'name', 'email_alias', 'partner_id', 'x_v6_charter', 'x_v6_emails_seen_at', 'parent_id', 'x_v6_scouting', 'funzione_progetto', 'contatto_principale_id', 'state'],
     ]);
     if (!projects || !projects.length) {
       return NextResponse.json({ success: false, error: 'Progetto non trovato' }, { status: 404 });
@@ -31,15 +31,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const children = await odoo.execute('erpv6.tracking.relation', 'search_read', [
       [['parent_id', '=', id]],
-      ['id', 'name', 'ruolo', 'partner_id', 'child_kind', 'email_alias'],
+      ['id', 'name', 'ruolo', 'partner_id', 'funzione_progetto', 'email_alias', 'contatto_principale_id', 'ruolo_contatto', 'state', 'stage_id'],
       0, 0, 'name asc',
     ]);
 
     const allChildren = children || [];
-    const parts = allChildren.filter((c: any) =>
-      c.child_kind !== 'sotto_progetto' && c.child_kind !== 'pipeline');
-    const subprojects = allChildren.filter((c: any) =>
-      c.child_kind === 'sotto_progetto' || c.child_kind === 'pipeline');
+    // Nuovo modello: parti = figli NON target (committente, consulente, ecc.)
+    // target = figli funzione_progetto='target' (vanno nel kanban, non in Persone/Parti)
+    const parts = allChildren.filter((c: any) => c.funzione_progetto !== 'target');
+    const targets = allChildren.filter((c: any) => c.funzione_progetto === 'target');
 
     const relationIds = [id, ...allChildren.map((c: any) => c.id)];
     const emails = await odoo.execute('erpv6.project.email.log', 'search_read', [
@@ -56,13 +56,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     // 18/09/2026 (Denis): verifica sincrona della pipeline per evitare il flash
     // "pagina standard -> kanban" sui sotto-progetti.
-    let hasPipelineBoard = false;
-    if (project.child_kind === 'sotto_progetto' || project.child_kind === 'pipeline') {
-      const stagesCount = await odoo.execute('erpv6.acquisition.stage', 'search_count', [
-        [['relation_id', '=', id]],
-      ]);
-      hasPipelineBoard = (stagesCount || 0) > 0;
-    }
+    // hasPipelineBoard = questo nodo ha figli con funzione_progetto='target'
+    // (in tal caso è un "progetto root con pipeline" → dashboard kanban)
+    const hasPipelineBoard = targets.length > 0;
 
     return NextResponse.json({
       success: true,
@@ -73,7 +69,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
         x_v6_emails_seen_at: project.x_v6_emails_seen_at || null,
         charter,
         relationScouting,
-        child_kind: project.child_kind || 'parte',
+        funzione_progetto: project.funzione_progetto || null,
+        contatto_principale_id: Array.isArray(project.contatto_principale_id) ? project.contatto_principale_id[0] : null,
+        state: project.state || 'attivo',
         hasPipelineBoard,
         parent_id: Array.isArray(project.parent_id) ? project.parent_id[0] : null,
       },
@@ -81,14 +79,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
         id: c.id,
         name: c.name,
         ruolo: c.ruolo || null,
+        funzione_progetto: c.funzione_progetto || null,
         partnerId: Array.isArray(c.partner_id) ? c.partner_id[0] : null,
         partnerName: Array.isArray(c.partner_id) ? c.partner_id[1] : null,
+        contattoId: Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[0] : null,
+        contattoName: Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[1] : null,
+        ruoloContatto: c.ruolo_contatto || null,
+        state: c.state || 'attivo',
       })),
-      subprojects: subprojects.map((c: any) => ({
+      targets: targets.map((c: any) => ({
         id: c.id,
         name: c.name,
-        emailAlias: c.email_alias ? `${c.email_alias}@v6sviluppoimpresa.it` : null,
-        child_kind: c.child_kind,
+        partnerName: Array.isArray(c.partner_id) ? c.partner_id[1] : null,
+        contattoName: Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[1] : null,
+        stageId: Array.isArray(c.stage_id) ? c.stage_id[0] : null,
+        state: c.state || 'attivo',
       })),
       emails: (emails || []).map((e: any) => ({
         id: e.id,
