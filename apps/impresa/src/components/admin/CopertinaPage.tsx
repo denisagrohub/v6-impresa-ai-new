@@ -176,8 +176,8 @@ export default function CopertinaPage({
           </div>
         </div>
 
-        {/* 2 colonne: persone / target */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* 3 colonne: persone / referenti / target */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
           {/* COL 1: PERSONE */}
           <div className="bg-white rounded-2xl border border-gray-100 p-3">

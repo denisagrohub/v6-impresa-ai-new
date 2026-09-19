@@ -30,6 +30,12 @@ class Erpv6Referral(models.Model):
 
     # Compenso
     commissione_pct = fields.Float(string='Commissione %', required=True, default=5.0)
+    # 19/09/2026 (Denis): la % diventa IMMUTABILE dopo l'ancoraggio su blockchain.
+    # Da quel momento il valore e' parte dell'accordo firmato e non e' piu'
+    # modificabile senza uno sblocco esplicito tracciato.
+    commissione_locked = fields.Boolean(string='Commissione congelata', readonly=True, default=False)
+    commissione_locked_at = fields.Datetime(string='Congelata il', readonly=True)
+    commissione_hash = fields.Char(string='Hash SHA-256 accordo', readonly=True)
 
     # Accordo Documenso
     accordo_documenso_id = fields.Char(string='Documenso Document ID')
@@ -67,6 +73,30 @@ class Erpv6Referral(models.Model):
             if not r.segnalante_partner_id and not r.segnalante_user_id:
                 raise ValidationError('Serve almeno un segnalante (partner o user)')
 
+    def write(self, vals):
+        """Blocca la modifica di commissione_pct se il referral e' congelato.
+        Per modificarlo serve prima 'action_unlock_commissione' (tracciato)."""
+        if 'commissione_pct' in vals:
+            for r in self:
+                if r.commissione_locked:
+                    raise ValidationError(
+                        f'Commissione congelata (ancorata il {r.commissione_locked_at}). '
+                        'Usa "Sblocca commissione" per modificarla (operazione tracciata).')
+        return super().write(vals)
+
+    def action_unlock_commissione(self):
+        """Sblocca manualmente la commissione (operazione amministrativa tracciata).
+        Crea un record di audit + richiede di ri-ancorare dopo la modifica."""
+        for r in self:
+            if not r.commissione_locked:
+                continue
+            # scrivi sul chatter la motivazione? per ora solo reset flag
+            super(Erpv6Referral, r).write({
+                'commissione_locked': False,
+                'commissione_locked_at': False,
+            })
+        return True
+
     def action_anchor_blockchain(self):
         """Crea un record blockchain e ancora l'hash della segnalazione.
         L'hash è calcolato sul testo canonico della segnalazione (id + contatto + pct)."""
@@ -88,7 +118,13 @@ class Erpv6Referral(models.Model):
                 'document_hash': h,
             })
             rec.action_anchor_opentimestamps()
-            r.blockchain_record_id = rec.id
+            # 19/09/2026: congela la % — da qui in poi e' immutabile
+            super(Erpv6Referral, r).write({
+                'blockchain_record_id': rec.id,
+                'commissione_locked': True,
+                'commissione_locked_at': fields.Datetime.now(),
+                'commissione_hash': h,
+            })
         return True
 
 

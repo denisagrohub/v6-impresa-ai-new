@@ -15,7 +15,8 @@ export async function GET(req: Request) {
       domain,
       ['id', 'name', 'segnalante_partner_id', 'segnalante_user_id',
        'relation_id', 'target_id', 'contatto_segnalato_nome', 'contatto_segnalato_recapito',
-       'commissione_pct', 'state', 'creato_il', 'blockchain_record_id'],
+       'commissione_pct', 'commissione_locked', 'commissione_locked_at', 'commissione_hash',
+       'state', 'creato_il', 'blockchain_record_id'],
       0, 0, 'create_date desc',
     ]);
 
@@ -34,6 +35,9 @@ export async function GET(req: Request) {
         contattoNome: r.contatto_segnalato_nome,
         contattoRecapito: r.contatto_segnalato_recapito,
         commissionePct: r.commissione_pct,
+        commissioneLocked: !!r.commissione_locked,
+        commissioneLockedAt: r.commissione_locked_at || null,
+        commissioneHash: r.commissione_hash || null,
         state: r.state,
         creatoIl: r.creato_il,
         blockchainRecordId: Array.isArray(r.blockchain_record_id) ? r.blockchain_record_id[0] : null,

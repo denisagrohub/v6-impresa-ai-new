@@ -14,6 +14,9 @@ export interface Referral {
   contattoNome: string | null;
   contattoRecapito: string | null;
   commissionePct: number;
+  commissioneLocked: boolean;
+  commissioneLockedAt: string | null;
+  commissioneHash: string | null;
   state: string;
   creatoIl: string;
   blockchainRecordId: number | null;
@@ -117,7 +120,9 @@ export default function ReferralCard({
                     <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1">
                       <User size={9} />
                       {ref.segnalanteName || 'Segnalante sconosciuto'}
-                      <span className="ml-1 font-semibold text-violet-700">{ref.commissionePct}%</span>
+                      <span className={`ml-1 font-semibold ${ref.commissioneLocked ? 'text-emerald-700' : 'text-violet-700'}`}>
+                        {ref.commissioneLocked && '🔒 '}{ref.commissionePct}%
+                      </span>
                     </div>
                   </div>
                   <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${st.cls}`}>
