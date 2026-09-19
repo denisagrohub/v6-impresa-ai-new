@@ -34,6 +34,7 @@ import { CharterEditor, type CharterData } from "@/components/CharterEditor";
 import LiveCallDrawer from "@/components/admin/LiveCallDrawer";
 import Dropdown from "@/components/ui/Dropdown";
 import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
+import CopertinaPage, { type OperativaContext } from "@/components/admin/CopertinaPage";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 import RelationScoutingPanel, { type RelationScoutingData } from "@/components/admin/RelationScoutingPanel";
 import CallEndPanel from "@/components/admin/CallEndPanel";
@@ -181,6 +182,9 @@ export default function PartnerProjectDetailPage() {
     const [isBriefModalOpen, setIsBriefModalOpen] = useState(false);
     // 18/09/2026 (Denis): Scouting Relazione (profilo target del progetto)
     const [isRelationScoutingOpen, setIsRelationScoutingOpen] = useState(false);
+    // 19/09/2026 (Denis): Copertina (dashboard cliccabile) vs Operativa (workbench)
+    const [viewTab, setViewTab] = useState<'copertina' | 'operativa'>('operativa');
+    const [operativeContext, setOperativeContext] = useState<OperativaContext | null>(null);
     // 18/09/2026 (Denis): pannello post-call (debrief + lead + email)
     const [lastCallEnd, setLastCallEnd] = useState<{ callId: number; durationSeconds: number } | null>(null);
     const [briefType, setBriefType] = useState<'brief' | 'debrief'>('brief');
@@ -547,33 +551,23 @@ export default function PartnerProjectDetailPage() {
 
     // 3. Layout: header compatto + griglia [contenuto 1fr | sidebar 380px]
     // Vista KANBAN: sotto-progetto con pipeline (es. Acquisizione Aziende)
-    if (isKanbanBoard && project) {
+    // 19/09/2026 (Denis): se il progetto ha pipeline target -> vista COPERTINA
+    // di default. La Copertina è cliccabile e porta all'Operativa contestuale.
+    if (isKanbanBoard && project && viewTab === 'copertina') {
         return (
-            <div className="min-h-screen bg-[#f8fafc]">
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center gap-3 mb-4">
-                        <Link href={project.parent_id ? `/admin/partner-projects/${project.parent_id}` : "/admin/partner-projects"}
-                            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors">
-                            <ArrowLeft size={18} className="text-gray-600" />
-                        </Link>
-                        <div className="flex-1">
-                            <h1 className="text-xl font-bold text-[#1a2744] flex items-center gap-2">
-                                {project.name}
-                                <span className="text-[10px] font-medium text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full uppercase">
-                                    Pipeline
-                                </span>
-                            </h1>
-                            <p className="text-xs text-gray-500">Trascina le aziende tra le fasi · 📞 per live call · sposta ad altro progetto</p>
-                        </div>
-                    </div>
-
-                    {/* CRUSCOTTO KPI */}
-                    <KpiDashboard projectId={project.id} />
-
-                    {/* KANBAN */}
-                    <AcquisitionKanban relationId={project.id} relationName={project.name} />
-                </div>
-            </div>
+            <CopertinaPage
+                projectId={project.id}
+                projectName={project.name}
+                projectParentId={project.parent_id ?? null}
+                onBack={() => {
+                    if (project.parent_id) window.location.href = `/admin/partner-projects/${project.parent_id}`;
+                    else window.location.href = "/admin/partner-projects";
+                }}
+                onOpenOperativa={(ctx) => {
+                    setOperativeContext(ctx);
+                    setViewTab('operativa');
+                }}
+            />
         );
     }
 
@@ -664,6 +658,19 @@ export default function PartnerProjectDetailPage() {
                         <span className="flex items-center gap-1">✉ {emails.length} email</span>
                         <span className="flex items-center gap-1">📎 {documents.length} atti</span>
                     </div>
+
+                    {/* 19/09/2026: tab Copertina / Operativa (solo per root con pipeline) */}
+                    {isKanbanBoard && (
+                        <div className="flex bg-indigo-50 p-0.5 rounded text-[11px] font-medium border border-indigo-100">
+                            <button
+                                onClick={() => setViewTab('copertina')}
+                                className="flex items-center gap-1.5 px-3 py-1 rounded cursor-pointer transition-all text-indigo-700 hover:bg-white"
+                                title="Torna alla copertina (KPI + kanban cliccabili)"
+                            >
+                                ← Copertina
+                            </button>
+                        </div>
+                    )}
 
                     {/* Toggle vista: Workbench (operativo) / Lavagna (strategica) */}
                     <div className="flex bg-[#f1f5f9] p-0.5 rounded text-[11px] font-medium">
