@@ -54,13 +54,22 @@ export default function CopertinaPage({
       try {
         const r = await fetch(`/api/admin/partner-projects/${projectId}`);
         const d = await r.json();
-        console.log('[Copertina] API response:', d);
         if (!d.success) { setError(d.error); return; }
         setPartners(d.partners || []);
         setTargets(d.targets || []);
-        console.log('[Copertina] partners:', d.partners?.length, 'targets:', d.targets?.length);
       } catch (e: any) { setError(e.message); }
       finally { setLoading(false); }
+    })();
+  }, [projectId]);
+
+  // 19/09/2026: carica referral del progetto (indipendente dal load principale)
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`/api/admin/referrals?projectId=${projectId}`);
+        const d = await r.json();
+        if (d.success) setReferrals(d.referrals || []);
+      } catch {}
     })();
   }, [projectId]);
 
