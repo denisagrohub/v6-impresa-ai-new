@@ -661,6 +661,7 @@ export default function PartnerProjectDetailPage() {
                     onOpenDetail={(person) => setDetailPerson(person)}
                     onOpenCharter={() => setShowCharterInCopertina(true)}
                     onOpenSettings={() => setIsSettingsOpen(true)}
+                    baseCompenso={(project.charter as any)?.baseCompenso || null}
                 />
                 {showCharterInCopertina && (
                     <CharterEditor

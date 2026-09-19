@@ -212,6 +212,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       if ((charter as any).kpiTargets) {
         charterData.kpiTargets = (charter as any).kpiTargets;
       }
+      if ((charter as any).baseCompenso) {
+        charterData.baseCompenso = (charter as any).baseCompenso;
+      }
       const payload = {
         version: (charter as any).version || 1,
         updatedAt: new Date().toISOString(),

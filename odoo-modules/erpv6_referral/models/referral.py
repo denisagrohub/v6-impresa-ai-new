@@ -136,4 +136,43 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
         help='Se questo target è nato da una segnalazione commerciale.')
     x_v6_revenue_split = fields.Text(
         string='Ripartizione ricavi (JSON)',
-        help="JSON con ripartizione interna + referral + riserva V6 per il progetto.")
+        help="JSON con base compenso + beneficiari (consulenti/referral) + riserva V6.")
+    revenue_split_approved = fields.Boolean(
+        string='Split approvato', default=False, readonly=True,
+        help='Una volta approvato, lo split è immutabile e ancorato su blockchain.')
+    revenue_split_approved_at = fields.Datetime(readonly=True)
+    revenue_split_approved_by = fields.Many2one('res.users', readonly=True)
+    revenue_split_hash = fields.Char(readonly=True)
+
+    def action_approve_revenue_split(self):
+        """Approva lo split: congela + calcola hash SHA-256 + ancora su OTS."""
+        import hashlib
+        for r in self:
+            if not r.x_v6_revenue_split:
+                raise ValidationError('Nessuno split da approvare')
+            if r.revenue_split_approved:
+                raise ValidationError('Split già approvato')
+
+            # Hash canonico
+            h = hashlib.sha256(r.x_v6_revenue_split.encode('utf-8')).hexdigest()
+
+            # Crea record blockchain e ancora
+            cfg = self.env['erpv6.blockchain.config'].search(
+                [('provider', '=', 'opentimestamps'), ('active', '=', True)], limit=1)
+            if cfg:
+                rec = self.env['erpv6.blockchain.record'].create({
+                    'config_id': cfg.id,
+                    'document_model': 'erpv6.tracking.relation',
+                    'document_id': r.id,
+                    'document_name': f'Split {r.name}',
+                    'document_hash': h,
+                })
+                rec.action_anchor_opentimestamps()
+
+            r.write({
+                'revenue_split_approved': True,
+                'revenue_split_approved_at': fields.Datetime.now(),
+                'revenue_split_approved_by': self.env.uid,
+                'revenue_split_hash': h,
+            })
+        return True

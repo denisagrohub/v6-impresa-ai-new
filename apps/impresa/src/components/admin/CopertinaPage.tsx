@@ -4,6 +4,7 @@ import { Loader2, ArrowRight, Target, Users, Building2, User, Phone, BarChart3, 
 import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 import ReferralCard, { type Referral } from "@/components/admin/referral/ReferralCard";
+import RevenueSplitCard from "@/components/admin/revenue/RevenueSplitCard";
 
 interface Partner {
   id: number; name: string; partnerName: string | null; partnerId: number | null;
@@ -34,9 +35,11 @@ export type OperativaContext =
 
 export default function CopertinaPage({
   projectId, projectName, projectParentId,
+  baseCompenso,
   onOpenOperativa, onOpenDetail, onOpenCharter, onOpenSettings, onBack,
 }: {
   projectId: number; projectName: string; projectParentId?: number | null;
+  baseCompenso?: { tipo: string; valore: number; unita: string } | null;
   onOpenOperativa: (ctx: OperativaContext) => void;
   onOpenDetail: (person: Partner) => void;
   onOpenCharter: () => void;
@@ -305,8 +308,15 @@ export default function CopertinaPage({
 
         </div>
 
-        {/* MOTORE COMMERCIALE: referral (full width sotto le 3 colonne) */}
-        <div className="mt-3">
+        {/* MOTORE COMMERCIALE: split + referral (2 colonne sotto le 3 di persone) */}
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <RevenueSplitCard
+            projectId={projectId}
+            projectName={projectName}
+            baseCompenso={baseCompenso || null}
+            partners={partners as any}
+            onReload={() => {}}
+          />
           <ReferralCard
             relationId={projectId}
             relationName={projectName}

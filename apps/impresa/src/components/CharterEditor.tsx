@@ -1,6 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 
+export interface BaseCompenso {
+  tipo?: 'fisso_unita' | 'percentuale';
+  valore?: number;
+  unita?: string;
+}
+
 export interface CharterData {
   version?: number;
   origin?: string;
@@ -9,6 +15,7 @@ export interface CharterData {
   commercialTerms?: string;
   currentPhase?: string;
   confidentiality?: string;
+  baseCompenso?: BaseCompenso;
   history?: { version: number; savedAt: string; data: Record<string, string> }[];
 }
 
@@ -34,6 +41,8 @@ export function CharterEditor({ projectId, charter, onChanged, forceOpen, onClos
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  // 19/09/2026: base compenso V6 dal committente (contratto)
+  const [base, setBase] = useState<BaseCompenso>({ tipo: 'fisso_unita', valore: 2, unita: 'TEE' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +53,11 @@ export function CharterEditor({ projectId, charter, onChanged, forceOpen, onClos
     const initial: Record<string, string> = {};
     for (const f of FIELDS) initial[f.key] = (charter?.[f.key] as string) ?? '';
     setForm(initial);
+    setBase({
+      tipo: charter?.baseCompenso?.tipo || 'fisso_unita',
+      valore: charter?.baseCompenso?.valore ?? 2,
+      unita: charter?.baseCompenso?.unita || 'TEE',
+    });
     setError(null);
     setOpen(true);
   };
@@ -60,11 +74,11 @@ export function CharterEditor({ projectId, charter, onChanged, forceOpen, onClos
       const res = await fetch(`/api/admin/partner-projects/${projectId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ charter: { data: form } }),
+        body: JSON.stringify({ charter: { data: form, baseCompenso: base } }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
-      onChanged?.({ ...form, version: json.version, history: charter?.history });
+      onChanged?.({ ...form, baseCompenso: base, version: json.version, history: charter?.history });
       setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Errore salvataggio');
@@ -129,6 +143,46 @@ export function CharterEditor({ projectId, charter, onChanged, forceOpen, onClos
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* 19/09/2026: base compenso V6 dal committente */}
+            <div className="mt-5 border-t border-gray-100 pt-4">
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">
+                💵 Base compenso V6 dal committente
+              </h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Tipo</label>
+                  <select
+                    className="w-full rounded border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+                    value={base.tipo || 'fisso_unita'}
+                    onChange={e => setBase({ ...base, tipo: e.target.value as any })}>
+                    <option value="fisso_unita">Fisso per unità</option>
+                    <option value="percentuale">Percentuale sul valore</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">
+                    {base.tipo === 'percentuale' ? '% sul valore' : 'Valore unitario'}
+                  </label>
+                  <input type="number" min={0} step={0.01}
+                    className="w-full rounded border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+                    value={base.valore ?? 0}
+                    onChange={e => setBase({ ...base, valore: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-700">Unità</label>
+                  <input type="text"
+                    className="w-full rounded border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+                    value={base.unita || ''}
+                    disabled={base.tipo === 'percentuale'}
+                    placeholder="es. TEE, contratto"
+                    onChange={e => setBase({ ...base, unita: e.target.value })} />
+                </div>
+              </div>
+              <p className="mt-2 text-[10px] text-gray-400">
+                Es. 2,00 €/TEE oppure 5% sul valore trattativa. La distribuzione interna (consulenti, referral) si gestisce nello Split V6 in Copertina.
+              </p>
             </div>
 
             {error && <p className="mt-3 rounded bg-red-50 p-2 text-xs text-red-600">⚠️ {error}</p>}
