@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_referral_list" model="ir.ui.view">
+        <field name="name">erpv6.referral.list</field>
+        <field name="model">erpv6.referral</field>
+        <field name="arch" type="xml">
+            <list decoration-success="state=='chiuso_ok'" decoration-danger="state=='chiuso_no'">
+                <field name="name"/>
+                <field name="relation_id"/>
+                <field name="segnalante_partner_id"/>
+                <field name="commissione_pct"/>
+                <field name="state" widget="badge"/>
+                <field name="creato_il"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_referral_form" model="ir.ui.view">
+        <field name="name">erpv6.referral.form</field>
+        <field name="model">erpv6.referral</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_anchor_blockchain" string="Ancora su blockchain" type="object" class="oe_highlight" invisible="blockchain_record_id"/>
+                    <field name="state" widget="statusbar" statusbar_visible="bozza,in_firma,attivo,chiuso_ok"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Segnalante">
+                            <field name="segnalante_partner_id"/>
+                            <field name="segnalante_user_id"/>
+                        </group>
+                        <group string="Progetto">
+                            <field name="relation_id"/>
+                            <field name="target_id"/>
+                        </group>
+                    </group>
+                    <group string="Contatto segnalato">
+                        <field name="contatto_segnalato_nome"/>
+                        <field name="contatto_segnalato_recapito"/>
+                        <field name="note_segnalazione"/>
+                    </group>
+                    <group string="Compenso">
+                        <field name="commissione_pct"/>
+                    </group>
+                    <group string="Accordo">
+                        <field name="accordo_documenso_id"/>
+                        <field name="accordo_url"/>
+                        <field name="accordo_firmato_il"/>
+                        <field name="accordo_pdf" filename="accordo_pdf_name"/>
+                        <field name="accordo_pdf_name" invisible="1"/>
+                    </group>
+                    <group string="Blockchain">
+                        <field name="blockchain_record_id"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_referral" model="ir.actions.act_window">
+        <field name="name">Referral</field>
+        <field name="res_model">erpv6.referral</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_referral_root"
+              name="Referral"
+              action="action_referral"
+              sequence="50"
+              groups="base.group_user"/>
+
+</odoo>
