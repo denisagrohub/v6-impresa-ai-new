@@ -13,14 +13,20 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     // ── 1. Progetto + charter (per target configurabili)
     const [proj] = await odoo.execute('erpv6.tracking.relation', 'read', [
       [id],
-      ['id', 'name', 'x_v6_charter'],
+      ['id', 'name', 'x_v6_charter', 'x_v6_kpi_targets'],
     ]);
     if (!proj) return NextResponse.json({ success: false, error: 'Progetto non trovato' }, { status: 404 });
 
     let kpiTargets: any = {};
     try {
-      const ch = proj.x_v6_charter ? JSON.parse(proj.x_v6_charter) : null;
-      kpiTargets = ch?.data?.kpiTargets || ch?.kpiTargets || {};
+      // 19/09/2026: i KPI targets vivono in x_v6_kpi_targets (separati dal charter).
+      // Fallback: se non c'e', proviamo il vecchio path charter.data.kpiTargets.
+      if (proj.x_v6_kpi_targets) {
+        kpiTargets = JSON.parse(proj.x_v6_kpi_targets);
+      } else {
+        const ch = proj.x_v6_charter ? JSON.parse(proj.x_v6_charter) : null;
+        kpiTargets = ch?.data?.kpiTargets || {};
+      }
     } catch {}
 
     // ── 2. Tutti i figli del root

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export interface CharterData {
   version?: number;
@@ -21,10 +21,16 @@ const FIELDS: { key: keyof CharterData; label: string; placeholder: string; text
   { key: 'confidentiality', label: 'Riservatezza', placeholder: 'Es. MAI nominare il committente in documenti/email/contesti AI esterni', textarea: true },
 ];
 
-export function CharterEditor({ projectId, charter, onChanged }: {
+export function CharterEditor({ projectId, charter, onChanged, forceOpen, onClose, hideButton }: {
   projectId: number;
   charter: CharterData | null;
   onChanged?: (c: CharterData) => void;
+  /** 19/09/2026: se true, apre automaticamente il modal (uso da Copertina) */
+  forceOpen?: boolean;
+  /** Notifica al parent quando il modal si chiude */
+  onClose?: () => void;
+  /** Nasconde il pulsante nativo (per uso embedded) */
+  hideButton?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -41,6 +47,12 @@ export function CharterEditor({ projectId, charter, onChanged }: {
     setError(null);
     setOpen(true);
   };
+
+  // 19/09/2026: apertura controllata da parent (es. pulsante Charter in Copertina)
+  useEffect(() => {
+    if (forceOpen && !open) openModal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceOpen]);
 
   const save = async () => {
     setSaving(true); setError(null);
@@ -63,7 +75,7 @@ export function CharterEditor({ projectId, charter, onChanged }: {
 
   return (
     <>
-      <button
+      {!hideButton && <button
         onClick={openModal}
         className={`ml-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
           present
@@ -78,10 +90,10 @@ export function CharterEditor({ projectId, charter, onChanged }: {
             v{version}
           </span>
         )}
-      </button>
+      </button>}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => { setOpen(false); onClose?.(); }}>
           <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-6 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">

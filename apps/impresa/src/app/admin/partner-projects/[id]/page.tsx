@@ -89,6 +89,10 @@ export default function PartnerProjectDetailPage() {
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({ intelligence: true, sottoprogetti: true, parti: true, documenti: true, attivita: true });
     const toggleSection = (k: string) => setOpenSections(s => ({ ...s, [k]: !s[k] }));
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    // 19/09/2026: target di rendimento (vive su x_v6_kpi_targets in Odoo)
+    const [kpiTargetsEdit, setKpiTargetsEdit] = useState<{ targetAttivi: number; partnerAnno: number; callMese: number; emailMese: number }>({ targetAttivi: 20, partnerAnno: 5, callMese: 10, emailMese: 30 });
+    const [kpiTargetsBusy, setKpiTargetsBusy] = useState(false);
+    const [kpiTargetsMsg, setKpiTargetsMsg] = useState<string | null>(null);
     const [isRichPartOpen, setIsRichPartOpen] = useState(false);
     const [partnerScouting, setPartnerScouting] = useState<Record<number, ScoutingData | null>>({});
 
@@ -101,6 +105,20 @@ export default function PartnerProjectDetailPage() {
         state?: string;
     charter?: CharterData | null;
     relationScouting?: RelationScoutingData | null } | null>(null);
+
+    // 19/09/2026: carica KPI targets quando si apre Settings
+    useEffect(() => {
+        if (!isSettingsOpen || !project?.id) return;
+        fetch(`/api/admin/partner-projects/${project.id}/kpi-targets`)
+            .then(r => r.json())
+            .then(d => { if (d.success && d.targets) setKpiTargetsEdit({
+                targetAttivi: d.targets.targetAttivi ?? 20,
+                partnerAnno: d.targets.partnerAnno ?? 5,
+                callMese: d.targets.callMese ?? 10,
+                emailMese: d.targets.emailMese ?? 30,
+            }); })
+            .catch(() => {});
+    }, [isSettingsOpen, project?.id]);
     // 18/09/2026 (Denis): se il nodo ha figli target -> dashboard kanban.
     const [isKanbanBoard, setIsKanbanBoard] = useState(false);
     const [partners, setPartners] = useState<Partner[]>([]);
@@ -244,6 +262,8 @@ export default function PartnerProjectDetailPage() {
     const [lastCallEnd, setLastCallEnd] = useState<{ callId: number; durationSeconds: number } | null>(null);
     // 19/09/2026: scheda persona (modal dettagli) — dati SEMPRE su Odoo
     const [detailPerson, setDetailPerson] = useState<any | null>(null);
+    // 19/09/2026: modal Charter aperto dalla Copertina
+    const [showCharterInCopertina, setShowCharterInCopertina] = useState(false);
     const [briefType, setBriefType] = useState<'brief' | 'debrief'>('brief');
     const [briefData, setBriefData] = useState({ objective: '', targetAudience: '', keyDeliverables: '', risksOrNotes: '' });
 
@@ -634,7 +654,18 @@ export default function PartnerProjectDetailPage() {
                         setViewTab('operativa');
                     }}
                     onOpenDetail={(person) => setDetailPerson(person)}
+                    onOpenCharter={() => setShowCharterInCopertina(true)}
                 />
+                {showCharterInCopertina && (
+                    <CharterEditor
+                        projectId={project.id}
+                        charter={project.charter ?? null}
+                        onChanged={(c) => setProject((p) => p ? { ...p, charter: c } : p)}
+                        forceOpen={true}
+                        hideButton={true}
+                        onClose={() => setShowCharterInCopertina(false)}
+                    />
+                )}
                 {detailPerson && (
                     <PersonCard
                         person={detailPerson}
@@ -1636,6 +1667,67 @@ export default function PartnerProjectDetailPage() {
                                 <span className="font-semibold">{documents.length}</span>
                             </div>
                         </div>
+                        {/* 19/09/2026: editor KPI targets (non charter, non versionato) */}
+                        <div className="border-t border-gray-100 pt-3">
+                            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">
+                                🎯 Target di rendimento
+                            </h4>
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                    <label className="mb-0.5 block text-[10px] font-medium text-gray-600">Target attivi</label>
+                                    <input type="number" min={0}
+                                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                                        value={kpiTargetsEdit.targetAttivi}
+                                        onChange={e => setKpiTargetsEdit({ ...kpiTargetsEdit, targetAttivi: parseInt(e.target.value || '0', 10) })} />
+                                </div>
+                                <div>
+                                    <label className="mb-0.5 block text-[10px] font-medium text-gray-600">Partner / anno</label>
+                                    <input type="number" min={0}
+                                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                                        value={kpiTargetsEdit.partnerAnno}
+                                        onChange={e => setKpiTargetsEdit({ ...kpiTargetsEdit, partnerAnno: parseInt(e.target.value || '0', 10) })} />
+                                </div>
+                                <div>
+                                    <label className="mb-0.5 block text-[10px] font-medium text-gray-600">Call / mese</label>
+                                    <input type="number" min={0}
+                                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                                        value={kpiTargetsEdit.callMese}
+                                        onChange={e => setKpiTargetsEdit({ ...kpiTargetsEdit, callMese: parseInt(e.target.value || '0', 10) })} />
+                                </div>
+                                <div>
+                                    <label className="mb-0.5 block text-[10px] font-medium text-gray-600">Email / mese</label>
+                                    <input type="number" min={0}
+                                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                                        value={kpiTargetsEdit.emailMese}
+                                        onChange={e => setKpiTargetsEdit({ ...kpiTargetsEdit, emailMese: parseInt(e.target.value || '0', 10) })} />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={async () => {
+                                        if (!project?.id) return;
+                                        setKpiTargetsBusy(true); setKpiTargetsMsg(null);
+                                        try {
+                                            const r = await fetch(`/api/admin/partner-projects/${project.id}/kpi-targets`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify(kpiTargetsEdit),
+                                            });
+                                            const d = await r.json();
+                                            setKpiTargetsMsg(d.success ? '✓ Salvato' : (d.error || 'Errore'));
+                                        } catch (e: any) { setKpiTargetsMsg(e.message); }
+                                        finally { setKpiTargetsBusy(false); }
+                                    }}
+                                    disabled={kpiTargetsBusy}
+                                    className="flex-1 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40"
+                                >
+                                    {kpiTargetsBusy ? 'Salvo…' : 'Salva target KPI'}
+                                </button>
+                                {kpiTargetsMsg && <span className={`text-[10px] ${kpiTargetsMsg.startsWith('✓') ? 'text-emerald-600' : 'text-red-600'}`}>{kpiTargetsMsg}</span>}
+                            </div>
+                            <p className="mt-1 text-[10px] text-gray-400">Separati dal charter, non versionati. Alimentano il cruscotto Copertina.</p>
+                        </div>
+
                         <button onClick={() => setIsSettingsOpen(false)} className="w-full py-1.5 rounded bg-[#0f172a] text-white text-xs font-medium hover:bg-[#1e293b] cursor-pointer">
                             Chiudi
                         </button>

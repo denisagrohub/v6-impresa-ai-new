@@ -80,6 +80,14 @@ class Erpv6TrackingRelation(models.Model):
         help="Dati specifici della relazione con questa azienda SU QUESTO "
              "progetto: rilevanza, capacita', contatto umano, fonti, esito.")
 
+    # 19/09/2026 (Denis): target di rendimento del progetto (KPI dashboard).
+    # Separato dal charter: i KPI sono operativi, cambiano spesso, non vanno
+    # versionati come un documento strategico.
+    x_v6_kpi_targets = fields.Text(
+        string='KPI Targets (JSON)',
+        help="Target di rendimento del progetto: targetAttivi, partnerAnno, "
+             "callMese, emailMese. Alimentano il cruscotto KPI della Copertina.")
+
     call_id_origine = fields.Many2one(
         'erpv6.call.log', string='Call di origine',
         help="Se questo nodo e' nato da una call.")
