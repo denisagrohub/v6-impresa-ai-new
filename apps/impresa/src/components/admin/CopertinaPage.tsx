@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Loader2, ArrowRight, Target, Users, Building2, User, Phone, BarChart3, ArrowLeft, Info, FileText, Settings } from "lucide-react";
 import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
+import ReferralCard, { type Referral } from "@/components/admin/referral/ReferralCard";
 
 interface Partner {
   id: number; name: string; partnerName: string | null; partnerId: number | null;
@@ -45,6 +46,7 @@ export default function CopertinaPage({
   const [loading, setLoading] = useState(true);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [targets, setTargets] = useState<TargetNode[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -292,6 +294,24 @@ export default function CopertinaPage({
             )}
           </div>
 
+        </div>
+
+        {/* MOTORE COMMERCIALE: referral (full width sotto le 3 colonne) */}
+        <div className="mt-3">
+          <ReferralCard
+            relationId={projectId}
+            relationName={projectName}
+            referrals={referrals}
+            partners={partners as any}
+            onOpenPerson={(p) => onOpenDetail(p)}
+            onReload={async () => {
+              try {
+                const r = await fetch(`/api/admin/referrals?projectId=${projectId}`);
+                const d = await r.json();
+                if (d.success) setReferrals(d.referrals || []);
+              } catch {}
+            }}
+          />
         </div>
       </div>
     </div>
