@@ -36,6 +36,31 @@ export async function GET(request: Request, { params }: { params: { id: string }
     ]);
 
     const allChildren = children || [];
+
+    // 19/09/2026: arricchisci con email partner E email contatto principale
+    // (per filtro email contestuale: cerco sia info@azienda sia mario@azienda)
+    const allPartnerIds = new Set<number>();
+    for (const c of allChildren) {
+      const pid = Array.isArray(c.partner_id) ? c.partner_id[0] : null;
+      const cid = Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[0] : null;
+      if (pid) allPartnerIds.add(pid);
+      if (cid) allPartnerIds.add(cid);
+    }
+    const partnerIdArr = Array.from(allPartnerIds);
+    if (partnerIdArr.length) {
+      const partnerEmails = await odoo.execute('res.partner', 'search_read', [
+        [['id', 'in', partnerIdArr]],
+        ['id', 'email'],
+      ]);
+      const emailMap: Record<number, string> = {};
+      for (const p of partnerEmails || []) emailMap[p.id] = p.email;
+      for (const c of allChildren) {
+        const pid = Array.isArray(c.partner_id) ? c.partner_id[0] : null;
+        const cid = Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[0] : null;
+        c._partner_email = pid ? emailMap[pid] : null;
+        c._contatto_email = cid ? emailMap[cid] : null;
+      }
+    }
     // Nuovo modello: parti = figli NON target (committente, consulente, ecc.)
     // target = figli funzione_progetto='target' (vanno nel kanban, non in Persone/Parti)
     const parts = allChildren.filter((c: any) => c.funzione_progetto !== 'target');
@@ -56,6 +81,55 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     // 18/09/2026 (Denis): verifica sincrona della pipeline per evitare il flash
     // "pagina standard -> kanban" sui sotto-progetti.
+    // 19/09/2026: i target hanno contatto_principale_id (persona fisica).
+    // Va esposto nella lista "partners" come persona, per poterlo chiamare/mailare.
+    const targetContacts: any[] = [];
+    for (const t of targets) {
+      const cid = Array.isArray(t.contatto_principale_id) ? t.contatto_principale_id[0] : null;
+      if (cid) {
+        targetContacts.push({
+          id: cid,
+          name: Array.isArray(t.contatto_principale_id) ? t.contatto_principale_id[1] : '',
+          ruolo: t.ruolo_contatto || null,
+          funzione_progetto: 'referente_tecnico',
+          partnerId: cid,
+          partnerName: Array.isArray(t.contatto_principale_id) ? t.contatto_principale_id[1] : '',
+          partnerEmail: null,
+          contattoId: null,
+          contattoName: null,
+          ruoloContatto: t.ruolo_contatto || null,
+          state: 'attivo',
+          _fromTarget: t.id,
+          _fromTargetId: t.id,
+          _fromTargetName: t.name || (Array.isArray(t.partner_id) ? t.partner_id[1] : 'target'),
+          _fromTargetPartnerName: Array.isArray(t.partner_id) ? t.partner_id[1] : null,
+        });
+      }
+    }
+    // risolvi email di questi contatti in un colpo
+    if (targetContacts.length) {
+      const contactIds = targetContacts.map((c) => c.id);
+      const contactEmails = await odoo.execute('res.partner', 'search_read', [
+        [['id', 'in', contactIds]],
+        ['id', 'name', 'email', 'phone'],
+      ]);
+      const emailMap: Record<number, { name: string; email: string | null; phone: string | null }> = {};
+      for (const p of contactEmails || []) {
+        emailMap[p.id] = { name: p.name || '', email: p.email || null, phone: p.phone || null };
+      }
+      for (const c of targetContacts) {
+        const info = emailMap[c.id];
+        if (info) {
+          c.partnerEmail = info.email;
+          c.contattoEmail = info.email;
+          c.partnerPhone = info.phone;
+          // Fix: sostituisci il display_name composto col name puro
+          c.partnerName = info.name || c.partnerName;
+          c.name = info.name || c.name;
+        }
+      }
+    }
+
     // hasPipelineBoard = questo nodo ha figli con funzione_progetto='target'
     // (in tal caso è un "progetto root con pipeline" → dashboard kanban)
     const hasPipelineBoard = targets.length > 0;
@@ -75,23 +149,30 @@ export async function GET(request: Request, { params }: { params: { id: string }
         hasPipelineBoard,
         parent_id: Array.isArray(project.parent_id) ? project.parent_id[0] : null,
       },
-      partners: parts.map((c: any) => ({
+      partners: [...parts, ...targetContacts].map((c: any) => ({
         id: c.id,
         name: c.name,
         ruolo: c.ruolo || null,
         funzione_progetto: c.funzione_progetto || null,
         partnerId: Array.isArray(c.partner_id) ? c.partner_id[0] : null,
         partnerName: Array.isArray(c.partner_id) ? c.partner_id[1] : null,
+        partnerEmail: c._partner_email || null,
+        contattoEmail: c._contatto_email || null,
         contattoId: Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[0] : null,
         contattoName: Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[1] : null,
         ruoloContatto: c.ruolo_contatto || null,
         state: c.state || 'attivo',
+        fromTargetId: c._fromTargetId || null,
+        fromTargetName: c._fromTargetName || null,
+        fromTargetPartnerName: c._fromTargetPartnerName || null,
       })),
       targets: targets.map((c: any) => ({
         id: c.id,
         name: c.name,
         partnerName: Array.isArray(c.partner_id) ? c.partner_id[1] : null,
+        partnerEmail: c._partner_email || null,
         contattoName: Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[1] : null,
+        contattoEmail: c._contatto_email || null,
         stageId: Array.isArray(c.stage_id) ? c.stage_id[0] : null,
         state: c.state || 'attivo',
       })),

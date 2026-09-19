@@ -7,6 +7,8 @@ import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 interface Partner {
   id: number; name: string; partnerName: string | null; partnerId: number | null;
   contattoName?: string | null; funzione_progetto?: string | null; ruolo?: string | null;
+  partnerEmail?: string | null; ruoloContatto?: string | null;
+  fromTargetId?: number | null; fromTargetName?: string | null; fromTargetPartnerName?: string | null;
 }
 interface TargetNode {
   id: number; name: string; partnerName: string | null;
@@ -57,12 +59,33 @@ export default function CopertinaPage({
     })();
   }, [projectId]);
 
-  // raggruppa partners per funzione
+  // 19/09/2026: separo persone dirette (nodi tracking.relation del progetto)
+  // dai referenti target (contatto_principale_id di un figlio con funzione=target).
+  // Fallback: se fromTargetId non arriva, uso funzione=referente_tecnico.
+  const isReferente = (p: Partner) => !!p.fromTargetId || p.funzione_progetto === 'referente_tecnico';
+  const personeDirette = partners.filter((p) => !isReferente(p));
+  const referentiTarget = partners.filter((p) => isReferente(p));
+
+  // raggruppa persone dirette per funzione
   const gruppi: Record<string, Partner[]> = {};
-  for (const p of partners) {
+  for (const p of personeDirette) {
     const k = p.funzione_progetto || 'altro';
     if (!gruppi[k]) gruppi[k] = [];
     gruppi[k].push(p);
+  }
+
+  // raggruppa referenti per target
+  const referentiPerTarget: Record<string, { targetId: number; targetName: string; list: Partner[] }> = {};
+  for (const r of referentiTarget) {
+    const key = String(r.fromTargetId || 'unknown');
+    if (!referentiPerTarget[key]) {
+      referentiPerTarget[key] = {
+        targetId: r.fromTargetId || 0,
+        targetName: r.fromTargetPartnerName || r.fromTargetName || 'Target',
+        list: [],
+      };
+    }
+    referentiPerTarget[key].list.push(r);
   }
 
   return (
@@ -83,12 +106,26 @@ export default function CopertinaPage({
             </h1>
             <p className="text-xs text-gray-500">Panoramica progetto · ogni card è cliccabile</p>
           </div>
-          <button
-            onClick={() => onOpenOperativa({ type: 'project' })}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0f172a] text-white text-xs font-semibold hover:bg-[#1e293b]"
-          >
-            Apri operativa <ArrowRight size={12} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onOpenOperativa({ type: 'project' })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50"
+            >
+              <Target size={12} className="text-indigo-600" /> Scouting
+            </button>
+            <button
+              onClick={() => onOpenOperativa({ type: 'project' })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-100 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100"
+            >
+              <Phone size={12} /> Avvia call
+            </button>
+            <button
+              onClick={() => onOpenOperativa({ type: 'project' })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0f172a] text-white text-xs font-semibold hover:bg-[#1e293b]"
+            >
+              Apri operativa <ArrowRight size={12} />
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -113,8 +150,8 @@ export default function CopertinaPage({
           </div>
         </div>
 
-        {/* 3 colonne: persone / target / azioni */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* 2 colonne: persone / target */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
           {/* COL 1: PERSONE */}
           <div className="bg-white rounded-2xl border border-gray-100 p-3">
@@ -123,11 +160,11 @@ export default function CopertinaPage({
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
                 Persone & Parti
               </h2>
-              <span className="text-[10px] text-gray-400">({partners.length})</span>
+              <span className="text-[10px] text-gray-400">({personeDirette.length})</span>
             </div>
             {loading ? (
               <div className="flex justify-center py-3"><Loader2 className="animate-spin text-gray-300" size={16} /></div>
-            ) : partners.length === 0 ? (
+            ) : personeDirette.length === 0 ? (
               <p className="text-[11px] text-gray-400 italic px-1 py-2">Nessuna persona collegata.</p>
             ) : (
               <div className="space-y-2">
@@ -155,6 +192,42 @@ export default function CopertinaPage({
               </div>
             )}
           </div>
+
+          {/* COL 1-bis: REFERENTI TARGET */}
+          {referentiTarget.length > 0 && (
+            <div className="bg-white rounded-2xl border border-sky-100 p-3">
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <Users size={13} className="text-sky-600" />
+                <h2 className="text-[11px] font-bold uppercase tracking-wider text-sky-700">
+                  Referenti target
+                </h2>
+                <span className="text-[10px] text-gray-400">({referentiTarget.length})</span>
+              </div>
+              <div className="space-y-2">
+                {Object.entries(referentiPerTarget).map(([key, group]) => (
+                  <div key={key}>
+                    <button
+                      onClick={() => onOpenOperativa({ type: 'target', id: group.targetId, label: group.targetName })}
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 hover:bg-sky-200 transition-colors cursor-pointer">
+                      🏢 {group.targetName} <ArrowRight size={9} />
+                    </button>
+                    <div className="mt-1 space-y-0.5">
+                      {group.list.map((r) => (
+                        <button key={`ref-${r.id}-${key}`}
+                          onClick={() => onOpenOperativa({ type: 'target', id: group.targetId, label: group.targetName })}
+                          className="w-full text-left px-2 py-1 rounded hover:bg-sky-50 text-xs group flex items-center gap-1.5">
+                          <User size={11} className="text-sky-400 shrink-0" />
+                          <span className="font-medium text-sky-900 truncate">{r.partnerName || r.name}</span>
+                          {r.ruoloContatto && <span className="text-[10px] text-sky-600 italic">· {r.ruoloContatto}</span>}
+                          <ArrowRight size={10} className="ml-auto text-sky-300 group-hover:text-sky-500" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* COL 2: TARGET */}
           <div className="bg-white rounded-2xl border border-gray-100 p-3">
@@ -187,37 +260,6 @@ export default function CopertinaPage({
                 ))}
               </div>
             )}
-          </div>
-
-          {/* COL 3: AZIONI */}
-          <div className="space-y-3">
-            {/* SCOUTING CTA */}
-            <button
-              onClick={() => onOpenOperativa({ type: 'project' })}
-              className="w-full bg-white rounded-2xl border border-gray-100 p-3 hover:border-indigo-300 transition-colors text-left group">
-              <div className="flex items-center gap-2 mb-1">
-                <Target size={13} className="text-indigo-600" />
-                <h2 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                  Scouting Relazione
-                </h2>
-                <ArrowRight size={11} className="ml-auto text-gray-300 group-hover:text-indigo-500" />
-              </div>
-              <p className="text-[10px] text-gray-500">Apri il profilo target del progetto</p>
-            </button>
-
-            {/* QUICK CALL */}
-            <button
-              onClick={() => onOpenOperativa({ type: 'project' })}
-              className="w-full bg-gradient-to-r from-red-50 to-white rounded-2xl border border-red-100 p-3 hover:border-red-300 transition-colors text-left group">
-              <div className="flex items-center gap-2 mb-1">
-                <Phone size={13} className="text-red-600" />
-                <h2 className="text-[11px] font-bold uppercase tracking-wider text-red-700">
-                  Avvia call
-                </h2>
-                <ArrowRight size={11} className="ml-auto text-red-300 group-hover:text-red-500" />
-              </div>
-              <p className="text-[10px] text-gray-500">Scegli destinatario in Operativa</p>
-            </button>
           </div>
 
         </div>

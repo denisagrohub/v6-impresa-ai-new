@@ -1,9 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, TrendingUp, TrendingDown, Target, CheckCircle2, BarChart3, Mail, Phone } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Mail, Phone } from "lucide-react";
 import KpiGauge from "./KpiGauge";
-import KpiOdometer from "./KpiOdometer";
-import KpiProgressBar from "./KpiProgressBar";
 import KpiSparkline from "./KpiSparkline";
 
 interface KpiData {
@@ -15,30 +13,29 @@ interface KpiData {
   performance: { currentMonthCreated: number; media3m: number; delta: number; trendPct: number | null; semaforo: string };
 }
 
-const SEMAFORO_DOT: Record<string, string> = {
+const SEM_DOT: Record<string, string> = {
   green: "bg-emerald-500", yellow: "bg-amber-400", red: "bg-red-500", gray: "bg-gray-300",
 };
-const SEMAFORO_LABEL: Record<string, string> = {
-  green: "sopra target", yellow: "in linea", red: "sotto target", gray: "nessun target",
-};
 
-function KpiCard({ title, icon, semaforo, children }: {
-  title: string; icon: React.ReactNode; semaforo?: string; children: React.ReactNode;
+function Cell({ label, value, sub, sem, accent = "#0f172a", spark, sparkColor }: {
+  label: string; value: React.ReactNode; sub?: string; sem?: string; accent?: string;
+  spark?: number[]; sparkColor?: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">
-          {icon} {title}
-        </div>
-        {semaforo && (
-          <span className="flex items-center gap-1 text-[10px] text-gray-500">
-            <span className={`w-2 h-2 rounded-full ${SEMAFORO_DOT[semaforo] || SEMAFORO_DOT.gray}`} />
-            {SEMAFORO_LABEL[semaforo] || ""}
-          </span>
-        )}
+    <div className="flex-1 min-w-0 px-3 py-2 border-r border-gray-100 last:border-r-0">
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 truncate">{label}</span>
+        {sem && <span className={`w-1.5 h-1.5 rounded-full ${SEM_DOT[sem] || SEM_DOT.gray}`} />}
       </div>
-      {children}
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-mono tabular-nums text-3xl font-bold leading-none" style={{ color: accent }}>{value}</span>
+        {sub && <span className="text-xs text-gray-500 truncate">{sub}</span>}
+      </div>
+      {spark && (
+        <div className="h-8 mt-1">
+          <KpiSparkline values={spark} color={sparkColor || "#1a7fa8"} height={28} />
+        </div>
+      )}
     </div>
   );
 }
@@ -60,86 +57,104 @@ export default function KpiDashboard({ projectId }: { projectId: number }) {
     })();
   }, [projectId]);
 
-  if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-400" size={20} /></div>;
-  if (error) return <div className="text-xs text-red-600 py-3">KPI non disponibili: {error}</div>;
+  if (loading) return <div className="flex justify-center py-2"><Loader2 className="animate-spin text-gray-400" size={14} /></div>;
+  if (error) return <div className="text-xs text-red-600 py-1">KPI: {error}</div>;
   if (!data) return null;
 
+  const pct = data.targets.target > 0 ? Math.round((data.targets.active / data.targets.target) * 100) : 0;
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-      {/* 1. TARGET ATTIVI - Tachigrafo */}
-      <KpiCard title="Target attivi" icon={<Target size={12} />} semaforo={data.targets.semaforo}>
-        <KpiGauge
-          value={data.targets.active}
-          max={data.targets.target}
-          label={`${data.targets.total} totali`}
-          sublabel={data.targets.media3m > 0 ? `media 3m: ${data.targets.media3m}/mese` : "primo mese"}
-        />
-      </KpiCard>
-
-      {/* 2. PARTNER - Contachilometri */}
-      <KpiCard title="Partner chiusi" icon={<CheckCircle2 size={12} />} semaforo={data.partners.semaforo}>
-        <KpiOdometer
-          value={data.partners.count}
-          label={`target anno: ${data.partners.target}`}
-          sublabel={`${Math.round((data.partners.count / (data.partners.target || 1)) * 100)}% obiettivo`}
-          color={data.partners.semaforo === "green" ? "#10b981" : "#0f172a"}
-        />
-      </KpiCard>
-
-      {/* 3. PIPELINE - Barra + breakdown */}
-      <KpiCard title="In pipeline" icon={<BarChart3 size={12} />}>
-        <KpiProgressBar
-          value={data.pipeline.total}
-          max={data.targets.target}
-          segments={data.pipeline.breakdown}
-        />
-      </KpiCard>
-
-      {/* 4. EMAIL - Sparkline */}
-      <KpiCard title="Email (30gg)" icon={<Mail size={12} />} semaforo={data.emails.semaforo}>
-        <div className="flex items-baseline justify-between mb-1">
-          <span className="font-mono tabular-nums text-3xl font-bold text-[#0f172a]">{data.emails.last30}</span>
-          <span className="text-[10px] text-gray-400">{data.emails.daily}/giorno · target {data.emails.target}</span>
-        </div>
-        <KpiSparkline values={data.emails.trend} color="#1a7fa8" height={45} />
-      </KpiCard>
-
-      {/* 5. CALL - Sparkline */}
-      <KpiCard title="Call (30gg)" icon={<Phone size={12} />} semaforo={data.calls.semaforo}>
-        <div className="flex items-baseline justify-between mb-1">
-          <span className="font-mono tabular-nums text-3xl font-bold text-[#0f172a]">{data.calls.last30}</span>
-          <span className="text-[10px] text-gray-400">
-            {data.calls.avgDuration ? `durata media: ${data.calls.avgDuration}min` : `target: ${data.calls.target}`}
-          </span>
-        </div>
-        <KpiSparkline values={data.calls.trend} color="#10b981" height={45} />
-      </KpiCard>
-
-      {/* 6. RENDIMENTO - Delta mese vs media */}
-      <KpiCard title="Rendimento" icon={<TrendingUp size={12} />} semaforo={data.performance.semaforo}>
-        <div className="py-2">
-          <div className="flex items-baseline justify-between mb-1">
-            <span className="font-mono tabular-nums text-2xl font-bold text-[#0f172a]">
-              {data.performance.currentMonthCreated}
-            </span>
-            <span className="text-[10px] text-gray-400">target nuovi/mese</span>
+    <div className="bg-white rounded-2xl border border-gray-100 mb-4">
+      <div className="flex items-stretch">
+        {/* Target: mini gauge */}
+        <div className="flex items-center gap-2 px-3 py-2 border-r border-gray-100">
+          <div className="w-24 shrink-0">
+            <KpiGauge
+              value={data.targets.active}
+              max={data.targets.target}
+              color={data.targets.semaforo === 'red' ? '#ef4444' : data.targets.semaforo === 'green' ? '#10b981' : '#1a7fa8'}
+            />
           </div>
-          <div className="flex items-center gap-1.5 text-xs mt-2">
-            {data.performance.trendPct == null ? (
-              <span className="text-gray-400">primo mese di dati</span>
-            ) : data.performance.trendPct >= 0 ? (
-              <><TrendingUp size={13} className="text-emerald-600" /><span className="text-emerald-700 font-semibold">
-                +{data.performance.trendPct}% vs media 3m
-              </span></>
-            ) : (
-              <><TrendingDown size={13} className="text-red-500" /><span className="text-red-600 font-semibold">
-                {data.performance.trendPct}% vs media 3m
-              </span></>
+          <div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Target</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${SEM_DOT[data.targets.semaforo]}`} />
+            </div>
+            <div className="font-mono tabular-nums text-3xl font-bold text-[#0f172a] leading-none">
+              {data.targets.active}<span className="text-gray-300">/</span>{data.targets.target}
+            </div>
+            <div className="text-[11px] text-gray-500 mt-1">{pct}% · {data.targets.total} tot</div>
+          </div>
+        </div>
+
+        <Cell
+          label="Partner"
+          value={data.partners.count}
+          sub={`/ ${data.partners.target}`}
+          sem={data.partners.semaforo}
+          accent={data.partners.semaforo === 'green' ? '#10b981' : '#0f172a'}
+        />
+
+        <div className="flex-1 min-w-0 px-3 py-2 border-r border-gray-100">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Pipeline</span>
+          </div>
+          <div className="flex items-center gap-2 h-5 flex-wrap">
+            {data.pipeline.breakdown.slice(0, 4).map((s) => (
+              <div key={s.stage} className="flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${s.is_won ? "bg-emerald-500" : s.is_lost ? "bg-red-400" : "bg-indigo-400"}`} />
+                <span className="text-xs text-gray-700 font-semibold">{s.count}</span>
+                <span className="text-[10px] text-gray-500 truncate max-w-[70px]">{s.stage}</span>
+              </div>
+            ))}
+            {data.pipeline.breakdown.length === 0 && (
+              <span className="text-[10px] text-gray-400 italic">—</span>
             )}
           </div>
-          <div className="text-[10px] text-gray-400 mt-1">media 3m: {data.performance.media3m}/mese</div>
+          <div className="text-[11px] text-gray-500 mt-1">{data.pipeline.total} in corso</div>
         </div>
-      </KpiCard>
+
+        <Cell
+          label="Email 30g"
+          value={data.emails.last30}
+          sub={`${data.emails.daily}/gg`}
+          sem={data.emails.semaforo}
+          spark={data.emails.trend}
+          sparkColor="#1a7fa8"
+        />
+
+        <Cell
+          label="Call 30g"
+          value={data.calls.last30}
+          sub={data.calls.avgDuration > 0 ? `${data.calls.avgDuration}min` : undefined}
+          sem={data.calls.semaforo}
+          spark={data.calls.trend}
+          sparkColor="#10b981"
+        />
+
+        <div className="flex-1 min-w-0 px-4 py-4">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Rendimento</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${SEM_DOT[data.performance.semaforo]}`} />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono tabular-nums text-3xl font-bold text-[#0f172a] leading-none">
+              {data.performance.currentMonthCreated}
+            </span>
+            <span className="text-[10px] text-gray-400">mese</span>
+          </div>
+          <div className="flex items-center gap-1 text-[10px] mt-0.5">
+            {data.performance.trendPct == null ? (
+              <span className="text-gray-400">primo mese</span>
+            ) : data.performance.trendPct >= 0 ? (
+              <><TrendingUp size={9} className="text-emerald-600" /><span className="text-emerald-700 font-semibold">+{data.performance.trendPct}%</span></>
+            ) : (
+              <><TrendingDown size={9} className="text-red-500" /><span className="text-red-600 font-semibold">{data.performance.trendPct}%</span></>
+            )}
+            <span className="text-gray-400 truncate">vs media 3m</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

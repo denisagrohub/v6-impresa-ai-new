@@ -105,7 +105,7 @@ export default function PartnerProjectDetailPage() {
     const [partners, setPartners] = useState<Partner[]>([]);
     // 17/09/2026 (Denis): figli non-parte = rami operativi con pipeline propria
     // 19/09/2026: target = figli con funzione_progetto='target' (kanban)
-    const [targets, setTargets] = useState<{ id: number; name: string; partnerName: string | null; contattoName: string | null; stageId: number | null; state: string }[]>([]);
+    const [targets, setTargets] = useState<{ id: number; name: string; partnerName: string | null; partnerEmail?: string | null; contattoName: string | null; contattoEmail?: string | null; stageId: number | null; state: string }[]>([]);
     const [emails, setEmails] = useState<EmailLog[]>([]);
     const [showAcqModal, setShowAcqModal] = useState(false);
     const [acqName, setAcqName] = useState('Acquisizione Aziende');
@@ -188,14 +188,55 @@ export default function PartnerProjectDetailPage() {
     const [viewTab, setViewTab] = useState<'copertina' | 'operativa'>('copertina');
     const [operativeContext, setOperativeContext] = useState<OperativaContext | null>(null);
 
-    // 19/09/2026: email filtrate sul contesto (client-side, dopo dichiarazione operativeContext)
-    const filteredEmails = operativeContext && 'id' in operativeContext && operativeContext.id
-        ? emails.filter((e: any) => {
+    // 19/09/2026: filtro email per contesto.
+    // Logica: match su (a) relation_id del nodo contesto, (b) recipient_relation_id,
+    // (c) email del partner collegato al nodo (sender o recipient).
+    const filteredEmails = (() => {
+        if (!operativeContext || !('id' in operativeContext) || !operativeContext.id) return emails;
+        const ctxId = operativeContext.id;
+        // 19/09/2026: il contesto puo' essere persona O target.
+        // Se target, cerca in targets; se persona, in partners.
+        const ctxPerson: any = operativeContext.type === 'target'
+            ? targets.find((t: any) => t.id === ctxId)
+            : partners.find((p: any) => p.id === ctxId);
+        // Raccogli TUTTE le email riconducibili al contesto.
+        // Concetto chiave: l'email va sotto il DESTINATARIO (o CC), non sotto il mittente.
+        const emailsCtx: string[] = [];
+        if (ctxPerson?.partnerEmail) emailsCtx.push(String(ctxPerson.partnerEmail).toLowerCase());
+        if (ctxPerson?.contattoEmail) emailsCtx.push(String(ctxPerson.contattoEmail).toLowerCase());
+        // Anche email dirette del nodo stesso (se persona)
+        if (ctxPerson?.partnerEmail) emailsCtx.push(String(ctxPerson.partnerEmail).toLowerCase());
+        const namesCtx: string[] = [];
+        if (operativeContext.label) namesCtx.push(operativeContext.label.toLowerCase());
+        if (ctxPerson?.partnerName) namesCtx.push(String(ctxPerson.partnerName).toLowerCase());
+        if (ctxPerson?.contattoName) namesCtx.push(String(ctxPerson.contattoName).toLowerCase());
+        if (ctxPerson?.name) namesCtx.push(String(ctxPerson.name).toLowerCase());
+
+        return emails.filter((e: any) => {
             const relId = e.relationId ?? e.relation_id;
             const recvRelId = e.recipientRelationId ?? e.recipient_relation_id;
-            return relId === operativeContext.id || recvRelId === operativeContext.id;
-          })
-        : emails;
+            // match diretto sul nodo
+            if (relId === ctxId || recvRelId === ctxId) return true;
+            // match per email: cercare nelle email del destinatario + CC (NON nel sender, altrimenti
+            // ogni email che parte da tony@ finirebbe sotto tony in ogni contesto)
+            const recipients = (e.recipientEmails || '').toLowerCase();
+            const cc = (e.ccEmails || '').toLowerCase();
+            const sender = (e.senderEmail || '').toLowerCase();
+            for (const needle of emailsCtx) {
+                if (!needle) continue;
+                if (recipients.includes(needle)) return true;
+                if (cc.includes(needle)) return true;
+            }
+            // fallback: cerca il nome nel subject (per email "all'attenzione di Marco Nardi")
+            const subject = (e.subject || '').toLowerCase();
+            const body = ''; // il body non è nel log, solo on demand
+            const haystack = subject + ' ' + sender + ' ' + recipients + ' ' + cc;
+            for (const n of namesCtx) {
+                if (n.length >= 5 && haystack.includes(n)) return true;
+            }
+            return false;
+        });
+    })()
     // 19/09/2026: lista persone/target per il selettore contesto
     const [contextOptions, setContextOptions] = useState<{ persone: any[]; targets: any[] }>({ persone: [], targets: [] });
     // 18/09/2026 (Denis): pannello post-call (debrief + lead + email)
@@ -775,6 +816,16 @@ export default function PartnerProjectDetailPage() {
                                             ? "Persona · parte del progetto"
                                             : "Target · in pipeline"}
                                     </p>
+                                    {operativeContext.type === 'target' && (() => {
+                                        const t: any = targets.find((x: any) => x.id === operativeContext.id);
+                                        if (!t?.contattoName) return null;
+                                        return (
+                                            <p className="text-xs text-sky-700 mt-1 flex items-center gap-1">
+                                                <span className="font-semibold">Referente:</span>
+                                                {t.contattoName}
+                                            </p>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     {operativeContext.partnerId && (
@@ -790,7 +841,13 @@ export default function PartnerProjectDetailPage() {
                                         </button>
                                     )}
                                     <button
-                                        onClick={() => setIsEmailModalOpen(true)}
+                                        onClick={() => {
+                                            // 19/09/2026: pre-popola destinatario col nodo corrente
+                                            if (operativeContext && 'id' in operativeContext && operativeContext.id) {
+                                                setSelectedPartnerIds([operativeContext.id]);
+                                            }
+                                            setIsEmailModalOpen(true);
+                                        }}
                                         className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-[#0f172a] text-white text-[11px] font-semibold hover:bg-[#1e293b]"
                                     >
                                         <Send size={11} /> Email
@@ -819,11 +876,11 @@ export default function PartnerProjectDetailPage() {
                             </div>
 
                             {/* Flusso email: accordion con badge "in attesa di..." per le USCITE */}
-                            {emails.length === 0 ? (
-                                <p className="text-xs text-gray-400 italic">Nessuna email registrata.</p>
+                            {filteredEmails.length === 0 ? (
+                                <p className="text-xs text-gray-400 italic">Nessuna email {operativeContext && 'id' in operativeContext ? 'per questo contesto' : 'registrata'}.</p>
                             ) : (
                                 <div className="space-y-1">
-                                    {emails.map((e) => {
+                                    {filteredEmails.map((e) => {
                                         const isOut = e.direction === 'inviata';
                                         // 14/09/2026: email arrivata DOPO l'ultima vista -> evidenza ambra
                                         const isNew = !seenAt || (!!e.date && e.date > seenAt);
@@ -1140,7 +1197,7 @@ export default function PartnerProjectDetailPage() {
                         {openSections.attivita && (
                         <>
                         <div className="space-y-2">
-                            {emails.slice(0, 3).map((e) => (
+                            {filteredEmails.slice(0, 3).map((e) => (
                                 <div key={`act-${e.id}`} className="text-[11px] text-gray-500 flex items-start gap-2">
                                     <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${e.direction === 'inviata' ? 'bg-blue-400' : 'bg-emerald-400'}`} />
                                     <span className="truncate">
