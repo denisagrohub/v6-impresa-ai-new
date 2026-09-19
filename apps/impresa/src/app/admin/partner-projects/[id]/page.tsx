@@ -60,6 +60,8 @@ interface EmailLog {
     matchStatus: string;
     direction: 'ricevuta' | 'inviata';
     date: string;
+    relationId?: number | null;
+    recipientRelationId?: number | null;
 }
 
 // Allegato nel composer: da PC (fileRaw → base64) o da Libreria (id già su Odoo)
@@ -183,8 +185,19 @@ export default function PartnerProjectDetailPage() {
     // 18/09/2026 (Denis): Scouting Relazione (profilo target del progetto)
     const [isRelationScoutingOpen, setIsRelationScoutingOpen] = useState(false);
     // 19/09/2026 (Denis): Copertina (dashboard cliccabile) vs Operativa (workbench)
-    const [viewTab, setViewTab] = useState<'copertina' | 'operativa'>('operativa');
+    const [viewTab, setViewTab] = useState<'copertina' | 'operativa'>('copertina');
     const [operativeContext, setOperativeContext] = useState<OperativaContext | null>(null);
+
+    // 19/09/2026: email filtrate sul contesto (client-side, dopo dichiarazione operativeContext)
+    const filteredEmails = operativeContext && 'id' in operativeContext && operativeContext.id
+        ? emails.filter((e: any) => {
+            const relId = e.relationId ?? e.relation_id;
+            const recvRelId = e.recipientRelationId ?? e.recipient_relation_id;
+            return relId === operativeContext.id || recvRelId === operativeContext.id;
+          })
+        : emails;
+    // 19/09/2026: lista persone/target per il selettore contesto
+    const [contextOptions, setContextOptions] = useState<{ persone: any[]; targets: any[] }>({ persone: [], targets: [] });
     // 18/09/2026 (Denis): pannello post-call (debrief + lead + email)
     const [lastCallEnd, setLastCallEnd] = useState<{ callId: number; durationSeconds: number } | null>(null);
     const [briefType, setBriefType] = useState<'brief' | 'debrief'>('brief');
@@ -223,12 +236,20 @@ export default function PartnerProjectDetailPage() {
             fetch(`/api/admin/partner-projects/${id}/emails-seen`, { method: 'POST' }).catch(() => {});
             setPartners(data.partners || []);
             setTargets(data.targets || []);
+            setContextOptions({
+                persone: (data.partners || []).filter((p: any) => p.funzione_progetto !== 'target'),
+                targets: data.targets || [],
+            });
 
             // 18/09/2026: detection kanban SINCRONA — arriva nel payload principale
             if (data.project?.hasPipelineBoard === true) {
                 setIsKanbanBoard(true);
             }
-            setEmails(data.emails || []);
+            setEmails((data.emails || []).map((e: any) => ({
+                ...e,
+                relationId: Array.isArray(e.relation_id) ? e.relation_id[0] : (e.relationId ?? null),
+                recipientRelationId: Array.isArray(e.recipient_relation_id) ? e.recipient_relation_id[0] : (e.recipientRelationId ?? null),
+            })));
             loadDocuments(); // fire-and-forget
         } catch (error: any) {
             setLoadError(error.message || 'Errore di rete');
@@ -659,17 +680,15 @@ export default function PartnerProjectDetailPage() {
                         <span className="flex items-center gap-1">📎 {documents.length} atti</span>
                     </div>
 
-                    {/* 19/09/2026: tab Copertina / Operativa (solo per root con pipeline) */}
+                    {/* 19/09/2026: torna alla Copertina */}
                     {isKanbanBoard && (
-                        <div className="flex bg-indigo-50 p-0.5 rounded text-[11px] font-medium border border-indigo-100">
-                            <button
-                                onClick={() => setViewTab('copertina')}
-                                className="flex items-center gap-1.5 px-3 py-1 rounded cursor-pointer transition-all text-indigo-700 hover:bg-white"
-                                title="Torna alla copertina (KPI + kanban cliccabili)"
-                            >
-                                ← Copertina
-                            </button>
-                        </div>
+                        <button
+                            onClick={() => { setViewTab('copertina'); setOperativeContext(null); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-semibold border border-indigo-100 hover:bg-indigo-100 cursor-pointer transition-colors"
+                            title="Torna alla copertina"
+                        >
+                            ← Copertina
+                        </button>
                     )}
 
                     {/* Toggle vista: Workbench (operativo) / Lavagna (strategica) */}
@@ -693,11 +712,94 @@ export default function PartnerProjectDetailPage() {
                 </div>
             </header>
 
+            {/* ───── BARRA CONTESTO (sticky) ───── */}
+            <div className="bg-white border-b border-[#e2e8f0] px-5 py-2 flex items-center gap-3 shrink-0">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Stai operando su</span>
+                <Dropdown
+                    label={
+                        !operativeContext ? "🏢 Tutto il progetto"
+                        : operativeContext.type === 'person' ? `👤 ${operativeContext.label}`
+                        : operativeContext.type === 'target' ? `🎯 ${operativeContext.label}`
+                        : "🏢 Tutto il progetto"
+                    }
+                    items={[
+                        { label: "🏢 Tutto il progetto", hint: "Vista completa del workbench", onClick: () => setOperativeContext(null) },
+                        ...(contextOptions.persone.length > 0 ? [{ label: "─── Persone ───", onClick: () => {} } as any] : []),
+                        ...contextOptions.persone.map((p: any) => ({
+                            label: `👤 ${p.partnerName || p.name}`,
+                            hint: p.funzione_progetto ? p.funzione_progetto.replace('_', ' ') : undefined,
+                            onClick: () => setOperativeContext({ type: 'person', id: p.id, label: p.partnerName || p.name, partnerId: p.partnerId }),
+                        })),
+                        ...(contextOptions.targets.length > 0 ? [{ label: "─── Target ───", onClick: () => {} } as any] : []),
+                        ...contextOptions.targets.map((t: any) => ({
+                            label: `🎯 ${t.partnerName || t.name}`,
+                            hint: t.contattoName ? `contatto: ${t.contattoName}` : undefined,
+                            onClick: () => setOperativeContext({ type: 'target', id: t.id, label: t.partnerName || t.name }),
+                        })),
+                    ]}
+                />
+                {operativeContext && (
+                    <button
+                        onClick={() => setOperativeContext(null)}
+                        className="text-[10px] text-gray-500 hover:text-red-600 transition-colors"
+                    >
+                        × Reset
+                    </button>
+                )}
+                {operativeContext && (
+                    <div className="ml-auto text-[10px] text-gray-400">
+                        Le email, note e brief sono filtrati sul contesto selezionato
+                    </div>
+                )}
+            </div>
+
             {/* ───── MAIN: due colonne ───── */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] flex-1 overflow-hidden">
 
                 {/* ═══ COLONNA SINISTRA: contenuto contestuale alla vista ═══ */}
                 <main className="flex flex-col min-w-0 bg-white overflow-y-auto p-6 border-r border-[#e2e8f0]">
+
+                    {/* HEADER CONTESTUALE (se contesto != progetto) */}
+                    {operativeContext && operativeContext.type !== 'project' && (
+                        <div className="mb-5 rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white p-4">
+                            <div className="flex items-start gap-3">
+                                <div className="flex-1">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 mb-1">
+                                        Contesto
+                                    </div>
+                                    <h2 className="text-lg font-bold text-[#0f172a]">
+                                        {operativeContext.label}
+                                    </h2>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        {operativeContext.type === 'person'
+                                            ? "Persona · parte del progetto"
+                                            : "Target · in pipeline"}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    {operativeContext.partnerId && (
+                                        <button
+                                            onClick={() => {
+                                                setLiveCallPartnerId(operativeContext.partnerId!);
+                                                setLiveCallPartnerName(operativeContext.label);
+                                                setLiveCallOpen(true);
+                                            }}
+                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-red-600 text-white text-[11px] font-semibold hover:bg-red-700"
+                                        >
+                                            <Phone size={11} /> Call
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => setIsEmailModalOpen(true)}
+                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-[#0f172a] text-white text-[11px] font-semibold hover:bg-[#1e293b]"
+                                    >
+                                        <Send size={11} /> Email
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {viewMode === 'workbench' ? (
                         /* WORKBENCH: flusso email + azioni operative (call, presentazione) */
                         <section className="space-y-6">

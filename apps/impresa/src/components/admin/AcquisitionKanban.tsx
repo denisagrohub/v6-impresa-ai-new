@@ -25,6 +25,9 @@ export default function AcquisitionKanban({ relationId, relationName }: {
   const [error, setError] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  // 19/09/2026: colonne vuote collassate (Linear-style). Espandono al drag.
+  const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set());
+  const [showAllCols, setShowAllCols] = useState(false);
 
   const [addOpen, setAddOpen] = useState<string | null>(null);
   const [addQuery, setAddQuery] = useState("");
@@ -166,16 +169,60 @@ export default function AcquisitionKanban({ relationId, relationName }: {
         </div>
       )}
 
+      {/* Toggle rapido comprimi/espandi colonne vuote */}
+      <div className="flex items-center justify-end gap-2 mb-2">
+        <button
+          onClick={() => { setShowAllCols((v) => !v); setExpandedCols(new Set()); }}
+          className="text-[10px] text-gray-400 hover:text-indigo-600 transition-colors"
+        >
+          {showAllCols ? "← Comprimi colonne vuote" : "Mostra tutte le fasi →"}
+        </button>
+      </div>
+
       <div className="flex gap-3 overflow-x-auto pb-4">
         {columns.map((col) => {
           const items = leadsByCol(col.name);
           const isOver = dragOverCol === col.name;
+          const isDragging = draggedId !== null;
+          // 19/09/2026 - logica invertita: DEFAULT = collassata se vuota
+          // Se utente espande (click o showAll o drag) -> espansa.
+          const isEmpty = items.length === 0;
+          const isExplicitlyExpanded = showAllCols || expandedCols.has(col.name);
+          const effectiveCollapsed = isEmpty && !isDragging && !isExplicitlyExpanded;
+
+          if (effectiveCollapsed) {
+            return (
+              <div key={col.name}
+                onClick={() => setExpandedCols((prev) => new Set(prev).add(col.name))}
+                onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.name); }}
+                onDragLeave={() => setDragOverCol(null)}
+                onDrop={() => onDrop(col.name)}
+                className={`shrink-0 w-9 rounded-xl border-2 cursor-pointer transition-all hover:w-10 ${
+                  col.is_won ? "border-emerald-200 bg-emerald-50/40 hover:border-emerald-400"
+                  : col.is_lost ? "border-red-100 bg-red-50/30 hover:border-red-300"
+                  : isOver ? "border-indigo-400 bg-indigo-50/60"
+                  : "border-gray-200 bg-gray-50 hover:border-indigo-300"
+                }`}
+                title={`${col.name} — ${items.length} card (click per espandere)`}
+              >
+                <div className="flex flex-col items-center py-3 gap-2">
+                  <span className="text-[9px] text-gray-400 font-mono">0</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
+                    col.is_won ? "text-emerald-700" : col.is_lost ? "text-red-600" : "text-gray-500"}`}
+                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
+                    {col.name}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={col.name}
               onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.name); }}
               onDragLeave={() => setDragOverCol(null)}
               onDrop={() => onDrop(col.name)}
-              className={`shrink-0 w-64 rounded-xl border-2 transition-colors ${
+              className={`shrink-0 w-64 rounded-xl border-2 transition-all ${
                 col.is_won ? "border-emerald-200 bg-emerald-50/40"
                 : col.is_lost ? "border-red-100 bg-red-50/30"
                 : isOver ? "border-indigo-400 bg-indigo-50/60"
@@ -191,11 +238,25 @@ export default function AcquisitionKanban({ relationId, relationName }: {
                     {items.length}
                   </span>
                 </div>
-                {!col.is_won && !col.is_lost && (
-                  <button onClick={() => setAddOpen(col.name)} className="text-gray-400 hover:text-indigo-600" title="Aggiungi target">
-                    <Plus size={14} />
-                  </button>
-                )}
+                <div className="flex items-center gap-1">
+                  {!col.is_won && !col.is_lost && (
+                    <button onClick={() => setAddOpen(col.name)} className="text-gray-400 hover:text-indigo-600" title="Aggiungi target">
+                      <Plus size={14} />
+                    </button>
+                  )}
+                  {isEmpty && !isDragging && !showAllCols && (
+                    <button
+                      onClick={() => setExpandedCols((prev) => {
+                        const next = new Set(prev);
+                        next.delete(col.name);
+                        return next;
+                      })}
+                      className="text-gray-300 hover:text-gray-500 text-[10px]"
+                      title="Comprimi colonna vuota">
+                      ⟨
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="p-2 space-y-1.5 min-h-[80px]">
                 {items.map((lead) => (
