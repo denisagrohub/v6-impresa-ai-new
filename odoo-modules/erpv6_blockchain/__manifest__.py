@@ -6,6 +6,9 @@
     'depends': ['base', 'mail', 'erpv6_core', 'erpv6_crypto'],  # 🔐 Aggiunto crypto
     'data': [
         'security/ir.model.access.csv',
+        'data/default_config.xml',
+        'views/blockchain_config_views.xml',
+        'views/blockchain_record_views.xml',
         'views/blockchain_views.xml',
     ],
     'installable': True,

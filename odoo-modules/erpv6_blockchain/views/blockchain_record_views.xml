@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
     <record id="view_blockchain_record_list" model="ir.ui.view">
         <field name="name">erpv6.blockchain.record.list</field>
         <field name="model">erpv6.blockchain.record</field>
         <field name="arch" type="xml">
-            <list string="Record Blockchain" decoration-success="status=='confirmed'" decoration-danger="status=='failed'">
+            <list string="Record Blockchain"
+                  decoration-success="status=='confirmed'"
+                  decoration-info="status=='submitted'"
+                  decoration-danger="status=='failed'"
+                  decoration-muted="status=='pending'">
+                <field name="create_date"/>
                 <field name="document_name"/>
-                <field name="lot_number"/>
-                <field name="document_hash"/>
-                <field name="tx_hash"/>
-                <field name="status"/>
-                <field name="timestamp"/>
+                <field name="provider"/>
+                <field name="document_hash" optional="show"/>
+                <field name="tx_hash" optional="show"/>
+                <field name="status" widget="badge"/>
             </list>
         </field>
     </record>
@@ -21,30 +26,61 @@
         <field name="arch" type="xml">
             <form string="Record Blockchain">
                 <header>
-                    <button name="action_certify" string="Certifica su Blockchain" type="object" class="oe_highlight" invisible="status != 'pending'"/>
-                    <button name="action_verify" string="Verifica Stato" type="object" invisible="not tx_hash"/>
-                    <field name="status" widget="statusbar" statusbar_visible="pending,confirmed"/>
+                    <button name="action_certify"
+                            string="Ancora (dispatch provider)"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="status not in ('pending', 'failed')"/>
+                    <button name="action_anchor_opentimestamps"
+                            string="Ancora su Bitcoin (OTS)"
+                            type="object"
+                            invisible="provider != 'opentimestamps' or status not in ('pending', 'failed')"/>
+                    <button name="action_certify_polygon"
+                            string="Ancora su Polygon"
+                            type="object"
+                            invisible="provider != 'polygon' or status not in ('pending', 'failed')"/>
+                    <button name="action_verify_ots"
+                            string="Verifica OTS"
+                            type="object"
+                            invisible="provider != 'opentimestamps' or not ots_proof_b64"/>
+                    <field name="status" widget="statusbar" statusbar_visible="pending,submitted,confirmed"/>
                 </header>
                 <sheet>
                     <group>
-                        <group string="Dati Documento">
+                        <group string="Documento">
                             <field name="document_model"/>
                             <field name="document_id"/>
                             <field name="document_name"/>
-                            <field name="lot_number"/>
                             <field name="document_hash"/>
+                            <field name="lot_number"/>
                         </group>
-                        <group string="Dati Blockchain">
+                        <group string="Configurazione">
                             <field name="config_id"/>
-                            <field name="tx_hash" widget="url"/>
-                            <field name="block_number"/>
-                            <field name="gas_used"/>
-                            <field name="gas_cost_eth"/>
-                            <field name="verification_url" widget="url"/>
+                            <field name="provider"/>
                         </group>
                     </group>
+
+                    <group string="OpenTimestamps (Bitcoin)"
+                           invisible="provider != 'opentimestamps'">
+                        <field name="ots_submitted_at"/>
+                        <field name="ots_confirmed_at"/>
+                        <field name="ots_proof_b64" invisible="not ots_proof_b64"/>
+                        <field name="ots_merkle_root"/>
+                    </group>
+
+                    <group string="Polygon / EVM" invisible="provider != 'polygon'">
+                        <field name="tx_hash"/>
+                        <field name="block_number"/>
+                        <field name="gas_used"/>
+                        <field name="gas_cost_eth"/>
+                    </group>
+
                     <group string="Errore" invisible="status != 'failed'">
                         <field name="error_message" nolabel="1"/>
+                    </group>
+
+                    <group string="Nota" invisible="not disclaimer">
+                        <field name="disclaimer" nolabel="1"/>
                     </group>
                 </sheet>
             </form>
@@ -56,4 +92,5 @@
         <field name="res_model">erpv6.blockchain.record</field>
         <field name="view_mode">list,form</field>
     </record>
+
 </odoo>

@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
+    <record id="view_blockchain_config_list" model="ir.ui.view">
+        <field name="name">erpv6.blockchain.config.list</field>
+        <field name="model">erpv6.blockchain.config</field>
+        <field name="arch" type="xml">
+            <list string="Configurazioni Blockchain">
+                <field name="name"/>
+                <field name="provider"/>
+                <field name="network" invisible="provider != 'polygon'"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
     <record id="view_blockchain_config_form" model="ir.ui.view">
         <field name="name">erpv6.blockchain.config.form</field>
         <field name="model">erpv6.blockchain.config</field>
@@ -12,20 +26,18 @@
                         </h1>
                     </div>
                     <group>
-                        <group string="Rete e Stato">
-                            <field name="network"/>
+                        <group string="Provider e Stato">
+                            <field name="provider"/>
                             <field name="active"/>
-                            <field name="gas_limit"/>
                         </group>
-                        <group string="Credenziali (Mantenere Sicure)">
-                            <field name="rpc_url" widget="url"/>
-                            <field name="private_key" password="True"/>
-                            <field name="contract_address" widget="url"/>
-                        </group>
-                        <group string="Statistiche">
-                            <field name="total_certified"/>
-                            <field name="total_cost_eth"/>
-                        </group>
+                    </group>
+                    <group string="Polygon / EVM (solo se provider=polygon)"
+                           invisible="provider != 'polygon'">
+                        <field name="network"/>
+                        <field name="rpc_url" widget="url"/>
+                        <field name="private_key" password="True"/>
+                        <field name="contract_address"/>
+                        <field name="gas_limit"/>
                     </group>
                 </sheet>
             </form>
@@ -37,4 +49,5 @@
         <field name="res_model">erpv6.blockchain.config</field>
         <field name="view_mode">list,form</field>
     </record>
+
 </odoo>

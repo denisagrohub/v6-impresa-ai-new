@@ -12,20 +12,29 @@ class BlockchainConfig(models.Model):
     _name = 'erpv6.blockchain.config'
     _description = 'Configurazione Blockchain'
     
-    name = fields.Char('Nome Configurazione', required=True, 
-                       default='Polygon Mumbai Testnet')
+    name = fields.Char('Nome Configurazione', required=True,
+                       default='OpenTimestamps (Bitcoin)')
+    # 19/09/2026: provider unificato — Polygon (a pagamento) o OpenTimestamps
+    # (gratuito, ancora su Bitcoin via Merkle tree).
+    provider = fields.Selection([
+        ('opentimestamps', 'OpenTimestamps (Bitcoin, gratuito)'),
+        ('polygon', 'Polygon / EVM (a pagamento)'),
+    ], string='Provider', required=True, default='opentimestamps')
     network = fields.Selection([
         ('polygon', 'Polygon Mainnet'),
         ('mumbai', 'Polygon Mumbai (Test)'),
         ('ethereum', 'Ethereum Mainnet'),
         ('sepolia', 'Sepolia Testnet'),
     ], string='Rete', required=True, default='mumbai')
-    rpc_url = fields.Char('RPC URL', required=True)
+    rpc_url = fields.Char('RPC URL',
+                          help='Solo per provider Polygon/EVM')
     
     # 🔐 CAMPO CIFRATO: Viene cifrato automaticamente in create/write
-    private_key = fields.Char('Chiave Privata (Cifrata)', required=True)
+    private_key = fields.Char('Chiave Privata (Cifrata)',
+                              help='Solo per provider Polygon/EVM')
     
-    contract_address = fields.Char('Indirizzo Smart Contract', required=True)
+    contract_address = fields.Char('Indirizzo Smart Contract',
+                                   help='Solo per provider Polygon/EVM (opzionale: senza contratto invia tx con hash nel data)')
     active = fields.Boolean('Attivo', default=True)
     gas_limit = fields.Integer('Gas Limit', default=100000)
 
