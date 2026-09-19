@@ -38,6 +38,7 @@ import CopertinaPage, { type OperativaContext } from "@/components/admin/Coperti
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 import RelationScoutingPanel, { type RelationScoutingData } from "@/components/admin/RelationScoutingPanel";
 import CallEndPanel from "@/components/admin/CallEndPanel";
+import PersonCard from "@/components/admin/PersonCard";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -241,6 +242,8 @@ export default function PartnerProjectDetailPage() {
     const [contextOptions, setContextOptions] = useState<{ persone: any[]; targets: any[] }>({ persone: [], targets: [] });
     // 18/09/2026 (Denis): pannello post-call (debrief + lead + email)
     const [lastCallEnd, setLastCallEnd] = useState<{ callId: number; durationSeconds: number } | null>(null);
+    // 19/09/2026: scheda persona (modal dettagli) — dati SEMPRE su Odoo
+    const [detailPerson, setDetailPerson] = useState<any | null>(null);
     const [briefType, setBriefType] = useState<'brief' | 'debrief'>('brief');
     const [briefData, setBriefData] = useState({ objective: '', targetAudience: '', keyDeliverables: '', risksOrNotes: '' });
 
@@ -617,19 +620,34 @@ export default function PartnerProjectDetailPage() {
     // di default. La Copertina è cliccabile e porta all'Operativa contestuale.
     if (isKanbanBoard && project && viewTab === 'copertina') {
         return (
-            <CopertinaPage
-                projectId={project.id}
-                projectName={project.name}
-                projectParentId={project.parent_id ?? null}
-                onBack={() => {
-                    if (project.parent_id) window.location.href = `/admin/partner-projects/${project.parent_id}`;
-                    else window.location.href = "/admin/partner-projects";
-                }}
-                onOpenOperativa={(ctx) => {
-                    setOperativeContext(ctx);
-                    setViewTab('operativa');
-                }}
-            />
+            <>
+                <CopertinaPage
+                    projectId={project.id}
+                    projectName={project.name}
+                    projectParentId={project.parent_id ?? null}
+                    onBack={() => {
+                        if (project.parent_id) window.location.href = `/admin/partner-projects/${project.parent_id}`;
+                        else window.location.href = "/admin/partner-projects";
+                    }}
+                    onOpenOperativa={(ctx) => {
+                        setOperativeContext(ctx);
+                        setViewTab('operativa');
+                    }}
+                    onOpenDetail={(person) => setDetailPerson(person)}
+                />
+                {detailPerson && (
+                    <PersonCard
+                        person={detailPerson}
+                        onClose={() => setDetailPerson(null)}
+                        onOpenTarget={(tid, tname) => {
+                            setOperativeContext({ type: 'target', id: tid, label: tname });
+                            setViewTab('operativa');
+                            setDetailPerson(null);
+                        }}
+                        onOpenOperativa={() => setDetailPerson(null)}
+                    />
+                )}
+            </>
         );
     }
 
@@ -1712,6 +1730,21 @@ export default function PartnerProjectDetailPage() {
                         setLiveCallOpen(false);
                         setLiveCallPartnerId(null);
                         setLastCallEnd({ callId: info.callId, durationSeconds: info.durationSeconds });
+                    }}
+                />
+            )}
+
+            {detailPerson && (
+                <PersonCard
+                    person={detailPerson}
+                    onClose={() => setDetailPerson(null)}
+                    onOpenTarget={(tid, tname) => {
+                        setOperativeContext({ type: 'target', id: tid, label: tname });
+                        setDetailPerson(null);
+                    }}
+                    onOpenOperativa={() => {
+                        // apre l'operativa contestuale già selezionata
+                        setDetailPerson(null);
                     }}
                 />
             )}

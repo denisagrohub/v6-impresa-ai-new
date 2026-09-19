@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, ArrowRight, Target, Users, Building2, User, Phone, BarChart3, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowRight, Target, Users, Building2, User, Phone, BarChart3, ArrowLeft, Info } from "lucide-react";
 import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 
@@ -33,10 +33,11 @@ export type OperativaContext =
 
 export default function CopertinaPage({
   projectId, projectName, projectParentId,
-  onOpenOperativa, onBack,
+  onOpenOperativa, onOpenDetail, onBack,
 }: {
   projectId: number; projectName: string; projectParentId?: number | null;
   onOpenOperativa: (ctx: OperativaContext) => void;
+  onOpenDetail: (person: Partner) => void;
   onBack: () => void;
 }) {
   const [loading, setLoading] = useState(true);
@@ -177,13 +178,21 @@ export default function CopertinaPage({
                       </div>
                       <div className="mt-1 space-y-0.5">
                         {list.map((p) => (
-                          <button key={p.id}
-                            onClick={() => onOpenOperativa({ type: 'person', id: p.id, label: p.partnerName || p.name, partnerId: p.partnerId })}
-                            className="w-full text-left px-2 py-1 rounded hover:bg-gray-50 text-xs group flex items-center gap-1.5">
-                            <User size={11} className="text-gray-400 shrink-0" />
-                            <span className="font-medium text-[#0f172a] truncate">{p.partnerName || p.name}</span>
-                            <ArrowRight size={10} className="ml-auto text-gray-300 group-hover:text-indigo-500" />
-                          </button>
+                          <div key={p.id} className="flex items-center gap-1 group">
+                            <button
+                              onClick={() => onOpenOperativa({ type: 'person', id: p.id, label: p.partnerName || p.name, partnerId: p.partnerId })}
+                              className="flex-1 text-left px-2 py-1 rounded hover:bg-gray-50 text-xs flex items-center gap-1.5 min-w-0">
+                              <User size={11} className="text-gray-400 shrink-0" />
+                              <span className="font-medium text-[#0f172a] truncate">{p.partnerName || p.name}</span>
+                              <ArrowRight size={10} className="ml-auto text-gray-300 group-hover:text-indigo-500" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onOpenDetail(p); }}
+                              className="shrink-0 text-indigo-500 hover:text-indigo-700 p-1 rounded hover:bg-indigo-50 transition-colors"
+                              title="Dettagli">
+                              <Info size={13} />
+                            </button>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -213,14 +222,21 @@ export default function CopertinaPage({
                     </button>
                     <div className="mt-1 space-y-0.5">
                       {group.list.map((r) => (
-                        <button key={`ref-${r.id}-${key}`}
-                          onClick={() => onOpenOperativa({ type: 'target', id: group.targetId, label: group.targetName })}
-                          className="w-full text-left px-2 py-1 rounded hover:bg-sky-50 text-xs group flex items-center gap-1.5">
-                          <User size={11} className="text-sky-400 shrink-0" />
-                          <span className="font-medium text-sky-900 truncate">{r.partnerName || r.name}</span>
-                          {r.ruoloContatto && <span className="text-[10px] text-sky-600 italic">· {r.ruoloContatto}</span>}
-                          <ArrowRight size={10} className="ml-auto text-sky-300 group-hover:text-sky-500" />
-                        </button>
+                        <div key={`ref-${r.id}-${key}`} className="flex items-center gap-1 group">
+                          <button
+                            onClick={() => onOpenOperativa({ type: 'target', id: group.targetId, label: group.targetName })}
+                            className="flex-1 text-left px-2 py-1 rounded hover:bg-sky-50 text-xs flex items-center gap-1.5 min-w-0">
+                            <User size={11} className="text-sky-400 shrink-0" />
+                            <span className="font-medium text-sky-900 truncate">{r.partnerName || r.name}</span>
+                            {r.ruoloContatto && <span className="text-[10px] text-sky-600 italic truncate">· {r.ruoloContatto}</span>}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onOpenDetail(r); }}
+                            className="shrink-0 text-sky-500 hover:text-sky-700 p-1 rounded hover:bg-sky-50 transition-colors"
+                            title="Dettagli">
+                            <Info size={13} />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
