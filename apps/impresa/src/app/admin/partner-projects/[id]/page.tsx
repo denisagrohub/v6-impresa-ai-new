@@ -33,6 +33,7 @@ import { ScoutingModal, type ScoutingData } from "@/components/admin/ScoutingMod
 import { CharterEditor, type CharterData } from "@/components/CharterEditor";
 import LiveCallDrawer from "@/components/admin/LiveCallDrawer";
 import Dropdown from "@/components/ui/Dropdown";
+import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 import RelationScoutingPanel, { type RelationScoutingData } from "@/components/admin/RelationScoutingPanel";
 import CallEndPanel from "@/components/admin/CallEndPanel";
@@ -565,6 +566,11 @@ export default function PartnerProjectDetailPage() {
                             <p className="text-xs text-gray-500">Trascina le aziende tra le fasi · 📞 per live call · sposta ad altro progetto</p>
                         </div>
                     </div>
+
+                    {/* CRUSCOTTO KPI */}
+                    <KpiDashboard projectId={project.id} />
+
+                    {/* KANBAN */}
                     <AcquisitionKanban relationId={project.id} relationName={project.name} />
                 </div>
             </div>
