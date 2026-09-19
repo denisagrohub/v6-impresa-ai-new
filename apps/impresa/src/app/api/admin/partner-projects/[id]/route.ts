@@ -207,11 +207,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     // --- charter (con versioning) ---
     if (charter && typeof charter === 'object') {
+      // 19/09/2026: kpiTargets arriva come campo separato, va incorporato nel data
+      const charterData = { ...((charter as any).data || {}) };
+      if ((charter as any).kpiTargets) {
+        charterData.kpiTargets = (charter as any).kpiTargets;
+      }
       const payload = {
         version: (charter as any).version || 1,
         updatedAt: new Date().toISOString(),
         history: (charter as any).history || [],
-        data: (charter as any).data || charter,
+        data: charterData,
       };
       const existing = await odoo.execute('erpv6.tracking.relation', 'search_read', [
         [['id', '=', id]], ['x_v6_charter'],

@@ -205,6 +205,11 @@ export default function PartnerProjectDetailPage() {
     const [isRelationScoutingOpen, setIsRelationScoutingOpen] = useState(false);
     // 19/09/2026 (Denis): Copertina (dashboard cliccabile) vs Operativa (workbench)
     const [viewTab, setViewTab] = useState<'copertina' | 'operativa'>('copertina');
+
+    // 19/09/2026: reset modal aperti quando si cambia tab (evita Charter che resta aperto)
+    useEffect(() => {
+        setShowCharterInCopertina(false);
+    }, [viewTab]);
     const [operativeContext, setOperativeContext] = useState<OperativaContext | null>(null);
 
     // 19/09/2026: filtro email per contesto.
@@ -655,6 +660,7 @@ export default function PartnerProjectDetailPage() {
                     }}
                     onOpenDetail={(person) => setDetailPerson(person)}
                     onOpenCharter={() => setShowCharterInCopertina(true)}
+                    onOpenSettings={() => setIsSettingsOpen(true)}
                 />
                 {showCharterInCopertina && (
                     <CharterEditor

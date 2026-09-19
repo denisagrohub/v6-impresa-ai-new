@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, ArrowRight, Target, Users, Building2, User, Phone, BarChart3, ArrowLeft, Info } from "lucide-react";
+import { Loader2, ArrowRight, Target, Users, Building2, User, Phone, BarChart3, ArrowLeft, Info, FileText, Settings } from "lucide-react";
 import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
 import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 
@@ -33,11 +33,13 @@ export type OperativaContext =
 
 export default function CopertinaPage({
   projectId, projectName, projectParentId,
-  onOpenOperativa, onOpenDetail, onBack,
+  onOpenOperativa, onOpenDetail, onOpenCharter, onOpenSettings, onBack,
 }: {
   projectId: number; projectName: string; projectParentId?: number | null;
   onOpenOperativa: (ctx: OperativaContext) => void;
   onOpenDetail: (person: Partner) => void;
+  onOpenCharter: () => void;
+  onOpenSettings: () => void;
   onBack: () => void;
 }) {
   const [loading, setLoading] = useState(true);
@@ -109,6 +111,12 @@ export default function CopertinaPage({
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={onOpenCharter}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50"
+            >
+              <FileText size={12} className="text-emerald-600" /> Charter
+            </button>
+            <button
               onClick={() => onOpenOperativa({ type: 'project' })}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50"
             >
@@ -125,6 +133,12 @@ export default function CopertinaPage({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0f172a] text-white text-xs font-semibold hover:bg-[#1e293b]"
             >
               Apri operativa <ArrowRight size={12} />
+            </button>
+            <button
+              onClick={onOpenSettings}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-[#1a7fa8] hover:bg-gray-100 transition-colors"
+              title="Impostazioni (KPI, circuito)">
+              <Settings size={16} />
             </button>
           </div>
         </div>
