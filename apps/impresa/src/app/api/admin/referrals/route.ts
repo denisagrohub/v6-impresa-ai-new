@@ -20,6 +20,23 @@ export async function GET(req: Request) {
       0, 0, 'create_date desc',
     ]);
 
+    // 20/09/2026: prefetch email segnalanti (per conferma invio firma)
+    const segnalanteIds: number[] = [];
+    for (const r of refs || []) {
+      const pid = Array.isArray(r.segnalante_partner_id) ? r.segnalante_partner_id[0] : null;
+      if (pid && !segnalanteIds.includes(pid)) segnalanteIds.push(pid);
+    }
+    const segnalanteEmails: Record<number, string> = {};
+    if (segnalanteIds.length > 0) {
+      try {
+        const partners = await odoo.execute('res.partner', 'search_read', [
+          [['id', 'in', segnalanteIds]],
+          ['id', 'email'],
+        ]);
+        for (const p of partners || []) if (p.email) segnalanteEmails[p.id] = p.email;
+      } catch {}
+    }
+
     return NextResponse.json({
       success: true,
       referrals: (refs || []).map((r: any) => ({
@@ -28,6 +45,10 @@ export async function GET(req: Request) {
         segnalanteName: Array.isArray(r.segnalante_partner_id) ? r.segnalante_partner_id[1]
                      : Array.isArray(r.segnalante_user_id) ? r.segnalante_user_id[1] : null,
         segnalanteId: Array.isArray(r.segnalante_partner_id) ? r.segnalante_partner_id[0] : null,
+        segnalanteEmail: (() => {
+          const pid = Array.isArray(r.segnalante_partner_id) ? r.segnalante_partner_id[0] : null;
+          return pid ? (segnalanteEmails[pid] || null) : null;
+        })(),
         relationId: Array.isArray(r.relation_id) ? r.relation_id[0] : null,
         relationName: Array.isArray(r.relation_id) ? r.relation_id[1] : null,
         targetId: Array.isArray(r.target_id) ? r.target_id[0] : null,

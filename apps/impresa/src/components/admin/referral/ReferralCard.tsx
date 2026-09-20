@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
-import { Loader2, Plus, X, User, ExternalLink, ShieldCheck, TrendingUp, AlertCircle } from "lucide-react";
+import { Loader2, Plus, X, User, ExternalLink, ShieldCheck, TrendingUp, AlertCircle, FileText, Send } from "lucide-react";
 
 export interface Referral {
   id: number;
   name: string;
   segnalanteName: string | null;
+  segnalanteEmail: string | null;
   segnalanteId: number | null;
   relationId: number | null;
   relationName: string | null;
@@ -52,6 +53,7 @@ export default function ReferralCard({
   const [commissione, setCommissione] = useState(5);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busyAgreement, setBusyAgreement] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const save = async () => {
@@ -76,6 +78,45 @@ export default function ReferralCard({
       onReload();
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
+  };
+
+  const generateAgreement = async (id: number) => {
+    setBusyAgreement(id);
+    try {
+      const r = await fetch(`/api/admin/referrals/${id}/generate-agreement`, { method: 'POST' });
+      const d = await r.json();
+      if (!d.success) { alert(d.error); return; }
+      // Apri il PDF in una nuova tab per anteprima
+      window.open(`/api/admin/referrals/${id}/pdf`, '_blank');
+      onReload();
+    } catch (e: any) { alert(e.message); }
+    finally { setBusyAgreement(null); }
+  };
+
+  const sendToSign = async (id: number, segnalanteNome: string, segnalanteEmail: string | null) => {
+    if (!segnalanteEmail) {
+      alert(`Il segnalante "${segnalanteNome}" non ha un'email configurata.\nAggiungila nella scheda persona prima di inviare la firma.`);
+      return;
+    }
+    const ok = confirm(
+      `Inviare l'accordo per firma a:\n\n` +
+      `Segnalante: ${segnalanteNome}\n` +
+      `Email: ${segnalanteEmail}\n\n` +
+      `Il segnalante riceverà un'email da Documenso con il link per firmare.\n` +
+      `L'operazione è irreversibile (puoi annullare da Documenso).\n\n` +
+      `Procedere?`
+    );
+    if (!ok) return;
+
+    setBusyAgreement(id);
+    try {
+      const r = await fetch(`/api/admin/referrals/${id}/send-to-sign`, { method: 'POST' });
+      const d = await r.json();
+      if (!d.success) { alert(d.error); return; }
+      alert(`Firma inviata a ${segnalanteNome} (${segnalanteEmail}).`);
+      onReload();
+    } catch (e: any) { alert(e.message); }
+    finally { setBusyAgreement(null); }
   };
 
   const anchor = async (id: number) => {
@@ -129,7 +170,7 @@ export default function ReferralCard({
                     {st.label}
                   </span>
                 </div>
-                <div className="mt-1.5 flex items-center gap-1 text-gray-400">
+                <div className="mt-1.5 flex items-center gap-2 text-gray-400">
                   {ref.blockchainRecordId ? (
                     <span className="text-[9px] text-emerald-600 flex items-center gap-0.5" title="Ancorato su blockchain">
                       <ShieldCheck size={10} /> OTS
@@ -143,6 +184,22 @@ export default function ReferralCard({
                       <ShieldCheck size={10} /> Ancora
                     </button>
                   )}
+                  <button
+                    onClick={() => generateAgreement(ref.id)}
+                    disabled={busyAgreement === ref.id}
+                    className="text-[9px] text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 disabled:opacity-40"
+                    title="Genera PDF accordo (Typst)">
+                    {busyAgreement === ref.id ? <Loader2 size={10} className="animate-spin" /> : <FileText size={10} />}
+                    Accordo
+                  </button>
+                  <button
+                    onClick={() => sendToSign(ref.id, ref.segnalanteName || '', (ref as any).segnalanteEmail || null)}
+                    disabled={busyAgreement === ref.id}
+                    className="text-[9px] text-emerald-600 hover:text-emerald-800 flex items-center gap-0.5 disabled:opacity-40"
+                    title="Invia per firma (Documenso)">
+                    {busyAgreement === ref.id ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                    Firma
+                  </button>
                   {ref.targetId && (
                     <span className="ml-auto text-[9px] text-gray-500 flex items-center gap-0.5">
                       <ExternalLink size={9} /> {ref.targetName}
