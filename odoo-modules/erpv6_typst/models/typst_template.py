@@ -47,6 +47,9 @@ class TypstTemplate(models.Model):
         ('relazione', 'Relazione'),
         ('manuale', 'Manuale'),
         ('custom', 'Personalizzato'),
+        # 20/09/2026: accordo di segnalazione commerciale per i referral
+        # (erpv6_referral). Firma digitale Documenso, hash ancorato su OTS.
+        ('referral_agreement', 'Accordo Referral'),
     ], string='Categoria', required=True, default='business_plan')
 
     sequence = fields.Integer(string='Sequenza', default=10)

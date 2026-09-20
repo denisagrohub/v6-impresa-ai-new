@@ -324,13 +324,11 @@ class SignRequest(models.Model):
                         referral.write({'firma_hash': sig_hash})
                     except Exception:
                         pass  # campo non ancora presente, skip silenzioso
-                referral.message_post(body=(
-                    "Accordo firmato da %s il %s. Hash firma: %s"
-                ) % (
-                    self.partner_id.name or '?',
-                    (self.signed_at or fields.Datetime.now()).strftime('%d/%m/%Y %H:%M'),
-                    (sig_hash or '-')[:16] + '…' if sig_hash else '-',
-                ))
+                partner_name = self.partner_id.name or '?'
+                sign_date = (self.signed_at or fields.Datetime.now()).strftime('%d/%m/%Y %H:%M')
+                hash_short = (sig_hash[:16] + '...') if sig_hash else '-'
+                msg = "Accordo firmato da %s il %s. Hash firma: %s" % (partner_name, sign_date, hash_short)
+                referral.message_post(body=msg)
                 # Notifica al responsabile (via activity sul referral)
                 responsible = referral.segnalante_user_id or referral.create_uid
                 if responsible:
@@ -339,8 +337,8 @@ class SignRequest(models.Model):
                             'mail.mail_activity_data_todo',
                             user_id=responsible.id,
                             summary=f'Accordo referral firmato: {referral.name}',
-                            note=f'{self.partner_id.name or "?"} ha firmato l'accordo il '
-                                 f'{(self.signed_at or fields.Datetime.now()).strftime("%d/%m/%Y %H:%M")}.',
+                            note=(self.partner_id.name or '?') + ' ha firmato l\'accordo il ' +
+                                 (self.signed_at or fields.Datetime.now()).strftime('%d/%m/%Y %H:%M') + '.',
                         )
                     except Exception:
                         pass  # activity_schedule fallisce se mail.activity.mixin assente

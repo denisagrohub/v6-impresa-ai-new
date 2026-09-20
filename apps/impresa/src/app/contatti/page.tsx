@@ -94,7 +94,7 @@ export default function ContattiPage() {
                             <div className="space-y-4">
                                 {[
                                     { icon: Mail, label: "Email", value: "info@v6impresa.it", sub: "Risposta entro 24h" },
-                                    { icon: Phone, label: "Telefono", value: "+39 351 99 88 083", sub: "Lun-Ven 9:00-21:00" },
+                                    { icon: Phone, label: "Telefono", value: "+39 351 88 700 88", sub: "Lun-Ven 9:00-21:00" },
                                     { icon: MapPin, label: "Sede", value: "Via Trentino, 22", sub: "30010 Venezia VE" },
                                     { icon: Clock, label: "Orari", value: "Lunedì - Venerdì", sub: "9:00 - 21:00" },
                                 ].map((item, i) => (
