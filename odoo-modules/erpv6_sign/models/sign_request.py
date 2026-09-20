@@ -25,6 +25,7 @@ class SignRequest(models.Model):
         ('signed', 'Firmata'),
         ('expired', 'Scaduta'),
         ('declined', 'Rifiutata'),
+        ('cancelled', 'Annullata'),
     ], string='Stato', default='draft', tracking=True)
     
     # Documenso
@@ -222,6 +223,57 @@ class SignRequest(models.Model):
         except Exception as e:
             _logger.error(f'Errore verifica stato: {e}')
 
+    def action_cancel(self):
+        """Annulla l'envelope su Documenso (solo se non ancora firmato).
+
+        Chiamato dall'esterno (es. erpv6.referral) per revocare un invio
+        fatto per errore. Documenso supporta DELETE /envelope/{id} per
+        cancellare un envelope in stato DRAFT/PENDING.
+        """
+        self.ensure_one()
+        if self.status not in ('sent', 'viewed', 'draft'):
+            raise UserError(_('Impossibile annullare: la richiesta è in stato "%s"') % self.status)
+        if not self.external_id:
+            # Niente envelope remoto: basta annullare localmente
+            self.write({'status': 'cancelled'})
+            self.env['erpv6.sign.log'].create({
+                'request_id': self.id,
+                'action': 'cancelled',
+                'details': 'Annullata localmente (nessun envelope remoto)',
+            })
+            return True
+
+        config = self.env['erpv6.sign.config'].search([('active', '=', True)], limit=1)
+        if not config or not config.api_key:
+            raise UserError(_('Configurazione Documenso non trovata'))
+
+        base = config._api_base()
+        headers = config._api_headers()
+
+        try:
+            resp = requests.delete(
+                f'{base}/envelope/{self.external_id}',
+                headers=headers,
+                timeout=15,
+            )
+            # 200 = cancellato, 404 = già assente (ok), altri = errore
+            if resp.status_code not in (200, 202, 204, 404):
+                raise UserError(_('Errore annullamento Documenso: HTTP %s - %s') % (resp.status_code, resp.text[:200]))
+
+            self.write({'status': 'cancelled'})
+            self.env['erpv6.sign.log'].create({
+                'request_id': self.id,
+                'action': 'cancelled',
+                'details': f'Envelope Documenso annullato: {self.external_id}',
+            })
+            self.message_post(body=_("Richiesta di firma annullata"))
+            return True
+        except UserError:
+            raise
+        except Exception as e:
+            _logger.error(f'Errore annullamento firma: {e}')
+            raise UserError(_('Errore durante l\'annullamento: %s') % str(e))
+
     def _sync_signed_contract_document(self):
         """Propaga il completamento firma al documento sorgente, quando
         questa richiesta viene dal flusso NDA/contratto/promessa di
@@ -239,18 +291,59 @@ class SignRequest(models.Model):
         decisione di design da confermare con Denis (vedi report)."""
         self.ensure_one()
         doc = self.document_id
-        if not doc or doc.res_model != 'erpv6.contract.document' or not doc.res_id:
-            return
-        contract_doc = self.env['erpv6.contract.document'].sudo().browse(doc.res_id)
-        if not contract_doc.exists():
+        if not doc:
             return
 
-        vals = {'signed_at': self.signed_at or fields.Datetime.now()}
+        import base64
+        import hashlib
+        sig_hash = None
         if self.signed_document:
-            import base64
-            import hashlib
-            vals['signature_hash'] = hashlib.sha256(base64.b64decode(self.signed_document)).hexdigest()
-        contract_doc.write(vals)
+            sig_hash = hashlib.sha256(base64.b64decode(self.signed_document)).hexdigest()
+
+        # 20/09/2026: due possibili destinazioni del PDF firmato:
+        # 1) erpv6.contract.document (contratti commerciali, originale)
+        # 2) erpv6.referral (accordi di segnalazione - nuovo)
+        if doc.res_model == 'erpv6.contract.document' and doc.res_id:
+            contract_doc = self.env['erpv6.contract.document'].sudo().browse(doc.res_id)
+            if contract_doc.exists():
+                vals = {'signed_at': self.signed_at or fields.Datetime.now()}
+                if sig_hash:
+                    vals['signature_hash'] = sig_hash
+                contract_doc.write(vals)
+
+        elif doc.res_model == 'erpv6.referral' and doc.res_id:
+            referral = self.env['erpv6.referral'].sudo().browse(doc.res_id)
+            if referral.exists():
+                referral.write({
+                    'state': 'attivo',
+                    'accordo_firmato_il': self.signed_at or fields.Datetime.now(),
+                })
+                if sig_hash:
+                    # salva hash firma sul referral (nuovo campo opzionale)
+                    try:
+                        referral.write({'firma_hash': sig_hash})
+                    except Exception:
+                        pass  # campo non ancora presente, skip silenzioso
+                referral.message_post(body=(
+                    "Accordo firmato da %s il %s. Hash firma: %s"
+                ) % (
+                    self.partner_id.name or '?',
+                    (self.signed_at or fields.Datetime.now()).strftime('%d/%m/%Y %H:%M'),
+                    (sig_hash or '-')[:16] + '…' if sig_hash else '-',
+                ))
+                # Notifica al responsabile (via activity sul referral)
+                responsible = referral.segnalante_user_id or referral.create_uid
+                if responsible:
+                    try:
+                        referral.activity_schedule(
+                            'mail.mail_activity_data_todo',
+                            user_id=responsible.id,
+                            summary=f'Accordo referral firmato: {referral.name}',
+                            note=f'{self.partner_id.name or "?"} ha firmato l'accordo il '
+                                 f'{(self.signed_at or fields.Datetime.now()).strftime("%d/%m/%Y %H:%M")}.',
+                        )
+                    except Exception:
+                        pass  # activity_schedule fallisce se mail.activity.mixin assente
 
     def _fetch_signed_document(self, config):
         """Scarica il PDF firmato (GET /envelope/item/{envelopeItemId}/download).
