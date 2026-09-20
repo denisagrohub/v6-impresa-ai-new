@@ -239,3 +239,230 @@ class ConsultantAPIController(APIBaseController):
 
         self._log_api_call('/api/v1/consultant/richieste/decide', 'POST', user.id, 200, start_time)
         return self._json_response({'id': richiesta.id, 'state': richiesta.state})
+
+    # ------------------------------------------------------------------
+    # Tab "Email" (21/09/2026): email assegnate al consulente via routing
+    # slug su @v6impresa.it (vedi erpv6_winwin_renderdata.message_new).
+    # Un consulente vede solo le sue; Admin/Responsabile vede tutte.
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/emails', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_emails(self, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        if 'erpv6.winwin.email.log' not in env:
+            self._log_api_call('/api/v1/consultant/emails', 'GET', user.id, 501, start_time)
+            return self._json_response({'error': 'erpv6_winwin_renderdata non installato'}, 501)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        show_all = is_admin and kwargs.get('all') in ('1', 'true', 'True')
+
+        domain = [] if show_all else [('recipient_user_id', '=', user.id)]
+        # opzionale filtro per progetto
+        relation_id = kwargs.get('relation_id')
+        if relation_id:
+            try:
+                domain.append(('relation_id', '=', int(relation_id)))
+            except (ValueError, TypeError):
+                pass
+
+        limit = min(int(kwargs.get('limit') or 50), 200)
+        Log = env['erpv6.winwin.email.log'].sudo()
+        logs = Log.search(domain, order='create_date desc', limit=limit)
+
+        emails = [{
+            'id': l.id,
+            'subject': l.name or '(senza oggetto)',
+            'sender_email': l.sender_email or '',
+            'recipient_emails': l.recipient_emails or '',
+            'cc_emails': l.cc_emails or '',
+            'match_status': l.match_status,
+            'matched_alias': l.matched_alias or '',
+            'relation_id': l.relation_id.id if l.relation_id else None,
+            'relation_name': l.relation_id.name if l.relation_id else None,
+            'recipient_user_id': l.recipient_user_id.id if l.recipient_user_id else None,
+            'recipient_user_name': l.recipient_user_id.name if l.recipient_user_id else None,
+            'create_date': l.create_date.isoformat() if l.create_date else None,
+        } for l in logs]
+
+        self._log_api_call('/api/v1/consultant/emails', 'GET', user.id, 200, start_time)
+        return self._json_response({
+            'is_admin': is_admin,
+            'showing_all': show_all,
+            'count': len(emails),
+            'emails': emails,
+        })
+
+    # ------------------------------------------------------------------
+    # Tab "Pagamenti" (21/09/2026): compensi del consulente calcolati dallo
+    # split V6 dei progetti dove compare come beneficiario 'consulente'.
+    # Fonte: erpv6.tracking.relation.x_v6_revenue_split (JSON).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/payments', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_payments(self, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        if 'erpv6.tracking.relation' not in env:
+            self._log_api_call('/api/v1/consultant/payments', 'GET', user.id, 501, start_time)
+            return self._json_response({'error': 'aeosv6_relation non installato'}, 501)
+
+        Relation = env['erpv6.tracking.relation'].sudo()
+        roots = Relation.search([('parent_id', '=', False), ('x_v6_revenue_split', '!=', False)])
+
+        my_partner_id = user.partner_id.id
+        payments = []
+
+        for root in roots:
+            try:
+                split = json.loads(root.x_v6_revenue_split or '{}')
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            beneficiari = split.get('beneficiari') or []
+            mine = None
+            for b in beneficiari:
+                if (b.get('res_partner_id') == my_partner_id
+                        and b.get('tipo') == 'consulente'):
+                    mine = b
+                    break
+            if not mine:
+                continue
+
+            base = split.get('base') or {}
+            base_tipo = base.get('tipo', 'fisso_unita')
+            base_valore = float(base.get('valore') or 0)
+            base_unita = base.get('unita') or ''
+            mia_pct = float(mine.get('pct') or 0)
+
+            payments.append({
+                'project_id': root.id,
+                'project_name': root.name,
+                'base_tipo': base_tipo,
+                'base_valore': base_valore,
+                'base_unita': base_unita,
+                'mia_pct': mia_pct,
+                'mia_quota_teorica': round(base_valore * mia_pct / 100.0, 4),
+                'split_approvato': bool(root.revenue_split_approved),
+                'split_approvato_il': root.revenue_split_approved_at.isoformat() if root.revenue_split_approved_at else None,
+                'split_hash': root.revenue_split_hash or '',
+            })
+
+        self._log_api_call('/api/v1/consultant/payments', 'GET', user.id, 200, start_time)
+        return self._json_response({
+            'count': len(payments),
+            'payments': payments,
+        })
+
+    # ------------------------------------------------------------------
+    # Dettaglio progetto filtrato (21/09/2026): un consulente puo' aprire
+    # un progetto solo se e' owner_user_id, in access_user_ids, o compare
+    # nei beneficiari dello split come consulente. Admin vede tutto.
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/projects/<int:relation_id>', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_project_detail(self, relation_id, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        Relation = env['erpv6.tracking.relation'].sudo()
+        root = Relation.browse(relation_id)
+        if not root.exists():
+            self._log_api_call('/api/v1/consultant/projects/detail', 'GET', user.id, 404, start_time)
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            # Verifica accesso
+            is_owner = root.owner_user_id.id == user.id
+            in_access = user.id in (root.access_user_ids.ids or [])
+            in_split = False
+            try:
+                split = json.loads(root.x_v6_revenue_split or '{}')
+                in_split = any(
+                    b.get('res_partner_id') == user.partner_id.id and b.get('tipo') == 'consulente'
+                    for b in (split.get('beneficiari') or [])
+                )
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+            if not (is_owner or in_access or in_split):
+                self._log_api_call('/api/v1/consultant/projects/detail', 'GET', user.id, 403, start_time)
+                return self._json_response({'error': 'Non hai accesso a questo progetto'}, 403)
+
+        # Target figli (funzione=target)
+        targets = root.child_ids.filtered(lambda c: c.funzione_progetto == 'target')
+        targets_data = [{
+            'id': t.id,
+            'name': t.name,
+            'partner_id': t.partner_id.id if t.partner_id else None,
+            'partner_name': t.partner_id.name if t.partner_id else '',
+            'contatto_id': t.contatto_principale_id.id if t.contatto_principale_id else None,
+            'contatto_name': t.contatto_principale_id.name if t.contatto_principale_id else '',
+            'stage_id': t.stage_id.id if t.stage_id else None,
+            'stage_name': t.stage_id.name if t.stage_id else '',
+            'state': t.state,
+        } for t in targets]
+
+        # Email del progetto (solo quelle che riguardano questo consulente,
+        # a meno che non sia admin)
+        email_domain = [('relation_id', '=', root.id)]
+        if not is_admin:
+            email_domain.append(('recipient_user_id', '=', user.id))
+        emails = env['erpv6.winwin.email.log'].sudo().search(email_domain, order='create_date desc', limit=50) \
+            if 'erpv6.winwin.email.log' in env else []
+        emails_data = [{
+            'id': e.id,
+            'subject': e.name,
+            'sender_email': e.sender_email or '',
+            'recipient_user_id': e.recipient_user_id.id if e.recipient_user_id else None,
+            'create_date': e.create_date.isoformat() if e.create_date else None,
+        } for e in emails]
+
+        # Mio compenso (se presente nello split)
+        mio_compenso = None
+        try:
+            split = json.loads(root.x_v6_revenue_split or '{}')
+            base = split.get('base') or {}
+            mine = next(
+                (b for b in (split.get('beneficiari') or [])
+                 if b.get('res_partner_id') == user.partner_id.id and b.get('tipo') == 'consulente'),
+                None,
+            )
+            if mine:
+                mio_compenso = {
+                    'pct': float(mine.get('pct') or 0),
+                    'base_tipo': base.get('tipo'),
+                    'base_valore': float(base.get('valore') or 0),
+                    'base_unita': base.get('unita') or '',
+                    'approvato': bool(root.revenue_split_approved),
+                }
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        self._log_api_call('/api/v1/consultant/projects/detail', 'GET', user.id, 200, start_time)
+        return self._json_response({
+            'id': root.id,
+            'name': root.name,
+            'is_admin': is_admin,
+            'project_phase': root.state,
+            'targets': targets_data,
+            'emails': emails_data,
+            'mio_compenso': mio_compenso,
+        })
+
