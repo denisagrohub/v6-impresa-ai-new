@@ -37,12 +37,16 @@ class Erpv6WinwinEmailLog(models.Model):
 
     match_status = fields.Selection([
         ('matched', 'Collegata a progetto'),
+        ('utente_consulente', 'Collegata a consulente V6'),
         ('alias_riconosciuto_progetto_mancante', 'Alias su v6impresa.it riconosciuto, nessun progetto collegato'),
         ('non_pattern_progetto', 'Non un alias di progetto (rumore catch-all)'),
     ], string='Stato Riconoscimento', required=True, default='non_pattern_progetto')
 
     matched_alias = fields.Char(string='Alias Riconosciuto')
     relation_id = fields.Many2one('erpv6.tracking.relation', string='Nodo Progetto', tracking=True)
+    # 20/09/2026: se il TO contiene uno slug utente (es. christian.girardi@v6impresa.it)
+    # l'email viene attribuita al consulente.
+    recipient_user_id = fields.Many2one('res.users', string='Destinatario Consulente', tracking=True)
 
     @api.model
     def message_new(self, msg_dict, custom_values=None):
@@ -53,6 +57,39 @@ class Erpv6WinwinEmailLog(models.Model):
         from_field = msg_dict.get('from') or ''
 
         candidates = [m.group(1).lower() for m in DOMAIN_EMAIL_RE.finditer(f'{to_field} {cc_field}')]
+
+        # 20/09/2026: PRIMA cerca se uno slug corrisponde a un utente consulente.
+        User = self.env['res.users'].sudo()
+        recipient_user = User
+        recipient_matched = False
+        for alias in candidates:
+            u = User.search([('email_slug', '=', alias)], limit=1)
+            if u:
+                recipient_user = u
+                recipient_matched = alias
+                break
+
+        if recipient_user:
+            custom_values['match_status'] = 'utente_consulente'
+            custom_values['matched_alias'] = recipient_matched
+            custom_values['recipient_user_id'] = recipient_user.id
+            custom_values['name'] = msg_dict.get('subject') or _('(nessun oggetto)')
+            custom_values['sender_email'] = msg_dict.get('from')
+            custom_values['recipient_emails'] = msg_dict.get('to')
+            custom_values['cc_emails'] = msg_dict.get('cc')
+
+            thread_id = super().message_new(msg_dict, custom_values=custom_values)
+
+            try:
+                recipient_user.partner_id.message_post(
+                    body=f"Nuova email da {custom_values['sender_email']} - Oggetto: {custom_values['name']}",
+                    subject=f"[Email] {custom_values['name']}",
+                    message_type='notification',
+                )
+            except Exception:
+                _logger.exception("Notifica email consulente fallita (best-effort)")
+
+            return thread_id
 
         Relation = self.env['erpv6.tracking.relation'].sudo()
         project = Relation
