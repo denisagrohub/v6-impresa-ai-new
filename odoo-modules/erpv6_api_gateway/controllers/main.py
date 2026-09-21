@@ -86,6 +86,10 @@ class APIBaseController(http.Controller):
         payload = {'user_id': user.id, 'exp': datetime.utcnow() + timedelta(hours=24)}
         if role:
             payload['role'] = role
+        # 21/09/2026: includo email_slug cosi' il frontend sa l'indirizzo
+        # reale del consulente (es. christian.girardi) senza inventarlo.
+        if 'email_slug' in user._fields:
+            payload['email_slug'] = user.email_slug or None
         return jwt.encode(payload, secret, algorithm='HS256')
 
     def _log_api_call(self, endpoint, method, user_id, status_code, start_time):
@@ -160,12 +164,15 @@ class HealthController(APIBaseController):
         consultant = request.env['erpv6.consulting.consultant'].sudo().search(
             [('partner_id', '=', user.partner_id.id)], limit=1)
         self._log_api_call('/api/v1/auth/login', 'POST', user.id, 200, start_time)
+        # 21/09/2026: email_slug = local-part alias @v6impresa.it
+        email_slug = getattr(user, 'email_slug', None)
         return self._json_response({
             'token': token,
             'user': {
                 'id': user.id,
                 'name': user.name,
                 'email': user.email or user.login,
+                'email_slug': email_slug,
                 'partner_id': user.partner_id.id,
                 'consultant_id': consultant.id if consultant else None,
                 'role': role,

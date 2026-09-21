@@ -466,3 +466,72 @@ class ConsultantAPIController(APIBaseController):
             'mio_compenso': mio_compenso,
         })
 
+    # ------------------------------------------------------------------
+    # Tab "Progetti Partner" (21/09/2026): nodi erpv6.tracking.relation
+    # radice (parent_id=False) dove il consulente e' owner_user_id,
+    # in access_user_ids, o compare come beneficiario tipo='consulente'
+    # nello split V6. Distinto da /consultant/projects (che mostra solo
+    # production order / crm.lead di consulenza).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/partner-projects', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_partner_projects(self, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        if 'erpv6.tracking.relation' not in env:
+            self._log_api_call('/api/v1/consultant/partner-projects', 'GET', user.id, 501, start_time)
+            return self._json_response({'error': 'aeosv6_relation non installato'}, 501)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        Relation = env['erpv6.tracking.relation'].sudo()
+
+        # Base: tutti i root con split configurato (per admin)
+        # o con accesso specifico (per consulente)
+        domain = [('parent_id', '=', False)]
+
+        candidates = Relation.search(domain, order='name asc')
+
+        result = []
+        for root in candidates:
+            # Verifica accesso per consulente
+            if not is_admin:
+                is_owner = root.owner_user_id.id == user.id
+                in_access = user.id in (root.access_user_ids.ids or [])
+                in_split = False
+                try:
+                    split = json.loads(root.x_v6_revenue_split or '{}')
+                    in_split = any(
+                        b.get('res_partner_id') == user.partner_id.id and b.get('tipo') == 'consulente'
+                        for b in (split.get('beneficiari') or [])
+                    )
+                except (json.JSONDecodeError, TypeError):
+                    pass
+                if not (is_owner or in_access or in_split):
+                    continue
+
+            # Conta i target figli
+            targets_count = len(root.child_ids.filtered(lambda c: c.funzione_progetto == 'target'))
+
+            result.append({
+                'id': root.id,
+                'name': root.name,
+                'state': root.state or 'attivo',
+                'targets_count': targets_count,
+                'email_alias': root.email_alias or '',
+                'owner_name': root.owner_user_id.name if root.owner_user_id else '',
+                'has_split': bool(root.x_v6_revenue_split),
+                'split_approvato': bool(root.revenue_split_approved),
+            })
+
+        self._log_api_call('/api/v1/consultant/partner-projects', 'GET', user.id, 200, start_time)
+        return self._json_response({
+            'is_admin': is_admin,
+            'count': len(result),
+            'projects': result,
+        })
+
