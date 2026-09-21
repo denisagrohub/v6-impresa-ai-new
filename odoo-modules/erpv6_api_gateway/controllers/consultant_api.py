@@ -538,6 +538,43 @@ class ConsultantAPIController(APIBaseController):
     # Dettaglio email (21/09/2026): ritorna il corpo dell'email leggendo
     # il mail.message collegato a erpv6.winwin.email.log (via mail.thread).
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # DELETE email: rimuove il log e i mail.message collegati.
+    # Solo admin/responsabile oppure il recipient_user_id.
+    # (21/09/2026)
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/emails/<int:email_id>', type='http', auth='none',
+                methods=['DELETE', 'OPTIONS'], csrf=False)
+    def delete_consultant_email(self, email_id, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        Log = env['erpv6.winwin.email.log'].sudo()
+        log = Log.browse(email_id)
+        if not log.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            if log.recipient_user_id.id != user.id:
+                return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
+
+        # Rimuovi anche i mail.message collegati (thread)
+        try:
+            env['mail.message'].sudo().search([
+                ('model', '=', 'erpv6.winwin.email.log'),
+                ('res_id', '=', log.id),
+            ]).unlink()
+        except Exception:
+            _logger.exception("Cleanup mail.message fallito per log %s", email_id)
+
+        log.unlink()
+        return self._json_response({'success': True})
+
     @http.route('/api/v1/consultant/emails/<int:email_id>', type='http', auth='none',
                 methods=['GET', 'OPTIONS'], csrf=False)
     def get_consultant_email_detail(self, email_id, **kwargs):  # pylint: disable=unused-argument

@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply, ReplyAll, Forward, Send,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
-} from "lucide-react";
+, Trash2, Plus } from "lucide-react";
 import { CalendarWithHeinrich } from "@/components/calendar/CalendarWithHeinrich";
 import { ConsultantBookingLinks } from "@/components/booking/ConsultantBookingLinks";
 
@@ -213,9 +213,10 @@ export default function ConsultantDashboard() {
             const d = await res.json();
             if (!res.ok || d.error) throw new Error(d.error || 'Errore');
             const subject = mode === 'forward' ? (d.subject.replace(/^Re:\s*/i, 'Fwd: ')) : d.subject;
+            const orig = (d.original_body || '').trim();
             const body = mode === 'forward'
-                ? '<br><br><hr><p><b>----- Messaggio inoltrato -----</b></p>' + (d.original_body || '')
-                : '<br><br><hr><p>' + (d.original_body || '') + '</p>';
+                ? (orig ? '<br><br><hr><p><b>----- Messaggio inoltrato -----</b></p>' + orig : '')
+                : (orig ? '<br><br><hr><p>' + orig + '</p>' : '');
             setComposer({
                 in_reply_to_id: emailId,
                 from_email: d.from_email,
@@ -231,9 +232,37 @@ export default function ConsultantDashboard() {
         }
     };
 
+    // 21/09/2026: nuova email (composer vuoto)
+    const openNewComposer = () => {
+        const fromEmail = user?.emailSlug ? `${user.emailSlug}@v6impresa.it` : (user?.email || '');
+        setComposer({ mode: 'new', from_email: fromEmail, to: '', cc: '', subject: '', body: '' });
+    };
+
+    // 21/09/2026: elimina email (DELETE + refresh lista)
+    const deleteEmail = async (id: number, subject: string) => {
+        if (!user?.token) return;
+        if (!confirm(`Eliminare definitivamente "${subject}"?`)) return;
+        try {
+            const res = await fetch(`/api/consultant/emails/${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${user.token}` },
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                alert(d.error || 'Eliminazione fallita');
+                return;
+            }
+            if (emailDetail?.id === id) setEmailDetail(null);
+            loadEmails();
+        } catch {
+            alert('Errore di rete');
+        }
+    };
+
     const sendComposer = async () => {
         if (!user?.token || !composer) return;
-        if (!composer.to?.trim() || !composer.subject?.trim() || !composer.body?.trim()) {
+        const bodyText = (composer.body || '').replace(/<[^>]*>/g, '').trim();
+        if (!composer.to?.trim() || !composer.subject?.trim() || !bodyText) {
             alert('To, oggetto e corpo sono obbligatori');
             return;
         }
@@ -607,14 +636,22 @@ export default function ConsultantDashboard() {
                             <p className="text-sm text-gray-500">
                                 Email ricevute sul tuo indirizzo <span className="font-mono">{user?.emailSlug || '—'}@v6impresa.it</span>
                             </p>
-                            <button
-                                onClick={loadEmails}
-                                disabled={emailsLoading}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {emailsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                                Aggiorna
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={openNewComposer}
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+                                >
+                                    <Plus size={14} /> Nuova email
+                                </button>
+                                <button
+                                    onClick={loadEmails}
+                                    disabled={emailsLoading}
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    {emailsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                    Aggiorna
+                                </button>
+                            </div>
                         </div>
 
                         {emailsLoading && !emailsData && (
@@ -630,10 +667,13 @@ export default function ConsultantDashboard() {
                         )}
 
                         {emailsData && emailsData.emails?.map((e: any) => (
-                            <button
+                            <div
                                 key={e.id}
+                                className="w-full bg-white rounded-2xl border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-stretch"
+                            >
+                            <button
                                 onClick={() => openEmailDetail(e.id)}
-                                className="w-full text-left bg-white rounded-2xl border border-gray-100 p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                                className="flex-1 text-left p-5 cursor-pointer"
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
@@ -648,10 +688,18 @@ export default function ConsultantDashboard() {
                                         )}
                                     </div>
                                     <span className="text-xs text-gray-400 whitespace-nowrap">
-                                        {e.create_date ? new Date(e.create_date).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                        {e.create_date ? new Date(e.create_date + (e.create_date.endsWith('Z') || e.create_date.includes('+') ? '' : 'Z')).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
                                     </span>
                                 </div>
                             </button>
+                            <button
+                                onClick={(ev) => { ev.stopPropagation(); deleteEmail(e.id, e.subject); }}
+                                title="Elimina email"
+                                className="px-4 flex items-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-r-2xl"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -872,7 +920,7 @@ export default function ConsultantDashboard() {
                         {/* HEADER */}
                         <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
                             <h3 className="text-base font-bold text-[#1a2744]">
-                                {composer.mode === 'forward' ? 'Inoltra email' : composer.mode === 'replyAll' ? 'Rispondi a tutti' : 'Rispondi'}
+                                {composer.mode === 'new' ? 'Nuova email' : composer.mode === 'forward' ? 'Inoltra email' : composer.mode === 'replyAll' ? 'Rispondi a tutti' : 'Rispondi'}
                             </h3>
                             <button onClick={() => !composerSending && setComposer(null)} className="text-gray-400 hover:text-gray-700">
                                 <X size={18} />
