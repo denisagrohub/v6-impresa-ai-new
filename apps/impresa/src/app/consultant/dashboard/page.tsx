@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2,
+    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 } from "lucide-react";
@@ -20,6 +20,9 @@ export default function ConsultantDashboard() {
     // 21/09/2026: email assegnate + pagamenti (compensi) del consulente
     const [emailsData, setEmailsData] = useState<any>(null);
     const [emailsLoading, setEmailsLoading] = useState(false);
+    // 21/09/2026: modal dettaglio email
+    const [emailDetail, setEmailDetail] = useState<any>(null);
+    const [emailDetailLoading, setEmailDetailLoading] = useState(false);
     const [paymentsData, setPaymentsData] = useState<any>(null);
     const [paymentsLoading, setPaymentsLoading] = useState(false);
     const [partnerProjects, setPartnerProjects] = useState<any>(null);
@@ -194,6 +197,25 @@ export default function ConsultantDashboard() {
             setCalendarEvents(data.events || []);
         } catch (error) {
             console.error('Errore caricamento calendario:', error);
+        }
+    };
+
+    // 21/09/2026: apri dettaglio email nel modal
+    const openEmailDetail = async (emailId: number) => {
+        if (!user?.token) return;
+        setEmailDetailLoading(true);
+        setEmailDetail({ id: emailId });
+        try {
+            const res = await fetch(`/api/consultant/emails/${emailId}`, {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || 'Errore');
+            setEmailDetail(data);
+        } catch (e: any) {
+            setEmailDetail({ id: emailId, error: e.message });
+        } finally {
+            setEmailDetailLoading(false);
         }
     };
 
@@ -550,7 +572,11 @@ export default function ConsultantDashboard() {
                         )}
 
                         {emailsData && emailsData.emails?.map((e: any) => (
-                            <div key={e.id} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                            <button
+                                key={e.id}
+                                onClick={() => openEmailDetail(e.id)}
+                                className="w-full text-left bg-white rounded-2xl border border-gray-100 p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                            >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-bold text-[#1a2744] truncate">{e.subject}</h3>
@@ -567,7 +593,7 @@ export default function ConsultantDashboard() {
                                         {e.create_date ? new Date(e.create_date).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
                                     </span>
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 )}
@@ -780,6 +806,71 @@ export default function ConsultantDashboard() {
                         <CalendarWithHeinrich />
                     </div>
                 )}
+
+            {/* MODAL DETTAGLIO EMAIL (21/09/2026) */}
+            {emailDetail && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEmailDetail(null)}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        {/* HEADER */}
+                        <div className="border-b border-gray-100 px-5 py-3 flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-base font-bold text-[#1a2744] truncate">
+                                    {emailDetail.subject || (emailDetailLoading ? 'Caricamento...' : 'Email')}
+                                </h3>
+                                {!emailDetailLoading && emailDetail.sender_email && (
+                                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                        Da: <span className="font-medium">{emailDetail.sender_email}</span>
+                                    </p>
+                                )}
+                                {!emailDetailLoading && emailDetail.create_date && (
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                        {new Date(emailDetail.create_date).toLocaleString('it-IT')}
+                                    </p>
+                                )}
+                            </div>
+                            <button onClick={() => setEmailDetail(null)} className="text-gray-400 hover:text-gray-700 ml-3">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* BODY */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4">
+                            {emailDetailLoading ? (
+                                <div className="flex items-center gap-2 text-gray-500 text-sm">
+                                    <Loader2 size={16} className="animate-spin" /> Caricamento email...
+                                </div>
+                            ) : emailDetail.error ? (
+                                <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
+                                    {emailDetail.error}
+                                </div>
+                            ) : (
+                                <>
+                                    {emailDetail.relation_name && (
+                                        <div className="mb-3 inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+                                            <FolderOpen size={11} /> {emailDetail.relation_name}
+                                        </div>
+                                    )}
+                                    <div
+                                        className="prose prose-sm max-w-none text-sm text-gray-800"
+                                        dangerouslySetInnerHTML={{ __html: emailDetail.body || '<p class="text-gray-400 italic">(nessun corpo)</p>' }}
+                                    />
+                                </>
+                            )}
+                        </div>
+
+                        {/* FOOTER */}
+                        <div className="border-t border-gray-100 px-5 py-3 flex justify-end gap-2 bg-gray-50 rounded-b-xl">
+                            <button
+                                onClick={() => setEmailDetail(null)}
+                                className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-white"
+                            >
+                                Chiudi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             </div>
         </div>
     );
