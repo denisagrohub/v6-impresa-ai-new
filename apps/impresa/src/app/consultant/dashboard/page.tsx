@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw,
+    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Handshake, Building2,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 } from "lucide-react";
@@ -22,6 +22,12 @@ export default function ConsultantDashboard() {
     const [emailsLoading, setEmailsLoading] = useState(false);
     const [paymentsData, setPaymentsData] = useState<any>(null);
     const [paymentsLoading, setPaymentsLoading] = useState(false);
+    // 21/09/2026: progetti partner (tracking.relation)
+    const [partnerProjects, setPartnerProjects] = useState<any>(null);
+    const [partnerProjectsLoading, setPartnerProjectsLoading] = useState(false);
+    // 21/09/2026: progetti partner (tracking.relation)
+    const [partnerProjects, setPartnerProjects] = useState<any>(null);
+    const [partnerProjectsLoading, setPartnerProjectsLoading] = useState(false);
 
     // Tab "Progetti" e "Richieste" collegati per davvero a Odoo il
     // 25/08/2026 (compito "dashboard consulente", compito 2) - prima
@@ -179,6 +185,14 @@ export default function ConsultantDashboard() {
         if (activeTab === 'pagamenti' && user?.token) loadPayments();
     }, [activeTab, user]);
 
+    useEffect(() => {
+        if (activeTab === 'partner' && user?.token) loadPartnerProjects();
+    }, [activeTab, user]);
+
+    useEffect(() => {
+        if (activeTab === 'partner' && user?.token) loadPartnerProjects();
+    }, [activeTab, user]);
+
     const loadCalendarEvents = async () => {
         try {
             const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
@@ -229,6 +243,44 @@ export default function ConsultantDashboard() {
         }
     };
 
+    // 21/09/2026: progetti partner (tracking.relation) dove sono consulente
+    const loadPartnerProjects = async () => {
+        if (!user?.token) return;
+        setPartnerProjectsLoading(true);
+        try {
+            const res = await fetch('/api/consultant/partner-projects', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || 'Errore caricamento progetti partner');
+            setPartnerProjects(data);
+        } catch (error) {
+            console.error('Errore caricamento progetti partner:', error);
+            setPartnerProjects({ projects: [], error: 'Impossibile caricare i progetti partner' });
+        } finally {
+            setPartnerProjectsLoading(false);
+        }
+    };
+
+    // 21/09/2026: progetti partner (tracking.relation) dove sono consulente
+    const loadPartnerProjects = async () => {
+        if (!user?.token) return;
+        setPartnerProjectsLoading(true);
+        try {
+            const res = await fetch('/api/consultant/partner-projects', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || 'Errore caricamento progetti partner');
+            setPartnerProjects(data);
+        } catch (error) {
+            console.error('Errore caricamento progetti partner:', error);
+            setPartnerProjects({ projects: [], error: 'Impossibile caricare i progetti partner' });
+        } finally {
+            setPartnerProjectsLoading(false);
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem("pi_session");
         document.cookie = "pi_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -246,7 +298,8 @@ export default function ConsultantDashboard() {
 
     const menuItems = [
         { id: "email", label: "Email", icon: Mail },
-        { id: "progetti", label: "I Miei Progetti", icon: FolderOpen },
+        { id: "progetti", label: "Progetti Consulenza", icon: FolderOpen },
+        { id: "partner", label: "Progetti Partner", icon: Handshake },
         { id: "pagamenti", label: "Pagamenti", icon: Euro },
         { id: "richieste", label: "Richieste", icon: AlertTriangle },
         { id: "calendario", label: "Calendario", icon: Calendar },
@@ -300,6 +353,7 @@ export default function ConsultantDashboard() {
                 <header className="mb-8">
                     <h1 className="text-3xl font-bold text-[#1a2744]">
                         {activeTab === 'progetti' && 'I Miei Progetti Assegnati'}
+                        {activeTab === 'partner' && 'Progetti Partner'}
                         {activeTab === 'email' && 'Le Mie Email'}
                         {activeTab === 'pagamenti' && 'I Miei Compensi'}
                         {activeTab === 'richieste' && 'Richieste & Segnalazioni'}
@@ -414,12 +468,91 @@ export default function ConsultantDashboard() {
                     </div>
                 )}
 
+                {/* TAB: PROGETTI PARTNER (21/09/2026) */}
+                {activeTab === "partner" && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-500">
+                                Progetti partner (TEE, AV, ecc.) dove sei coinvolto come consulente.
+                            </p>
+                            <button
+                                onClick={loadPartnerProjects}
+                                disabled={partnerProjectsLoading}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {partnerProjectsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                Aggiorna
+                            </button>
+                        </div>
+
+                        {partnerProjectsLoading && !partnerProjects && (
+                            <div className="flex items-center gap-2 text-gray-500 text-sm">
+                                <Loader2 size={16} className="animate-spin" /> Carico i progetti partner...
+                            </div>
+                        )}
+
+                        {partnerProjects && partnerProjects.projects?.length === 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-500">
+                                Nessun progetto partner assegnato. Quando sarai inserito in un progetto (come owner, access o nello Split V6), lo vedrai qui.
+                            </div>
+                        )}
+
+                        {partnerProjects && partnerProjects.projects?.map((p: any) => (
+                            <Link
+                                key={p.id}
+                                href={`/consultant/partner-projects/${p.id}`}
+                                className="block bg-white rounded-2xl border border-gray-100 p-5 hover:border-blue-300 hover:shadow-md transition-all"
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-[#1a2744] flex items-center gap-2">
+                                            <Building2 size={16} className="text-gray-400" />
+                                            {p.name}
+                                        </h3>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            {p.targets_count} target
+                                            {p.email_alias && (
+                                                <>
+                                                    <span className="mx-2 text-gray-300">·</span>
+                                                    <span className="font-mono text-xs">{p.email_alias}@v6sviluppoimpresa.it</span>
+                                                </>
+                                            )}
+                                            {p.owner_name && (
+                                                <>
+                                                    <span className="mx-2 text-gray-300">·</span>
+                                                    Owner: {p.owner_name}
+                                                </>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                            p.state === 'attivo' ? 'bg-green-100 text-green-700' :
+                                            p.state === 'archiviato' ? 'bg-gray-100 text-gray-600' :
+                                            'bg-blue-100 text-blue-700'
+                                        }`}>
+                                            {p.state}
+                                        </span>
+                                        {p.has_split && (
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                                p.split_approvato ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'
+                                            }`}>
+                                                {p.split_approvato ? 'Split approvato' : 'Split bozza'}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                )}
+
                 {/* TAB: EMAIL (21/09/2026) */}
                 {activeTab === "email" && (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">
-                                Email ricevute sul tuo indirizzo <span className="font-mono">{(user?.email || '').split('@')[0].replace(/[^a-z0-9.]/gi, '.').toLowerCase()}@v6impresa.it</span>
+                                Email ricevute sul tuo indirizzo <span className="font-mono">{user?.emailSlug || '—'}@v6impresa.it</span>
                             </p>
                             <button
                                 onClick={loadEmails}
