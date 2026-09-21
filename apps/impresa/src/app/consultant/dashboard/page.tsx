@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply,
+    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply, ReplyAll, Forward, Send,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 } from "lucide-react";
@@ -23,6 +23,9 @@ export default function ConsultantDashboard() {
     // 21/09/2026: modal dettaglio email
     const [emailDetail, setEmailDetail] = useState<any>(null);
     const [emailDetailLoading, setEmailDetailLoading] = useState(false);
+    // 21/09/2026: composer reply/forward
+    const [composer, setComposer] = useState<any>(null);
+    const [composerSending, setComposerSending] = useState(false);
     const [paymentsData, setPaymentsData] = useState<any>(null);
     const [paymentsLoading, setPaymentsLoading] = useState(false);
     const [partnerProjects, setPartnerProjects] = useState<any>(null);
@@ -197,6 +200,61 @@ export default function ConsultantDashboard() {
             setCalendarEvents(data.events || []);
         } catch (error) {
             console.error('Errore caricamento calendario:', error);
+        }
+    };
+
+    // 21/09/2026: apri composer reply/forward
+    const openComposer = async (emailId: number, mode: 'reply' | 'replyAll' | 'forward') => {
+        if (!user?.token) return;
+        try {
+            const res = await fetch(`/api/consultant/emails/${emailId}/reply-data`, {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const d = await res.json();
+            if (!res.ok || d.error) throw new Error(d.error || 'Errore');
+            const subject = mode === 'forward' ? (d.subject.replace(/^Re:\s*/i, 'Fwd: ')) : d.subject;
+            const body = mode === 'forward'
+                ? '<br><br><hr><p><b>----- Messaggio inoltrato -----</b></p>' + (d.original_body || '')
+                : '<br><br><hr><p>' + (d.original_body || '') + '</p>';
+            setComposer({
+                in_reply_to_id: emailId,
+                from_email: d.from_email,
+                to: mode === 'forward' ? '' : (d.to || ''),
+                cc: mode === 'replyAll' ? (d.cc || '') : '',
+                subject,
+                body,
+                mode,
+            });
+            setEmailDetail(null);  // chiudi modal dettaglio
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const sendComposer = async () => {
+        if (!user?.token || !composer) return;
+        if (!composer.to?.trim() || !composer.subject?.trim() || !composer.body?.trim()) {
+            alert('To, oggetto e corpo sono obbligatori');
+            return;
+        }
+        setComposerSending(true);
+        try {
+            const res = await fetch('/api/consultant/emails/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `JWT ${user.token}`,
+                },
+                body: JSON.stringify(composer),
+            });
+            const d = await res.json();
+            if (!res.ok || d.error) throw new Error(d.error || 'Invio fallito');
+            setComposer(null);
+            loadEmails();
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setComposerSending(false);
         }
     };
 
@@ -807,6 +865,87 @@ export default function ConsultantDashboard() {
                     </div>
                 )}
 
+            {/* MODAL COMPOSER REPLY/FORWARD (21/09/2026) */}
+            {composer && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => !composerSending && setComposer(null)}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        {/* HEADER */}
+                        <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
+                            <h3 className="text-base font-bold text-[#1a2744]">
+                                {composer.mode === 'forward' ? 'Inoltra email' : composer.mode === 'replyAll' ? 'Rispondi a tutti' : 'Rispondi'}
+                            </h3>
+                            <button onClick={() => !composerSending && setComposer(null)} className="text-gray-400 hover:text-gray-700">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* FORM */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                            <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Da</label>
+                                <input
+                                    value={composer.from_email || ''}
+                                    readOnly
+                                    className="w-full px-3 py-2 rounded border border-gray-200 bg-gray-50 text-sm font-mono"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">A *</label>
+                                <input
+                                    value={composer.to || ''}
+                                    onChange={(e) => setComposer({ ...composer, to: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border border-gray-200 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Cc</label>
+                                <input
+                                    value={composer.cc || ''}
+                                    onChange={(e) => setComposer({ ...composer, cc: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border border-gray-200 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Oggetto *</label>
+                                <input
+                                    value={composer.subject || ''}
+                                    onChange={(e) => setComposer({ ...composer, subject: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border border-gray-200 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Corpo</label>
+                                <textarea
+                                    value={composer.body || ''}
+                                    onChange={(e) => setComposer({ ...composer, body: e.target.value })}
+                                    rows={12}
+                                    className="w-full px-3 py-2 rounded border border-gray-200 text-sm resize-y font-mono"
+                                />
+                            </div>
+                        </div>
+
+                        {/* FOOTER */}
+                        <div className="border-t border-gray-100 px-5 py-3 flex justify-end gap-2 bg-gray-50 rounded-b-xl">
+                            <button
+                                onClick={() => !composerSending && setComposer(null)}
+                                disabled={composerSending}
+                                className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-white disabled:opacity-50"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                onClick={sendComposer}
+                                disabled={composerSending}
+                                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {composerSending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                                {composerSending ? 'Invio…' : 'Invia'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* MODAL DETTAGLIO EMAIL (21/09/2026) */}
             {emailDetail && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEmailDetail(null)}>
@@ -858,8 +997,26 @@ export default function ConsultantDashboard() {
                             )}
                         </div>
 
-                        {/* FOOTER */}
-                        <div className="border-t border-gray-100 px-5 py-3 flex justify-end gap-2 bg-gray-50 rounded-b-xl">
+                        {/* FOOTER: azioni reply/forward */}
+                        <div className="border-t border-gray-100 px-5 py-3 flex flex-wrap justify-end gap-2 bg-gray-50 rounded-b-xl">
+                            <button
+                                onClick={() => openComposer(emailDetail.id, 'reply')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
+                            >
+                                <Reply size={13} /> Rispondi
+                            </button>
+                            <button
+                                onClick={() => openComposer(emailDetail.id, 'replyAll')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-50"
+                            >
+                                <ReplyAll size={13} /> Rispondi a tutti
+                            </button>
+                            <button
+                                onClick={() => openComposer(emailDetail.id, 'forward')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-100"
+                            >
+                                <Forward size={13} /> Inoltra
+                            </button>
                             <button
                                 onClick={() => setEmailDetail(null)}
                                 className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-white"
