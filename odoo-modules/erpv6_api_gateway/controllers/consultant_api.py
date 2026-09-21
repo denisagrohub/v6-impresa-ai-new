@@ -16,6 +16,7 @@ import logging
 import time
 
 from odoo import http, SUPERUSER_ID
+from markupsafe import Markup
 from odoo.exceptions import UserError
 from odoo.http import request
 
@@ -570,12 +571,14 @@ class ConsultantAPIController(APIBaseController):
             if not (is_recipient or in_project):
                 return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
 
-        # Body: cerca il mail.message collegato
+        # Body: cerca il mail.message comment (esclude le notification di sistema
+        # tipo 'created' che finivano per essere mostrate come corpo email).
         Message = env['mail.message'].sudo()
         msg = Message.search([
             ('model', '=', 'erpv6.winwin.email.log'),
             ('res_id', '=', log.id),
-        ], order='id asc', limit=1)
+            ('message_type', '=', 'comment'),
+        ], order='id desc', limit=1)
 
         body = ''
         if msg:
@@ -677,7 +680,8 @@ class ConsultantAPIController(APIBaseController):
 
         original_body = ''
         if log.message_ids:
-            original_body = log.message_ids[0].body or ''
+            comment_msgs = log.message_ids.filtered(lambda m: m.message_type == 'comment')
+            original_body = (comment_msgs[0].body if comment_msgs else '') or ''
 
         return self._json_response({
             'from_email': from_email,
@@ -774,7 +778,7 @@ class ConsultantAPIController(APIBaseController):
             'direction': 'inviata',
         })
         try:
-            log.message_post(body=body, subject=subject, message_type='comment',
+            log.message_post(body=Markup(body), subject=subject, message_type='comment',
                               subtype_xmlid='mail.mt_comment',
                               author_id=SUPERUSER_ID, email_from=from_email)
         except Exception:
