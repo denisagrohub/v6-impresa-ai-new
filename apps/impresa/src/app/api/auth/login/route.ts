@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
                 id: user.id,
                 name: user.name,
                 email: user.email,
+                // 21/09/2026: email_slug = local-part alias @v6impresa.it
+                // (es. christian.girardi). Passato dal gateway Odoo.
+                email_slug: user.email_slug || null,
                 partnerId: user.partner_id,
                 consultantId: user.consultant_id, // erpv6.consulting.consultant.id, null se non ancora collegato
                 role: user.role, // 'admin' | 'consultant' | 'client', deciso da Odoo sui gruppi reali
