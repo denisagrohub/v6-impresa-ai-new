@@ -775,7 +775,7 @@ class ConsultantAPIController(APIBaseController):
         })
         try:
             log.message_post(body=body, subject=subject, message_type='comment',
-                              subtype_xmlid='mail.mt_comment', author_id=user.id)
+                              subtype_xmlid='mail.mt_comment', email_from=from_email)
         except Exception:
             _logger.exception("message_post sul log email fallito (invio OK).")
 
