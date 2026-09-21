@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut,
+    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 } from "lucide-react";
@@ -17,6 +17,11 @@ export default function ConsultantDashboard() {
     const [activeTab, setActiveTab] = useState("progetti");
     const [data, setData] = useState<any>(null);
     const [myRequests, setMyRequests] = useState<any>(null);    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());    const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+    // 21/09/2026: email assegnate + pagamenti (compensi) del consulente
+    const [emailsData, setEmailsData] = useState<any>(null);
+    const [emailsLoading, setEmailsLoading] = useState(false);
+    const [paymentsData, setPaymentsData] = useState<any>(null);
+    const [paymentsLoading, setPaymentsLoading] = useState(false);
 
     // Tab "Progetti" e "Richieste" collegati per davvero a Odoo il
     // 25/08/2026 (compito "dashboard consulente", compito 2) - prima
@@ -119,48 +124,6 @@ export default function ConsultantDashboard() {
         }
     }
 
-    // Dati mock
-    const mockData = {
-        consultant: {
-            id: "PART-004",
-            name: "Christian Rossi",
-            email: "christian@progettoimpresa.it",
-            hourlyRate: 100,
-            commissionRate: 20,
-        },
-        projects: [
-            {
-                id: "PI-2026-0024",
-                name: "Business Plan Startup Tech",
-                client: "Innovazione S.p.A.",
-                level: "L2",
-                status: "in_corso",
-                nextDeadline: "2026-07-30",
-            },
-            {
-                id: "PI-2026-0018",
-                name: "Ristrutturazione Debito & Passaggio Generazionale",
-                client: "GreenEnergy S.r.l.",
-                level: "L3",
-                status: "in_corso",
-                nextDeadline: "2026-08-15",
-            },
-        ],
-        timesheet: [
-            { id: 1, date: "2026-07-20", projectId: "PI-2026-0024", description: "Analisi di mercato", hours: 4, hourlyRate: 100, status: "approved" },
-            { id: 2, date: "2026-07-21", projectId: "PI-2026-0018", description: "Financial modeling", hours: 3, hourlyRate: 100, status: "pending" },
-        ],
-        commissions: {
-            totalEstimated: 4500,
-            paid: 1500,
-            pending: 3000,
-            breakdown: [
-                { project: "PI-2026-0024", date: "2026-07-15", amount: 1500, status: "paid" },
-                { project: "PI-2026-0018", date: "2026-07-22", amount: 3000, status: "pending" },
-            ],
-        },
-    };
-
     useEffect(() => {
         const session = localStorage.getItem("pi_session");
         if (!session) {
@@ -174,7 +137,6 @@ export default function ConsultantDashboard() {
                 return;
             }
             setUser(parsed);
-            setData(mockData);
         } catch (e) {
             router.push("/login");
         } finally {
@@ -182,29 +144,12 @@ export default function ConsultantDashboard() {
         }
     }, [router]);
 
-    // ✅ FIX: Carica i dati della dashboard quando l'utente è definito
+    // 21/09/2026: rimossi i fetch a /api/consultant/dashboard (mock JSON su disco)
+    // e /api/consultant/requests (vecchio). I dati arrivano da endpoint reali
+    // (projects, richieste, email, pagamenti) sotto.
     useEffect(() => {
         if (user?.clientId) {
-            // 1. Carica i dati principali (progetti, timesheet, provvigioni)
-            fetch('/api/consultant/dashboard')
-                .then(res => {
-                    if (!res.ok) throw new Error('Errore caricamento dashboard');
-                    return res.json();
-                })
-                .then(dashboardData => {
-                    setData(dashboardData);
-                    setLoading(false);
-                })
-                .catch(err => {
-                    console.error('Errore caricamento dashboard:', err);
-                    setLoading(false);
-                });
-
-            // 2. Carica le richieste/segnalazioni
-            fetch(`/api/consultant/requests?consultantId=${user.clientId || user.id}`)
-                .then(res => res.json())
-                .then(reqData => setMyRequests(reqData))
-                .catch(err => console.error('Errore caricamento richieste:', err));
+            setLoading(false);
         }
     }, [user]);
 
@@ -226,6 +171,14 @@ export default function ConsultantDashboard() {
         }
     }, [activeTab, user]);
 
+    useEffect(() => {
+        if (activeTab === 'email' && user?.token) loadEmails();
+    }, [activeTab, user]);
+
+    useEffect(() => {
+        if (activeTab === 'pagamenti' && user?.token) loadPayments();
+    }, [activeTab, user]);
+
     const loadCalendarEvents = async () => {
         try {
             const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
@@ -235,6 +188,44 @@ export default function ConsultantDashboard() {
             setCalendarEvents(data.events || []);
         } catch (error) {
             console.error('Errore caricamento calendario:', error);
+        }
+    };
+
+    // 21/09/2026: email assegnate al consulente via routing slug @v6impresa.it
+    const loadEmails = async () => {
+        if (!user?.token) return;
+        setEmailsLoading(true);
+        try {
+            const res = await fetch('/api/consultant/emails', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || 'Errore caricamento email');
+            setEmailsData(data);
+        } catch (error) {
+            console.error('Errore caricamento email:', error);
+            setEmailsData({ emails: [], error: 'Impossibile caricare le email' });
+        } finally {
+            setEmailsLoading(false);
+        }
+    };
+
+    // 21/09/2026: compensi calcolati dallo split V6 dei progetti
+    const loadPayments = async () => {
+        if (!user?.token) return;
+        setPaymentsLoading(true);
+        try {
+            const res = await fetch('/api/consultant/payments', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || 'Errore caricamento pagamenti');
+            setPaymentsData(data);
+        } catch (error) {
+            console.error('Errore caricamento pagamenti:', error);
+            setPaymentsData({ payments: [], error: 'Impossibile caricare i pagamenti' });
+        } finally {
+            setPaymentsLoading(false);
         }
     };
 
@@ -252,22 +243,11 @@ export default function ConsultantDashboard() {
         );
     }
 
-    if (!data) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 max-w-md text-center">
-                    <AlertCircle size={48} className="mx-auto mb-4 text-yellow-500" />
-                    <h2 className="text-xl font-bold text-yellow-800">Nessun dato disponibile</h2>
-                    <p className="text-yellow-600 mt-2">Contatta l'amministratore.</p>
-                </div>
-            </div>
-        );
-    }
 
     const menuItems = [
+        { id: "email", label: "Email", icon: Mail },
         { id: "progetti", label: "I Miei Progetti", icon: FolderOpen },
-        { id: "timesheet", label: "Timesheet & Ore", icon: Clock },
-        { id: "provvigioni", label: "Provvigioni", icon: Euro },
+        { id: "pagamenti", label: "Pagamenti", icon: Euro },
         { id: "richieste", label: "Richieste", icon: AlertTriangle },
         { id: "calendario", label: "Calendario", icon: Calendar },
     ];
@@ -320,16 +300,13 @@ export default function ConsultantDashboard() {
                 <header className="mb-8">
                     <h1 className="text-3xl font-bold text-[#1a2744]">
                         {activeTab === 'progetti' && 'I Miei Progetti Assegnati'}
-                        {activeTab === 'timesheet' && 'Registrazione Ore'}
-                        {activeTab === 'provvigioni' && 'Riepilogo Provvigioni'}
+                        {activeTab === 'email' && 'Le Mie Email'}
+                        {activeTab === 'pagamenti' && 'I Miei Compensi'}
                         {activeTab === 'richieste' && 'Richieste & Segnalazioni'}
                         {activeTab === 'calendario' && 'Calendario e Rischi'}
                     </h1>
                     <p className="text-gray-500 mt-1">
-                        Tariffa oraria: <span className="font-bold text-blue-600">€{data.consultant.hourlyRate}/h</span>
-                        {data.consultant.commissionRate && (
-                            <span className="ml-4">• Provvigione: <span className="font-bold text-green-600">{data.consultant.commissionRate}%</span></span>
-                        )}
+                        {user?.email}
                     </p>
                 </header>
 
@@ -437,96 +414,114 @@ export default function ConsultantDashboard() {
                     </div>
                 )}
 
-                {/* TAB: TIMESHEET */}
-                {activeTab === "timesheet" && (
-                    <div className="space-y-6">
-                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                            <h3 className="font-bold text-lg mb-4">Registra Nuova Attività</h3>
-                            <div className="grid md:grid-cols-4 gap-4">
-                                <select className="px-4 py-2 rounded-lg border border-gray-200">
-                                    {data.projects.map((p: any) => (
-                                        <option key={p.id} value={p.id}>{p.id} - {p.name}</option>
-                                    ))}
-                                </select>
-                                <input type="date" className="px-4 py-2 rounded-lg border border-gray-200" />
-                                <input type="number" placeholder="Ore" className="px-4 py-2 rounded-lg border border-gray-200" />
-                                <button className="bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">Salva Ore</button>
+                {/* TAB: EMAIL (21/09/2026) */}
+                {activeTab === "email" && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-500">
+                                Email ricevute sul tuo indirizzo <span className="font-mono">{(user?.email || '').split('@')[0].replace(/[^a-z0-9.]/gi, '.').toLowerCase()}@v6impresa.it</span>
+                            </p>
+                            <button
+                                onClick={loadEmails}
+                                disabled={emailsLoading}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {emailsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                Aggiorna
+                            </button>
+                        </div>
+
+                        {emailsLoading && !emailsData && (
+                            <div className="flex items-center gap-2 text-gray-500 text-sm">
+                                <Loader2 size={16} className="animate-spin" /> Carico le email...
                             </div>
-                            <input type="text" placeholder="Descrizione attività..." className="w-full mt-4 px-4 py-2 rounded-lg border border-gray-200" />
-                        </div>
-                        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progetto</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrizione</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ore</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valore</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stato</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {data.timesheet.map((ts: any) => (
-                                        <tr key={ts.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 text-sm text-gray-900">{ts.date}</td>
-                                            <td className="px-6 py-4 text-sm font-medium text-[#1a2744]">{ts.projectId}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-600">{ts.description}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-blue-600">{ts.hours}h</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-green-600">€{(ts.hours * ts.hourlyRate).toLocaleString()}</td>
-                                            <td className="px-6 py-4">
-                                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                                    ts.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                                                }`}>
-                                                    {ts.status === 'approved' ? '✓ Approvato' : '⏳ In attesa'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        )}
+
+                        {emailsData && emailsData.emails?.length === 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-500">
+                                Nessuna email ricevuta sul tuo indirizzo.
+                            </div>
+                        )}
+
+                        {emailsData && emailsData.emails?.map((e: any) => (
+                            <div key={e.id} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-[#1a2744] truncate">{e.subject}</h3>
+                                        <p className="text-sm text-gray-600 mt-1 truncate">
+                                            Da: <span className="font-medium">{e.sender_email}</span>
+                                        </p>
+                                        {e.relation_name && (
+                                            <span className="inline-flex items-center gap-1 mt-2 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                                                <FolderOpen size={11} /> {e.relation_name}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                                        {e.create_date ? new Date(e.create_date).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
 
-                {/* TAB: PROVVIGIONI */}
-                {activeTab === "provvigioni" && (
-                    <div className="space-y-6">
-                        <div className="grid md:grid-cols-3 gap-6">
-                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-2xl p-6">
-                                <div className="text-sm opacity-80 mb-1">Totale Stimato</div>
-                                <div className="text-3xl font-bold">€{data.commissions.totalEstimated.toLocaleString()}</div>
-                            </div>
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                <div className="text-sm text-gray-500 mb-1">Già Erogato</div>
-                                <div className="text-3xl font-bold text-green-600">€{data.commissions.paid.toLocaleString()}</div>
-                            </div>
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                <div className="text-sm text-gray-500 mb-1">In Attesa</div>
-                                <div className="text-3xl font-bold text-orange-600">€{data.commissions.pending.toLocaleString()}</div>
-                            </div>
+                
+                {/* TAB: PAGAMENTI (21/09/2026) */}
+                {activeTab === "pagamenti" && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-gray-500">
+                                Compensi calcolati dallo Split V6 dei progetti dove sei beneficiario.
+                            </p>
+                            <button
+                                onClick={loadPayments}
+                                disabled={paymentsLoading}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {paymentsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                Aggiorna
+                            </button>
                         </div>
-                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                            <h3 className="font-bold text-lg mb-4">Dettaglio per Progetto</h3>
-                            <div className="space-y-3">
-                                {data.commissions.breakdown.map((comm: any, i: number) => (
-                                    <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                                        <div>
-                                            <div className="font-bold text-[#1a2744]">{comm.project}</div>
-                                            <div className="text-sm text-gray-500">{comm.date}</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xl font-bold text-blue-600">€{comm.amount.toLocaleString()}</div>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                comm.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                                            }`}>
-                                                {comm.status === 'paid' ? 'Erogato' : 'In maturazione'}
-                                            </span>
-                                        </div>
+
+                        {paymentsLoading && !paymentsData && (
+                            <div className="flex items-center gap-2 text-gray-500 text-sm">
+                                <Loader2 size={16} className="animate-spin" /> Carico i compensi...
+                            </div>
+                        )}
+
+                        {paymentsData && paymentsData.payments?.length === 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-500">
+                                Nessun compenso configurato. Quando sarai inserito nello Split V6 di un progetto, lo vedrai qui.
+                            </div>
+                        )}
+
+                        {paymentsData && paymentsData.payments?.map((p: any) => (
+                            <div key={p.project_id} className="bg-white rounded-2xl border border-gray-100 p-5">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-[#1a2744]">{p.project_name}</h3>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Base: <span className="font-medium">{p.base_valore}</span>{' '}
+                                            {p.base_tipo === 'fisso_unita' ? `EUR/${p.base_unita || 'unità'}` : '% sul valore'}
+                                            <span className="mx-2 text-gray-300">·</span>
+                                            Mia quota: <span className="font-medium">{p.mia_pct}%</span>
+                                        </p>
                                     </div>
-                                ))}
+                                    <div className="text-right">
+                                        <div className="text-2xl font-bold text-blue-600 whitespace-nowrap">
+                                            {p.mia_quota_teorica}
+                                            {p.base_tipo === 'fisso_unita' ? ` EUR/${p.base_unita || 'u'}` : ' %'}
+                                        </div>
+                                        <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${
+                                            p.split_approvato ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                        }`}>
+                                            {p.split_approvato ? 'Approvato' : 'Bozza'}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        ))}
                     </div>
                 )}
 
