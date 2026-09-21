@@ -15,7 +15,7 @@ import json
 import logging
 import time
 
-from odoo import http
+from odoo import http, SUPERUSER_ID
 from odoo.exceptions import UserError
 from odoo.http import request
 
@@ -775,7 +775,8 @@ class ConsultantAPIController(APIBaseController):
         })
         try:
             log.message_post(body=body, subject=subject, message_type='comment',
-                              subtype_xmlid='mail.mt_comment', email_from=from_email)
+                              subtype_xmlid='mail.mt_comment',
+                              author_id=SUPERUSER_ID, email_from=from_email)
         except Exception:
             _logger.exception("message_post sul log email fallito (invio OK).")
 
