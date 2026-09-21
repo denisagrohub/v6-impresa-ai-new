@@ -40,6 +40,10 @@ export default function UnifiedLoginPage() {
                 role: user.role,
                 name: user.name,
                 email: user.email,
+                // 21/09/2026: emailSlug = local-part alias @v6impresa.it
+                // (es. "christian.girardi") per mostrare l'indirizzo reale
+                // del consulente senza inventarlo dal nome.
+                emailSlug: user.email_slug || null,
                 clientId: String(user.id),
                 partnerId: user.partnerId,
                 // erpv6.consulting.consultant.id reale - usato per il link
