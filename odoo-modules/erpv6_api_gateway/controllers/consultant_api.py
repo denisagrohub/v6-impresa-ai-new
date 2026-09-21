@@ -595,3 +595,186 @@ class ConsultantAPIController(APIBaseController):
             'body': body,
         })
 
+    # ------------------------------------------------------------------
+    # Reply-data: precompila il composer (To/Cc/Subject/From)
+    # (21/09/2026)
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/emails/<int:email_id>/reply-data', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_email_reply_data(self, email_id, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        import re as _re
+        env = request.env
+        if 'erpv6.winwin.email.log' not in env:
+            return self._json_response({'error': 'Modulo non installato'}, 501)
+
+        log = env['erpv6.winwin.email.log'].sudo().browse(email_id)
+        if not log.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+
+        # Check accesso
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            is_recipient = log.recipient_user_id.id == user.id
+            in_project = False
+            if log.relation_id:
+                in_project = (log.relation_id.owner_user_id.id == user.id
+                              or user.id in log.relation_id.access_user_ids.ids)
+            if not (is_recipient or in_project):
+                return self._json_response({'error': 'Non hai accesso'}, 403)
+
+        # From: la casella su cui e' arrivata (slug@ o slug+progetto@).
+        # Il recipient puo' contenere prefissi tecnici (v6impresa-it-*) dai
+        # server SMTP - scartiamo tutto cio' che non e' esattamente
+        # 'slug@' o 'slug+xxx@'.
+        import re as _re2
+        user_slug = getattr(user, 'email_slug', None) or ''
+        from_email = None
+        if user_slug:
+            for r in (log.recipient_emails or '').split(','):
+                r = r.strip().lower()
+                # estrai solo la parte email
+                m2 = _re2.search(r'([a-z0-9._+\-]+@v6impresa\.it)', r)
+                if not m2:
+                    continue
+                candidate = m2.group(1)
+                local = candidate.split('@')[0]
+                # accetta solo 'slug' puro o 'slug+hint'
+                if local == user_slug or local.startswith(user_slug + '+'):
+                    from_email = candidate
+                    break
+        if not from_email and user_slug:
+            from_email = f'{user_slug}@v6impresa.it'
+
+        # TO: mittente originale
+        sender = log.sender_email or ''
+        m = _re.search(r'<([^>]+)>', sender)
+        to_email = m.group(1).strip() if m else sender.strip()
+
+        # CC: altri destinatari originali (escludo me, catchall, v6impresa/v6sviluppoimpresa)
+        cc_list = []
+        for r in (log.recipient_emails or '').split(','):
+            r = r.strip()
+            if not r:
+                continue
+            low = r.lower()
+            if '@v6impresa.it' in low or '@v6sviluppoimpresa.it' in low:
+                continue
+            cc_list.append(r)
+        for r in (log.cc_emails or '').split(','):
+            r = r.strip()
+            if r and '@v6impresa.it' not in r.lower() and '@v6sviluppoimpresa.it' not in r.lower():
+                cc_list.append(r)
+
+        subject = log.name or ''
+        if not subject.lower().startswith('re:'):
+            subject = 'Re: ' + subject
+
+        original_body = ''
+        if log.message_ids:
+            original_body = log.message_ids[0].body or ''
+
+        return self._json_response({
+            'from_email': from_email,
+            'to': to_email,
+            'cc': ', '.join(cc_list),
+            'subject': subject,
+            'original_body': original_body,
+        })
+
+    # ------------------------------------------------------------------
+    # Send: invia email dal consulente. From = stessa casella della
+    # reply (slug@ o slug+progetto@). Log in erpv6.winwin.email.log
+    # con direction=inviata. (21/09/2026)
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/emails/send', type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def send_consultant_email(self, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        if 'erpv6.winwin.email.log' not in env:
+            return self._json_response({'error': 'Modulo non installato'}, 501)
+
+        try:
+            data = json.loads(request.httprequest.data or b'{}')
+        except json.JSONDecodeError:
+            return self._json_response({'error': 'JSON non valido'}, 400)
+
+        to = (data.get('to') or '').strip()
+        cc = (data.get('cc') or '').strip()
+        subject = (data.get('subject') or '').strip()
+        body = data.get('body') or ''
+        in_reply_to_id = data.get('in_reply_to_id')
+        from_email = (data.get('from_email') or '').strip()
+
+        if not to or not subject or not body:
+            return self._json_response({'error': 'to, subject, body obbligatori'}, 400)
+
+        if not from_email:
+            user_slug = getattr(user, 'email_slug', None) or ''
+            from_email = f'{user_slug}@v6impresa.it' if user_slug else ''
+
+        # SMTP per v6impresa.it
+        mail_server = env['ir.mail_server'].sudo().search(
+            [('from_filter', '=', 'v6impresa.it'), ('active', '=', True)], limit=1)
+        if not mail_server:
+            return self._json_response({'error': 'SMTP v6impresa.it non configurato'}, 500)
+
+        # Contesto: relation_id + matched_alias dalla reply originale
+        relation_id = None
+        matched_alias = user.email_slug or None
+        recipient_user_id = user.id
+        if in_reply_to_id:
+            orig = env['erpv6.winwin.email.log'].sudo().browse(int(in_reply_to_id))
+            if orig.exists():
+                if orig.relation_id:
+                    relation_id = orig.relation_id.id
+                if orig.matched_alias:
+                    matched_alias = orig.matched_alias
+                if orig.recipient_user_id:
+                    recipient_user_id = orig.recipient_user_id.id
+
+        all_recipients = [to]
+        if cc:
+            all_recipients += [e.strip() for e in cc.split(',') if e.strip()]
+
+        mail = env['mail.mail'].sudo().create({
+            'email_from': from_email,
+            'email_to': ','.join(all_recipients),
+            'subject': subject,
+            'body_html': body,
+            'mail_server_id': mail_server.id,
+            'auto_delete': False,
+        })
+        try:
+            mail.send()
+        except Exception as e:
+            _logger.exception("Invio email consulente fallito.")
+            return self._json_response({'error': str(e)}, 500)
+
+        log = env['erpv6.winwin.email.log'].sudo().create({
+            'name': subject,
+            'sender_email': from_email,
+            'recipient_emails': ','.join(all_recipients),
+            'cc_emails': cc or False,
+            'match_status': 'utente_consulente',
+            'matched_alias': matched_alias or '',
+            'relation_id': relation_id,
+            'recipient_user_id': recipient_user_id,
+            'direction': 'inviata',
+        })
+        log.message_post(body=body, subject=subject, message_type='comment',
+                          subtype_xmlid='mail.mt_comment')
+
+        return self._json_response({'success': True, 'id': log.id})
+

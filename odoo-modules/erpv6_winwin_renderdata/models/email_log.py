@@ -42,6 +42,11 @@ class Erpv6WinwinEmailLog(models.Model):
         ('non_pattern_progetto', 'Non un alias di progetto (rumore catch-all)'),
     ], string='Stato Riconoscimento', required=True, default='non_pattern_progetto')
 
+    direction = fields.Selection([
+        ('ricevuta', 'Ricevuta'),
+        ('inviata', 'Inviata'),
+    ], string='Direzione', default='ricevuta', required=True)
+
     matched_alias = fields.Char(string='Alias Riconosciuto')
     relation_id = fields.Many2one('erpv6.tracking.relation', string='Nodo Progetto', tracking=True)
     # 20/09/2026: se il TO contiene uno slug utente (es. christian.girardi@v6impresa.it)
