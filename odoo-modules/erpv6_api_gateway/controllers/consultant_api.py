@@ -419,11 +419,9 @@ class ConsultantAPIController(APIBaseController):
             'state': t.state,
         } for t in targets]
 
-        # Email del progetto (solo quelle che riguardano questo consulente,
-        # a meno che non sia admin)
+        # 21/09/2026: email del progetto - shared inbox, il consulente
+        # vede TUTTE le email del progetto (non solo quelle a lui indirizzate).
         email_domain = [('relation_id', '=', root.id)]
-        if not is_admin:
-            email_domain.append(('recipient_user_id', '=', user.id))
         emails = env['erpv6.winwin.email.log'].sudo().search(email_domain, order='create_date desc', limit=50) \
             if 'erpv6.winwin.email.log' in env else []
         emails_data = [{
@@ -533,5 +531,67 @@ class ConsultantAPIController(APIBaseController):
             'is_admin': is_admin,
             'count': len(result),
             'projects': result,
+        })
+
+    # ------------------------------------------------------------------
+    # Dettaglio email (21/09/2026): ritorna il corpo dell'email leggendo
+    # il mail.message collegato a erpv6.winwin.email.log (via mail.thread).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/emails/<int:email_id>', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_email_detail(self, email_id, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        if 'erpv6.winwin.email.log' not in env:
+            return self._json_response({'error': 'erpv6_winwin_renderdata non installato'}, 501)
+
+        Log = env['erpv6.winwin.email.log'].sudo()
+        log = Log.browse(email_id)
+        if not log.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        # Accesso: admin vede tutto. Consulente vede se e' destinatario
+        # oppure se e' nel progetto (relation_id e lui ha accesso).
+        if not is_admin:
+            is_recipient = log.recipient_user_id.id == user.id
+            in_project = False
+            if log.relation_id:
+                in_project = (
+                    log.relation_id.owner_user_id.id == user.id
+                    or user.id in log.relation_id.access_user_ids.ids
+                )
+            if not (is_recipient or in_project):
+                return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
+
+        # Body: cerca il mail.message collegato
+        Message = env['mail.message'].sudo()
+        msg = Message.search([
+            ('model', '=', 'erpv6.winwin.email.log'),
+            ('res_id', '=', log.id),
+        ], order='id asc', limit=1)
+
+        body = ''
+        if msg:
+            body = msg.body or ''
+
+        self._log_api_call('/api/v1/consultant/emails/detail', 'GET', user.id, 200, start_time)
+        return self._json_response({
+            'id': log.id,
+            'subject': log.name or '(senza oggetto)',
+            'sender_email': log.sender_email or '',
+            'recipient_emails': log.recipient_emails or '',
+            'cc_emails': log.cc_emails or '',
+            'relation_id': log.relation_id.id if log.relation_id else None,
+            'relation_name': log.relation_id.name if log.relation_id else None,
+            'recipient_user_name': log.recipient_user_id.name if log.recipient_user_id else None,
+            'create_date': log.create_date.isoformat() if log.create_date else None,
+            'body': body,
         })
 

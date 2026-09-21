@@ -58,21 +58,41 @@ class Erpv6WinwinEmailLog(models.Model):
 
         candidates = [m.group(1).lower() for m in DOMAIN_EMAIL_RE.finditer(f'{to_field} {cc_field}')]
 
-        # 20/09/2026: PRIMA cerca se uno slug corrisponde a un utente consulente.
+        # 21/09/2026: routing email in 3 casi.
+        # Formato supportato: slug@v6impresa.it (personale) oppure
+        # slug+progetto@v6impresa.it (email di progetto indirizzata al consulente).
         User = self.env['res.users'].sudo()
+        Relation = self.env['erpv6.tracking.relation'].sudo()
         recipient_user = User
         recipient_matched = False
+        project_from_hint = Relation
+
         for alias in candidates:
-            u = User.search([('email_slug', '=', alias)], limit=1)
+            # Split su '+' per gestire slug+hint
+            if '+' in alias:
+                slug, hint = alias.split('+', 1)
+            else:
+                slug, hint = alias, None
+
+            u = User.search([('email_slug', '=', slug)], limit=1)
             if u:
                 recipient_user = u
                 recipient_matched = alias
+                # Se c'e' un hint (es. 'tee'), cerca il progetto per email_alias
+                if hint:
+                    proj = Relation.search(
+                        [('email_alias', '=', hint), ('parent_id', '=', False)],
+                        limit=1)
+                    if proj:
+                        project_from_hint = proj
                 break
 
         if recipient_user:
             custom_values['match_status'] = 'utente_consulente'
             custom_values['matched_alias'] = recipient_matched
             custom_values['recipient_user_id'] = recipient_user.id
+            if project_from_hint:
+                custom_values['relation_id'] = project_from_hint.id
             custom_values['name'] = msg_dict.get('subject') or _('(nessun oggetto)')
             custom_values['sender_email'] = msg_dict.get('from')
             custom_values['recipient_emails'] = msg_dict.get('to')
@@ -91,7 +111,7 @@ class Erpv6WinwinEmailLog(models.Model):
 
             return thread_id
 
-        Relation = self.env['erpv6.tracking.relation'].sudo()
+        # Fallback: logica progetto esistente (email a progetto-xxx@)
         project = Relation
         matched_alias = False
         for alias in candidates:
