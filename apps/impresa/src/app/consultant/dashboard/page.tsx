@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Handshake, Building2,
+    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 } from "lucide-react";
@@ -22,10 +22,6 @@ export default function ConsultantDashboard() {
     const [emailsLoading, setEmailsLoading] = useState(false);
     const [paymentsData, setPaymentsData] = useState<any>(null);
     const [paymentsLoading, setPaymentsLoading] = useState(false);
-    // 21/09/2026: progetti partner (tracking.relation)
-    const [partnerProjects, setPartnerProjects] = useState<any>(null);
-    const [partnerProjectsLoading, setPartnerProjectsLoading] = useState(false);
-    // 21/09/2026: progetti partner (tracking.relation)
     const [partnerProjects, setPartnerProjects] = useState<any>(null);
     const [partnerProjectsLoading, setPartnerProjectsLoading] = useState(false);
 
@@ -189,10 +185,6 @@ export default function ConsultantDashboard() {
         if (activeTab === 'partner' && user?.token) loadPartnerProjects();
     }, [activeTab, user]);
 
-    useEffect(() => {
-        if (activeTab === 'partner' && user?.token) loadPartnerProjects();
-    }, [activeTab, user]);
-
     const loadCalendarEvents = async () => {
         try {
             const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
@@ -243,26 +235,7 @@ export default function ConsultantDashboard() {
         }
     };
 
-    // 21/09/2026: progetti partner (tracking.relation) dove sono consulente
-    const loadPartnerProjects = async () => {
-        if (!user?.token) return;
-        setPartnerProjectsLoading(true);
-        try {
-            const res = await fetch('/api/consultant/partner-projects', {
-                headers: { Authorization: `JWT ${user.token}` },
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data?.error || 'Errore caricamento progetti partner');
-            setPartnerProjects(data);
-        } catch (error) {
-            console.error('Errore caricamento progetti partner:', error);
-            setPartnerProjects({ projects: [], error: 'Impossibile caricare i progetti partner' });
-        } finally {
-            setPartnerProjectsLoading(false);
-        }
-    };
-
-    // 21/09/2026: progetti partner (tracking.relation) dove sono consulente
+    // 21/09/2026: progetti partner (tracking.relation)
     const loadPartnerProjects = async () => {
         if (!user?.token) return;
         setPartnerProjectsLoading(true);
@@ -493,7 +466,7 @@ export default function ConsultantDashboard() {
 
                         {partnerProjects && partnerProjects.projects?.length === 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-500">
-                                Nessun progetto partner assegnato. Quando sarai inserito in un progetto (come owner, access o nello Split V6), lo vedrai qui.
+                                Nessun progetto partner assegnato. Quando sarai inserito in un progetto (owner, access o Split V6), lo vedrai qui.
                             </div>
                         )}
 
