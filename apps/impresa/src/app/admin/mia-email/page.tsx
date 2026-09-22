@@ -6,6 +6,7 @@ import {
     ArrowLeft, Loader2, RefreshCw, Plus, Trash2, X, Send,
     CornerUpLeft, CornerUpRight, ReplyAll,
 , Archive, ArchiveRestore } from "lucide-react";
+import EmailRecipientInput from "@/components/EmailRecipientInput";
 
 export default function AdminMiaEmailPage() {
     const router = useRouter();
@@ -413,21 +414,23 @@ export default function AdminMiaEmailPage() {
                             </div>
                             <div>
                                 <label className="text-xs font-semibold text-gray-500 uppercase">A</label>
-                                <input
-                                    type="text"
-                                    value={composer.to || ''}
-                                    onChange={(e) => setComposer({ ...composer, to: e.target.value })}
-                                    className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                />
+                                <div className="mt-1">
+                                    <EmailRecipientInput
+                                        value={composer.to || ''}
+                                        onChange={(v) => setComposer({ ...composer, to: v })}
+                                        placeholder="Cerca nome o email…"
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label className="text-xs font-semibold text-gray-500 uppercase">Cc</label>
-                                <input
-                                    type="text"
-                                    value={composer.cc || ''}
-                                    onChange={(e) => setComposer({ ...composer, cc: e.target.value })}
-                                    className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                />
+                                <div className="mt-1">
+                                    <EmailRecipientInput
+                                        value={composer.cc || ''}
+                                        onChange={(v) => setComposer({ ...composer, cc: v })}
+                                        placeholder="Cerca nome o email…"
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label className="text-xs font-semibold text-gray-500 uppercase">Oggetto</label>

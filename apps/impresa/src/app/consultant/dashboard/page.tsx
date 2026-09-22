@@ -7,6 +7,7 @@ import {
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 , Trash2, Plus , Archive, ArchiveRestore } from "lucide-react";
+import EmailRecipientInput from "@/components/EmailRecipientInput";
 import { CalendarWithHeinrich } from "@/components/calendar/CalendarWithHeinrich";
 import { ConsultantBookingLinks } from "@/components/booking/ConsultantBookingLinks";
 
