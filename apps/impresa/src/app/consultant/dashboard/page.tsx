@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply, ReplyAll, Forward, Send,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
-, Trash2, Plus } from "lucide-react";
+, Trash2, Plus , Archive, ArchiveRestore } from "lucide-react";
 import { CalendarWithHeinrich } from "@/components/calendar/CalendarWithHeinrich";
 import { ConsultantBookingLinks } from "@/components/booking/ConsultantBookingLinks";
 
@@ -21,6 +21,8 @@ export default function ConsultantDashboard() {
     const [emailsData, setEmailsData] = useState<any>(null);
     const [emailFolder, setEmailFolder] = useState<"all" | "ricevute" | "inviate">("all");
     const [unreadCount, setUnreadCount] = useState(0);
+    const [emailSearch, setEmailSearch] = useState('');
+    const [emailArchivedView, setEmailArchivedView] = useState(false);
     const [emailsLoading, setEmailsLoading] = useState(false);
     // 21/09/2026: modal dettaglio email
     const [emailDetail, setEmailDetail] = useState<any>(null);
@@ -183,7 +185,14 @@ export default function ConsultantDashboard() {
 
     useEffect(() => {
         if (activeTab === 'email' && user?.token) { loadEmails(); loadUnread(); }
-    }, [activeTab, user]);
+    }, [activeTab, user, emailArchivedView]);
+
+    // 22/09/2026: autorefresh lista email ogni 60s quando la tab e' attiva
+    useEffect(() => {
+        if (activeTab !== 'email' || !user?.token) return;
+        const t = setInterval(() => { loadEmails(); loadUnread(); }, 60000);
+        return () => clearInterval(t);
+    }, [activeTab, user, emailArchivedView]);
 
     // 22/09/2026: badge email sul menu, indipendente dalla tab attiva
     useEffect(() => {
@@ -298,6 +307,29 @@ export default function ConsultantDashboard() {
     };
 
     // 21/09/2026: apri dettaglio email nel modal
+    const archiveEmail = async (id: number) => {
+        if (!user?.token) return;
+        try {
+            const res = await fetch(`/api/consultant/emails/${id}/archive`, {
+                method: 'POST', headers: { Authorization: `JWT ${user.token}` },
+            });
+            if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || 'Archiviazione fallita'); return; }
+            if (emailDetail?.id === id) setEmailDetail(null);
+            loadEmails();
+        } catch { alert('Errore di rete'); }
+    };
+
+    const unarchiveEmail = async (id: number) => {
+        if (!user?.token) return;
+        try {
+            const res = await fetch(`/api/consultant/emails/${id}/unarchive`, {
+                method: 'POST', headers: { Authorization: `JWT ${user.token}` },
+            });
+            if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || 'Operazione fallita'); return; }
+            loadEmails();
+        } catch { alert('Errore di rete'); }
+    };
+
     const openEmailDetail = async (emailId: number) => {
         if (!user?.token) return;
         setEmailDetailLoading(true);
@@ -322,11 +354,11 @@ export default function ConsultantDashboard() {
     };
 
     // 21/09/2026: email assegnate al consulente via routing slug @v6impresa.it
-    const loadEmails = async () => {
+    const loadEmails = async () => {  // 22/09/2026: dipende da emailArchivedView
         if (!user?.token) return;
         setEmailsLoading(true);
         try {
-            const res = await fetch('/api/consultant/emails', {
+            const res = await fetch('/api/consultant/emails' + (emailArchivedView ? '?archived=1' : ''), {
                 headers: { Authorization: `JWT ${user.token}` },
             });
             const data = await res.json();
@@ -686,20 +718,39 @@ export default function ConsultantDashboard() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-1 border-b border-gray-200">
-                            {(["all", "ricevute", "inviate"] as const).map((f) => (
+                        <div className="flex items-center gap-3 flex-wrap">
+                            <div className="flex items-center gap-1 border-b border-gray-200 flex-1 min-w-[300px]">
+                                {(["all", "ricevute", "inviate"] as const).map((f) => (
+                                    <button
+                                        key={f}
+                                        onClick={() => { setEmailFolder(f); setEmailArchivedView(false); }}
+                                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                                            !emailArchivedView && emailFolder === f
+                                                ? "border-blue-600 text-blue-700"
+                                                : "border-transparent text-gray-500 hover:text-gray-800"
+                                        }`}
+                                    >
+                                        {f === "all" ? "Tutte" : f === "ricevute" ? "Ricevute" : "Inviate"}
+                                    </button>
+                                ))}
                                 <button
-                                    key={f}
-                                    onClick={() => setEmailFolder(f)}
+                                    onClick={() => setEmailArchivedView(true)}
                                     className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                                        emailFolder === f
+                                        emailArchivedView
                                             ? "border-blue-600 text-blue-700"
                                             : "border-transparent text-gray-500 hover:text-gray-800"
                                     }`}
                                 >
-                                    {f === "all" ? "Tutte" : f === "ricevute" ? "Ricevute" : "Inviate"}
+                                    Archiviate
                                 </button>
-                            ))}
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Cerca oggetto o mittente…"
+                                value={emailSearch}
+                                onChange={(ev) => setEmailSearch(ev.target.value)}
+                                className="px-3 py-2 rounded-lg border border-gray-200 text-sm w-64"
+                            />
                         </div>
 
                         {emailsLoading && !emailsData && (
@@ -714,7 +765,13 @@ export default function ConsultantDashboard() {
                             </div>
                         )}
 
-                        {emailsData && emailsData.emails?.filter((e: any) => emailFolder === "all" || e.direction === emailFolder).map((e: any) => (
+                        {emailsData && emailsData.emails?.filter((e: any) => {
+                            const q = emailSearch.trim().toLowerCase();
+                            const matchesSearch = !q || (e.subject || '').toLowerCase().includes(q) || (e.sender_email || '').toLowerCase().includes(q);
+                            if (emailArchivedView) return matchesSearch;
+                            const matchesFolder = emailFolder === "all" || e.direction === emailFolder;
+                            return matchesSearch && matchesFolder;
+                        }).map((e: any) => (
                             <div
                                 key={e.id}
                                 className="w-full bg-white rounded-2xl border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-stretch"
@@ -745,9 +802,26 @@ export default function ConsultantDashboard() {
                                     </span>
                                 </div>
                             </button>
+                            {!emailArchivedView ? (
+                                <button
+                                    onClick={(ev) => { ev.stopPropagation(); archiveEmail(e.id); }}
+                                    title="Archivia"
+                                    className="px-3 flex items-center text-gray-400 hover:text-amber-600 hover:bg-amber-50"
+                                >
+                                    <Archive size={16} />
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={(ev) => { ev.stopPropagation(); unarchiveEmail(e.id); }}
+                                    title="Ripristina"
+                                    className="px-3 flex items-center text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                >
+                                    <ArchiveRestore size={16} />
+                                </button>
+                            )}
                             <button
                                 onClick={(ev) => { ev.stopPropagation(); deleteEmail(e.id, e.subject); }}
-                                title="Elimina email"
+                                title="Elimina definitivamente"
                                 className="px-4 flex items-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-r-2xl"
                             >
                                 <Trash2 size={16} />

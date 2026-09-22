@@ -264,6 +264,11 @@ class ConsultantAPIController(APIBaseController):
         show_all = is_admin and kwargs.get('all') in ('1', 'true', 'True')
 
         domain = [] if show_all else [('recipient_user_id', '=', user.id)]
+        # 22/09/2026: escludi archiviate (o mostra solo archiviate con ?archived=1)
+        if kwargs.get('archived') in ('1','true','True'):
+            domain.append(('is_archived', '=', True))
+        else:
+            domain.append(('is_archived', '=', False))
         # opzionale filtro per progetto
         relation_id = kwargs.get('relation_id')
         if relation_id:
@@ -589,6 +594,40 @@ class ConsultantAPIController(APIBaseController):
 
         if not log.is_read:
             log.write({'is_read': True})
+        return self._json_response({'success': True})
+
+    @http.route('/api/v1/consultant/emails/<int:email_id>/archive', type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def post_consultant_email_archive(self, email_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        env = request.env
+        Log = env['erpv6.winwin.email.log'].sudo()
+        log = Log.browse(email_id)
+        if not log.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+        if not self._is_responsabile_o_admin(user) and log.recipient_user_id.id != user.id:
+            return self._json_response({'error': 'Non hai accesso'}, 403)
+        log.write({'is_archived': True})
+        return self._json_response({'success': True})
+
+    @http.route('/api/v1/consultant/emails/<int:email_id>/unarchive', type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def post_consultant_email_unarchive(self, email_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        env = request.env
+        Log = env['erpv6.winwin.email.log'].sudo()
+        log = Log.browse(email_id)
+        if not log.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+        if not self._is_responsabile_o_admin(user) and log.recipient_user_id.id != user.id:
+            return self._json_response({'error': 'Non hai accesso'}, 403)
+        log.write({'is_archived': False})
         return self._json_response({'success': True})
 
     @http.route('/api/v1/consultant/emails/<int:email_id>', type='http', auth='none',
@@ -938,6 +977,7 @@ class ConsultantAPIController(APIBaseController):
                 'sender_email': e.sender_email or '',
                 'direction': e.direction or 'ricevuta',
             'is_read': bool(e.is_read),
+            'is_archived': bool(e.is_archived),
                 'create_date': e.create_date.isoformat() if e.create_date else None,
             } for e in emails]
 

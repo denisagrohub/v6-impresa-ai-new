@@ -52,6 +52,9 @@ class Erpv6WinwinEmailLog(models.Model):
     # le ha scritte lui). Le entranti partono False.
     is_read = fields.Boolean(string='Letta', default=False, index=True)
 
+    # 22/09/2026: archiviazione soft (nasconde dalla lista senza cancellare)
+    is_archived = fields.Boolean(string='Archiviata', default=False, index=True)
+
     matched_alias = fields.Char(string='Alias Riconosciuto')
     relation_id = fields.Many2one('erpv6.tracking.relation', string='Nodo Progetto', tracking=True)
     # 20/09/2026: se il TO contiene uno slug utente (es. christian.girardi@v6impresa.it)
