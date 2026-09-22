@@ -17,7 +17,7 @@ class Erpv6TrackingRelation(models.Model):
     Win-Win - es. serve anche per "Progetto TEE") ma vive qui per non
     toccare aeosv6_relation. L'inheritance Odoo aggiunge il campo al
     modello per intero, indipendentemente da quale modulo lo dichiara."""
-        _inherit = 'erpv6.tracking.relation'
+    _inherit = 'erpv6.tracking.relation'
 
     # 23/09/2026: pitch pubblico (one-pager per aziende esterne, link
     # condivisibile) + tracking views. Riusa action_create_from_public_form
