@@ -6,6 +6,7 @@ import {
     ArrowLeft, Loader2, RefreshCw, Plus, Trash2, X, Send,
     CornerUpLeft, CornerUpRight, ReplyAll,
 , Archive, ArchiveRestore } from "lucide-react";
+import EmailAttachmentsInput, { AttachedFile } from "@/components/EmailAttachmentsInput";
 import EmailRecipientInput from "@/components/EmailRecipientInput";
 
 export default function AdminMiaEmailPage() {
@@ -24,6 +25,7 @@ export default function AdminMiaEmailPage() {
     const [emailDetailLoading, setEmailDetailLoading] = useState(false);
     const [composer, setComposer] = useState<any>(null);
     const [composerSending, setComposerSending] = useState(false);
+    const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
 
     useEffect(() => {
         const session = localStorage.getItem("pi_session");
@@ -176,13 +178,30 @@ export default function AdminMiaEmailPage() {
         }
         setComposerSending(true);
         try {
+            const localFiles = await Promise.all(
+                attachedFiles.filter((f) => f.source === 'local' && f.fileRaw).map(async (f) => ({
+                    fileName: f.name,
+                    mimetype: f.fileRaw!.type,
+                    fileBase64: await new Promise<string>((resolve, reject) => {
+                        const r = new FileReader();
+                        r.onload = () => resolve((r.result as string).split(',')[1] || '');
+                        r.onerror = reject;
+                        r.readAsDataURL(f.fileRaw!);
+                    }),
+                }))
+            );
+            const attachments = [
+                ...localFiles,
+                ...attachedFiles.filter((f) => f.source === 'library' && f.id).map((f) => ({ attachmentId: f.id })),
+            ];
             const res = await fetch('/api/consultant/emails/send', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `JWT ${user.token}`,
                 },
-                body: JSON.stringify(composer),
+                body: JSON.stringify({ ...composer, attachments }),
+            });
             });
             const data = await res.json();
             if (!res.ok || data?.error) {
@@ -190,6 +209,7 @@ export default function AdminMiaEmailPage() {
                 return;
             }
             setComposer(null);
+            setAttachedFiles([]);
             loadEmails();
         } catch { alert('Errore di rete'); }
         finally { setComposerSending(false); }
@@ -321,6 +341,7 @@ export default function AdminMiaEmailPage() {
                                                 <span className="inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                                             )}
                                             <span className="truncate">{e.subject}</span>
+                                            {e.has_attachments && <span title="Contiene allegati">📎</span>}
                                         </h3>
                                         <p className="text-sm text-gray-600 mt-1 truncate">
                                             Da: <span className="font-medium">{e.sender_email}</span>

@@ -7,6 +7,7 @@ import {
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 , Trash2, Plus , Archive, ArchiveRestore } from "lucide-react";
+import EmailAttachmentsInput, { AttachedFile } from "@/components/EmailAttachmentsInput";
 import EmailRecipientInput from "@/components/EmailRecipientInput";
 import { CalendarWithHeinrich } from "@/components/calendar/CalendarWithHeinrich";
 import { ConsultantBookingLinks } from "@/components/booking/ConsultantBookingLinks";
@@ -32,6 +33,7 @@ export default function ConsultantDashboard() {
     // 21/09/2026: composer reply/forward
     const [composer, setComposer] = useState<any>(null);
     const [composerSending, setComposerSending] = useState(false);
+    const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
     const [paymentsData, setPaymentsData] = useState<any>(null);
     const [paymentsLoading, setPaymentsLoading] = useState(false);
     const [partnerProjects, setPartnerProjects] = useState<any>(null);
@@ -291,17 +293,34 @@ export default function ConsultantDashboard() {
         }
         setComposerSending(true);
         try {
+            const localFiles = await Promise.all(
+                attachedFiles.filter((f) => f.source === 'local' && f.fileRaw).map(async (f) => ({
+                    fileName: f.name,
+                    mimetype: f.fileRaw!.type,
+                    fileBase64: await new Promise<string>((resolve, reject) => {
+                        const r = new FileReader();
+                        r.onload = () => resolve((r.result as string).split(',')[1] || '');
+                        r.onerror = reject;
+                        r.readAsDataURL(f.fileRaw!);
+                    }),
+                }))
+            );
+            const attachments = [
+                ...localFiles,
+                ...attachedFiles.filter((f) => f.source === 'library' && f.id).map((f) => ({ attachmentId: f.id })),
+            ];
             const res = await fetch('/api/consultant/emails/send', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `JWT ${user.token}`,
                 },
-                body: JSON.stringify(composer),
+                body: JSON.stringify({ ...composer, attachments }),
             });
             const d = await res.json();
             if (!res.ok || d.error) throw new Error(d.error || 'Invio fallito');
             setComposer(null);
+            setAttachedFiles([]);
             loadEmails();
         } catch (e: any) {
             alert(e.message);
@@ -812,6 +831,7 @@ export default function ConsultantDashboard() {
                                                 <span className="inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                                             )}
                                             <span className="truncate">{e.subject}</span>
+                                            {e.has_attachments && <span title="Contiene allegati">📎</span>}
                                         </h3>
                                         <p className="text-sm text-gray-600 mt-1 truncate">
                                             Da: <span className="font-medium">{e.sender_email}</span>
@@ -1122,6 +1142,14 @@ export default function ConsultantDashboard() {
                                     value={composer.subject || ''}
                                     onChange={(e) => setComposer({ ...composer, subject: e.target.value })}
                                     className="w-full px-3 py-2 rounded border border-gray-200 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <EmailAttachmentsInput
+                                    value={attachedFiles}
+                                    onChange={setAttachedFiles}
+                                    relationId={composer.in_reply_to_id ? null : undefined}
+                                    userToken={user?.token}
                                 />
                             </div>
                             <div>

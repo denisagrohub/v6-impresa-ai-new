@@ -573,6 +573,28 @@ class ConsultantAPIController(APIBaseController):
         ])
         return self._json_response({'unread': count})
 
+    @http.route('/api/v1/consultant/emails/<int:email_id>/attachments', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_email_attachments(self, email_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        env = request.env
+        Log = env['erpv6.winwin.email.log'].sudo()
+        log = Log.browse(email_id)
+        if not log.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+        if not self._is_responsabile_o_admin(user) and log.recipient_user_id.id != user.id:
+            return self._json_response({'error': 'Non hai accesso'}, 403)
+        atts = env['ir.attachment'].sudo().search([
+            ('res_model', '=', 'erpv6.winwin.email.log'), ('res_id', '=', log.id),
+        ])
+        return self._json_response({'attachments': [{
+            'id': a.id, 'name': a.name, 'mimetype': a.mimetype,
+            'size': a.file_size,
+        } for a in atts]})
+
     @http.route('/api/v1/consultant/emails/<int:email_id>/mark-read', type='http', auth='none',
                 methods=['POST', 'OPTIONS'], csrf=False)
     def post_consultant_email_mark_read(self, email_id, **kwargs):  # pylint: disable=unused-argument
@@ -841,6 +863,7 @@ class ConsultantAPIController(APIBaseController):
         to = (data.get('to') or '').strip()
         cc = (data.get('cc') or '').strip()
         bcc = (data.get('bcc') or '').strip()
+        attachments = data.get('attachments') or []
         subject = (data.get('subject') or '').strip()
         body = data.get('body') or ''
         in_reply_to_id = data.get('in_reply_to_id')
@@ -912,6 +935,41 @@ class ConsultantAPIController(APIBaseController):
         except Exception as e:
             _logger.exception("Invio email consulente fallito.")
             return self._json_response({'error': str(e)}, 500)
+
+        # 22/09/2026: allegati (da PC o da Libreria). Ogni file diventa un
+        # ir.attachment sul log; se il log ha relation_id crea anche un
+        # erpv6.library.document collegato (appare in progetto + libreria).
+        if attachments:
+            Att = env['ir.attachment'].sudo()
+            Lib = env['erpv6.library.document'].sudo() if 'erpv6.library.document' in env else None
+            att_ids = []
+            for item in attachments:
+                try:
+                    if item.get('attachmentId'):
+                        existing = Att.browse(int(item['attachmentId']))
+                        if existing.exists():
+                            existing.write({'res_model': 'erpv6.winwin.email.log', 'res_id': log.id})
+                            att_ids.append(existing.id)
+                        continue
+                    fname = item.get('fileName') or 'allegato'
+                    mimetype = item.get('mimetype') or 'application/octet-stream'
+                    data = item.get('fileBase64') or ''
+                    att = Att.create({
+                        'name': fname, 'datas': data, 'mimetype': mimetype,
+                        'res_model': 'erpv6.winwin.email.log', 'res_id': log.id,
+                    })
+                    att_ids.append(att.id)
+                    if Lib is not None and log.relation_id and data:
+                        Lib.create({
+                            'name': fname, 'category': 'other', 'origin': 'internal_upload',
+                            'file': data, 'file_name': fname,
+                            'source_model': 'erpv6.tracking.relation',
+                            'source_res_id': log.relation_id.id,
+                        })
+                except Exception:
+                    _logger.exception("Allegato email fallito: %s", item.get('fileName'))
+            if att_ids:
+                mail.write({'attachment_ids': [(6, 0, att_ids)]})
 
         log = env['erpv6.winwin.email.log'].sudo().create({
             'name': subject,
@@ -1002,6 +1060,7 @@ class ConsultantAPIController(APIBaseController):
                 'direction': e.direction or 'ricevuta',
             'is_read': bool(e.is_read),
             'is_archived': bool(e.is_archived),
+            'has_attachments': bool(env['ir.attachment'].sudo().search_count([('res_model', '=', 'erpv6.winwin.email.log'), ('res_id', '=', e.id)])),
                 'create_date': e.create_date.isoformat() if e.create_date else None,
             } for e in emails]
 
