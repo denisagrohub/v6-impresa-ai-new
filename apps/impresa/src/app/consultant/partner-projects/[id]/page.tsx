@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
-    ArrowLeft, Loader2, AlertCircle, Building2, User, Mail,
+    ArrowLeft, Loader2, AlertCircle, Building2, User, Mail, Phone, X, Send,
     Target as TargetIcon, FileText, TrendingUp, RefreshCw
 } from "lucide-react";
 
@@ -55,6 +55,9 @@ export default function PartnerProjectDetail() {
     const [data, setData] = useState<ProjectDetail | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'targets' | 'email' | 'compenso'>('targets');
+    // 21/09/2026: modal dettaglio target
+    const [targetDetail, setTargetDetail] = useState<any>(null);
+    const [targetDetailLoading, setTargetDetailLoading] = useState(false);
 
     const loadData = async () => {
         if (!user?.token || !id) return;
@@ -89,6 +92,25 @@ export default function PartnerProjectDetail() {
     }, [router]);
 
     useEffect(() => { if (user) loadData(); }, [user, id]);
+
+    // 21/09/2026: apri modal target
+    const openTargetDetail = async (targetId: number) => {
+        if (!user?.token) return;
+        setTargetDetailLoading(true);
+        setTargetDetail({ id: targetId });
+        try {
+            const res = await fetch(`/api/consultant/targets/${targetId}`, {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const d = await res.json();
+            if (!res.ok || d.error) throw new Error(d.error || 'Errore');
+            setTargetDetail(d);
+        } catch (e: any) {
+            setTargetDetail({ id: targetId, error: e.message });
+        } finally {
+            setTargetDetailLoading(false);
+        }
+    };
 
     if (loading || !user) {
         return (
@@ -161,7 +183,11 @@ export default function PartnerProjectDetail() {
                                     </div>
                                 ) : (
                                     data.targets.map((t) => (
-                                        <div key={t.id} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                                        <button
+                                            key={t.id}
+                                            onClick={() => openTargetDetail(t.id)}
+                                            className="w-full text-left bg-white rounded-2xl border border-gray-100 p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                                        >
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="font-bold text-[#1a2744] flex items-center gap-2">
@@ -182,7 +208,7 @@ export default function PartnerProjectDetail() {
                                                     {t.stage_name || t.state}
                                                 </span>
                                             </div>
-                                        </div>
+                                        </button>
                                     ))
                                 )}
                             </div>
@@ -261,6 +287,162 @@ export default function PartnerProjectDetail() {
                     </>
                 )}
             </div>
+
+            {/* MODAL DETTAGLIO TARGET (21/09/2026) */}
+            {targetDetail && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setTargetDetail(null)}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        {/* HEADER */}
+                        <div className="border-b border-gray-100 px-5 py-3 flex items-start justify-between bg-gradient-to-r from-blue-50 to-white rounded-t-xl">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                    <Building2 size={18} className="text-blue-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-base font-bold text-[#1a2744] truncate">
+                                        {targetDetailLoading ? 'Caricamento...' : (targetDetail.partner?.name || targetDetail.name || 'Target')}
+                                    </h3>
+                                    {!targetDetailLoading && targetDetail.root_name && (
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            {targetDetail.root_name}
+                                            {targetDetail.stage_name && (
+                                                <>
+                                                    <span className="mx-1 text-gray-300">·</span>
+                                                    <span className="font-medium text-blue-700">{targetDetail.stage_name}</span>
+                                                </>
+                                            )}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <button onClick={() => setTargetDetail(null)} className="text-gray-400 hover:text-gray-700">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* BODY */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                            {targetDetailLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 size={24} className="animate-spin text-blue-500" />
+                                </div>
+                            ) : targetDetail.error ? (
+                                <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
+                                    {targetDetail.error}
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Contatti */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {targetDetail.partner && (
+                                            <div className="bg-gray-50 rounded-lg p-3">
+                                                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Azienda</div>
+                                                <div className="font-semibold text-[#1a2744]">{targetDetail.partner.name}</div>
+                                                {targetDetail.partner.email && (
+                                                    <a href={`mailto:${targetDetail.partner.email}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                                                        <Mail size={11} /> {targetDetail.partner.email}
+                                                    </a>
+                                                )}
+                                                {targetDetail.partner.phone && (
+                                                    <div className="text-xs text-gray-600 flex items-center gap-1 mt-1">
+                                                        <Phone size={11} /> {targetDetail.partner.phone}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {targetDetail.contatto && (
+                                            <div className="bg-gray-50 rounded-lg p-3">
+                                                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Contatto principale</div>
+                                                <div className="font-semibold text-[#1a2744]">{targetDetail.contatto.name}</div>
+                                                {targetDetail.contatto.email && (
+                                                    <a href={`mailto:${targetDetail.contatto.email}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                                                        <Mail size={11} /> {targetDetail.contatto.email}
+                                                    </a>
+                                                )}
+                                                {targetDetail.contatto.phone && (
+                                                    <div className="text-xs text-gray-600 flex items-center gap-1 mt-1">
+                                                        <Phone size={11} /> {targetDetail.contatto.phone}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Dossier */}
+                                    {targetDetail.dossier && (
+                                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                                            <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mb-2">Dossier</div>
+                                            <pre className="text-xs text-gray-700 whitespace-pre-wrap">
+                                                {JSON.stringify(targetDetail.dossier, null, 2)}
+                                            </pre>
+                                        </div>
+                                    )}
+
+                                    {/* Email */}
+                                    <div>
+                                        <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+                                            Email ({targetDetail.emails?.length || 0})
+                                        </div>
+                                        {(!targetDetail.emails || targetDetail.emails.length === 0) ? (
+                                            <p className="text-xs text-gray-400 italic">Nessuna email per questo target.</p>
+                                        ) : (
+                                            <div className="space-y-1.5">
+                                                {targetDetail.emails.map((e: any) => (
+                                                    <div key={e.id} className="bg-white border border-gray-100 rounded p-2 text-xs">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-medium text-[#1a2744] truncate">{e.subject}</div>
+                                                                <div className="text-gray-500 truncate mt-0.5">Da: {e.sender_email}</div>
+                                                            </div>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${
+                                                                e.direction === 'inviata' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                                                            }`}>
+                                                                {e.direction === 'inviata' ? '↗ inviata' : '↙ ricevuta'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Call */}
+                                    <div>
+                                        <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+                                            Call ({targetDetail.calls?.length || 0})
+                                        </div>
+                                        {(!targetDetail.calls || targetDetail.calls.length === 0) ? (
+                                            <p className="text-xs text-gray-400 italic">Nessuna call per questo target.</p>
+                                        ) : (
+                                            <div className="space-y-1.5">
+                                                {targetDetail.calls.map((c: any) => (
+                                                    <div key={c.id} className="bg-white border border-gray-100 rounded p-2 text-xs">
+                                                        <span className="font-medium">{c.duration_minutes} min</span>
+                                                        <span className="text-gray-400 ml-2">
+                                                            {c.started_at ? new Date(c.started_at).toLocaleString('it-IT') : ''}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* FOOTER */}
+                        <div className="border-t border-gray-100 px-5 py-3 flex justify-end gap-2 bg-gray-50 rounded-b-xl">
+                            <button
+                                onClick={() => setTargetDetail(null)}
+                                className="px-3 py-1.5 rounded border border-gray-200 text-xs text-gray-600 hover:bg-white"
+                            >
+                                Chiudi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
