@@ -245,7 +245,7 @@ export default function ConsultantDashboard() {
         try {
             const res = await fetch(`/api/consultant/emails/${id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${user.token}` },
+                headers: { Authorization: `JWT ${user.token}` },
             });
             if (!res.ok) {
                 const d = await res.json().catch(() => ({}));

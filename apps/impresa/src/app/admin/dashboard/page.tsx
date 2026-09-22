@@ -116,7 +116,8 @@ export default function AdminDashboard() {
     { icon: Calculator, label: "Pagamenti", href: "/admin/payments" },
     { icon: Landmark, label: "Commissioni", href: "/admin/accounting" },
     { icon: FileText, label: "Contratti", href: "/admin/contracts" },
-    { icon: Mail, label: "Email", href: "/admin/email" },
+    { icon: Mail, label: "La mia email", href: "/admin/mia-email" },
+    { icon: Mail, label: "Email funnel", href: "/admin/email" },
 
     { icon: Brain, label: "Knowledge Base", href: "/admin/kb" },
     { icon: FileText, label: "Libreria", href: "/admin/library" },
