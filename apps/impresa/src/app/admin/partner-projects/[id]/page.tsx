@@ -728,6 +728,7 @@ export default function PartnerProjectDetailPage() {
                             >
                                 🌐 Pitch pubblico
                             </button>
+                        )}
                         {project?.emailAlias && (
                             <button
                                 onClick={() => {
@@ -742,7 +743,6 @@ export default function PartnerProjectDetailPage() {
                             >
                                 ✉️ Invia pitch
                             </button>
-                        )}
                         )}
                         <CharterEditor
                             projectId={project?.id ?? 0}
