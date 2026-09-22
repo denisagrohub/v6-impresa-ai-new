@@ -112,6 +112,10 @@ export default function PartnerProjectDetail() {
                             {data?.emailAlias && <span className="ml-3 font-mono text-xs">{data.emailAlias}</span>}
                         </p>
                     </div>
+                    <a href={`/consultant/partner-projects/${id}/playbook`} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#1a2744] text-white text-sm font-medium hover:bg-[#0f3460]">
+                        📖 Playbook
+                    </a>
                     <button onClick={loadData} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
                         <RefreshCw size={14} /> Aggiorna
                     </button>

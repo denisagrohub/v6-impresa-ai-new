@@ -710,6 +710,25 @@ export default function PartnerProjectDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => window.open(`/consultant/partner-projects/${project?.id}/playbook`, '_blank')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50"
+                            title="Apri playbook consulente (stampa/PDF)"
+                        >
+                            📖 Playbook
+                        </button>
+                        {project?.emailAlias && (
+                            <button
+                                onClick={() => {
+                                    const slug = (project.emailAlias as string).split('@')[0];
+                                    window.open(`/p/${slug}`, '_blank');
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100"
+                                title="Apri pitch pubblico"
+                            >
+                                🌐 Pitch pubblico
+                            </button>
+                        )}
                         <CharterEditor
                             projectId={project?.id ?? 0}
                             charter={project?.charter ?? null}

@@ -371,6 +371,71 @@ class ConsultantAPIController(APIBaseController):
         })
 
     # ------------------------------------------------------------------
+    # Playbook (23/09/2026): vista pronta da condividere col consulente.
+    # Aggrega charter + dossier + target ideali + contatti scouting + KPI.
+    # Solo owner/access/split possono vederlo.
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/playbook', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_project_playbook(self, relation_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        env = request.env
+        Relation = env['erpv6.tracking.relation'].sudo()
+        root = Relation.browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            in_access = user.id in (root.access_user_ids.ids or [])
+            is_owner = root.owner_user_id.id == user.id
+            in_split = False
+            try:
+                split = json.loads(root.x_v6_revenue_split or '{}')
+                in_split = any(
+                    b.get('res_partner_id') == user.partner_id.id and b.get('tipo') == 'consulente'
+                    for b in (split.get('beneficiari') or []))
+            except Exception:
+                pass
+            if not (is_owner or in_access or in_split):
+                return self._json_response({'error': 'Non hai accesso'}, 403)
+
+        charter = None
+        try: charter = json.loads(root.x_v6_charter or '{}') if root.x_v6_charter else None
+        except Exception: pass
+        scouting = None
+        try: scouting = json.loads(root.x_v6_scouting or '{}') if root.x_v6_scouting else None
+        except Exception: pass
+
+        targets = root.child_ids.filtered(lambda c: c.funzione_progetto == 'target')
+        targets_data = []
+        for t in targets:
+            p = t.partner_id
+            c = t.contatto_principale_id
+            targets_data.append({
+                'id': t.id, 'name': t.name,
+                'partner_name': p.name if p else None,
+                'partner_email': p.email if p else None,
+                'partner_phone': p.phone if p else None,
+                'contatto_name': c.name if c else None,
+                'stage_name': t.stage_id.name if t.stage_id else None,
+                'state': t.state,
+            })
+
+        return self._json_response({
+            'id': root.id,
+            'name': root.name,
+            'email_alias': root.email_alias or '',
+            'phase': root.state,
+            'charter': charter,
+            'scouting': scouting,
+            'targets': targets_data,
+            'target_count': len(targets_data),
+        })
+
+    # ------------------------------------------------------------------
     # Dettaglio progetto filtrato (21/09/2026): un consulente puo' aprire
     # un progetto solo se e' owner_user_id, in access_user_ids, o compare
     # nei beneficiari dello split come consulente. Admin vede tutto.

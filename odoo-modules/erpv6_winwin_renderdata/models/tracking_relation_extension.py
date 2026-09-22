@@ -17,7 +17,25 @@ class Erpv6TrackingRelation(models.Model):
     Win-Win - es. serve anche per "Progetto TEE") ma vive qui per non
     toccare aeosv6_relation. L'inheritance Odoo aggiunge il campo al
     modello per intero, indipendentemente da quale modulo lo dichiara."""
-    _inherit = 'erpv6.tracking.relation'
+        _inherit = 'erpv6.tracking.relation'
+
+    # 23/09/2026: pitch pubblico (one-pager per aziende esterne, link
+    # condivisibile) + tracking views. Riusa action_create_from_public_form
+    # di erpv6.partnership.candidacy per il form.
+    x_v6_pitch_views = fields.Integer(
+        string='Visite pitch', default=0, readonly=True,
+        help="Numero di aperture del link pubblico /p/<slug>.")
+    x_v6_pitch_last_view = fields.Datetime(
+        string='Ultima visita', readonly=True)
+    x_v6_pitch_title = fields.Char(
+        string='Titolo pitch pubblico',
+        help="Titolo mostrato nella pagina pubblica. Vuoto = usa name.")
+    x_v6_pitch_summary = fields.Text(
+        string='Sommario pitch pubblico',
+        help="Testo introduttivo per aziende esterne. Vuoto = usa charter.descrizione.")
+    x_v6_pitch_enabled = fields.Boolean(
+        string='Pitch pubblico attivo', default=False,
+        help="Se True, /p/<email_alias> è accessibile senza login.")
 
     production_order_id = fields.Many2one(
         'erpv6.production.order', string='Progetto Win-Win', ondelete='cascade', index=True,
