@@ -182,7 +182,7 @@ export default function ConsultantDashboard() {
     }, [activeTab, user]);
 
     useEffect(() => {
-        if (activeTab === 'email' && user?.token) loadEmails();
+        if (activeTab === 'email' && user?.token) { loadEmails(); loadUnread(); }
     }, [activeTab, user]);
 
     useEffect(() => {
@@ -301,6 +301,11 @@ export default function ConsultantDashboard() {
             const data = await res.json();
             if (!res.ok || data.error) throw new Error(data.error || 'Errore');
             setEmailDetail(data);
+            // 22/09/2026: marca come letta (best-effort) + refresh lista/badge
+            fetch(`/api/consultant/emails/${emailId}/mark-read`, {
+                method: 'POST',
+                headers: { Authorization: `JWT ${user.token}` },
+            }).then(() => { loadEmails(); loadUnread(); }).catch(() => {});
         } catch (e: any) {
             setEmailDetail({ id: emailId, error: e.message });
         } finally {
