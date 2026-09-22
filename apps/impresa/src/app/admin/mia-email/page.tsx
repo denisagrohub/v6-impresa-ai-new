@@ -498,6 +498,14 @@ export default function AdminMiaEmailPage() {
                                 />
                             </div>
                             <div>
+                                <EmailAttachmentsInput
+                                    value={attachedFiles}
+                                    onChange={setAttachedFiles}
+                                    relationId={undefined}
+                                    userToken={user?.token}
+                                />
+                            </div>
+                            <div>
                                 <label className="text-xs font-semibold text-gray-500 uppercase">Corpo (HTML)</label>
                                 <textarea
                                     rows={12}
