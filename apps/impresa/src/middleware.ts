@@ -127,6 +127,11 @@ const PUBLIC_PATHS = [
   // sessione da aspettarsi qui, stesso principio di /intervista/guidata.
   '/api/winwin-report',
   '/report',
+  // 23/09/2026: pitch pubblico progetto (/p/<alias>) + candidacy.
+  // Riusa erpv6.partnership.candidacy. Visibile ad aziende esterne,
+  // il link stesso è il segreto (slug non enumerabile).
+  '/p',
+  '/api/public',
 ];
 
 export async function middleware(request: NextRequest) {
