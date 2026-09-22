@@ -7,7 +7,8 @@ import {
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 , Trash2, Plus , Archive, ArchiveRestore } from "lucide-react";
-import EmailAttachmentsInput, { AttachedFile } from "@/components/EmailAttachmentsInput";
+import EmailAttachmentsInput from "@/components/EmailAttachmentsInput";
+import type { AttachedFile } from "@/components/EmailAttachmentsInput";
 import EmailRecipientInput from "@/components/EmailRecipientInput";
 import { CalendarWithHeinrich } from "@/components/calendar/CalendarWithHeinrich";
 import { ConsultantBookingLinks } from "@/components/booking/ConsultantBookingLinks";
@@ -1284,7 +1285,7 @@ export default function ConsultantDashboard() {
                                     ))}
                                 </div>
                             </div>
-                        )
+                        )}
                         <div className="border-t border-gray-100 px-5 py-3 flex flex-wrap justify-end gap-2 bg-gray-50 rounded-b-xl">
                             <button
                                 onClick={() => openComposer(emailDetail.id, 'reply')}

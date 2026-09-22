@@ -5,8 +5,9 @@ import Link from "next/link";
 import {
     ArrowLeft, Loader2, RefreshCw, Plus, Trash2, X, Send,
     CornerUpLeft, CornerUpRight, ReplyAll,
-, Archive, ArchiveRestore } from "lucide-react";
-import EmailAttachmentsInput, { AttachedFile } from "@/components/EmailAttachmentsInput";
+    Archive, ArchiveRestore } from "lucide-react";
+import EmailAttachmentsInput from "@/components/EmailAttachmentsInput";
+import type { AttachedFile } from "@/components/EmailAttachmentsInput";
 import EmailRecipientInput from "@/components/EmailRecipientInput";
 
 export default function AdminMiaEmailPage() {
@@ -222,7 +223,6 @@ export default function AdminMiaEmailPage() {
                     Authorization: `JWT ${user.token}`,
                 },
                 body: JSON.stringify({ ...composer, attachments }),
-            });
             });
             const data = await res.json();
             if (!res.ok || data?.error) {
