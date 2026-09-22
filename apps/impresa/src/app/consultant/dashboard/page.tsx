@@ -30,6 +30,7 @@ export default function ConsultantDashboard() {
     // 21/09/2026: modal dettaglio email
     const [emailDetail, setEmailDetail] = useState<any>(null);
     const [emailDetailLoading, setEmailDetailLoading] = useState(false);
+    const [emailAttachments, setEmailAttachments] = useState<{id:number;name:string;mimetype?:string;size?:number}[]>([]);
     // 21/09/2026: composer reply/forward
     const [composer, setComposer] = useState<any>(null);
     const [composerSending, setComposerSending] = useState(false);
@@ -284,6 +285,26 @@ export default function ConsultantDashboard() {
         }
     };
 
+    const suggestAIReply = async () => {
+        if (!composer?.in_reply_to_id) { alert('Funziona solo su una risposta.'); return; }
+        try {
+            const res = await fetch('/api/admin/assistant/suggest-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    resModel: 'erpv6.winwin.email.log',
+                    resId: composer.in_reply_to_id,
+                    emailLogId: composer.in_reply_to_id,
+                    agentCode: 'susanna',
+                }),
+            });
+            const d = await res.json();
+            if (!res.ok || !d.success) { alert(d.error || 'Suggerimento fallito'); return; }
+            const draft = typeof d.draft === 'string' ? d.draft : (d.draft?.text || JSON.stringify(d.draft));
+            setComposer({ ...composer, body: (composer.body || '') + '<br/><br/>' + draft });
+        } catch { alert('Errore di rete'); }
+    };
+
     const sendComposer = async () => {
         if (!user?.token || !composer) return;
         const bodyText = (composer.body || '').replace(/<[^>]*>/g, '').trim();
@@ -364,6 +385,9 @@ export default function ConsultantDashboard() {
             const data = await res.json();
             if (!res.ok || data.error) throw new Error(data.error || 'Errore');
             setEmailDetail(data);
+            fetch(`/api/consultant/emails/${emailId}/attachments`, {
+                headers: { Authorization: `JWT ${user.token}` },
+            }).then((r) => r.json()).then((d) => setEmailAttachments(d.attachments || [])).catch(() => setEmailAttachments([]));
             // 22/09/2026: marca come letta (best-effort) + refresh lista/badge
             fetch(`/api/consultant/emails/${emailId}/mark-read`, {
                 method: 'POST',
@@ -1172,6 +1196,16 @@ export default function ConsultantDashboard() {
                             >
                                 Annulla
                             </button>
+                                {composer.mode !== 'new' && composer.in_reply_to_id && (
+                                    <button
+                                        type="button"
+                                        onClick={suggestAIReply}
+                                        className="inline-flex items-center gap-2 px-3 py-2 rounded border border-purple-200 text-purple-700 text-sm font-medium hover:bg-purple-50"
+                                        title="Suggerisci risposta con AI (Susanna)"
+                                    >
+                                        ✨ Suggerisci
+                                    </button>
+                                )}
                             <button
                                 onClick={sendComposer}
                                 disabled={composerSending}
@@ -1187,7 +1221,7 @@ export default function ConsultantDashboard() {
 
             {/* MODAL DETTAGLIO EMAIL (21/09/2026) */}
             {emailDetail && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEmailDetail(null)}>
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => { setEmailDetail(null); setEmailAttachments([]); }}>
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                         {/* HEADER */}
                         <div className="border-b border-gray-100 px-5 py-3 flex items-start justify-between">
@@ -1237,6 +1271,20 @@ export default function ConsultantDashboard() {
                         </div>
 
                         {/* FOOTER: azioni reply/forward */}
+                        {emailAttachments.length > 0 && (
+                            <div className="px-5 pb-3 border-t border-gray-100">
+                                <p className="text-xs font-semibold text-gray-500 uppercase mt-3 mb-2">Allegati ({emailAttachments.length})</p>
+                                <div className="space-y-1">
+                                    {emailAttachments.map((a) => (
+                                        <a key={a.id} href={`/api/admin/attachments/${a.id}/download`} target="_blank" rel="noopener noreferrer"
+                                            className="flex items-center justify-between text-sm bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded px-3 py-2">
+                                            <span className="truncate">📎 {a.name}</span>
+                                            <span className="text-xs text-gray-400 ml-2">{a.size ? Math.round(a.size / 1024) + ' KB' : ''}</span>
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )
                         <div className="border-t border-gray-100 px-5 py-3 flex flex-wrap justify-end gap-2 bg-gray-50 rounded-b-xl">
                             <button
                                 onClick={() => openComposer(emailDetail.id, 'reply')}

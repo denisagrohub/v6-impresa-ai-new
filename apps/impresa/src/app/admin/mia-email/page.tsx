@@ -23,6 +23,7 @@ export default function AdminMiaEmailPage() {
     const [emailsLoading, setEmailsLoading] = useState(false);
     const [emailDetail, setEmailDetail] = useState<any>(null);
     const [emailDetailLoading, setEmailDetailLoading] = useState(false);
+    const [emailAttachments, setEmailAttachments] = useState<{id:number;name:string;mimetype?:string;size?:number}[]>([]);
     const [composer, setComposer] = useState<any>(null);
     const [composerSending, setComposerSending] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -166,6 +167,26 @@ export default function AdminMiaEmailPage() {
             }
             if (emailDetail?.id === id) setEmailDetail(null);
             loadEmails();
+        } catch { alert('Errore di rete'); }
+    };
+
+    const suggestAIReply = async () => {
+        if (!composer?.in_reply_to_id || !emailDetail) { alert('Funziona solo su una risposta.'); return; }
+        try {
+            const res = await fetch('/api/admin/assistant/suggest-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    resModel: 'erpv6.winwin.email.log',
+                    resId: composer.in_reply_to_id,
+                    emailLogId: composer.in_reply_to_id,
+                    agentCode: 'susanna',
+                }),
+            });
+            const d = await res.json();
+            if (!res.ok || !d.success) { alert(d.error || 'Suggerimento fallito'); return; }
+            const draft = typeof d.draft === 'string' ? d.draft : (d.draft?.text || JSON.stringify(d.draft));
+            setComposer({ ...composer, body: (composer.body || '') + '<br/><br/>' + draft });
         } catch { alert('Errore di rete'); }
     };
 
@@ -386,7 +407,7 @@ export default function AdminMiaEmailPage() {
 
             {/* DETAIL MODAL */}
             {emailDetail && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEmailDetail(null)}>
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => { setEmailDetail(null); setEmailAttachments([]); }}>
                     <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(ev) => ev.stopPropagation()}>
                         <div className="p-5 border-b border-gray-100 flex items-start justify-between">
                             <div className="flex-1 min-w-0">
@@ -411,6 +432,22 @@ export default function AdminMiaEmailPage() {
                             </div>
                         )}
 
+                        {emailAttachments.length > 0 && (
+                            <div className="px-5 pb-3 border-t border-gray-100">
+                                <p className="text-xs font-semibold text-gray-500 uppercase mt-3 mb-2">Allegati ({emailAttachments.length})</p>
+                                <div className="space-y-1">
+                                    {emailAttachments.map((a) => (
+                                        <a key={a.id}
+                                            href={`/api/admin/attachments/${a.id}/download`}
+                                            target="_blank" rel="noopener noreferrer"
+                                            className="flex items-center justify-between text-sm bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded px-3 py-2">
+                                            <span className="truncate">📎 {a.name}</span>
+                                            <span className="text-xs text-gray-400 ml-2">{a.size ? Math.round(a.size / 1024) + ' KB' : ''}</span>
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="p-4 border-t border-gray-100 flex items-center gap-2">
                             <button
                                 onClick={() => { openComposer(emailDetail.id, 'reply'); }}
@@ -522,6 +559,16 @@ export default function AdminMiaEmailPage() {
                             >
                                 Annulla
                             </button>
+                            {composer.mode !== 'new' && composer.in_reply_to_id && (
+                                <button
+                                    type="button"
+                                    onClick={suggestAIReply}
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-purple-200 text-purple-700 text-sm font-medium hover:bg-purple-50"
+                                    title="Suggerisci risposta con AI (Susanna)"
+                                >
+                                    ✨ Suggerisci
+                                </button>
+                            )}
                             <button
                                 onClick={handleComposerSend}
                                 disabled={composerSending}
