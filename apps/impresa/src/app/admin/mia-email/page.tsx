@@ -43,7 +43,7 @@ export default function AdminMiaEmailPage() {
         if (!user?.token) return;
         setEmailsLoading(true);
         try {
-            const res = await fetch('/api/consultant/emails' + (emailArchivedView ? '?archived=1' : ''), {
+            const res = await fetch('/api/consultant/emails?' + (emailArchivedView ? 'archived=1&' : '') + 'all=1', {
                 headers: { Authorization: `JWT ${user.token}` },
             });
             const data = await res.json();
