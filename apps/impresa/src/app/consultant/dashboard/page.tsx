@@ -19,6 +19,7 @@ export default function ConsultantDashboard() {
     const [myRequests, setMyRequests] = useState<any>(null);    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());    const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
     // 21/09/2026: email assegnate + pagamenti (compensi) del consulente
     const [emailsData, setEmailsData] = useState<any>(null);
+    const [emailFolder, setEmailFolder] = useState<"all" | "ricevute" | "inviate">("all");
     const [emailsLoading, setEmailsLoading] = useState(false);
     // 21/09/2026: modal dettaglio email
     const [emailDetail, setEmailDetail] = useState<any>(null);
@@ -634,7 +635,7 @@ export default function ConsultantDashboard() {
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500">
-                                Email ricevute sul tuo indirizzo <span className="font-mono">{user?.emailSlug || '—'}@v6impresa.it</span>
+                                Posta personale su <span className="font-mono">{user?.emailSlug || '—'}@v6impresa.it</span>
                             </p>
                             <div className="flex items-center gap-2">
                                 <button
@@ -654,6 +655,22 @@ export default function ConsultantDashboard() {
                             </div>
                         </div>
 
+                        <div className="flex items-center gap-1 border-b border-gray-200">
+                            {(["all", "ricevute", "inviate"] as const).map((f) => (
+                                <button
+                                    key={f}
+                                    onClick={() => setEmailFolder(f)}
+                                    className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                                        emailFolder === f
+                                            ? "border-blue-600 text-blue-700"
+                                            : "border-transparent text-gray-500 hover:text-gray-800"
+                                    }`}
+                                >
+                                    {f === "all" ? "Tutte" : f === "ricevute" ? "Ricevute" : "Inviate"}
+                                </button>
+                            ))}
+                        </div>
+
                         {emailsLoading && !emailsData && (
                             <div className="flex items-center gap-2 text-gray-500 text-sm">
                                 <Loader2 size={16} className="animate-spin" /> Carico le email...
@@ -666,7 +683,7 @@ export default function ConsultantDashboard() {
                             </div>
                         )}
 
-                        {emailsData && emailsData.emails?.map((e: any) => (
+                        {emailsData && emailsData.emails?.filter((e: any) => emailFolder === "all" || e.direction === emailFolder).map((e: any) => (
                             <div
                                 key={e.id}
                                 className="w-full bg-white rounded-2xl border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-stretch"
