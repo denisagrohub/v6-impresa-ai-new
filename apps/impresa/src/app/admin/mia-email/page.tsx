@@ -18,6 +18,7 @@ export default function AdminMiaEmailPage() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [emailSearch, setEmailSearch] = useState('');
     const [emailArchivedView, setEmailArchivedView] = useState(false);
+    const [emailProjectFilter, setEmailProjectFilter] = useState<string>('');
     const [emailsLoading, setEmailsLoading] = useState(false);
     const [emailDetail, setEmailDetail] = useState<any>(null);
     const [emailDetailLoading, setEmailDetailLoading] = useState(false);
@@ -53,6 +54,15 @@ export default function AdminMiaEmailPage() {
             setEmailsData({ emails: [], error: 'Errore di rete' });
         } finally { setEmailsLoading(false); }
     };
+
+    // 22/09/2026: lista progetti unici (relation_id) dalle email caricate
+    const projectOptions = (() => {
+        const map = new Map<number, string>();
+        (emailsData?.emails || []).forEach((e: any) => {
+            if (e.relation_id && e.relation_name) map.set(e.relation_id, e.relation_name);
+        });
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    })();
 
     const loadUnread = async () => {
         if (!user?.token) return;
@@ -259,8 +269,20 @@ export default function AdminMiaEmailPage() {
                         placeholder="Cerca oggetto o mittente…"
                         value={emailSearch}
                         onChange={(ev) => setEmailSearch(ev.target.value)}
-                        className="px-3 py-2 rounded-lg border border-gray-200 text-sm w-64"
+                        className="px-3 py-2 rounded-lg border border-gray-200 text-sm w-56"
                     />
+                    {projectOptions.length > 0 && (
+                        <select
+                            value={emailProjectFilter}
+                            onChange={(ev) => setEmailProjectFilter(ev.target.value)}
+                            className="px-3 py-2 rounded-lg border border-gray-200 text-sm max-w-[220px]"
+                        >
+                            <option value="">Tutti i progetti</option>
+                            {projectOptions.map((p) => (
+                                <option key={p.id} value={String(p.id)}>{p.name}</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 {emailsLoading && !emailsData && (
@@ -279,9 +301,10 @@ export default function AdminMiaEmailPage() {
                     {emailsData && emailsData.emails?.filter((e: any) => {
                             const q = emailSearch.trim().toLowerCase();
                             const matchesSearch = !q || (e.subject || '').toLowerCase().includes(q) || (e.sender_email || '').toLowerCase().includes(q);
-                            if (emailArchivedView) return matchesSearch;
+                            const matchesProject = !emailProjectFilter || String(e.relation_id || '') === emailProjectFilter;
+                            if (emailArchivedView) return matchesSearch && matchesProject;
                             const matchesFolder = emailFolder === "all" || e.direction === emailFolder;
-                            return matchesSearch && matchesFolder;
+                            return matchesSearch && matchesFolder && matchesProject;
                         }).map((e: any) => (
                         <div
                             key={e.id}
