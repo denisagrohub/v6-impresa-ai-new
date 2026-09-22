@@ -1069,28 +1069,17 @@ export default function ConsultantDashboard() {
                             </div>
                             <div>
                                 <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">A *</label>
-                                <EmailRecipientInput
+                                <input
                                     value={composer.to || ''}
-                                    onChange={(v) => setComposer({ ...composer, to: v })}
-                                    placeholder="Cerca nome o scrivi email + Invio…"
+                                    onChange={(e) => setComposer({ ...composer, to: e.target.value })}
                                     className="w-full px-3 py-2 rounded border border-gray-200 text-sm"
                                 />
                             </div>
                             <div>
                                 <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Cc</label>
-                                <EmailRecipientInput
+                                <input
                                     value={composer.cc || ''}
-                                    onChange={(v) => setComposer({ ...composer, cc: v })}
-                                    placeholder="Cerca nome o scrivi email + Invio…"
-                                    className="w-full px-3 py-2 rounded border border-gray-200 text-sm"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Bcc</label>
-                                <EmailRecipientInput
-                                    value={composer.bcc || ''}
-                                    onChange={(v) => setComposer({ ...composer, bcc: v })}
-                                    placeholder="Cerca nome o scrivi email + Invio…"
+                                    onChange={(e) => setComposer({ ...composer, cc: e.target.value })}
                                     className="w-full px-3 py-2 rounded border border-gray-200 text-sm"
                                 />
                             </div>
