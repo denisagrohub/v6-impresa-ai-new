@@ -46,6 +46,18 @@ class Erpv6PartnershipCandidacy(models.Model):
         help="Testo libero del referente - descrizione della proposta di partnership/collaborazione.",
     )
 
+    # 23/09/2026: traccia da quale progetto arriva la candidatura quando
+    # viene dal pitch pubblico /p/<alias>. Vuoto = candidatura generale
+    # dalla pagina /partnership.
+    source_project_alias = fields.Char(
+        string='Progetto di origine (pitch pubblico)',
+        help="Slug email_alias del progetto da cui e' arrivata la candidatura "
+             "tramite /p/<alias>. Vuoto se dalla pagina partnership generale.")
+    source_project_id = fields.Many2one(
+        'erpv6.tracking.relation', string='Progetto collegato',
+        ondelete='set null',
+        help="Record progetto collegato alla candidatura da pitch pubblico.")
+
     state = fields.Selection([
         ('nuova', 'Nuova'),
         ('in_valutazione', 'In Valutazione'),

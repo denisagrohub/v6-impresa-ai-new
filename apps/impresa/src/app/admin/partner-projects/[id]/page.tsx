@@ -728,6 +728,21 @@ export default function PartnerProjectDetailPage() {
                             >
                                 🌐 Pitch pubblico
                             </button>
+                        {project?.emailAlias && (
+                            <button
+                                onClick={() => {
+                                    const slug = (project.emailAlias as string).split('@')[0];
+                                    const url = `${window.location.origin}/p/${slug}`;
+                                    setSubject(`Scopri il progetto ${project.name} — V6 Impresa`);
+                                    setMessage(`Ciao,\n\nTi segnalo il progetto "${project.name}" su cui stiamo lavorando.\n\nSe ti rivedi o conosci aziende del settore interessate, puoi candidarti qui:\n${url}\n\nA presto,\nV6 Impresa`);
+                                    setIsEmailModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100"
+                                title="Precompila email con link al pitch"
+                            >
+                                ✉️ Invia pitch
+                            </button>
+                        )}
                         )}
                         <CharterEditor
                             projectId={project?.id ?? 0}

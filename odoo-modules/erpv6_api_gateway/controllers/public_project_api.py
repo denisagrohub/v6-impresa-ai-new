@@ -97,11 +97,21 @@ class PublicProjectAPIController(APIBaseController):
         env = request.env(user=request.env.ref('base.public_user'))
         proposal = (data.get('proposal') or '').strip()
         prefix = f"[{project.name}] "
-        result = env['erpv6.partnership.candidacy'].sudo().action_create_from_public_form(
+        cid = env['erpv6.partnership.candidacy'].sudo().action_create_from_public_form(
             name=name,
             company_name=data.get('company_name') or data.get('company'),
             email=email,
             phone=data.get('phone'),
             proposal=(prefix + proposal) if proposal else prefix,
         )
-        return self._json_response({'success': True, 'id': result.get('id')})
+        # 23/09/2026: registra il progetto di origine (se il campo esiste)
+        try:
+            cand = env['erpv6.partnership.candidacy'].sudo().browse(cid['id'])
+            if 'source_project_alias' in cand._fields:
+                cand.write({
+                    'source_project_alias': project.email_alias or False,
+                    'source_project_id': project.id,
+                })
+        except Exception:
+            _logger.exception("Registrazione source_project candidacy fallita")
+        return self._json_response({'success': True, 'id': cid.get('id')})
