@@ -185,6 +185,14 @@ export default function ConsultantDashboard() {
         if (activeTab === 'email' && user?.token) { loadEmails(); loadUnread(); }
     }, [activeTab, user]);
 
+    // 22/09/2026: badge email sul menu, indipendente dalla tab attiva
+    useEffect(() => {
+        if (!user?.token) return;
+        loadUnread();
+        const t = setInterval(loadUnread, 60000);
+        return () => clearInterval(t);
+    }, [user]);
+
     useEffect(() => {
         if (activeTab === 'pagamenti' && user?.token) loadPayments();
     }, [activeTab, user]);
@@ -435,6 +443,11 @@ export default function ConsultantDashboard() {
                         >
                             <item.icon size={18} />
                             {item.label}
+                            {item.id === 'email' && unreadCount > 0 && (
+                                <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                                    {unreadCount}
+                                </span>
+                            )}
                         </button>
                     ))}
                 </nav>

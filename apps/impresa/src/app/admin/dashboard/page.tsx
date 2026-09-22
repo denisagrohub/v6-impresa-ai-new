@@ -34,6 +34,7 @@ export default function AdminDashboard() {
   const [candidacies, setCandidacies] = useState<any[]>([]);
   const [candidacyActionId, setCandidacyActionId] = useState<number | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [unreadEmailCount, setUnreadEmailCount] = useState(0);
 
   useEffect(() => {
     const session = localStorage.getItem("pi_session");
@@ -66,6 +67,27 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  const loadUnreadEmail = async () => {
+    try {
+      const session = localStorage.getItem("pi_session");
+      if (!session) return;
+      const u = JSON.parse(session);
+      if (!u?.token) return;
+      const res = await fetch('/api/consultant/emails/unread-count', {
+        headers: { Authorization: `JWT ${u.token}` },
+      });
+      const d = await res.json();
+      setUnreadEmailCount(d.unread || 0);
+    } catch { /* best effort */ }
+  };
+
+  useEffect(() => {
+    if (!user?.token) return;
+    loadUnreadEmail();
+    const t = setInterval(loadUnreadEmail, 60000);
+    return () => clearInterval(t);
+  }, [user]);
 
   const handleCreateProjectFromCandidacy = async (candidacyId: number) => {
     setCandidacyActionId(candidacyId);
@@ -155,6 +177,11 @@ export default function AdminDashboard() {
             return (
               <Link key={i} href={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${isActive ? 'bg-[#1a2744] text-white shadow-lg shadow-blue-900/20' : 'text-gray-600 hover:bg-gray-100'}`}>
                 <item.icon size={18} /> {item.label}
+                {item.href === '/admin/mia-email' && unreadEmailCount > 0 && (
+                  <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                    {unreadEmailCount}
+                  </span>
+                )}
               </Link>
             );
           })}
