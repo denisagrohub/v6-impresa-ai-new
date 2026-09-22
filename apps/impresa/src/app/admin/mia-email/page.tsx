@@ -14,6 +14,7 @@ export default function AdminMiaEmailPage() {
 
     const [emailsData, setEmailsData] = useState<any>(null);
     const [emailFolder, setEmailFolder] = useState<"all" | "ricevute" | "inviate">("all");
+    const [unreadCount, setUnreadCount] = useState(0);
     const [emailsLoading, setEmailsLoading] = useState(false);
     const [emailDetail, setEmailDetail] = useState<any>(null);
     const [emailDetailLoading, setEmailDetailLoading] = useState(false);
@@ -28,7 +29,7 @@ export default function AdminMiaEmailPage() {
         setLoading(false);
     }, [router]);
 
-    useEffect(() => { if (user?.token) loadEmails(); }, [user]);
+    useEffect(() => { if (user?.token) { loadEmails(); loadUnread(); } }, [user]);
 
     const loadEmails = async () => {
         if (!user?.token) return;
@@ -44,6 +45,17 @@ export default function AdminMiaEmailPage() {
         } finally { setEmailsLoading(false); }
     };
 
+    const loadUnread = async () => {
+        if (!user?.token) return;
+        try {
+            const res = await fetch('/api/consultant/emails/unread-count', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const d = await res.json();
+            setUnreadCount(d.unread || 0);
+        } catch { /* best effort */ }
+    };
+
     const openEmailDetail = async (id: number) => {
         if (!user?.token) return;
         setEmailDetailLoading(true);
@@ -54,6 +66,10 @@ export default function AdminMiaEmailPage() {
             });
             const data = await res.json();
             setEmailDetail({ id, ...data });
+            fetch(`/api/consultant/emails/${id}/mark-read`, {
+                method: 'POST',
+                headers: { Authorization: `JWT ${user.token}` },
+            }).then(() => { loadEmails(); loadUnread(); }).catch(() => {});
         } catch {
             setEmailDetail({ id, error: 'Errore caricamento' });
         } finally { setEmailDetailLoading(false); }
@@ -218,7 +234,12 @@ export default function AdminMiaEmailPage() {
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-[#1a2744] truncate">{e.subject}</h3>
+                                        <h3 className="font-bold text-[#1a2744] truncate flex items-center gap-2">
+                                            {!e.is_read && e.direction === 'ricevuta' && (
+                                                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                                            )}
+                                            <span className="truncate">{e.subject}</span>
+                                        </h3>
                                         <p className="text-sm text-gray-600 mt-1 truncate">
                                             Da: <span className="font-medium">{e.sender_email}</span>
                                         </p>

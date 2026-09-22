@@ -20,6 +20,7 @@ export default function ConsultantDashboard() {
     // 21/09/2026: email assegnate + pagamenti (compensi) del consulente
     const [emailsData, setEmailsData] = useState<any>(null);
     const [emailFolder, setEmailFolder] = useState<"all" | "ricevute" | "inviate">("all");
+    const [unreadCount, setUnreadCount] = useState(0);
     const [emailsLoading, setEmailsLoading] = useState(false);
     // 21/09/2026: modal dettaglio email
     const [emailDetail, setEmailDetail] = useState<any>(null);
@@ -324,6 +325,18 @@ export default function ConsultantDashboard() {
         } finally {
             setEmailsLoading(false);
         }
+    };
+
+    // 22/09/2026: carica il numero di email non lette
+    const loadUnread = async () => {
+        if (!user?.token) return;
+        try {
+            const res = await fetch('/api/consultant/emails/unread-count', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const d = await res.json();
+            setUnreadCount(d.unread || 0);
+        } catch { /* best effort */ }
     };
 
     // 21/09/2026: compensi calcolati dallo split V6 dei progetti
@@ -694,7 +707,12 @@ export default function ConsultantDashboard() {
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-[#1a2744] truncate">{e.subject}</h3>
+                                        <h3 className="font-bold text-[#1a2744] truncate flex items-center gap-2">
+                                            {!e.is_read && e.direction === 'ricevuta' && (
+                                                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                                            )}
+                                            <span className="truncate">{e.subject}</span>
+                                        </h3>
                                         <p className="text-sm text-gray-600 mt-1 truncate">
                                             Da: <span className="font-medium">{e.sender_email}</span>
                                         </p>

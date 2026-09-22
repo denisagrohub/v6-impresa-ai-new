@@ -543,6 +543,54 @@ class ConsultantAPIController(APIBaseController):
     # Solo admin/responsabile oppure il recipient_user_id.
     # (21/09/2026)
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Email non lette: conteggio + mark-read. (22/09/2026)
+    # Solo email 'ricevuta' con is_read=False per l'utente loggato.
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/emails/unread-count', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_emails_unread_count(self, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        if 'erpv6.winwin.email.log' not in env:
+            return self._json_response({'unread': 0})
+
+        Log = env['erpv6.winwin.email.log'].sudo()
+        count = Log.search_count([
+            ('recipient_user_id', '=', user.id),
+            ('direction', '=', 'ricevuta'),
+            ('is_read', '=', False),
+        ])
+        return self._json_response({'unread': count})
+
+    @http.route('/api/v1/consultant/emails/<int:email_id>/mark-read', type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def post_consultant_email_mark_read(self, email_id, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        Log = env['erpv6.winwin.email.log'].sudo()
+        log = Log.browse(email_id)
+        if not log.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin and log.recipient_user_id.id != user.id:
+            return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
+
+        if not log.is_read:
+            log.write({'is_read': True})
+        return self._json_response({'success': True})
+
     @http.route('/api/v1/consultant/emails/<int:email_id>', type='http', auth='none',
                 methods=['DELETE', 'OPTIONS'], csrf=False)
     def delete_consultant_email(self, email_id, **kwargs):  # pylint: disable=unused-argument
@@ -813,6 +861,7 @@ class ConsultantAPIController(APIBaseController):
             'relation_id': relation_id,
             'recipient_user_id': recipient_user_id,
             'direction': 'inviata',
+            'is_read': True,
         })
         try:
             log.message_post(body=Markup(body), subject=subject, message_type='comment',
@@ -888,6 +937,7 @@ class ConsultantAPIController(APIBaseController):
                 'subject': e.name,
                 'sender_email': e.sender_email or '',
                 'direction': e.direction or 'ricevuta',
+            'is_read': bool(e.is_read),
                 'create_date': e.create_date.isoformat() if e.create_date else None,
             } for e in emails]
 
