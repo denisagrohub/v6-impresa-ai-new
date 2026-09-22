@@ -6,7 +6,6 @@ import {
     ArrowLeft, Loader2, RefreshCw, Plus, Trash2, X, Send,
     CornerUpLeft, CornerUpRight, ReplyAll,
 , Archive, ArchiveRestore } from "lucide-react";
-import EmailRecipientInput from "@/components/EmailRecipientInput";
 
 export default function AdminMiaEmailPage() {
     const router = useRouter();
@@ -44,7 +43,7 @@ export default function AdminMiaEmailPage() {
         if (!user?.token) return;
         setEmailsLoading(true);
         try {
-            const res = await fetch('/api/consultant/emails?' + (emailArchivedView ? 'archived=1&' : '') + 'all=1', {
+            const res = await fetch('/api/consultant/emails' + (emailArchivedView ? '?archived=1' : ''), {
                 headers: { Authorization: `JWT ${user.token}` },
             });
             const data = await res.json();
@@ -111,9 +110,7 @@ export default function AdminMiaEmailPage() {
 
     const openNewComposer = () => {
         const fromEmail = user?.emailSlug ? `${user.emailSlug}@v6impresa.it` : (user?.email || '');
-        const sigKey = `email_signature_${user?.emailSlug || user?.email || 'default'}`;
-        const savedSig = typeof window !== 'undefined' ? localStorage.getItem(sigKey) : null;
-        setComposer({ mode: 'new', from_email: fromEmail, to: '', cc: '', bcc: '', subject: '', body: savedSig || '' });
+        setComposer({ mode: 'new', from_email: fromEmail, to: '', cc: '', subject: '', body: '' });
     };
 
     const archiveEmail = async (id: number) => {
@@ -416,33 +413,21 @@ export default function AdminMiaEmailPage() {
                             </div>
                             <div>
                                 <label className="text-xs font-semibold text-gray-500 uppercase">A</label>
-                                <div className="mt-1">
-                                    <EmailRecipientInput
-                                        value={composer.to || ''}
-                                        onChange={(v) => setComposer({ ...composer, to: v })}
-                                        placeholder="Cerca nome o email…"
-                                    />
-                                </div>
+                                <input
+                                    type="text"
+                                    value={composer.to || ''}
+                                    onChange={(e) => setComposer({ ...composer, to: e.target.value })}
+                                    className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                />
                             </div>
                             <div>
                                 <label className="text-xs font-semibold text-gray-500 uppercase">Cc</label>
-                                <div className="mt-1">
-                                    <EmailRecipientInput
-                                        value={composer.cc || ''}
-                                        onChange={(v) => setComposer({ ...composer, cc: v })}
-                                        placeholder="Cerca nome o email…"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">Bcc</label>
-                                <div className="mt-1">
-                                    <EmailRecipientInput
-                                        value={composer.bcc || ''}
-                                        onChange={(v) => setComposer({ ...composer, bcc: v })}
-                                        placeholder="Cerca nome o email…"
-                                    />
-                                </div>
+                                <input
+                                    type="text"
+                                    value={composer.cc || ''}
+                                    onChange={(e) => setComposer({ ...composer, cc: e.target.value })}
+                                    className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                                />
                             </div>
                             <div>
                                 <label className="text-xs font-semibold text-gray-500 uppercase">Oggetto</label>

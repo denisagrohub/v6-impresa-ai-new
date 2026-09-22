@@ -840,6 +840,7 @@ class ConsultantAPIController(APIBaseController):
 
         to = (data.get('to') or '').strip()
         cc = (data.get('cc') or '').strip()
+        bcc = (data.get('bcc') or '').strip()
         subject = (data.get('subject') or '').strip()
         body = data.get('body') or ''
         in_reply_to_id = data.get('in_reply_to_id')
@@ -876,13 +877,35 @@ class ConsultantAPIController(APIBaseController):
         if cc:
             all_recipients += [e.strip() for e in cc.split(',') if e.strip()]
 
+        # 22/09/2026: threading - se e' una reply, prendi il Message-Id originale
+        # dal mail.message del log reply-to e mettilo in In-Reply-To/References.
+        reply_headers = None
+        if in_reply_to_id:
+            try:
+                orig_log = env['erpv6.winwin.email.log'].sudo().browse(int(in_reply_to_id))
+                if orig_log.exists():
+                    orig_msg = env['mail.message'].sudo().search([
+                        ('model', '=', 'erpv6.winwin.email.log'),
+                        ('res_id', '=', orig_log.id),
+                    ], order='id desc', limit=1)
+                    if orig_msg and orig_msg.message_id:
+                        reply_headers = {
+                            'In-Reply-To': orig_msg.message_id,
+                            'References': orig_msg.message_id,
+                        }
+            except Exception:
+                _logger.exception("Recupero Message-Id originale fallito (threading best-effort).")
+
         mail = env['mail.mail'].sudo().create({
             'email_from': from_email,
             'email_to': ','.join(all_recipients),
+            'email_cc': ','.join([e.strip() for e in cc.split(',') if e.strip()]) if cc else False,
+            'email_bcc': ','.join([e.strip() for e in bcc.split(',') if e.strip()]) if bcc else False,
             'subject': subject,
             'body_html': body,
             'mail_server_id': mail_server.id,
             'auto_delete': False,
+            'headers': json.dumps(reply_headers) if reply_headers else False,
         })
         try:
             mail.send()
@@ -895,6 +918,7 @@ class ConsultantAPIController(APIBaseController):
             'sender_email': from_email,
             'recipient_emails': ','.join(all_recipients),
             'cc_emails': cc or False,
+            # bcc non salvato per privacy (il destinatario finale non deve vederlo nei log condivisi)
             'match_status': 'utente_consulente',
             'matched_alias': matched_alias or '',
             'relation_id': relation_id,

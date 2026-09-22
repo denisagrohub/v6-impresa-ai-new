@@ -7,7 +7,6 @@ import {
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 , Trash2, Plus , Archive, ArchiveRestore } from "lucide-react";
-import EmailRecipientInput from "@/components/EmailRecipientInput";
 import { CalendarWithHeinrich } from "@/components/calendar/CalendarWithHeinrich";
 import { ConsultantBookingLinks } from "@/components/booking/ConsultantBookingLinks";
 
@@ -255,9 +254,7 @@ export default function ConsultantDashboard() {
     // 21/09/2026: nuova email (composer vuoto)
     const openNewComposer = () => {
         const fromEmail = user?.emailSlug ? `${user.emailSlug}@v6impresa.it` : (user?.email || '');
-        const sigKey = `email_signature_${user?.emailSlug || user?.email || 'default'}`;
-        const savedSig = typeof window !== 'undefined' ? localStorage.getItem(sigKey) : null;
-        setComposer({ mode: 'new', from_email: fromEmail, to: '', cc: '', bcc: '', subject: '', body: savedSig || '' });
+        setComposer({ mode: 'new', from_email: fromEmail, to: '', cc: '', subject: '', body: '' });
     };
 
     // 21/09/2026: elimina email (DELETE + refresh lista)
