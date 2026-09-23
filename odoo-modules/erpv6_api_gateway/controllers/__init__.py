@@ -6,12 +6,6 @@ from . import lead_api
 from . import interview_api
 from . import winwin_report_api
 from . import consultant_api
-from . import consultant_projects_api
-from . import consultant_richieste_api
-from . import consultant_email_api
-from . import consultant_payments_api
-from . import consultant_split_api
-from . import consultant_me_api
 from . import frontend_error_api
 
 # API Trasversali
