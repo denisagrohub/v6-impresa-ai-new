@@ -8,7 +8,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   try {
     await odoo.connect();
     const [p] = await odoo.execute('erpv6.tracking.relation', 'read', [
-      [id], ['x_v6_revenue_split', 'revenue_split_approved', 'revenue_split_approved_at', 'revenue_split_hash'],
+      [id], ['x_v6_revenue_split', 'revenue_split_approved', 'revenue_split_approved_at', 'revenue_split_hash', 'revenue_split_state'],
     ]);
     let split: any = null;
     try { split = p?.x_v6_revenue_split ? JSON.parse(p.x_v6_revenue_split) : null; } catch {}
@@ -18,6 +18,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       approved: !!p.revenue_split_approved,
       approvedAt: p.revenue_split_approved_at,
       hash: p.revenue_split_hash,
+      state: p.revenue_split_state || 'bozza',
     });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e.message }, { status: 502 });

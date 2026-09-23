@@ -57,6 +57,7 @@ export default function RevenueSplitCard({
 
   const somma = beneficiari.reduce((s, b) => s + (b.pct || 0), 0) + riserva;
   const ok = Math.abs(somma - 100) < 0.001;
+  const locked = splitState === 'in_firma' || splitState === 'approvato';
 
   const addBenef = () => setBeneficiari([...beneficiari, { res_partner_id: null, nome: '', tipo: 'consulente', pct: 0 }]);
   const updateBenef = (i: number, patch: Partial<Beneficiario>) =>
@@ -117,9 +118,14 @@ export default function RevenueSplitCard({
         <div className="flex items-center gap-2 mb-1">
           <Users size={13} className="text-violet-600" />
           <h2 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Split V6</h2>
-          {approved && <Lock size={11} className="text-emerald-600" />}
+          {splitState === 'approvato' && <Lock size={11} className="text-emerald-600" />}
+          {splitState === 'in_firma' && <span className="w-2 h-2 rounded-full bg-amber-400" />}
+          {splitState === 'rifiutato' && <span className="w-2 h-2 rounded-full bg-red-500" />}
           <span className="ml-auto text-[10px] text-gray-400 group-hover:text-violet-500">
-            {approved ? 'Approvato' : 'Configura →'}
+            {splitState === 'approvato' ? 'Approvato' :
+              splitState === 'in_firma' ? 'In firma' :
+              splitState === 'rifiutato' ? 'Rifiutato' :
+              'Configura →'}
           </span>
         </div>
         <p className="text-[10px] text-gray-500">
@@ -168,7 +174,7 @@ export default function RevenueSplitCard({
                         const p = partners.find((x) => (x.partnerId || x.id) === pid);
                         updateBenef(i, { res_partner_id: pid || null, nome: p?.partnerName || '' });
                       }}
-                      disabled={approved}
+                      disabled={locked}
                       className="flex-1 px-2 py-1 rounded border text-xs disabled:bg-gray-100"
                     >
                       <option value="">— scegli persona —</option>
@@ -179,7 +185,7 @@ export default function RevenueSplitCard({
                     <select
                       value={b.tipo}
                       onChange={(e) => updateBenef(i, { tipo: e.target.value as any })}
-                      disabled={approved}
+                      disabled={locked}
                       className="px-2 py-1 rounded border text-xs disabled:bg-gray-100"
                     >
                       <option value="consulente">Consulente</option>
@@ -191,7 +197,7 @@ export default function RevenueSplitCard({
                         type="number" min={0} max={100} step={0.005}
                         value={b.pct}
                         onChange={(e) => updateBenef(i, { pct: parseFloat(e.target.value) || 0 })}
-                        disabled={approved}
+                        disabled={locked}
                         className="w-20 px-2 py-1 rounded border text-xs text-right disabled:bg-gray-100"
                       />
                       <span className="text-xs text-gray-500">%</span>
@@ -213,7 +219,7 @@ export default function RevenueSplitCard({
                 type="number" min={0} max={100} step={0.005}
                 value={riserva}
                 onChange={(e) => setRiserva(parseFloat(e.target.value) || 0)}
-                disabled={approved}
+                disabled={locked}
                 className="w-20 px-2 py-1 rounded border text-xs text-right disabled:bg-gray-100"
               />
               <span className="text-xs text-gray-500">%</span>
@@ -232,7 +238,7 @@ export default function RevenueSplitCard({
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              disabled={approved}
+              disabled={locked}
               placeholder="Note (es. Enzo 1€/TEE fuori perimetro)"
               rows={2}
               className="w-full px-2 py-1.5 rounded border text-xs mb-3 disabled:bg-gray-100 resize-y"
@@ -257,7 +263,7 @@ export default function RevenueSplitCard({
                   </button>
                   <button onClick={approve} disabled={busy || !ok}
                     className="px-3 py-1.5 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-40 flex items-center gap-1">
-                    <Lock size={11} /> Approva + Blockchain
+                    <Lock size={11} /> Congela proposta e invia a firma
                   </button>
                 </>
               )}
