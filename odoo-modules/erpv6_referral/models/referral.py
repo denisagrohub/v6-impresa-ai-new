@@ -361,39 +361,6 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
         action_freeze_and_send_split. Non rende piu' definitivo."""
         return self.action_freeze_and_send_split()
 
-    def action_approve_revenue_split(self):
-        """Approva lo split: congela + calcola hash SHA-256 + ancora su OTS."""
-        import hashlib
-        for r in self:
-            if not r.x_v6_revenue_split:
-                raise ValidationError('Nessuno split da approvare')
-            if r.revenue_split_approved:
-                raise ValidationError('Split già approvato')
-
-            # Hash canonico
-            h = hashlib.sha256(r.x_v6_revenue_split.encode('utf-8')).hexdigest()
-
-            # Crea record blockchain e ancora
-            cfg = self.env['erpv6.blockchain.config'].search(
-                [('provider', '=', 'opentimestamps'), ('active', '=', True)], limit=1)
-            if cfg:
-                rec = self.env['erpv6.blockchain.record'].create({
-                    'config_id': cfg.id,
-                    'document_model': 'erpv6.tracking.relation',
-                    'document_id': r.id,
-                    'document_name': f'Split {r.name}',
-                    'document_hash': h,
-                })
-                rec.action_anchor_opentimestamps()
-
-            r.write({
-                'revenue_split_approved': True,
-                'revenue_split_approved_at': fields.Datetime.now(),
-                'revenue_split_approved_by': self.env.uid,
-                'revenue_split_hash': h,
-            })
-        return True
-
 
     def write(self, vals):
         """23/09/2026: quando cambia x_v6_revenue_split, resetta accettazione
@@ -430,17 +397,17 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                         if not partner.exists():
                             continue
                         try:
-                            # forzo mail server v6sviluppoimpresa (id=2)
-                            # per evitare mittente 'odoobot@example.com'
+                            # email_from diretto: message_notify NON legge
+                            # email_from dal context, va passato come kwarg
                             server = self.env['ir.mail_server'].sudo().search(
                                 [('from_filter', '=', 'v6sviluppoimpresa.it')], limit=1)
                             rec_ctx = rec.with_context(
                                 mail_server_id=server.id if server else False,
-                                email_from='V6impresa Sistema <sistema@v6sviluppoimpresa.it>',
                             )
                             rec_ctx.message_notify(
                                 partner_ids=[partner.id],
                                 subject=f'Completa i tuoi dati per firmare lo split — {rec.name}',
+                                email_from='V6impresa Sistema <sistema@v6sviluppoimpresa.it>',
                                 body=(
                                     f'<p>Ciao {partner.name or ""},</p>'
                                     f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
