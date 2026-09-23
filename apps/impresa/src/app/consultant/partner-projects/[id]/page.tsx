@@ -6,6 +6,7 @@ import {
     ArrowLeft, Loader2, AlertCircle, Building2, User, Mail, Phone, X,
     Target as TargetIcon, FileText, TrendingUp, RefreshCw, Users,
 } from "lucide-react";
+import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
 
 type Tab = 'copertina' | 'parti' | 'documenti' | 'email' | 'target' | 'kpi' | 'compenso';
 
@@ -20,7 +21,7 @@ export default function PartnerProjectDetail() {
     const [error, setError] = useState<string | null>(null);
     const [tab, setTab] = useState<Tab>('copertina');
     const [documents, setDocuments] = useState<any[]>([]);
-    const [kpiData, setKpiData] = useState<any>(null);
+
     const [targetDetail, setTargetDetail] = useState<any>(null);
     const [targetDetailLoading, setTargetDetailLoading] = useState(false);
 
@@ -58,12 +59,7 @@ export default function PartnerProjectDetail() {
                 headers: { Authorization: `JWT ${user.token}` },
             }).then((r) => r.json()).then((d) => setDocuments(d.documents || [])).catch(() => {});
         }
-        if (tab === 'kpi' && !kpiData) {
-            fetch(`/api/admin/partner-projects/${id}/kpi`, {
-                headers: { Authorization: `JWT ${user.token}` },
-            }).then((r) => r.json()).then((d) => setKpiData(d)).catch(() => {});
-        }
-    }, [tab, user, id, documents.length, kpiData]);
+    }, [tab, user, id, documents.length]);
 
     const openTargetDetail = async (targetId: number) => {
         if (!user?.token) return;
@@ -269,20 +265,10 @@ export default function PartnerProjectDetail() {
                             </div>
                         )}
 
-                        {/* KPI */}
+                        {/* KPI: componente condiviso con admin (read-only per consulente) */}
                         {tab === 'kpi' && (
-                            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                {!kpiData ? <div className="text-center text-gray-500 py-8"><Loader2 size={20} className="animate-spin mx-auto" /></div>
-                                 : (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {Object.entries(kpiData.kpi || kpiData || {}).slice(0, 8).map(([k, v]: any) => (
-                                            <div key={k}>
-                                                <div className="text-xs text-gray-500 uppercase">{k}</div>
-                                                <div className="text-2xl font-bold text-[#1a2744]">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                                <KpiDashboard projectId={Number(id)} />
                             </div>
                         )}
 
