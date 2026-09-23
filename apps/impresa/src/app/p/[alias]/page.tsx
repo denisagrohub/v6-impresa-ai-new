@@ -14,7 +14,7 @@ export default function PublicPitchPage() {
 
     useEffect(() => {
         if (!alias) return;
-        fetch(`/api/public/project/${alias}/pitch`)
+        fetch(`/api/public/project/${alias}/pitch`, { cache: 'no-store' })
             .then((r) => r.json())
             .then((d) => { if (!d.error) setData(d); })
             .catch(() => {})
