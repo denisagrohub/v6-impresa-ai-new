@@ -1,6 +1,9 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 
+import logging
+_logger = logging.getLogger(__name__)
+
 
 class Erpv6Referral(models.Model):
     _name = 'erpv6.referral'
@@ -81,72 +84,14 @@ class Erpv6Referral(models.Model):
 
     def write(self, vals):
         """Blocca la modifica di commissione_pct se il referral e' congelato.
-        Per modificarlo serve prima 'action_unlock_commissione' (tracciato).
-
-        23/09/2026: quando cambia x_v6_revenue_split (split V6 del progetto),
-        resetta accettazione precedente e lancia invio firma accordo split
-        ai consulenti beneficiari (best-effort, non blocca l'admin)."""
+        Per modificarlo serve prima 'action_unlock_commissione' (tracciato)."""
         if 'commissione_pct' in vals:
             for r in self:
                 if r.commissione_locked:
                     raise ValidationError(
                         f'Commissione congelata (ancorata il {r.commissione_locked_at}). '
                         'Usa "Sblocca commissione" per modificarla (operazione tracciata).')
-
-        split_changed = 'x_v6_revenue_split' in vals
-        res = super().write(vals)
-
-        if split_changed:
-            for rec in self:
-                if not rec.x_v6_revenue_split:
-                    continue
-                # reset accettazione precedente
-                try:
-                    super(Erpv6Referral, rec).write({
-                        'revenue_split_accepted_at': False,
-                        'revenue_split_accepted_by': False,
-                        'revenue_split_rejected_reason': False,
-                        'revenue_split_rejected_at': False,
-                        'revenue_split_approved': False,
-                        'revenue_split_approved_at': False,
-                        'revenue_split_approved_by': False,
-                        'revenue_split_hash': False,
-                        'revenue_split_notified_at': False,
-                    })
-                except Exception:
-                    _logger.exception('Reset split accettazione fallito id=%s', rec.id)
-
-                # invia firma accordo split
-                try:
-                    result = rec.action_send_split_to_sign()
-                    # notifica consulenti con dati fiscali mancanti
-                    for m in (result.get('missing_data') or []):
-                        pid = m.get('partner_id')
-                        if not pid:
-                            continue
-                        partner = self.env['res.partner'].sudo().browse(pid)
-                        if not partner.exists():
-                            continue
-                        try:
-                            rec.message_notify(
-                                partner_ids=[partner.id],
-                                subject=f'Completa i tuoi dati per firmare lo split — {rec.name}',
-                                body=(
-                                    f'<p>Ciao {partner.name or ""},</p>'
-                                    f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
-                                    f'ma mancano dati fiscali per generare l\'accordo di firma.</p>'
-                                    f'<p><b>Dati mancanti:</b> {", ".join(m.get("missing", []))}</p>'
-                                    f'<p>Apri la dashboard → <b>Il mio profilo fiscale</b> → compila i dati.</p>'
-                                ),
-                                message_type='notification',
-                                subtype_xmlid='mail.mt_comment',
-                            )
-                        except Exception:
-                            _logger.exception('Notifica dati fiscali fallita per partner %s', pid)
-                except Exception:
-                    _logger.exception('Invio firma split fallito id=%s', rec.id)
-
-        return res
+        return super().write(vals)
 
     def action_unlock_commissione(self):
         """Sblocca manualmente la commissione (operazione amministrativa tracciata).
@@ -336,6 +281,13 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
     revenue_split_approved_by = fields.Many2one('res.users', readonly=True)
     revenue_split_hash = fields.Char(readonly=True)
 
+    # 23/09/2026: flusso accettazione consulente dello split.
+    revenue_split_accepted_at = fields.Datetime(string='Split accettato il', readonly=True)
+    revenue_split_accepted_by = fields.Many2one('res.users', string='Split accettato da', readonly=True)
+    revenue_split_rejected_reason = fields.Text(string='Motivo rifiuto split')
+    revenue_split_rejected_at = fields.Datetime(string='Split rifiutato il', readonly=True)
+    revenue_split_notified_at = fields.Datetime(string='Notifica split inviata il', readonly=True)
+
     def action_approve_revenue_split(self):
         """Approva lo split: congela + calcola hash SHA-256 + ancora su OTS."""
         import hashlib
@@ -368,3 +320,57 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                 'revenue_split_hash': h,
             })
         return True
+
+
+    def write(self, vals):
+        """23/09/2026: quando cambia x_v6_revenue_split, resetta accettazione
+        precedente e invia firma accordo ai consulenti (best-effort)."""
+        split_changed = 'x_v6_revenue_split' in vals
+        res = super().write(vals)
+        if split_changed:
+            for rec in self:
+                if not rec.x_v6_revenue_split:
+                    continue
+                try:
+                    super().write({
+                        'revenue_split_accepted_at': False,
+                        'revenue_split_accepted_by': False,
+                        'revenue_split_rejected_reason': False,
+                        'revenue_split_rejected_at': False,
+                        'revenue_split_approved': False,
+                        'revenue_split_approved_at': False,
+                        'revenue_split_approved_by': False,
+                        'revenue_split_hash': False,
+                        'revenue_split_notified_at': False,
+                    })
+                except Exception:
+                    _logger.exception('Reset split accettazione fallito id=%s', rec.id)
+
+                try:
+                    result = rec.action_send_split_to_sign()
+                    for m in (result.get('missing_data') or []):
+                        pid = m.get('partner_id')
+                        if not pid:
+                            continue
+                        partner = self.env['res.partner'].sudo().browse(pid)
+                        if not partner.exists():
+                            continue
+                        try:
+                            rec.message_notify(
+                                partner_ids=[partner.id],
+                                subject=f'Completa i tuoi dati per firmare lo split — {rec.name}',
+                                body=(
+                                    f'<p>Ciao {partner.name or ""},</p>'
+                                    f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
+                                    f'ma mancano dati fiscali per generare l\'accordo di firma.</p>'
+                                    f'<p><b>Dati mancanti:</b> {", ".join(m.get("missing", []))}</p>'
+                                    f'<p>Apri la dashboard → <b>Il mio profilo fiscale</b> → compila i dati.</p>'
+                                ),
+                                message_type='notification',
+                                subtype_xmlid='mail.mt_comment',
+                            )
+                        except Exception:
+                            _logger.exception('Notifica dati fiscali fallita per partner %s', pid)
+                except Exception:
+                    _logger.exception('Invio firma split fallito id=%s', rec.id)
+        return res
