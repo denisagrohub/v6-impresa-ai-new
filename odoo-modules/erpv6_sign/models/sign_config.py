@@ -49,6 +49,26 @@ class SignConfig(models.Model):
     )
     active = fields.Boolean(string='Attivo', default=True)
 
+    # 23/09/2026: provider firma attivo. Cambiando provider, tutti i nuovi
+    # invii usano l'adapter corrispondente. I record esistenti restano
+    # associati al loro external_id (nessuna migrazione automatica).
+    provider = fields.Selection([
+        ('documenso', 'Documenso (self-hosted, AES via OTP email)'),
+        ('certyneo', 'Certyneo (hosted EU, SES/AES/QES)'),
+    ], string='Provider attivo', default='documenso', required=True)
+
+    # Credenziali Certyneo (compilare quando si passa a Certyneo)
+    certyneo_base_url = fields.Char(
+        string='Certyneo base URL',
+        default='https://api.certyneo.com',
+        help='Endpoint base API Certyneo.')
+    certyneo_api_key = fields.Char(
+        string='Certyneo API key',
+        help='Chiave API Certyneo (header Authorization: Bearer ...).')
+    certyneo_webhook_secret = fields.Char(
+        string='Certyneo webhook secret',
+        help='Segreto per verificare i webhook in ingresso da Certyneo.')
+
     def _api_base(self):
         """URL base dell'API pubblica v2 di Documenso (es. https://host/api/v2)."""
         self.ensure_one()
@@ -57,3 +77,14 @@ class SignConfig(models.Model):
     def _api_headers(self):
         self.ensure_one()
         return {'Authorization': self.api_key or ''}
+
+    def get_provider_adapter(self):
+        """23/09/2026: ritorna l'adapter del provider attivo."""
+        self.ensure_one()
+        if self.provider == 'documenso':
+            from .providers.documenso import DocumensoAdapter
+            return DocumensoAdapter(self)
+        if self.provider == 'certyneo':
+            from .providers.certyneo import CertyneoAdapter
+            return CertyneoAdapter(self)
+        raise ValueError(f'Provider firma sconosciuto: {self.provider}')
