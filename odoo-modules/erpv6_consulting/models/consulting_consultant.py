@@ -38,6 +38,16 @@ class ConsultingConsultant(models.Model):
         help="Consulente mostrato per primo sulle pagine pubbliche di prenotazione, "
              "se ha almeno uno slot disponibile.")
 
+    # 23/09/2026: un consulente puo' fare PIU cose (business plan + progetti
+    # partner). Due booleani indipendenti evitano un Selection monovalore
+    # che non regge chi fa entrambi.
+    does_business_plan = fields.Boolean(
+        'Lavora su Business Plan', default=False,
+        help='Attivo nella produzione Business Plan (contenuti, review, delivery).')
+    does_partner_projects = fields.Boolean(
+        'Lavora su Progetti Partner', default=False,
+        help='Puo\' essere inserito nello split V6 di progetti Win-Win/Partner.')
+
     @api.onchange('brand_id')
     def _onchange_brand_id(self):
         if self.brand_id and not self.hourly_rate:
