@@ -132,6 +132,8 @@ const PUBLIC_PATHS = [
   // il link stesso è il segreto (slug non enumerabile).
   '/p',
   '/api/public',
+  // 23/09/2026: pagina pubblica verifica firma
+  '/verify',
 ];
 
 export async function middleware(request: NextRequest) {

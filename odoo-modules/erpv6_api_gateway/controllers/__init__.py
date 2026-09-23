@@ -21,3 +21,4 @@ from . import tracking_api
 from . import partnership_api
 
 from . import public_project_api
+from . import public_verify_api
