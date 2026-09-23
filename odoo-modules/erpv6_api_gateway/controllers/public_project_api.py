@@ -49,10 +49,13 @@ class PublicProjectAPIController(APIBaseController):
             charter = json.loads(project.x_v6_charter or '{}') if project.x_v6_charter else None
         except Exception:
             charter = None
+        # 23/09/2026: i campi (origin, pitchCosaCerchiamo, ...) vivono dentro
+        # charter['data'], non al livello top (che contiene version/history).
+        charter_data = (charter or {}).get('data') or {}
 
         # KPI pubblici: SOLO quelli esplicitamente pubblici (dal charter)
         kpi_pubblici = []
-        if charter and isinstance(charter.get('kpi_pubblici'), list):
+        if charter and isinstance(charter_data.get('kpi_pubblici'), list):
             kpi_pubblici = charter['kpi_pubblici']
 
         # 23/09/2026: parti rimosse dalla risposta pubblica (privacy).
@@ -60,12 +63,12 @@ class PublicProjectAPIController(APIBaseController):
             'alias': alias,
             'name': project.name,
             'title': project.x_v6_pitch_title or project.name,
-            'summary': project.x_v6_pitch_summary or (charter.get('descrizione') if charter else ''),
-            'settore': project.x_v6_pitch_settore if hasattr(project, 'x_v6_pitch_settore') and project.x_v6_pitch_settore else (charter.get('pitchSettore') if charter else None) or (charter.get('settore') if charter else None),
-            'obiettivo': charter.get('obiettivo') if charter else None,
-            'cosa_cerchiamo': charter.get('pitchCosaCerchiamo') if charter else None,
-            'tipologie_target': charter.get('pitchTipologieTarget') if charter else None,
-            'cosa_offriamo': charter.get('pitchCosaOffriamo') if charter else None,
+            'summary': project.x_v6_pitch_summary or (charter_data.get('descrizione') if charter else ''),
+            'settore': project.x_v6_pitch_settore if hasattr(project, 'x_v6_pitch_settore') and project.x_v6_pitch_settore else (charter_data.get('pitchSettore') if charter else None) or (charter_data.get('settore') if charter else None),
+            'obiettivo': charter_data.get('obiettivo') if charter else None,
+            'cosa_cerchiamo': charter_data.get('pitchCosaCerchiamo') if charter else None,
+            'tipologie_target': charter_data.get('pitchTipologieTarget') if charter else None,
+            'cosa_offriamo': charter_data.get('pitchCosaOffriamo') if charter else None,
             'kpi_pubblici': kpi_pubblici,
             'views': project.x_v6_pitch_views or 0,
         })
