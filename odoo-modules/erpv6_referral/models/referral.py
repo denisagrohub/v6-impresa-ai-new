@@ -366,7 +366,6 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                                     f'<p><b>Dati mancanti:</b> {", ".join(m.get("missing", []))}</p>'
                                     f'<p>Apri la dashboard → <b>Il mio profilo fiscale</b> → compila i dati.</p>'
                                 ),
-                                message_type='notification',
                                 subtype_xmlid='mail.mt_comment',
                             )
                         except Exception:
