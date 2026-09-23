@@ -85,10 +85,42 @@ export default function PlaybookPage() {
                             </section>
                         )}
 
-                        {data.scouting && (
+                        {data.scouting && data.scouting.data && (
                             <section className="mb-8">
                                 <h2 className="text-lg font-bold text-[#1a2744] mb-3">Scouting già fatto</h2>
-                                <pre className="text-xs bg-gray-50 border border-gray-100 rounded p-3 whitespace-pre-wrap">{JSON.stringify(data.scouting, null, 2)}</pre>
+                                <div className="space-y-4 not-prose">
+                                    {data.scouting.data.target && (
+                                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                                            <div className="text-xs font-bold uppercase tracking-wider text-blue-700 mb-2">Target ideale</div>
+                                            {data.scouting.data.target.tipoCliente && (
+                                                <p className="text-sm"><b>Tipo cliente:</b> {data.scouting.data.target.tipoCliente}</p>
+                                            )}
+                                            {Object.entries(data.scouting.data.target).filter(([k]) => k !== 'tipoCliente').map(([k, v]: any) => (
+                                                <p key={k} className="text-sm"><b>{k}:</b> {String(v)}</p>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {data.scouting.data.eleggibilita && (
+                                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+                                            <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-2">Criteri di eleggibilità</div>
+                                            {Object.entries(data.scouting.data.eleggibilita).map(([k, v]: any) => (
+                                                <p key={k} className="text-sm"><b>{k}:</b> {String(v)}</p>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {Object.entries(data.scouting.data).filter(([k]) => !['target', 'eleggibilita'].includes(k)).map(([k, v]: any) => (
+                                        <div key={k} className="bg-gray-50 border border-gray-100 rounded-lg p-4">
+                                            <div className="text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">{k}</div>
+                                            {typeof v === 'object' && v !== null ? (
+                                                Object.entries(v).map(([k2, v2]: any) => (
+                                                    <p key={k2} className="text-sm"><b>{k2}:</b> {String(v2)}</p>
+                                                ))
+                                            ) : (
+                                                <p className="text-sm">{String(v)}</p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </section>
                         )}
 
