@@ -288,6 +288,53 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
     revenue_split_rejected_at = fields.Datetime(string='Split rifiutato il', readonly=True)
     revenue_split_notified_at = fields.Datetime(string='Notifica split inviata il', readonly=True)
 
+    # 23/09/2026: stato a due livelli. 'bozza' = admin sta compilando;
+    # 'in_firma' = hash+blockchain congelati, in attesa firme consulenti;
+    # 'approvato' = tutti hanno firmato, definitivo; 'rifiutato' = un
+    # consulente ha rifiutato (con motivazione obbligatoria) - admin puo'
+    # modificare e rimandare.
+    revenue_split_state = fields.Selection([
+        ('bozza', 'Bozza'),
+        ('in_firma', 'In firma'),
+        ('approvato', 'Approvato'),
+        ('rifiutato', 'Rifiutato'),
+    ], string='Stato split', default='bozza', required=True, index=True)
+
+    def action_freeze_and_send_split(self):
+        """23/09/2026: congela la PROPOSTA V6 (hash + blockchain) e invia
+        le firme ai consulenti. Lo split NON e' definitivo finche' i
+        consulenti non firmano. Stato passa a 'in_firma'."""
+        import hashlib
+        for r in self:
+            if not r.x_v6_revenue_split:
+                raise ValidationError('Nessuno split da congelare')
+            if r.revenue_split_state == 'approvato':
+                raise ValidationError('Split gia\' approvato definitivamente')
+            # hash proposta
+            h = hashlib.sha256(r.x_v6_revenue_split.encode('utf-8')).hexdigest()
+            r.write({
+                'revenue_split_hash': h,
+                'revenue_split_approved_at': fields.Datetime.now(),
+                'revenue_split_approved_by': self.env.uid,
+                'revenue_split_state': 'in_firma',
+            })
+            # blockchain anchor proposta
+            try:
+                r._anchor_split_blockchain(h)
+            except Exception:
+                _logger.exception('Ancoraggio blockchain proposta fallito')
+            # invia firme
+            try:
+                r.action_send_split_to_sign()
+            except Exception:
+                _logger.exception('Invio firme fallito')
+        return True
+
+    def action_approve_revenue_split(self):
+        """DEPRECATO: mantieni per compatibilita' UI. Redirige a
+        action_freeze_and_send_split. Non rende piu' definitivo."""
+        return self.action_freeze_and_send_split()
+
     def action_approve_revenue_split(self):
         """Approva lo split: congela + calcola hash SHA-256 + ancora su OTS."""
         import hashlib
@@ -342,6 +389,7 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                         'revenue_split_approved_by': False,
                         'revenue_split_hash': False,
                         'revenue_split_notified_at': False,
+                        'revenue_split_state': 'bozza',
                     })
                 except Exception:
                     _logger.exception('Reset split accettazione fallito id=%s', rec.id)
@@ -356,7 +404,15 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                         if not partner.exists():
                             continue
                         try:
-                            rec.message_notify(
+                            # forzo mail server v6sviluppoimpresa (id=2)
+                            # per evitare mittente 'odoobot@example.com'
+                            server = self.env['ir.mail_server'].sudo().search(
+                                [('from_filter', '=', 'v6sviluppoimpresa.it')], limit=1)
+                            rec_ctx = rec.with_context(
+                                mail_server_id=server.id if server else False,
+                                email_from='V6impresa Sistema <sistema@v6sviluppoimpresa.it>',
+                            )
+                            rec_ctx.message_notify(
                                 partner_ids=[partner.id],
                                 subject=f'Completa i tuoi dati per firmare lo split — {rec.name}',
                                 body=(

@@ -538,7 +538,34 @@ class ConsultantAPIController(APIBaseController):
             'revenue_split_rejected_at': fields.Datetime.now(),
             'revenue_split_accepted_at': False,
             'revenue_split_accepted_by': False,
+            'revenue_split_state': 'rifiutato',
         })
+
+        # notifica admin (Denis) con motivazione
+        try:
+            admin = env.ref('base.user_admin', raise_if_not_found=False)
+            if admin and admin.partner_id:
+                server = env['ir.mail_server'].sudo().search(
+                    [('from_filter', '=', 'v6sviluppoimpresa.it')], limit=1)
+                ctx = root.with_context(
+                    mail_server_id=server.id if server else False,
+                    email_from='V6impresa Sistema <sistema@v6sviluppoimpresa.it>',
+                )
+                ctx.message_notify(
+                    partner_ids=[admin.partner_id.id],
+                    subject=f'[Rifiuto] Split {root.name} rifiutato da {user.name}',
+                    body=(
+                        f'<p><b>{user.name}</b> ha <b>rifiutato</b> lo split del progetto <b>{root.name}</b>.</p>'
+                        f'<p><b>Motivazione:</b></p>'
+                        f'<blockquote style="border-left:3px solid #ccc;padding-left:10px;color:#444;">'
+                        f'{reason}</blockquote>'
+                        f'<p>Puoi ora modificare lo split e rimandarlo in firma.</p>'
+                    ),
+                    subtype_xmlid='mail.mt_comment',
+                )
+        except Exception:
+            _logger.exception('Notifica rifiuto ad admin fallita')
+
         return self._json_response({'success': True})
 
     # ------------------------------------------------------------------
@@ -620,7 +647,38 @@ class ConsultantAPIController(APIBaseController):
         except Exception:
             _logger.exception("Log conferma dati fiscali fallito")
 
+        # 23/09/2026: rivaluta automaticamente gli split in sospeso.
+        # Se il consulente era bloccato per dati fiscali mancanti, ora
+        # che li ha compilati la firma parte da sola.
+        try:
+            Relation = env['erpv6.tracking.relation'].sudo()
+            pending = Relation.search([
+                ('revenue_split_state', '=', 'in_firma'),
+                ('revenue_split_notified_at', '!=', False),
+                ('revenue_split_accepted_at', '=', False),
+            ])
+            for proj in pending:
+                try:
+                    split = json.loads(proj.x_v6_revenue_split or '{}')
+                    has_me = any(
+                        b.get('res_partner_id') == user.partner_id.id
+                        and b.get('tipo') == 'consulente'
+                        for b in (split.get('beneficiari') or [])
+                    )
+                    if has_me:
+                        # verifica se sono davvero io ad avere dati mancanti
+                        # (se sono io nello split, ora che ho compilato, riparte)
+                        proj.action_send_split_to_sign()
+                        _logger.info('Rivalutazione firma split per progetto %s dopo dati fiscali', proj.id)
+                except Exception:
+                    _logger.exception('Rivalutazione split fallita progetto %s', proj.id)
+        except Exception:
+            _logger.exception('Rivalutazione automatica split fallita')
+
         return self._json_response({'success': True})
+
+    # ------------------------------------------------------------------
+    # Dettaglio progetto filtrato (21/09/2026): un consulente puo' aprire
 
     # ------------------------------------------------------------------
     # Dettaglio progetto filtrato (21/09/2026): un consulente puo' aprire

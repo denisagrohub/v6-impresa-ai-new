@@ -83,7 +83,12 @@ export default function RevenueSplitCard({
   };
 
   const approve = async () => {
-    if (!confirm("Approvare lo split? Diventerà immutabile e ancorato su Bitcoin.")) return;
+    if (!confirm(
+      "Congelare la proposta split e inviarla ai consulenti per la firma?\n\n" +
+      "Verrà creato un hash SHA-256 ancorato su Bitcoin (OpenTimestamps) che " +
+      "certifica la proposta economica V6. Lo split NON diventa definitivo " +
+      "finché i consulenti non firmano."
+    )) return;
     setBusy(true); setErr(null);
     try {
       const r = await fetch(`/api/admin/partner-projects/${projectId}/revenue-split/approve`, { method: 'POST' });
