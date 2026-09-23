@@ -63,6 +63,27 @@ export default function PublicPitchPage() {
                     </section>
                 )}
 
+                {data.cosa_cerchiamo && (
+                    <section className="mb-8 bg-white rounded-2xl border border-gray-100 p-6">
+                        <h2 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-3 flex items-center gap-2"><Target size={14} /> Cosa cerchiamo</h2>
+                        <p className="text-gray-700 whitespace-pre-wrap">{data.cosa_cerchiamo}</p>
+                    </section>
+                )}
+
+                {data.tipologie_target && (
+                    <section className="mb-8 bg-white rounded-2xl border border-gray-100 p-6">
+                        <h2 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-3 flex items-center gap-2"><Target size={14} /> Tipologie di aziende / partner</h2>
+                        <p className="text-gray-700 whitespace-pre-wrap">{data.tipologie_target}</p>
+                    </section>
+                )}
+
+                {data.cosa_offriamo && (
+                    <section className="mb-8 bg-white rounded-2xl border border-gray-100 p-6">
+                        <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-3 flex items-center gap-2"><Target size={14} /> Cosa offriamo</h2>
+                        <p className="text-gray-700 whitespace-pre-wrap">{data.cosa_offriamo}</p>
+                    </section>
+                )}
+
                 {data.obiettivo && (
                     <section className="mb-8 bg-white rounded-2xl border border-gray-100 p-6">
                         <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 flex items-center gap-2"><Target size={14} /> Obiettivo</h2>
@@ -81,18 +102,7 @@ export default function PublicPitchPage() {
                     </section>
                 )}
 
-                {data.parti && data.parti.length > 0 && (
-                    <section className="mb-8 bg-white rounded-2xl border border-gray-100 p-6">
-                        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-4 flex items-center gap-2"><Users size={14} /> Aziende già attive</h2>
-                        <div className="flex flex-wrap gap-2">
-                            {data.parti.map((p: any, i: number) => (
-                                <span key={i} className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm">
-                                    {p.name}{p.ruolo ? ` · ${p.ruolo}` : ''}
-                                </span>
-                            ))}
-                        </div>
-                    </section>
-                )}
+
 
                 <section className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                     {sent ? (

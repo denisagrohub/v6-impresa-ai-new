@@ -17,6 +17,11 @@ export interface CharterData {
   confidentiality?: string;
   baseCompenso?: BaseCompenso;
   history?: { version: number; savedAt: string; data: Record<string, string> }[];
+  // 23/09/2026: contenuti visibili nella pagina pubblica /p/<alias>
+  pitchCosaCerchiamo?: string;
+  pitchTipologieTarget?: string;
+  pitchCosaOffriamo?: string;
+  pitchSettore?: string;
 }
 
 const FIELDS: { key: keyof CharterData; label: string; placeholder: string; textarea?: boolean }[] = [
@@ -26,6 +31,15 @@ const FIELDS: { key: keyof CharterData; label: string; placeholder: string; text
   { key: 'commercialTerms', label: 'Termini commerciali', placeholder: 'Es. Commissione a carico VENDITORE; quota V6 = 2 punti…', textarea: true },
   { key: 'currentPhase', label: 'Fase attuale', placeholder: 'Es. Scouting approfondito → ricerca aziende' },
   { key: 'confidentiality', label: 'Riservatezza', placeholder: 'Es. MAI nominare il committente in documenti/email/contesti AI esterni', textarea: true },
+];
+
+// 23/09/2026: campi mostrati nella pagina PUBBLICA /p/<alias>.
+// Riusano la stessa struttura del charter per non duplicare storage.
+const PITCH_FIELDS: { key: keyof CharterData; label: string; placeholder: string; textarea?: boolean }[] = [
+  { key: 'pitchSettore', label: 'Settore (pubblico)', placeholder: 'Es. Energia, Agroalimentare, Servizi finanziari…' },
+  { key: 'pitchCosaCerchiamo', label: 'Cosa cerchiamo (pubblico)', placeholder: 'Es. Aziende con founding TEE attivi che necessitano di acquistare titoli entro l\'anno fiscale…', textarea: true },
+  { key: 'pitchTipologieTarget', label: 'Tipologie target (pubblico)', placeholder: 'Es. Aziende energivore, ESCo, trader certificati, utility di piccola-media taglia…', textarea: true },
+  { key: 'pitchCosaOffriamo', label: 'Cosa offriamo (pubblico)', placeholder: 'Es. Accesso diretto al committente, gestione matching, supporto contrattuale, commissione trasparente…', textarea: true },
 ];
 
 export function CharterEditor({ projectId, charter, onChanged, forceOpen, onClose, hideButton }: {
@@ -143,6 +157,39 @@ export function CharterEditor({ projectId, charter, onChanged, forceOpen, onClos
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* 23/09/2026: contenuti per la pagina PUBBLICA /p/<alias>. */}
+            <div className="mt-5 border-t border-gray-100 pt-4">
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-blue-600">
+                🌐 Contenuti pitch pubblico (visibili su /p/&lt;alias&gt;)
+              </h4>
+              <p className="text-[11px] text-gray-500 mb-3">
+                Questi campi vengono mostrati ad aziende esterne nella pagina pubblica del progetto. Le informazioni interne (charter, parti, KPI) restano private.
+              </p>
+              <div className="space-y-3">
+                {PITCH_FIELDS.map(f => (
+                  <div key={f.key}>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">{f.label}</label>
+                    {f.textarea ? (
+                      <textarea
+                        rows={3}
+                        className="w-full rounded border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+                        placeholder={f.placeholder}
+                        value={form[f.key] ?? ''}
+                        onChange={e => setForm({ ...form, [f.key]: e.target.value })}
+                      />
+                    ) : (
+                      <input
+                        className="w-full rounded border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+                        placeholder={f.placeholder}
+                        value={form[f.key] ?? ''}
+                        onChange={e => setForm({ ...form, [f.key]: e.target.value })}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* 19/09/2026: base compenso V6 dal committente */}

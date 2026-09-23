@@ -55,21 +55,18 @@ class PublicProjectAPIController(APIBaseController):
         if charter and isinstance(charter.get('kpi_pubblici'), list):
             kpi_pubblici = charter['kpi_pubblici']
 
-        # parti pubbliche: solo nome + ruolo (mai email/telefono)
-        parti = [
-            {'name': c.name, 'ruolo': c.ruolo or ''}
-            for c in project.child_ids.filtered(lambda c: c.funzione_progetto != 'target')
-        ]
-
+        # 23/09/2026: parti rimosse dalla risposta pubblica (privacy).
         return self._json_response({
             'alias': alias,
             'name': project.name,
             'title': project.x_v6_pitch_title or project.name,
             'summary': project.x_v6_pitch_summary or (charter.get('descrizione') if charter else ''),
-            'settore': charter.get('settore') if charter else None,
+            'settore': project.x_v6_pitch_settore if hasattr(project, 'x_v6_pitch_settore') and project.x_v6_pitch_settore else (charter.get('pitchSettore') if charter else None) or (charter.get('settore') if charter else None),
             'obiettivo': charter.get('obiettivo') if charter else None,
+            'cosa_cerchiamo': charter.get('pitchCosaCerchiamo') if charter else None,
+            'tipologie_target': charter.get('pitchTipologieTarget') if charter else None,
+            'cosa_offriamo': charter.get('pitchCosaOffriamo') if charter else None,
             'kpi_pubblici': kpi_pubblici,
-            'parti': parti,
             'views': project.x_v6_pitch_views or 0,
         })
 
