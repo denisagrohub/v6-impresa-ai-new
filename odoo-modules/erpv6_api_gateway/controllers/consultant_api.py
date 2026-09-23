@@ -984,11 +984,20 @@ class ConsultantAPIController(APIBaseController):
             except Exception:
                 _logger.exception("Recupero Message-Id originale fallito (threading best-effort).")
 
+        # BCC: Odoo 18 non ha email_bcc, lo passiamo via headers 'Bcc'
+        # (RFC 5322: header opzionale, i client lo rispettano).
+        if bcc:
+            existing_h = reply_headers or {}
+            existing_h['Bcc'] = ','.join([e.strip() for e in bcc.split(',') if e.strip()])
+            reply_headers = existing_h
+
         mail = env['mail.mail'].sudo().create({
             'email_from': from_email,
             'email_to': ','.join(all_recipients),
             'email_cc': ','.join([e.strip() for e in cc.split(',') if e.strip()]) if cc else False,
-            'email_bcc': ','.join([e.strip() for e in bcc.split(',') if e.strip()]) if bcc else False,
+            # 23/09/2026: Odoo 18 ha rimosso email_bcc da mail.mail. Il BCC
+            # viene aggiunto via header nel momento dell'invio SMTP
+            # (workaround: se bcc c'e', lo metto negli header).
             'subject': subject,
             'body_html': body,
             'mail_server_id': mail_server.id,

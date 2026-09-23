@@ -13,7 +13,9 @@ export async function GET(request: Request) {
   try {
     await odoo.connect();
     // '|'(nome|email) + eventuale filtro azienda
-    const domain: any[] = [['|', ['name', 'ilike', q], ['email', 'ilike', q]]];
+    // 23/09/2026: sintassi Odoo corretta per OR: '|' come primo elemento
+    // della domain, non dentro una sottolista.
+    const domain: any[] = ['|', ['name', 'ilike', q], ['email', 'ilike', q]];
     if (onlyCompany) domain.push(['is_company', '=', true]);
     const partners = await odoo.execute('res.partner', 'search_read', [
       domain, ['id', 'name', 'email', 'phone', 'is_company'], 0, 8,
