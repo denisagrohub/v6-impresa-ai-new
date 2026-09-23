@@ -78,7 +78,14 @@ class ConsultantMagicLink(models.Model):
         })
 
     def get_url(self):
-        """URL pubblico da mettere nell'email."""
+        """URL pubblico da mettere nell'email.
+
+        23/09/2026: per purpose='fiscal_data' punta alla pagina ISOLATA
+        /profilo-fiscale/<token> (solo form, no sidebar). Per altri scopi
+        usa /c/<token> che apre la dashboard consulente.
+        """
         self.ensure_one()
         base = 'https://www.v6impresa.it'
+        if self.purpose == 'fiscal_data':
+            return f'{base}/profilo-fiscale/{self.token}'
         return f'{base}/c/{self.token}'
