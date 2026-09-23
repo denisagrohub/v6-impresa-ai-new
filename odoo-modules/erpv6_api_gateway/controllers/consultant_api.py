@@ -991,8 +991,15 @@ class ConsultantAPIController(APIBaseController):
             existing_h['Bcc'] = ','.join([e.strip() for e in bcc.split(',') if e.strip()])
             reply_headers = existing_h
 
+        # 23/09/2026: fix spam. Register autentica come catchall@v6impresa.it:
+        # allineare il From al mittente tecnico e mettere l'alias consulente
+        # in Reply-To. Gmail/Outlook vedono allineamento SMTP <-> From.
+        display_name = user.name or 'V6 Impresa'
+        header_from = f'"{display_name} via V6" <catchall@v6impresa.it>'
+
         mail = env['mail.mail'].sudo().create({
-            'email_from': from_email,
+            'email_from': header_from,
+            'reply_to': from_email,
             'email_to': ','.join(all_recipients),
             'email_cc': ','.join([e.strip() for e in cc.split(',') if e.strip()]) if cc else False,
             # 23/09/2026: Odoo 18 ha rimosso email_bcc da mail.mail. Il BCC
