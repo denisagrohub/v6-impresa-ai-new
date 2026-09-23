@@ -436,6 +436,193 @@ class ConsultantAPIController(APIBaseController):
         })
 
     # ------------------------------------------------------------------
+    # Split V6 personale (23/09/2026): dettaglio + accetta/rifiuta.
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/my-split', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def get_my_split(self, relation_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        env = request.env
+        root = env['erpv6.tracking.relation'].sudo().browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+        try:
+            split = json.loads(root.x_v6_revenue_split or '{}')
+        except (json.JSONDecodeError, TypeError):
+            split = {}
+        beneficiari = split.get('beneficiari') or []
+        base = split.get('base') or {}
+        mine = next((b for b in beneficiari if b.get('res_partner_id') == user.partner_id.id), None)
+        if not mine:
+            return self._json_response({'has_split': False})
+        # has_fiscal_data?
+        p = user.partner_id
+        has_fiscal = bool(p.l10n_it_codice_fiscale and p.street and p.city and p.zip)
+        return self._json_response({
+            'has_split': True,
+            'pct': float(mine.get('pct') or 0),
+            'base_tipo': base.get('tipo'),
+            'base_valore': float(base.get('valore') or 0),
+            'base_unita': base.get('unita') or '',
+            'approved': bool(root.revenue_split_approved),
+            'accepted_at': root.revenue_split_accepted_at.isoformat() if root.revenue_split_accepted_at else None,
+            'accepted_by_name': root.revenue_split_accepted_by.name if root.revenue_split_accepted_by else None,
+            'rejected_reason': root.revenue_split_rejected_reason or None,
+            'rejected_at': root.revenue_split_rejected_at.isoformat() if root.revenue_split_rejected_at else None,
+            'notified_at': root.revenue_split_notified_at.isoformat() if root.revenue_split_notified_at else None,
+            'has_fiscal_data': has_fiscal,
+        })
+
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/accept-split', type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def post_accept_split(self, relation_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        env = request.env
+        root = env['erpv6.tracking.relation'].sudo().browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+        try:
+            split = json.loads(root.x_v6_revenue_split or '{}')
+        except (json.JSONDecodeError, TypeError):
+            split = {}
+        mine = next(
+            (b for b in (split.get('beneficiari') or []) if b.get('res_partner_id') == user.partner_id.id),
+            None,
+        )
+        if not mine:
+            return self._json_response({'error': 'Non sei nello split di questo progetto'}, 403)
+        root.write({
+            'revenue_split_accepted_at': fields.Datetime.now(),
+            'revenue_split_accepted_by': user.id,
+            'revenue_split_rejected_reason': False,
+            'revenue_split_rejected_at': False,
+        })
+        return self._json_response({'success': True})
+
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/reject-split', type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def post_reject_split(self, relation_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        try:
+            data = json.loads(request.httprequest.body or b'{}')
+        except json.JSONDecodeError:
+            data = {}
+        reason = (data.get('reason') or '').strip()
+        if not reason:
+            return self._json_response({'error': 'Il motivo del rifiuto è obbligatorio'}, 400)
+        env = request.env
+        root = env['erpv6.tracking.relation'].sudo().browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+        try:
+            split = json.loads(root.x_v6_revenue_split or '{}')
+        except (json.JSONDecodeError, TypeError):
+            split = {}
+        mine = next(
+            (b for b in (split.get('beneficiari') or []) if b.get('res_partner_id') == user.partner_id.id),
+            None,
+        )
+        if not mine:
+            return self._json_response({'error': 'Non sei nello split'}, 403)
+        root.write({
+            'revenue_split_rejected_reason': reason,
+            'revenue_split_rejected_at': fields.Datetime.now(),
+            'revenue_split_accepted_at': False,
+            'revenue_split_accepted_by': False,
+        })
+        return self._json_response({'success': True})
+
+    # ------------------------------------------------------------------
+    # Dati fiscali consulente (23/09/2026): form dashboard.
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/consultant/me/fiscal-data', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def get_my_fiscal_data(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        p = user.partner_id
+        return self._json_response({
+            'vat': p.vat or '',
+            'codice_fiscale': p.l10n_it_codice_fiscale or '',
+            'street': p.street or '',
+            'street2': p.street2 or '',
+            'city': p.city or '',
+            'zip': p.zip or '',
+            'country': p.country_id.name if p.country_id else '',
+            'email': p.email or '',
+            'phone': p.phone or '',
+            'confirmed_at': p.fiscal_data_confirmed_at.isoformat() if p.fiscal_data_confirmed_at else None,
+            'confirmed_ip': p.fiscal_data_confirmed_ip or None,
+        })
+
+    @http.route('/api/v1/consultant/me/fiscal-data', type='http', auth='none',
+                methods=['POST', 'PUT', 'OPTIONS'], csrf=False)
+    def post_my_fiscal_data(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err: return err
+        try:
+            data = json.loads(request.httprequest.body or b'{}')
+        except json.JSONDecodeError:
+            return self._json_response({'error': 'JSON non valido'}, 400)
+
+        cf = (data.get('codice_fiscale') or '').strip().upper()
+        piva = (data.get('vat') or '').strip()
+        street = (data.get('street') or '').strip()
+        city = (data.get('city') or '').strip()
+        zipcode = (data.get('zip') or '').strip()
+
+        errors = []
+        if not cf or len(cf) != 16:
+            errors.append('Il codice fiscale deve avere 16 caratteri')
+        if piva and (not piva.isdigit() or len(piva) != 11):
+            errors.append('La P.IVA deve essere 11 cifre numeriche')
+        if not street:
+            errors.append('Indirizzo obbligatorio')
+        if not city:
+            errors.append('Città obbligatoria')
+        if not zipcode or len(zipcode) != 5 or not zipcode.isdigit():
+            errors.append('CAP deve essere 5 cifre')
+        if not data.get('declaration_accepted'):
+            errors.append('Devi dichiarare che i dati sono veritieri')
+
+        if errors:
+            return self._json_response({'error': ' · '.join(errors), 'errors': errors}, 400)
+
+        p = user.partner_id
+        ip = request.httprequest.headers.get('X-Forwarded-For', '') or request.httprequest.remote_addr or ''
+        p.sudo().write({
+            'vat': piva or False,
+            'l10n_it_codice_fiscale': cf,
+            'street': street,
+            'street2': (data.get('street2') or '').strip() or False,
+            'city': city,
+            'zip': zipcode,
+        })
+        try:
+            if 'fiscal_data_confirmed_at' in p._fields:
+                p.sudo().write({
+                    'fiscal_data_confirmed_at': fields.Datetime.now(),
+                    'fiscal_data_confirmed_ip': ip,
+                })
+        except Exception:
+            _logger.exception("Log conferma dati fiscali fallito")
+
+        return self._json_response({'success': True})
+
+    # ------------------------------------------------------------------
     # Dettaglio progetto filtrato (21/09/2026): un consulente puo' aprire
     # un progetto solo se e' owner_user_id, in access_user_ids, o compare
     # nei beneficiari dello split come consulente. Admin vede tutto.

@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 
 class Erpv6TrackingRelation(models.Model):
@@ -236,3 +237,136 @@ class Erpv6TrackingRelation(models.Model):
                 ],
             })
         return result
+
+
+    def action_send_split_to_sign(self):
+        """23/09/2026: invia accordo split V6 al consulente per firma
+        digitale (Documenso). Se i dati fiscali mancano, non invia:
+        il consulente li compila in dashboard e poi rilancia.
+        Riusa il motore Typst e il modello sign.request gia' esistenti."""
+        self.ensure_one()
+        if not self.x_v6_revenue_split:
+            return {'error': 'Nessuno split definito'}
+
+        import json as _json
+        try:
+            split = _json.loads(self.x_v6_revenue_split)
+        except Exception:
+            return {'error': 'Split malformato'}
+
+        consulenti = [b for b in (split.get('beneficiari') or [])
+                       if b.get('tipo') == 'consulente']
+        if not consulenti:
+            return {'error': 'Nessun consulente nello split'}
+
+        Partner = self.env['res.partner'].sudo()
+        sent = []
+        missing_data = []
+        for b in consulenti:
+            pid = b.get('res_partner_id')
+            if not pid:
+                continue
+            partner = Partner.browse(pid)
+            if not partner.exists():
+                continue
+            # check dati fiscali obbligatori
+            missing = []
+            if not partner.l10n_it_codice_fiscale:
+                missing.append('codice_fiscale')
+            if not partner.street or not partner.city or not partner.zip:
+                missing.append('indirizzo')
+            if missing:
+                missing_data.append({
+                    'partner_id': pid,
+                    'partner_name': partner.name,
+                    'missing': missing,
+                })
+                continue
+
+            # genera PDF + sign request
+            try:
+                result = self._generate_split_sign_request(partner, b, split)
+                if result.get('sign_request_id'):
+                    sent.append({
+                        'partner_id': pid,
+                        'sign_request_id': result['sign_request_id'],
+                        'sign_url': result.get('sign_url'),
+                    })
+            except Exception as e:
+                _logger.exception('Errore invio firma split per partner %s', pid)
+                missing_data.append({'partner_id': pid, 'error': str(e)})
+
+        # aggiorna timestamp
+        self.write({'revenue_split_notified_at': fields.Datetime.now()})
+        return {
+            'sent': sent,
+            'missing_data': missing_data,
+            'consulenti_totali': len(consulenti),
+        }
+
+    def _generate_split_sign_request(self, partner, benefit, split):
+        """Genera il PDF accordo split + crea sign.request + invia a Documenso."""
+        import json as _json
+        from datetime import datetime
+
+        Template = self.env['erpv6.typst.template'].sudo().search(
+            [('code', '=', 'SPLIT-V6-001')], limit=1)
+        if not Template:
+            raise UserError('Template SPLIT-V6-001 non trovato')
+
+        base = split.get('base') or {}
+        pct = float(benefit.get('pct') or 0)
+        riserva = float(split.get('riserva_v6_pct') or 0)
+        base_val = float(base.get('valore') or 0)
+        quota_unitaria = base_val * pct / 100
+
+        # indirizzo compatto
+        addr_parts = [partner.street or '', partner.street2 or '', 
+                      f"{partner.zip or ''} {partner.city or ''}".strip(),
+                      partner.state_id.name if partner.state_id else '',
+                      partner.country_id.name if partner.country_id else '']
+        indirizzo = ', '.join([p for p in addr_parts if p])
+
+        data = {
+            'data_generazione': datetime.now().strftime('%d/%m/%Y'),
+            'v6_sede': 'Via Roma 1, 20100 Milano (MI)',  # TODO: prendere da config
+            'v6_piva': '12345678901',  # TODO: prendere da config
+            'consulente_nome': partner.name or '',
+            'consulente_email': partner.email or '',
+            'consulente_cf': partner.l10n_it_codice_fiscale or '',
+            'consulente_piva': partner.vat or '',
+            'consulente_indirizzo': indirizzo,
+            'progetto_nome': self.name,
+            'consulente_pct': f'{pct:.2f}',
+            'base_tipo': base.get('tipo') or 'fisso_unita',
+            'base_valore': f'{base_val:.2f}',
+            'base_unita': base.get('unita') or 'EUR',
+            'quota_unitaria': f'{quota_unitaria:.4f}',
+            'riserva_pct': f'{riserva:.2f}',
+        }
+
+        engine = self.env['erpv6.typst.engine'].sudo()
+        typst_doc = engine.generate_document(
+            template_id=Template.id,
+            res_model='erpv6.tracking.relation',
+            res_id=self.id,
+            data=data,
+        )
+        if typst_doc.status != 'ready' or not typst_doc.pdf_file:
+            raise UserError(f"Generazione PDF fallita: {typst_doc.error_message}")
+
+        Sign = self.env['erpv6.sign.request'].sudo()
+        sign_req = Sign.create({
+            'name': f'Accordo Split V6 — {self.name} — {partner.name}',
+            'partner_id': partner.id,
+            'document_id': typst_doc.id,
+            'split_project_id': self.id,
+            'notes': f'Split V6 {pct}% per progetto {self.name}',
+        })
+        sign_req.action_send_to_sign()
+
+        return {
+            'sign_request_id': sign_req.id,
+            'sign_url': sign_req.request_url,
+            'external_id': sign_req.external_id,
+        }
