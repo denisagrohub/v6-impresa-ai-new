@@ -300,6 +300,32 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
         ('rifiutato', 'Rifiutato'),
     ], string='Stato split', default='bozza', required=True, index=True)
 
+    def _anchor_split_blockchain(self, hash_value):
+        """Ancora l'hash della proposta split su blockchain (OTS/Bitcoin)."""
+        for r in self:
+            try:
+                if 'erpv6.blockchain.record' not in self.env:
+                    return
+                BcRec = self.env['erpv6.blockchain.record'].sudo()
+                cfg = self.env['erpv6.blockchain.config'].sudo().search(
+                    [('active', '=', True)], limit=1)
+                if not cfg:
+                    _logger.warning('Nessuna blockchain.config attiva, skip anchor')
+                    return
+                rec = BcRec.create({
+                    'config_id': cfg.id,
+                    'document_id': r.id,
+                    'document_model': 'erpv6.tracking.relation',
+                    'document_name': f'Split V6 {r.name} (proposta)',
+                    'document_hash': hash_value,
+                })
+                try:
+                    rec.action_anchor_opentimestamps()
+                except Exception:
+                    _logger.exception('OTS anchor fallito per bcrec %s', rec.id)
+            except Exception:
+                _logger.exception('Blockchain anchor split fallito')
+
     def action_freeze_and_send_split(self):
         """23/09/2026: congela la PROPOSTA V6 (hash + blockchain) e invia
         le firme ai consulenti. Lo split NON e' definitivo finche' i
