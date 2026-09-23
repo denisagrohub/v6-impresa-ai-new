@@ -29,6 +29,7 @@ export default function RevenueSplitCard({
   const [approved, setApproved] = useState(false);
   const [approvedAt, setApprovedAt] = useState<string | null>(null);
   const [hash, setHash] = useState<string | null>(null);
+  const [splitState, setSplitState] = useState<string>('bozza');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export default function RevenueSplitCard({
       setApproved(!!d.approved);
       setApprovedAt(d.approvedAt);
       setHash(d.hash);
+      setSplitState(d.state || 'bozza');
     } catch {}
   };
 
