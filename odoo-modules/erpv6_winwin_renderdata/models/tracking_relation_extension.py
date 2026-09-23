@@ -298,11 +298,76 @@ class Erpv6TrackingRelation(models.Model):
 
         # aggiorna timestamp
         self.write({'revenue_split_notified_at': fields.Datetime.now()})
+
+        # 23/09/2026: notifica ADMIN (Denis) con riepilogo:
+        # - firma inviata con successo
+        # - firma NON inviata per dati fiscali mancanti
+        try:
+            self._notify_admin_split_result(sent, missing_data, consulenti)
+        except Exception:
+            _logger.exception('Notifica admin split fallita')
+
         return {
             'sent': sent,
             'missing_data': missing_data,
             'consulenti_totali': len(consulenti),
         }
+
+    def _notify_admin_split_result(self, sent, missing_data, consulenti):
+        """Notifica Denis (admin) via EMAIL (non in-app) su invio firma split."""
+        from odoo.addons.erpv6_referral.models.system_mail_helper import (
+            send_system_mail, get_admin_email,
+        )
+        admin_email = get_admin_email(self.env)
+        if not admin_email:
+            _logger.warning('Nessuna email admin configurata, skip notifica')
+            return
+
+        for m in (missing_data or []):
+            pname = m.get('partner_name') or 'Consulente'
+            missing = ', '.join(m.get('missing', []))
+            if not missing:
+                continue
+            body = (
+                f'<p><b>{pname}</b> è stato inserito nello split del progetto '
+                f'<b>{self.name}</b>.</p>'
+                f'<p><b>La firma NON è stata inviata</b> perché mancano i dati fiscali:</p>'
+                f'<p style="color:#b45309;"><b>{missing}</b></p>'
+                f'<p>Appena li compilerà dalla sua dashboard, il sistema invierà '
+                f'automaticamente la firma.</p>'
+                f'<p><a href="https://www.v6impresa.it/admin/partner-projects/{self.id}">'
+                f'Apri il progetto nell\'admin</a></p>'
+            )
+            send_system_mail(
+                self.env,
+                admin_email,
+                f'[In attesa] Split {self.name}: {pname} deve completare i dati fiscali',
+                body,
+                model='erpv6.tracking.relation',
+                res_id=self.id,
+            )
+
+        for s in (sent or []):
+            pid = s.get('partner_id')
+            partner = self.env['res.partner'].sudo().browse(pid) if pid else None
+            if not partner or not partner.exists():
+                continue
+            body = (
+                f'<p>La richiesta di firma dello split del progetto '
+                f'<b>{self.name}</b> è stata <b>inviata</b> a '
+                f'<b>{partner.name}</b> ({partner.email}).</p>'
+                f'<p>Riceverai una notifica quando avrà firmato.</p>'
+                f'<p><a href="https://www.v6impresa.it/admin/partner-projects/{self.id}">'
+                f'Apri il progetto</a></p>'
+            )
+            send_system_mail(
+                self.env,
+                admin_email,
+                f'[Inviata] Firma split {self.name} a {partner.name}',
+                body,
+                model='erpv6.tracking.relation',
+                res_id=self.id,
+            )
 
     def _generate_split_sign_request(self, partner, benefit, split):
         """Genera il PDF accordo split + crea sign.request + invia a Documenso."""

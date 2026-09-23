@@ -137,9 +137,26 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                         if not partner.exists():
                             continue
                         try:
-                            # email_from diretto: message_notify NON legge
-                            # email_from dal context, va passato come kwarg
-                            server = self.env['ir.mail_server'].sudo().search(
+                            # 23/09/2026: usa send_system_mail (garantisce email
+                            # sistema, mittente e mail server corretti).
+                            from odoo.addons.erpv6_referral.models.system_mail_helper import send_system_mail
+                            missing_str = ", ".join(m.get("missing", []))
+                            body_html = (
+                                f'<p>Ciao {partner.name or ""},</p>'
+                                f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
+                                f'ma mancano dati fiscali per generare l\'accordo di firma.</p>'
+                                f'<p><b>Dati mancanti:</b> {missing_str}</p>'
+                                f'<p><a href="https://www.v6impresa.it/consultant/dashboard">'
+                                f'Apri la dashboard → Profilo fiscale → compila i dati</a></p>'
+                            )
+                            send_system_mail(
+                                self.env,
+                                partner.email,
+                                f'Completa i tuoi dati per firmare lo split — {rec.name}',
+                                body_html,
+                                model='erpv6.tracking.relation',
+                                res_id=rec.id,
+                            ).search(
                                 [('from_filter', '=', 'v6sviluppoimpresa.it')], limit=1)
                             rec_ctx = rec.with_context(
                                 mail_server_id=server.id if server else False,
