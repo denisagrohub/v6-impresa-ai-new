@@ -58,3 +58,14 @@ def get_admin_email(env):
     if admin and admin.partner_id.email:
         return admin.partner_id.email
     return None
+
+def create_magic_link(env, partner, purpose='generic', redirect_to=None, hours=24):
+    """Crea un magic link per il partner. Ritorna URL o None."""
+    try:
+        link = env['erpv6.consultant.magic.link'].sudo().create_for_partner(
+            partner, purpose=purpose, redirect_to=redirect_to, hours=hours,
+        )
+        return link.get_url()
+    except Exception:
+        _logger.exception('create_magic_link fallito per partner %s', partner.id)
+        return None

@@ -132,6 +132,9 @@ const PUBLIC_PATHS = [
   // il link stesso è il segreto (slug non enumerabile).
   '/p',
   '/api/public',
+  // 23/09/2026: magic link auth consulente
+  '/c',
+  '/api/auth/magic-link',
   // 23/09/2026: pagina pubblica verifica firma
   '/verify',
 ];
