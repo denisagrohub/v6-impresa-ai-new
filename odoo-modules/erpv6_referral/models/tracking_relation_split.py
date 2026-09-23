@@ -137,18 +137,40 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                         if not partner.exists():
                             continue
                         try:
-                            # 23/09/2026: usa send_system_mail (garantisce email
-                            # sistema, mittente e mail server corretti).
-                            from odoo.addons.erpv6_referral.models.system_mail_helper import send_system_mail
-                            missing_str = ", ".join(m.get("missing", []))
-                            body_html = (
-                                f'<p>Ciao {partner.name or ""},</p>'
-                                f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
-                                f'ma mancano dati fiscali per generare l\'accordo di firma.</p>'
-                                f'<p><b>Dati mancanti:</b> {missing_str}</p>'
-                                f'<p><a href="https://www.v6impresa.it/consultant/dashboard">'
-                                f'Apri la dashboard → Profilo fiscale → compila i dati</a></p>'
+                            # 23/09/2026: magic link con scope limitato.
+                            # Christian riceve link monouso che apre SOLO
+                            # la pagina di compilazione dati fiscali (no
+                            # accesso a dashboard completa).
+                            from odoo.addons.erpv6_referral.models.system_mail_helper import (
+                                send_system_mail, create_magic_link,
                             )
+                            missing_str = ", ".join(m.get("missing", []))
+                            magic_url = create_magic_link(
+                                self.env, partner,
+                                purpose='fiscal_data',
+                                redirect_to='/profilo-fiscale',
+                                hours=48,
+                            )
+                            if magic_url:
+                                body_html = (
+                                    f'<p>Ciao {partner.name or ""},</p>'
+                                    f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
+                                    f'ma mancano dati fiscali per generare l\'accordo di firma.</p>'
+                                    f'<p><b>Dati mancanti:</b> {missing_str}</p>'
+                                    f'<p style="margin-top:1.5em;">'
+                                    f'<a href="{magic_url}" '
+                                    f'style="background:#0f172a;color:white;padding:10px 18px;'
+                                    f'border-radius:6px;text-decoration:none;display:inline-block;">'
+                                    f'Compila i tuoi dati fiscali</a></p>'
+                                    f'<p style="color:#999;font-size:12px;">'
+                                    f'Link valido 48 ore, monouso. Dopo il salvataggio la firma partirà automaticamente.</p>'
+                                )
+                            else:
+                                body_html = (
+                                    f'<p>Ciao {partner.name or ""},</p>'
+                                    f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
+                                    f'ma mancano dati fiscali. Contatta V6 Impresa per completarli.</p>'
+                                )
                             send_system_mail(
                                 self.env,
                                 partner.email,
@@ -156,23 +178,6 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                                 body_html,
                                 model='erpv6.tracking.relation',
                                 res_id=rec.id,
-                            ).search(
-                                [('from_filter', '=', 'v6sviluppoimpresa.it')], limit=1)
-                            rec_ctx = rec.with_context(
-                                mail_server_id=server.id if server else False,
-                            )
-                            rec_ctx.message_notify(
-                                partner_ids=[partner.id],
-                                subject=f'Completa i tuoi dati per firmare lo split — {rec.name}',
-                                email_from='V6impresa Sistema <sistema@v6sviluppoimpresa.it>',
-                                body=(
-                                    f'<p>Ciao {partner.name or ""},</p>'
-                                    f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
-                                    f'ma mancano dati fiscali per generare l\'accordo di firma.</p>'
-                                    f'<p><b>Dati mancanti:</b> {", ".join(m.get("missing", []))}</p>'
-                                    f'<p>Apri la dashboard → <b>Il mio profilo fiscale</b> → compila i dati.</p>'
-                                ),
-                                subtype_xmlid='mail.mt_comment',
                             )
                         except Exception:
                             _logger.exception('Notifica dati fiscali fallita per partner %s', pid)

@@ -134,6 +134,7 @@ const PUBLIC_PATHS = [
   '/api/public',
   // 23/09/2026: magic link auth consulente
   '/c',
+  '/profilo-fiscale',
   '/api/auth/magic-link',
   // 23/09/2026: pagina pubblica verifica firma
   '/verify',
