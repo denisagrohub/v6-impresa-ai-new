@@ -40,7 +40,13 @@ function Cell({ label, value, sub, sem, accent = "#0f172a", spark, sparkColor }:
   );
 }
 
-export default function KpiDashboard({ projectId }: { projectId: number }) {
+export default function KpiDashboard({
+  projectId,
+  apiBase = '/api/admin/partner-projects',
+}: {
+  projectId: number;
+  apiBase?: string;
+}) {
   const [data, setData] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,14 +54,14 @@ export default function KpiDashboard({ projectId }: { projectId: number }) {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch(`/api/admin/partner-projects/${projectId}/kpi`);
+        const r = await fetch(`${apiBase}/${projectId}/kpi`);
         const d = await r.json();
         if (!d.success) { setError(d.error); return; }
         setData(d.kpi);
       } catch (e: any) { setError(e.message); }
       finally { setLoading(false); }
     })();
-  }, [projectId]);
+  }, [projectId, apiBase]);
 
   if (loading) return <div className="flex justify-center py-2"><Loader2 className="animate-spin text-gray-400" size={14} /></div>;
   if (error) return <div className="text-xs text-red-600 py-1">KPI: {error}</div>;

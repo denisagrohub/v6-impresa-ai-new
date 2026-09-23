@@ -37,6 +37,7 @@ export default function CopertinaPage({
   projectId, projectName, projectParentId,
   baseCompenso,
   onOpenOperativa, onOpenDetail, onOpenCharter, onOpenSettings, onBack,
+  mode = 'admin',
 }: {
   projectId: number; projectName: string; projectParentId?: number | null;
   baseCompenso?: { tipo: string; valore: number; unita: string } | null;
@@ -45,7 +46,9 @@ export default function CopertinaPage({
   onOpenCharter: () => void;
   onOpenSettings: () => void;
   onBack: () => void;
+  mode?: 'admin' | 'consultant';
 }) {
+  const isConsultant = mode === 'consultant';
   const [loading, setLoading] = useState(true);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [targets, setTargets] = useState<TargetNode[]>([]);
@@ -55,7 +58,10 @@ export default function CopertinaPage({
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch(`/api/admin/partner-projects/${projectId}`);
+        const url = isConsultant
+          ? `/api/consultant/partner-projects/${projectId}`
+          : `/api/admin/partner-projects/${projectId}`;
+        const r = await fetch(url);
         const d = await r.json();
         if (!d.success) { setError(d.error); return; }
         setPartners(d.partners || []);
@@ -63,7 +69,7 @@ export default function CopertinaPage({
       } catch (e: any) { setError(e.message); }
       finally { setLoading(false); }
     })();
-  }, [projectId]);
+  }, [projectId, isConsultant]);
 
   // 19/09/2026: carica referral del progetto (indipendente dal load principale)
   useEffect(() => {
@@ -124,6 +130,7 @@ export default function CopertinaPage({
             <p className="text-xs text-gray-500">Panoramica progetto · ogni card è cliccabile</p>
           </div>
           <div className="flex items-center gap-2">
+            {!isConsultant && (
             <button
               onClick={onOpenCharter}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50"
@@ -154,6 +161,7 @@ export default function CopertinaPage({
               title="Impostazioni (KPI, circuito)">
               <Settings size={16} />
             </button>
+            )}
           </div>
         </div>
 
@@ -164,9 +172,13 @@ export default function CopertinaPage({
         )}
 
         {/* KPI */}
-        <KpiDashboard projectId={projectId} />
+        <KpiDashboard
+          projectId={projectId}
+          apiBase={isConsultant ? '/api/consultant/partner-projects' : '/api/admin/partner-projects'}
+        />
 
-        {/* KANBAN full width */}
+        {/* KANBAN full width (solo admin: dipende da API admin) */}
+        {!isConsultant && (
         <div className="bg-white rounded-2xl border border-gray-100 p-3 mb-4">
           <div className="flex items-center gap-2 mb-2 px-1">
             <BarChart3 size={13} className="text-indigo-600" />
@@ -178,6 +190,7 @@ export default function CopertinaPage({
             <AcquisitionKanban relationId={projectId} relationName={projectName} />
           </div>
         </div>
+        )}
 
         {/* 3 colonne: persone / referenti / target */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -308,7 +321,8 @@ export default function CopertinaPage({
 
         </div>
 
-        {/* MOTORE COMMERCIALE: split + referral (2 colonne sotto le 3 di persone) */}
+        {/* MOTORE COMMERCIALE: split + referral (solo admin) */}
+        {!isConsultant && (
         <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
           <RevenueSplitCard
             projectId={projectId}
@@ -332,6 +346,7 @@ export default function CopertinaPage({
             }}
           />
         </div>
+        )}
       </div>
     </div>
   );
