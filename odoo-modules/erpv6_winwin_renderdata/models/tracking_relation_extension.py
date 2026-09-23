@@ -361,6 +361,9 @@ class Erpv6TrackingRelation(models.Model):
             'partner_id': partner.id,
             'document_id': typst_doc.id,
             'split_project_id': self.id,
+            'related_kind': 'split_v6',
+            'related_id': self.id,
+            'related_model': 'erpv6.tracking.relation',
             'notes': f'Split V6 {pct}% per progetto {self.name}',
         })
         sign_req.action_send_to_sign()

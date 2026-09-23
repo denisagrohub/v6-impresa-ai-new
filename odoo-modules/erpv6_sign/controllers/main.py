@@ -58,6 +58,13 @@ class DocumensoWebhookController(http.Controller):
                 # Riusa la stessa logica di mappatura stato + download del
                 # pulsante 'Verifica Stato', invece di duplicarla qui.
                 sign_request.action_check_status()
+                # 23/09/2026: dispatch generico per tipo documento.
+                # Aggiungere un handler nuovo non richiede modifiche qui.
+                try:
+                    from ..models.sign_handlers import dispatch_post_sign_handler
+                    dispatch_post_sign_handler(sign_request)
+                except Exception:
+                    _logger.exception('Post-sign handler fallito per request %s', sign_request.id)
             elif event == 'DOCUMENT_REJECTED':
                 sign_request.write({'status': 'declined'})
                 request.env['erpv6.sign.log'].sudo().create({

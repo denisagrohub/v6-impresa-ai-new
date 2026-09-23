@@ -49,6 +49,23 @@ class SignRequest(models.Model):
         'erpv6.tracking.relation', string='Progetto (split V6)',
         ondelete='set null',
         help="Valorizzato quando la firma e' un accordo split V6 per un consulente.")
+
+    # 23/09/2026: dispatch generico per il webhook. Il tipo di documento
+    # firmato determina quale handler applicare al callback Documenso.
+    related_kind = fields.Selection([
+        ('referral', 'Accordo Referral'),
+        ('split_v6', 'Accordo Split V6'),
+        ('nda', 'NDA'),
+        ('ncnd', 'NCND'),
+        ('contratto', 'Contratto'),
+        ('altro', 'Altro'),
+    ], string='Tipo documento', default='altro', index=True)
+    related_id = fields.Integer(
+        string='ID record correlato',
+        help='ID del record sorgente (es. erpv6.tracking.relation.id per split_v6).')
+    related_model = fields.Char(
+        string='Modello correlato',
+        help='Nome tecnico del modello sorgente (es. erpv6.tracking.relation).')
     
     def _get_adapter(self):
         """23/09/2026: ritorna l'adapter del provider firma attivo."""
