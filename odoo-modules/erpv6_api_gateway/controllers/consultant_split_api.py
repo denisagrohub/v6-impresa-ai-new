@@ -15,7 +15,7 @@ import json
 import logging
 import time
 
-from odoo import http, SUPERUSER_ID
+from odoo import http, fields, SUPERUSER_ID
 from markupsafe import Markup
 from odoo.exceptions import UserError
 from odoo.http import request
@@ -105,7 +105,7 @@ class ConsultantSplitAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err: return err
         try:
-            data = json.loads(request.httprequest.body or b'{}')
+            data = json.loads(request.httprequest.get_data() or b'{}')
         except json.JSONDecodeError:
             data = {}
         reason = (data.get('reason') or '').strip()
