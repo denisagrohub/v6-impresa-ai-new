@@ -3,6 +3,10 @@ import { callOdooAPI } from '@/lib/odoo-adapter';
 import { odoo } from '@/lib/odoo/api-adapter';
 import { isOdooEnabled } from '@/config/system';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+
 // 22/09/2026: dettaglio progetto per consulente, READ-ONLY.
 // 1. Check accesso + mio_compenso via controller JWT (/api/v1/consultant/projects/<id>)
 // 2. Se OK, riuso la lettura ricca dell'admin (odoo.execute) e la ritorno

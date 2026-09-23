@@ -74,14 +74,41 @@ export default function PlaybookPage() {
                             </div>
                         </header>
 
-                        {data.charter && (
+                        {data.charter && data.charter.data && (
                             <section className="mb-8">
                                 <h2 className="text-lg font-bold text-[#1a2744] mb-3 flex items-center gap-2"><Building2 size={18} /> Il progetto</h2>
-                                {data.charter.settore && <p><b>Settore:</b> {data.charter.settore}</p>}
-                                {data.charter.descrizione && <p><b>Descrizione:</b> {data.charter.descrizione}</p>}
-                                {data.charter.obiettivo && <p><b>Obiettivo:</b> {data.charter.obiettivo}</p>}
-                                {data.charter.target_ideale && <p><b>Target ideale:</b> {data.charter.target_ideale}</p>}
-                                {data.charter.script && <p><b>Script consigliato:</b> {data.charter.script}</p>}
+                                <div className="space-y-2">
+                                    {data.charter.data.origin && <p><b>Origine:</b> {data.charter.data.origin}</p>}
+                                    {data.charter.data.regulatoryContext && <p><b>Contesto normativo:</b> {data.charter.data.regulatoryContext}</p>}
+                                    {data.charter.data.requirements && <p><b>Requisiti:</b> {data.charter.data.requirements}</p>}
+                                    {data.charter.data.commercialTerms && <p><b>Termini commerciali:</b> {data.charter.data.commercialTerms}</p>}
+                                    {data.charter.data.currentPhase && <p><b>Fase attuale:</b> {data.charter.data.currentPhase}</p>}
+                                    {data.charter.data.pitchSettore && <p><b>Settore:</b> {data.charter.data.pitchSettore}</p>}
+                                    {data.charter.data.pitchCosaCerchiamo && (
+                                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                                            <div className="text-xs font-bold uppercase text-blue-700 mb-1">Cosa cerchiamo</div>
+                                            <p className="text-sm whitespace-pre-wrap">{data.charter.data.pitchCosaCerchiamo}</p>
+                                        </div>
+                                    )}
+                                    {data.charter.data.pitchTipologieTarget && (
+                                        <div className="bg-violet-50 border border-violet-100 rounded-lg p-3">
+                                            <div className="text-xs font-bold uppercase text-violet-700 mb-1">Tipologie target</div>
+                                            <p className="text-sm whitespace-pre-wrap">{data.charter.data.pitchTipologieTarget}</p>
+                                        </div>
+                                    )}
+                                    {data.charter.data.pitchCosaOffriamo && (
+                                        <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                                            <div className="text-xs font-bold uppercase text-emerald-700 mb-1">Cosa offriamo</div>
+                                            <p className="text-sm whitespace-pre-wrap">{data.charter.data.pitchCosaOffriamo}</p>
+                                        </div>
+                                    )}
+                                    {data.charter.data.confidentiality && (
+                                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                                            <div className="text-xs font-bold uppercase text-amber-700 mb-1">🔒 Riservatezza</div>
+                                            <p className="text-sm whitespace-pre-wrap">{data.charter.data.confidentiality}</p>
+                                        </div>
+                                    )}
+                                </div>
                             </section>
                         )}
 
