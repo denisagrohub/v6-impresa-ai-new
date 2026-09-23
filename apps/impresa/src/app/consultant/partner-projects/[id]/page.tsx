@@ -18,12 +18,61 @@ export default function PartnerProjectDetail() {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
+    const [mySplit, setMySplit] = useState<any>(null);
+    const [splitRejectReason, setSplitRejectReason] = useState('');
+    const [splitRejectOpen, setSplitRejectOpen] = useState(false);
+    const [splitActionMsg, setSplitActionMsg] = useState<{ ok: boolean; text: string } | null>(null);
+    const [splitBusy, setSplitBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [tab, setTab] = useState<Tab>('copertina');
     const [documents, setDocuments] = useState<any[]>([]);
 
     const [targetDetail, setTargetDetail] = useState<any>(null);
     const [targetDetailLoading, setTargetDetailLoading] = useState(false);
+
+    const loadMySplit = async () => {
+        if (!user?.token || !id) return;
+        try {
+            const res = await fetch(`/api/consultant/partner-projects/${id}/my-split`, {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const d = await res.json();
+            if (!d.error) setMySplit(d);
+        } catch { /* best effort */ }
+    };
+
+    const acceptSplit = async () => {
+        if (!user?.token) return;
+        setSplitBusy(true); setSplitActionMsg(null);
+        try {
+            const res = await fetch(`/api/consultant/partner-projects/${id}/accept-split`, {
+                method: 'POST', headers: { Authorization: `JWT ${user.token}` },
+            });
+            const d = await res.json();
+            if (!res.ok || d.error) { setSplitActionMsg({ ok: false, text: d.error || 'Errore' }); return; }
+            setSplitActionMsg({ ok: true, text: 'Split accettato' });
+            loadMySplit();
+        } catch (e: any) { setSplitActionMsg({ ok: false, text: e.message }); }
+        finally { setSplitBusy(false); }
+    };
+
+    const rejectSplit = async () => {
+        if (!user?.token || !splitRejectReason.trim()) return;
+        setSplitBusy(true); setSplitActionMsg(null);
+        try {
+            const res = await fetch(`/api/consultant/partner-projects/${id}/reject-split`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `JWT ${user.token}` },
+                body: JSON.stringify({ reason: splitRejectReason.trim() }),
+            });
+            const d = await res.json();
+            if (!res.ok || d.error) { setSplitActionMsg({ ok: false, text: d.error || 'Errore' }); return; }
+            setSplitActionMsg({ ok: true, text: 'Split rifiutato' });
+            setSplitRejectOpen(false); setSplitRejectReason('');
+            loadMySplit();
+        } catch (e: any) { setSplitActionMsg({ ok: false, text: e.message }); }
+        finally { setSplitBusy(false); }
+    };
 
     const loadData = async () => {
         if (!user?.token || !id) return;
@@ -50,7 +99,7 @@ export default function PartnerProjectDetail() {
         } catch { router.push("/login"); }
     }, [router]);
 
-    useEffect(() => { if (user) loadData(); }, [user, id]);
+    useEffect(() => { if (user) { loadData(); loadMySplit(); } }, [user, id]);
 
     useEffect(() => {
         if (!user?.token || !id) return;
@@ -354,6 +403,66 @@ export default function PartnerProjectDetail() {
                                     </>
                                 ) : (
                                     <div className="text-center text-gray-500 py-6">Non sei configurato nello Split V6 di questo progetto.</div>
+                                )}
+                                {mySplit?.has_split && (
+                                    <div className="mt-6 pt-6 border-t border-gray-100">
+                                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Accettazione accordo</h3>
+                                        {mySplit.approved ? (
+                                            <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-800">
+                                                ✓ Split approvato {mySplit.accepted_at ? `il ${new Date(mySplit.accepted_at).toLocaleString('it-IT')}` : ''}
+                                            </div>
+                                        ) : mySplit.rejected_at ? (
+                                            <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-800">
+                                                ✗ Split rifiutato il {new Date(mySplit.rejected_at).toLocaleString('it-IT')}
+                                                {mySplit.rejected_reason && <p className="mt-1 text-xs italic">"{mySplit.rejected_reason}"</p>}
+                                            </div>
+                                        ) : mySplit.accepted_at ? (
+                                            <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-800">
+                                                ✓ Accettato il {new Date(mySplit.accepted_at).toLocaleString('it-IT')} — in attesa di firma digitale
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {!mySplit.has_fiscal_data && (
+                                                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 mb-3">
+                                                        <b>Prima di accettare:</b> completa i tuoi dati fiscali.
+                                                        <a href="/consultant/dashboard?tab=profilo" className="underline ml-1">Vai al profilo fiscale →</a>
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <button onClick={acceptSplit} disabled={splitBusy || !mySplit.has_fiscal_data}
+                                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+                                                        {splitBusy ? <Loader2 size={14} className="animate-spin" /> : null}
+                                                        Accetta quota {mySplit.pct}%
+                                                    </button>
+                                                    <button onClick={() => setSplitRejectOpen(!splitRejectOpen)} disabled={splitBusy}
+                                                        className="px-4 py-2 rounded-lg border border-red-200 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50">
+                                                        Rifiuta con nota
+                                                    </button>
+                                                </div>
+                                                {splitRejectOpen && (
+                                                    <div className="mt-3 rounded-lg border border-red-200 p-3 bg-red-50">
+                                                        <label className="block text-xs font-semibold text-red-800 mb-1">Motivo del rifiuto *</label>
+                                                        <textarea rows={3} value={splitRejectReason}
+                                                            onChange={(e) => setSplitRejectReason(e.target.value)}
+                                                            className="w-full px-3 py-2 rounded border border-red-300 text-sm resize-y" />
+                                                        <div className="mt-2 flex justify-end gap-2">
+                                                            <button onClick={() => { setSplitRejectOpen(false); setSplitRejectReason(''); }}
+                                                                className="px-3 py-1.5 rounded border border-gray-200 text-xs">Annulla</button>
+                                                            <button onClick={rejectSplit} disabled={splitBusy || !splitRejectReason.trim()}
+                                                                className="px-3 py-1.5 rounded bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50">
+                                                                Conferma rifiuto
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        {splitActionMsg && (
+                                            <div className={`mt-3 rounded-lg px-3 py-2 text-xs ${splitActionMsg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
+                                                {splitActionMsg.text}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}

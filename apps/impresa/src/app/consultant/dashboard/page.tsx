@@ -24,6 +24,12 @@ export default function ConsultantDashboard() {
     const [emailsData, setEmailsData] = useState<any>(null);
     const [emailFolder, setEmailFolder] = useState<"all" | "ricevute" | "inviate">("all");
     const [unreadCount, setUnreadCount] = useState(0);
+    // 23/09/2026: profilo fiscale (form)
+    const [fiscalData, setFiscalData] = useState<any>(null);
+    const [fiscalForm, setFiscalForm] = useState<any>({ vat:'', codice_fiscale:'', street:'', street2:'', city:'', zip:'' });
+    const [fiscalMsg, setFiscalMsg] = useState<{ ok: boolean; text: string } | null>(null);
+    const [fiscalSaving, setFiscalSaving] = useState(false);
+    const [fiscalDeclaration, setFiscalDeclaration] = useState(false);
     const [emailSearch, setEmailSearch] = useState('');
     const [emailArchivedView, setEmailArchivedView] = useState(false);
     const [emailProjectFilter, setEmailProjectFilter] = useState<string>('');
@@ -210,6 +216,7 @@ export default function ConsultantDashboard() {
 
     useEffect(() => {
         if (activeTab === 'pagamenti' && user?.token) loadPayments();
+        if (activeTab === 'profilo' && user?.token) loadFiscalData();
     }, [activeTab, user]);
 
     useEffect(() => {
@@ -500,6 +507,7 @@ export default function ConsultantDashboard() {
         { id: "pagamenti", label: "Pagamenti", icon: Euro },
         { id: "richieste", label: "Richieste", icon: AlertTriangle },
         { id: "calendario", label: "Calendario", icon: Calendar },
+        { id: "profilo", label: "Profilo fiscale", icon: FileText },
     ];
 
     return (
@@ -560,6 +568,7 @@ export default function ConsultantDashboard() {
                         {activeTab === 'pagamenti' && 'I Miei Compensi'}
                         {activeTab === 'richieste' && 'Richieste & Segnalazioni'}
                         {activeTab === 'calendario' && 'Calendario e Rischi'}
+                        {activeTab === 'profilo' && 'Profilo fiscale'}
                     </h1>
                     <p className="text-gray-500 mt-1">
                         {user?.email}
@@ -1093,6 +1102,82 @@ export default function ConsultantDashboard() {
                 )}
 
                 {/* TAB: CALENDARIO */}
+                {activeTab === "profilo" && (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">Il mio profilo fiscale</h2>
+                        <p className="text-xs text-gray-500 mb-4">
+                            Questi dati vengono usati negli accordi di split firmati digitalmente.
+                            Compila con attenzione: la dichiarazione è vincolante.
+                        </p>
+                        {fiscalData?.confirmed_at && (
+                            <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2 text-xs text-emerald-800">
+                                Confermato il {new Date(fiscalData.confirmed_at).toLocaleString('it-IT')}
+                                {fiscalData.confirmed_ip && <span className="text-emerald-600"> · IP {fiscalData.confirmed_ip}</span>}
+                            </div>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Codice Fiscale *</label>
+                                <input type="text" maxLength={16} value={fiscalForm.codice_fiscale}
+                                    onChange={(e) => setFiscalForm({ ...fiscalForm, codice_fiscale: e.target.value.toUpperCase() })}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono uppercase" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">P.IVA (opzionale)</label>
+                                <input type="text" maxLength={11} value={fiscalForm.vat}
+                                    onChange={(e) => setFiscalForm({ ...fiscalForm, vat: e.target.value.replace(/\D/g,'') })}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono" />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Indirizzo *</label>
+                                <input type="text" value={fiscalForm.street}
+                                    onChange={(e) => setFiscalForm({ ...fiscalForm, street: e.target.value })}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Indirizzo (riga 2)</label>
+                                <input type="text" value={fiscalForm.street2}
+                                    onChange={(e) => setFiscalForm({ ...fiscalForm, street2: e.target.value })}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Città *</label>
+                                <input type="text" value={fiscalForm.city}
+                                    onChange={(e) => setFiscalForm({ ...fiscalForm, city: e.target.value })}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">CAP *</label>
+                                <input type="text" maxLength={5} value={fiscalForm.zip}
+                                    onChange={(e) => setFiscalForm({ ...fiscalForm, zip: e.target.value.replace(/\D/g,'') })}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono" />
+                            </div>
+                        </div>
+                        <label className="flex items-start gap-2 mt-5 cursor-pointer">
+                            <input type="checkbox" checked={fiscalDeclaration} onChange={(e) => setFiscalDeclaration(e.target.checked)} className="mt-0.5" />
+                            <span className="text-xs text-gray-700">
+                                <b>Dichiaro che i dati sopra sono veritieri e completi.</b> Sono consapevole che verranno usati per la generazione di documenti contrattuali a mio nome.
+                            </span>
+                        </label>
+                        {fiscalMsg && (
+                            <div className={`mt-4 rounded-lg px-3 py-2 text-xs ${fiscalMsg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
+                                {fiscalMsg.text}
+                            </div>
+                        )}
+                        <div className="mt-5 flex items-center justify-between">
+                            <a href="https://erp.v6sviluppoimpresa.it/my/account" target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:underline">
+                                Modifica profilo completo su portale Odoo →
+                            </a>
+                            <button onClick={saveFiscalData} disabled={fiscalSaving || !fiscalDeclaration}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                                {fiscalSaving ? <Loader2 size={14} className="animate-spin" /> : null}
+                                Salva dati fiscali
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === "calendario" && (
                     <div className="space-y-6">
                         {/* Collegato per davvero a Odoo il 25/08/2026 (Denis:
