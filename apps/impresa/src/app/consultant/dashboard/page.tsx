@@ -448,6 +448,48 @@ export default function ConsultantDashboard() {
     };
 
     // 21/09/2026: compensi calcolati dallo split V6 dei progetti
+    // 23/09/2026: profilo fiscale consulente
+    const loadFiscalData = async () => {
+        if (!user?.token) return;
+        try {
+            const res = await fetch('/api/consultant/me/fiscal-data', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const d = await res.json();
+            setFiscalData(d);
+            setFiscalForm({
+                vat: d.vat || '',
+                codice_fiscale: d.codice_fiscale || '',
+                street: d.street || '',
+                street2: d.street2 || '',
+                city: d.city || '',
+                zip: d.zip || '',
+            });
+        } catch { /* best effort */ }
+    };
+
+    const saveFiscalData = async () => {
+        if (!user?.token) return;
+        setFiscalSaving(true);
+        setFiscalMsg(null);
+        try {
+            const res = await fetch('/api/consultant/me/fiscal-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `JWT ${user.token}` },
+                body: JSON.stringify({ ...fiscalForm, declaration_accepted: fiscalDeclaration }),
+            });
+            const d = await res.json();
+            if (!res.ok || d.error) {
+                setFiscalMsg({ ok: false, text: d.error || 'Errore nel salvataggio' });
+                return;
+            }
+            setFiscalMsg({ ok: true, text: 'Dati salvati correttamente' });
+            loadFiscalData();
+        } catch (e: any) {
+            setFiscalMsg({ ok: false, text: e.message || 'Errore di rete' });
+        } finally { setFiscalSaving(false); }
+    };
+
     const loadPayments = async () => {
         if (!user?.token) return;
         setPaymentsLoading(true);
