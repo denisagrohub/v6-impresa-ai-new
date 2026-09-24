@@ -140,6 +140,7 @@ export default function AdminDashboard() {
     { icon: FileText, label: "Contratti", href: "/admin/contracts" },
     { icon: Mail, label: "La mia email", href: "/admin/mia-email" },
     { icon: Mail, label: "Email funnel", href: "/admin/email" },
+    { icon: FileText, label: "Blog", href: "/admin/blog" },
     { icon: Users, label: "Candidature", href: "/admin/candidature" },
 
     { icon: Brain, label: "Knowledge Base", href: "/admin/kb" },
