@@ -19,7 +19,7 @@ export default function RevenueSplitCard({
   projectId: number;
   projectName: string;
   baseCompenso: { tipo: string; valore: number; unita: string } | null;
-  partners: { id: number; partnerName: string | null; partnerId: number | null }[];
+  partners: { id: number; name?: string | null; partnerName: string | null; partnerId: number | null; partnerIsCompany?: boolean }[];
   onReload?: () => void;
 }) {
   const [open, setOpen] = useState(false);
