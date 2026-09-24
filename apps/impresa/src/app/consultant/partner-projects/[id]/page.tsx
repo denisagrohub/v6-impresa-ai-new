@@ -7,6 +7,7 @@ import {
     Target as TargetIcon, FileText, TrendingUp, RefreshCw, Users,
 } from "lucide-react";
 import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
+import CopertinaConsultant from "@/components/consultant/CopertinaConsultant";
 
 type Tab = 'copertina' | 'parti' | 'documenti' | 'email' | 'target' | 'kpi' | 'compenso';
 
@@ -188,86 +189,14 @@ export default function PartnerProjectDetail() {
 
                         {/* COPERTINA */}
                         {tab === 'copertina' && (
-                            <div className="space-y-4">
-                                {data.charter && data.charter.data ? (
-                                    <>
-                                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-4">📋 Charter progetto</h2>
-                                            <div className="space-y-3">
-                                                {data.charter.data.origin && (
-                                                    <div><div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Origine</div>
-                                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.charter.data.origin}</p></div>
-                                                )}
-                                                {data.charter.data.regulatoryContext && (
-                                                    <div><div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Contesto normativo</div>
-                                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.charter.data.regulatoryContext}</p></div>
-                                                )}
-                                                {data.charter.data.requirements && (
-                                                    <div><div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Requisiti</div>
-                                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.charter.data.requirements}</p></div>
-                                                )}
-                                                {data.charter.data.commercialTerms && (
-                                                    <div><div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Termini commerciali</div>
-                                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.charter.data.commercialTerms}</p></div>
-                                                )}
-                                                {data.charter.data.currentPhase && (
-                                                    <div><div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Fase attuale</div>
-                                                        <p className="text-sm text-gray-700">{data.charter.data.currentPhase}</p></div>
-                                                )}
-                                                {data.charter.data.confidentiality && (
-                                                    <div className="bg-red-50 border border-red-100 rounded-lg p-3">
-                                                        <div className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">🔒 Riservatezza</div>
-                                                        <p className="text-sm text-red-800 whitespace-pre-wrap">{data.charter.data.confidentiality}</p>
-                                                    </div>
-                                                )}
-                                                {data.charter.data.baseCompenso && (
-                                                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
-                                                        <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1">💵 Base compenso V6</div>
-                                                        <p className="text-sm text-emerald-900">
-                                                            {data.charter.data.baseCompenso.tipo === 'fisso_unita'
-                                                                ? `${data.charter.data.baseCompenso.valore} EUR per ${data.charter.data.baseCompenso.unita || 'unità'}`
-                                                                : `${data.charter.data.baseCompenso.valore}% sul valore`}
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {data.charter.version && (
-                                            <p className="text-xs text-gray-400 text-right">Charter v{data.charter.version} · aggiornato {data.charter.updatedAt ? new Date(data.charter.updatedAt).toLocaleDateString('it-IT') : '—'}</p>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-500">
-                                        Charter non ancora compilato.
-                                    </div>
-                                )}
-                                {data.relationScouting && data.relationScouting.data && (
-                                    <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                                        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">🔍 Scouting relazione</h2>
-                                        <div className="space-y-3">
-                                            {data.relationScouting.data.target && (
-                                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mb-1">Target</div>
-                                                    {Object.entries(data.relationScouting.data.target).map(([k, v]: any) => (
-                                                        <p key={k} className="text-sm"><b>{k}:</b> {String(v)}</p>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {data.relationScouting.data.eleggibilita && (
-                                                <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
-                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mb-1">Eleggibilità</div>
-                                                    {Object.entries(data.relationScouting.data.eleggibilita).map(([k, v]: any) => (
-                                                        <p key={k} className="text-sm"><b>{k}:</b> {String(v)}</p>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            <CopertinaConsultant
+                                projectId={Number(id)}
+                                projectName={data.name}
+                                userToken={user?.token}
+                                onOpenTarget={(tid) => openTargetDetail(tid)}
+                            />
                         )}
 
-                        {/* PARTI */}
                         {tab === 'parti' && (
                             <div className="space-y-3">
                                 {(!data.partners || data.partners.length === 0) ? (
