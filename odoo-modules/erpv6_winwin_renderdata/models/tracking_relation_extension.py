@@ -1,6 +1,9 @@
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+import logging
+_logger = logging.getLogger(__name__)
+
 
 class Erpv6TrackingRelation(models.Model):
     """Estende erpv6.tracking.relation (modulo aeosv6_relation, gia'

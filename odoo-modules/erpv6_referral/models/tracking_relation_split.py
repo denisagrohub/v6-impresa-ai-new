@@ -91,7 +91,8 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                 _logger.exception('Ancoraggio blockchain proposta fallito')
             # invia firme
             try:
-                r.action_send_split_to_sign()
+                result = r.action_send_split_to_sign()
+                r._notify_consulenti_missing_data(result)
             except Exception:
                 _logger.exception('Invio firme fallito')
         return True
@@ -101,6 +102,60 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
         action_freeze_and_send_split. Non rende piu' definitivo."""
         return self.action_freeze_and_send_split()
 
+
+    def _notify_consulenti_missing_data(self, result):
+        """24/09/2026: helper condiviso. Manda email con magic link a ogni
+        consulente in 'missing_data' (dati fiscali mancanti). Chiamato da
+        write() e da action_freeze_and_send_split()."""
+        from odoo.addons.erpv6_referral.models.system_mail_helper import (
+            send_system_mail, create_magic_link,
+        )
+        for rec in self:
+            for m in (result.get('missing_data') or []):
+                pid = m.get('partner_id')
+                if not pid:
+                    continue
+                partner = self.env['res.partner'].sudo().browse(pid)
+                if not partner.exists():
+                    continue
+                try:
+                    missing_str = ", ".join(m.get("missing", []))
+                    magic_url = create_magic_link(
+                        self.env, partner,
+                        purpose='fiscal_data',
+                        redirect_to='/profilo-fiscale',
+                        hours=48,
+                    )
+                    if magic_url:
+                        body_html = (
+                            f'<p>Ciao {partner.name or ""},</p>'
+                            f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
+                            f'ma mancano dati fiscali per generare l\'accordo di firma.</p>'
+                            f'<p><b>Dati mancanti:</b> {missing_str}</p>'
+                            f'<p style="margin-top:1.5em;">'
+                            f'<a href="{magic_url}" '
+                            f'style="background:#0f172a;color:white;padding:10px 18px;'
+                            f'border-radius:6px;text-decoration:none;display:inline-block;">'
+                            f'Compila i tuoi dati fiscali</a></p>'
+                            f'<p style="color:#999;font-size:12px;">'
+                            f'Link valido 48 ore, monouso. Dopo il salvataggio la firma partirà automaticamente.</p>'
+                        )
+                    else:
+                        body_html = (
+                            f'<p>Ciao {partner.name or ""},</p>'
+                            f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
+                            f'ma mancano dati fiscali. Contatta V6 Impresa per completarli.</p>'
+                        )
+                    send_system_mail(
+                        self.env,
+                        partner.email,
+                        f'Completa i tuoi dati per firmare lo split — {rec.name}',
+                        body_html,
+                        model='erpv6.tracking.relation',
+                        res_id=rec.id,
+                    )
+                except Exception:
+                    _logger.exception('Notifica dati fiscali fallita per partner %s', pid)
 
     def write(self, vals):
         """23/09/2026: quando cambia x_v6_revenue_split, resetta accettazione
@@ -127,60 +182,5 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                 except Exception:
                     _logger.exception('Reset split accettazione fallito id=%s', rec.id)
 
-                try:
-                    result = rec.action_send_split_to_sign()
-                    for m in (result.get('missing_data') or []):
-                        pid = m.get('partner_id')
-                        if not pid:
-                            continue
-                        partner = self.env['res.partner'].sudo().browse(pid)
-                        if not partner.exists():
-                            continue
-                        try:
-                            # 23/09/2026: magic link con scope limitato.
-                            # Christian riceve link monouso che apre SOLO
-                            # la pagina di compilazione dati fiscali (no
-                            # accesso a dashboard completa).
-                            from odoo.addons.erpv6_referral.models.system_mail_helper import (
-                                send_system_mail, create_magic_link,
-                            )
-                            missing_str = ", ".join(m.get("missing", []))
-                            magic_url = create_magic_link(
-                                self.env, partner,
-                                purpose='fiscal_data',
-                                redirect_to='/profilo-fiscale',
-                                hours=48,
-                            )
-                            if magic_url:
-                                body_html = (
-                                    f'<p>Ciao {partner.name or ""},</p>'
-                                    f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
-                                    f'ma mancano dati fiscali per generare l\'accordo di firma.</p>'
-                                    f'<p><b>Dati mancanti:</b> {missing_str}</p>'
-                                    f'<p style="margin-top:1.5em;">'
-                                    f'<a href="{magic_url}" '
-                                    f'style="background:#0f172a;color:white;padding:10px 18px;'
-                                    f'border-radius:6px;text-decoration:none;display:inline-block;">'
-                                    f'Compila i tuoi dati fiscali</a></p>'
-                                    f'<p style="color:#999;font-size:12px;">'
-                                    f'Link valido 48 ore, monouso. Dopo il salvataggio la firma partirà automaticamente.</p>'
-                                )
-                            else:
-                                body_html = (
-                                    f'<p>Ciao {partner.name or ""},</p>'
-                                    f'<p>Sei stato inserito nello split V6 del progetto <b>{rec.name}</b>, '
-                                    f'ma mancano dati fiscali. Contatta V6 Impresa per completarli.</p>'
-                                )
-                            send_system_mail(
-                                self.env,
-                                partner.email,
-                                f'Completa i tuoi dati per firmare lo split — {rec.name}',
-                                body_html,
-                                model='erpv6.tracking.relation',
-                                res_id=rec.id,
-                            )
-                        except Exception:
-                            _logger.exception('Notifica dati fiscali fallita per partner %s', pid)
-                except Exception:
-                    _logger.exception('Invio firma split fallito id=%s', rec.id)
+                    rec._notify_consulenti_missing_data(result)
         return res

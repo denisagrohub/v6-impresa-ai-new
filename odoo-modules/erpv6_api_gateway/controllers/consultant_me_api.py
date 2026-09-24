@@ -110,6 +110,11 @@ class ConsultantMeAPIController(ConsultantAPIController):
         # Se il consulente era bloccato per dati fiscali mancanti, ora
         # che li ha compilati la firma parte da sola.
         try:
+            # 24/09/2026: env legato all'utente del JWT (Christian, Stefano,
+            # chiunque). Cosi' message_post/create_uid/audit sono corretti.
+            # Il .sudo() sui record di servizio bypassa solo le ACL, env.user
+            # resta il consulente autenticato.
+            env = request.env(user=user.id)
             Relation = env['erpv6.tracking.relation'].sudo()
             pending = Relation.search([
                 ('revenue_split_state', '=', 'in_firma'),
