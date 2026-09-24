@@ -59,7 +59,16 @@ export default function UnifiedLoginPage() {
             else if (user.role === "consultant") redirectUrl = "/consultant/dashboard";
 
             localStorage.setItem("pi_session", sessionData);
-            document.cookie = `pi_session=${encodeURIComponent(sessionData)}; path=/; max-age=86400`;
+
+            // 24/09/2026 (fix login method@): il middleware cerca PRIMA
+            // un cookie 'token' (semplice, non URL-encoded). Prima qui
+            // si scriveva solo 'pi_session' (JSON URL-encoded) - che
+            // funziona ma dipende dal fallback del middleware e dalla
+            // corretta decodifica. Scriviamo ENTRAMBI: 'token' per il
+            // middleware, 'pi_session' per retrocompatibilita' con il
+            // codice client che fa localStorage/sessionData.
+            document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
+            document.cookie = `pi_session=${encodeURIComponent(sessionData)}; path=/; max-age=86400; SameSite=Lax`;
 
             window.location.href = redirectUrl;
         } catch (err) {

@@ -21,9 +21,12 @@ export default function MagicLinkPage() {
                 }
 
                 // pulizia sessione precedente (sovrascrittura)
-                localStorage.removeItem("pi_session");
-                document.cookie = "pi_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                // 24/09/2026: NON cancelliamo piu' pi_session/token qui.
+                // Il magic link e' scope-limitato: autentica via
+                // Authorization: JWT <token> header (vedi middleware),
+                // non crea sessione cookie. Cancellare i cookie
+                // dell'utente butta fuori chi era gia' loggato (es.
+                // admin che testa il link) - bug trovato oggi.
 
                 // salva nuova sessione
                 const sessionData = JSON.stringify({

@@ -33,6 +33,12 @@ export default function ReferralDashboard() {
 
     const handleLogout = () => {
         localStorage.removeItem("pi_session");
+        // 24/09/2026 logout fix: cancella anche i cookie (pi_session
+        // per retrocompat, token per il middleware). Prima cancellava
+        // solo localStorage -> il middleware vedeva ancora il cookie
+        // 'token' valido -> redirect loop su /login.
+        document.cookie = "pi_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         window.location.href = "/login";
     };
 

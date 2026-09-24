@@ -59,6 +59,11 @@ export default function ClientDashboard() {
         localStorage.removeItem("pi_session");
         // ✅ Cancella anche il cookie
         document.cookie = "pi_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        // 24/09/2026 logout fix: cancella anche 'token' (il middleware
+        // lo verifica PRIMA di pi_session). Senza questa riga, un
+        // logout lasciava un cookie 'token' zombie che il middleware
+        // considerava valido -> redirect loop su /login.
+        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         window.location.href = "/login";
     };
 
