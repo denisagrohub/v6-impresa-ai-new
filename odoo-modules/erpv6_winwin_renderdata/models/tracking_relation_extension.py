@@ -1,3 +1,4 @@
+from odoo.exceptions import ValidationError
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -37,6 +38,13 @@ class Erpv6TrackingRelation(models.Model):
     x_v6_pitch_summary = fields.Text(
         string='Sommario pitch pubblico',
         help="Testo introduttivo per aziende esterne. Vuoto = usa charter.descrizione.")
+    # 24/09/2026: riserva minima V6 configurabile per progetto.
+    # Admin non puo' salvare split con riserva < questo valore.
+    x_v6_min_reserve_pct = fields.Float(
+        string='Riserva V6 minima (%)', default=70.0,
+        help="Soglia minima che la riserva V6 deve mantenere. La UI e "
+             "il constraint Odoo bloccano split che scendono sotto.")
+
     x_v6_pitch_enabled = fields.Boolean(
         string='Pitch pubblico attivo', default=False,
         help="Se True, /p/<email_alias> è accessibile senza login.")
@@ -441,3 +449,24 @@ class Erpv6TrackingRelation(models.Model):
             'sign_url': sign_req.request_url,
             'external_id': sign_req.external_id,
         }
+
+    @api.constrains('x_v6_revenue_split')
+    def _check_min_reserve(self):
+        """24/09/2026: la riserva V6 non puo' scendere sotto
+        x_v6_min_reserve_pct. Vale anche per scritture via shell/API,
+        non solo UI."""
+        import json
+        for r in self:
+            if not r.x_v6_revenue_split:
+                continue
+            try:
+                data = json.loads(r.x_v6_revenue_split)
+            except (ValueError, TypeError):
+                continue
+            riserva = float(data.get('riserva_v6_pct', 100))
+            minimo = r.x_v6_min_reserve_pct or 0
+            if riserva < minimo:
+                raise ValidationError(
+                    f"Riserva V6 ({riserva:.1f}%) sotto il minimo "
+                    f"configurato per questo progetto ({minimo:.1f}%)"
+                )

@@ -41,10 +41,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     await odoo.connect();
 
     // Blocco se già approvato
-    const [existing] = await odoo.execute('erpv6.tracking.relation', 'read', [[id], ['revenue_split_approved']]);
-    if (existing?.revenue_split_approved) {
-      return NextResponse.json({ success: false, error: 'Split già approvato, non modificabile' }, { status: 400 });
-    }
+    // 24/09/2026: modifica ammessa anche su split approvato.
+    // La write Odoo resetta accettazioni e stato -> nuova firma a tutti.
+    // Vecchio accordo firmato resta in libreria come prova storica.
+    // (Fase 2: versioning + firme incrementali.)
 
     const payload = {
       base: body.base || {},
