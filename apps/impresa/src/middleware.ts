@@ -20,6 +20,19 @@ async function getVerifiedSession(request: NextRequest): Promise<{ userId: numbe
   if (!JWT_SECRET) return null;
 
   let rawToken = request.cookies.get('token')?.value;
+
+  // 24/09/2026: accetta anche Authorization header (JWT o Bearer).
+  // Necessario per pagine "scope limitato" come /profilo-fiscale/<token>
+  // che autenticano via header senza creare sessione cookie completa.
+  if (!rawToken) {
+    const authHeader = request.headers.get('authorization') || '';
+    if (authHeader.startsWith('JWT ')) {
+      rawToken = authHeader.substring(4);
+    } else if (authHeader.startsWith('Bearer ')) {
+      rawToken = authHeader.substring(7);
+    }
+  }
+
   if (!rawToken) {
     const sessionCookie = request.cookies.get('pi_session')?.value;
     if (sessionCookie) {
