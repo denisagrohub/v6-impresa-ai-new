@@ -42,15 +42,17 @@ def _handle_split_v6(sign_request):
         'revenue_split_accepted_at': sign_request.signed_at or __import__('odoo').fields.Datetime.now(),
         'revenue_split_accepted_by': partner.user_ids[0].id if partner.user_ids else False,
     })
-    # se unico consulente o tutti hanno firmato -> approva
+    # se unico consulente o tutti hanno firmato -> finalizza
+    # (NON usare action_approve_revenue_split: e' un alias storico di
+    # action_freeze_and_send_split e rilancerebbe la firma!)
     try:
         import json as _json
         split = _json.loads(project.x_v6_revenue_split or '{}')
         consulenti = [b for b in (split.get('beneficiari') or []) if b.get('tipo') == 'consulente']
         if len(consulenti) <= 1:
-            project.action_approve_revenue_split()
+            project.action_finalize_split()
     except Exception:
-        _logger.exception('Auto-approvazione split fallita per progetto %s', project.id)
+        _logger.exception('Finalizzazione split fallita per progetto %s', project.id)
 
     # notifica admin (email + in-app)
     _notify_admin(sign_request, project=project)
@@ -68,10 +70,20 @@ def _handle_generic(sign_request):
 
 
 def _notify_admin(sign_request, project=None):
-    """Email + notifica in-app a Denis quando un documento e' firmato."""
-    admin_user = sign_request.env.ref('base.user_admin', raise_if_not_found=False)
-    if not admin_user:
+    """Email a Denis quando un documento e' firmato.
+
+    24/09/2026: usa send_system_mail (stesso helper delle altre email
+    sistema) invece di message_notify, che decideva in-app/email in base
+    alle preferenze partner e andava su base.user_admin (method@...).
+    """
+    from odoo.addons.erpv6_referral.models.system_mail_helper import (
+        send_system_mail, get_admin_email,
+    )
+    admin_email = get_admin_email(sign_request.env)
+    if not admin_email:
+        _logger.warning('Nessuna email admin configurata, skip notifica firma')
         return
+
     partner = sign_request.partner_id
     doc_type_label = dict(sign_request._fields['related_kind'].selection).get(
         sign_request.related_kind or 'altro', 'Documento')
@@ -85,18 +97,19 @@ def _notify_admin(sign_request, project=None):
         f'<p>• <b>Data firma:</b> {sign_request.signed_at or "ora"}</p>'
     )
     if project:
-        body += f'<p>• <b>Progetto:</b> {project.name}</p>'
-    body += (
-        f'<p style="margin-top:1em;">'
-        f'<a href="/web#id={sign_request.id}&model=erpv6.sign.request&view_type=form" '
-        f'style="background:#0f172a;color:white;padding:6px 12px;border-radius:4px;text-decoration:none;">'
-        f'Apri richiesta firma</a></p>'
-    )
-    try:
-        sign_request.message_notify(
-            partner_ids=[admin_user.partner_id.id],
-            subject=subject,
-            body=body,
+        body += (
+            f'<p>• <b>Progetto:</b> {project.name}</p>'
+            f'<p style="margin-top:1em;">'
+            f'<a href="https://www.v6impresa.it/admin/partner-projects/{project.id}" '
+            f'style="background:#0f172a;color:white;padding:6px 12px;'
+            f'border-radius:4px;text-decoration:none;">'
+            f'Apri progetto</a></p>'
         )
-    except Exception:
-        _logger.exception('Notifica firma ad admin fallita')
+    send_system_mail(
+        sign_request.env,
+        admin_email,
+        subject,
+        body,
+        model='erpv6.sign.request',
+        res_id=sign_request.id,
+    )

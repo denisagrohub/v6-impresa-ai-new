@@ -97,6 +97,18 @@ class Erpv6TrackingRelationReferralExtension(models.Model):
                 _logger.exception('Invio firme fallito')
         return True
 
+    def action_finalize_split(self):
+        """24/09/2026: chiamato dal webhook post-firma per rendere
+        DEFINITIVO lo split. Diverso da action_freeze_and_send_split
+        (che invia) e da action_approve_revenue_split (alias storico)."""
+        for r in self:
+            r.write({
+                'revenue_split_state': 'approvato',
+                'revenue_split_approved': True,
+                'revenue_split_approved_at': fields.Datetime.now(),
+            })
+        return True
+
     def action_approve_revenue_split(self):
         """DEPRECATO: mantieni per compatibilita' UI. Redirige a
         action_freeze_and_send_split. Non rende piu' definitivo."""
