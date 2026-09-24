@@ -1,3 +1,4 @@
+from datetime import timedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 import logging
@@ -135,6 +136,29 @@ class SignRequest(models.Model):
         except Exception:
             _logger.exception('Verifica stato firma fallita')
 
+
+    @api.model
+    def action_check_pending_signatures(self):
+        """24/09/2026: cron di riconciliazione. Il webhook Documenso ha
+        timeout basso e fallisce su payload grandi (verificato: status 0).
+        Questo cron chiama action_check_status su tutti i sign request
+        'sent'/'viewed' da piu' di 10 minuti, cosi' lo stato si allinea
+        senza dipendere dal webhook."""
+        cutoff = fields.Datetime.now() - timedelta(minutes=10)
+        pending = self.sudo().search([
+            ('status', 'in', ['sent', 'viewed']),
+            ('external_id', '!=', False),
+            ('sent_at', '<', cutoff),
+        ])
+        count = 0
+        for sr in pending:
+            try:
+                sr.action_check_status()
+                count += 1
+            except Exception:
+                _logger.exception('Reconciliazione stato fallita per sr %s', sr.id)
+        _logger.info('Reconciliazione firme: %s richieste controllate', count)
+        return count
 
     def action_cancel(self):
         """Annulla la richiesta di firma (se non ancora firmata)."""
