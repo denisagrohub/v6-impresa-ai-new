@@ -50,15 +50,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
     if (partnerIdArr.length) {
       const partnerEmails = await odoo.execute('res.partner', 'search_read', [
         [['id', 'in', partnerIdArr]],
-        ['id', 'email'],
+        ['id', 'email', 'is_company'],
       ]);
-      const emailMap: Record<number, string> = {};
-      for (const p of partnerEmails || []) emailMap[p.id] = p.email;
+      const emailMap: Record<number, { email: string | null; isCompany: boolean }> = {};
+      for (const p of partnerEmails || []) emailMap[p.id] = { email: p.email || null, isCompany: !!p.is_company };
       for (const c of allChildren) {
         const pid = Array.isArray(c.partner_id) ? c.partner_id[0] : null;
         const cid = Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[0] : null;
-        c._partner_email = pid ? emailMap[pid] : null;
-        c._contatto_email = cid ? emailMap[cid] : null;
+        c._partner_email = pid ? (emailMap[pid]?.email || null) : null;
+        c._partner_is_company = pid ? (emailMap[pid]?.isCompany || false) : false;
+        c._contatto_email = cid ? (emailMap[cid]?.email || null) : null;
       }
     }
     // Nuovo modello: parti = figli NON target (committente, consulente, ecc.)
@@ -157,6 +158,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         partnerId: Array.isArray(c.partner_id) ? c.partner_id[0] : null,
         partnerName: Array.isArray(c.partner_id) ? c.partner_id[1] : null,
         partnerEmail: c._partner_email || null,
+        partnerIsCompany: c._partner_is_company || false,
         contattoEmail: c._contatto_email || null,
         contattoId: Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[0] : null,
         contattoName: Array.isArray(c.contatto_principale_id) ? c.contatto_principale_id[1] : null,

@@ -178,9 +178,16 @@ export default function RevenueSplitCard({
                       className="flex-1 px-2 py-1 rounded border text-xs disabled:bg-gray-100"
                     >
                       <option value="">— scegli persona —</option>
-                      {partners.map((p) => (
-                        <option key={p.id} value={p.partnerId || p.id}>{p.partnerName || '?'}</option>
-                      ))}
+                      {partners
+                        // 25/09/2026: escludi aziende target (Power Ventures,
+                        // RiESCo, ecc.) - sono nodi figli con is_company=true
+                        // e non hanno senso nello split consulenti. Prima
+                        // apparivano come '??' perché partnerName non è
+                        // risolto per loro.
+                        .filter((p: any) => !p.partnerIsCompany)
+                        .map((p) => (
+                          <option key={p.id} value={p.partnerId || p.id}>{p.partnerName || p.name || '?'}</option>
+                        ))}
                     </select>
                     <select
                       value={b.tipo}
