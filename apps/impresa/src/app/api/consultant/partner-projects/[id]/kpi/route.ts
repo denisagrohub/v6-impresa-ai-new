@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             [['relation_id', '=', id], ['create_date', '>=', new Date(Date.now() - 30*24*60*60*1000).toISOString().replace('T', ' ').slice(0,19)]],
         ]).catch(() => 0);
 
-        let kpiTargets = {};
+        let kpiTargets: Record<string, any> = {};
         try { kpiTargets = JSON.parse(p.x_v6_kpi_targets || '{}'); } catch {}
 
         return NextResponse.json({

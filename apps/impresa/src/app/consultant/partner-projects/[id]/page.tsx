@@ -7,7 +7,6 @@ import {
     Target as TargetIcon, FileText, TrendingUp, RefreshCw, Users,
 } from "lucide-react";
 import KpiDashboard from "@/components/admin/kpi/KpiDashboard";
-import CopertinaPage, { type OperativaContext } from "@/components/admin/CopertinaPage";
 
 type Tab = 'copertina' | 'parti' | 'documenti' | 'email' | 'target' | 'kpi' | 'compenso';
 
@@ -189,18 +188,16 @@ export default function PartnerProjectDetail() {
 
                         {/* COPERTINA */}
                         {tab === 'copertina' && (
-                            <CopertinaPage
-                                mode="consultant"
-                                projectId={Number(id)}
-                                projectName={data.name}
-                                baseCompenso={null}
-                                onBack={() => {}}
-                                onOpenOperativa={(ctx) => { if (ctx.type === 'target') openTargetDetail(ctx.id); }}
-                                onOpenDetail={() => {}}
-                                onOpenCharter={() => {}}
-                                onOpenSettings={() => {}}
-                            />
-                        )}
+                            <div className="space-y-4">
+                                {data.charter && data.charter.data ? (
+                                    <>
+                                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                                            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-4">📋 Charter progetto</h2>
+                                            <div className="space-y-3">
+                                                {data.charter.data.origin && (
+                                                    <div><div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Origine</div>
+                                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.charter.data.origin}</p></div>
+                                                )}
                                                 {data.charter.data.regulatoryContext && (
                                                     <div><div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Contesto normativo</div>
                                                         <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.charter.data.regulatoryContext}</p></div>
