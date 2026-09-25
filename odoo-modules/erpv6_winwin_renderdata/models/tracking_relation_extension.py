@@ -270,6 +270,29 @@ class Erpv6TrackingRelation(models.Model):
         if not consulenti:
             return {'error': 'Nessun consulente nello split'}
 
+        # 25/09/2026: prima di creare i nuovi sign request, annulla tutti
+        # quelli vecchi (sent/viewed) dello stesso progetto -> altrimenti
+        # il consulente riceve 3 email con 3 link diversi e rischia di
+        # firmare la versione sbagliata (bug trovato su Christian: aveva
+        # sr 11, 8, 7 tutti 'sent' contemporaneamente).
+        SignReq = self.env['erpv6.sign.request'].sudo()
+        orphans = SignReq.search([
+            ('split_project_id', '=', self.id),
+            ('status', 'in', ['sent', 'viewed']),
+        ])
+        for orphan in orphans:
+            try:
+                # Usa action_cancel (chiama adapter Documenso + log)
+                try:
+                    orphan.action_cancel()
+                except Exception:
+                    _logger.warning('action_cancel fallito per sr %s, forzo cancelled', orphan.id)
+                    orphan.write({'status': 'cancelled'})
+                _logger.info('Annullato sign request orfano %s (split %s)',
+                             orphan.id, self.id)
+            except Exception:
+                _logger.exception('Cancel sign request orfano %s fallito', orphan.id)
+
         Partner = self.env['res.partner'].sudo()
         sent = []
         missing_data = []
