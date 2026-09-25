@@ -1,3 +1,4 @@
+from odoo import fields
 """23/09/2026: handler del post-firma per tipo documento.
 
 Quando Documenso invia il webhook DOCUMENT_COMPLETED, il controller
@@ -32,25 +33,61 @@ def dispatch_post_sign_handler(sign_request):
 
 
 def _handle_split_v6(sign_request):
-    """Aggiorna il progetto: split accettato + approvato + notifica admin."""
+    """25/09/2026: finalizza lo split SOLO quando TUTTI i consulenti
+    beneficiari hanno firmato. Prima finalizzava se c'era <=1 consulente,
+    ma con 2+ consulenti finalizzava al PRIMO firmatario (bug trovato
+    durante test Martina/Christian)."""
     if not sign_request.split_project_id:
         return
     project = sign_request.split_project_id
     partner = sign_request.partner_id
-    # conferma accettazione definitiva
+
+    # 1. Registra accettazione del firmatario corrente
     project.write({
-        'revenue_split_accepted_at': sign_request.signed_at or __import__('odoo').fields.Datetime.now(),
+        'revenue_split_accepted_at': sign_request.signed_at or fields.Datetime.now(),
         'revenue_split_accepted_by': partner.user_ids[0].id if partner.user_ids else False,
     })
-    # se unico consulente o tutti hanno firmato -> finalizza
-    # (NON usare action_approve_revenue_split: e' un alias storico di
-    # action_freeze_and_send_split e rilancerebbe la firma!)
+
+    # 2. Conta consulenti attesi dallo split
     try:
         import json as _json
         split = _json.loads(project.x_v6_revenue_split or '{}')
-        consulenti = [b for b in (split.get('beneficiari') or []) if b.get('tipo') == 'consulente']
-        if len(consulenti) <= 1:
+        consulenti = [b for b in (split.get('beneficiari') or [])
+                      if b.get('tipo') == 'consulente']
+        partner_attesi = {b.get('res_partner_id') for b in consulenti
+                          if b.get('res_partner_id')}
+
+        if not partner_attesi:
+            _logger.warning('Split %s: nessun consulente nello split', project.id)
+            _notify_admin(sign_request, project=project)
+            return
+
+        # 3. Chi ha firmato? (tutti i sign request signed sul progetto)
+        srs_firmati = sign_request.env['erpv6.sign.request'].search([
+            ('split_project_id', '=', project.id),
+            ('status', '=', 'signed'),
+        ])
+        partner_firmati = {sr.partner_id.id for sr in srs_firmati if sr.partner_id}
+        mancanti = partner_attesi - partner_firmati
+
+        _logger.info(
+            'Split %s | attesi=%s | firmati=%s | mancanti=%s',
+            project.id, partner_attesi, partner_firmati, mancanti,
+        )
+
+        if mancanti:
+            # Aspetta gli altri - NON finalizzare
+            _logger.info(
+                'Split %s: in attesa firma da partner %s',
+                project.id, list(mancanti),
+            )
+        else:
+            # Tutti hanno firmato -> finalizza
             project.action_finalize_split()
+            _logger.info(
+                'Split %s: FINALIZZATO (tutti i %s consulenti hanno firmato)',
+                project.id, len(partner_attesi),
+            )
     except Exception:
         _logger.exception('Finalizzazione split fallita per progetto %s', project.id)
 
