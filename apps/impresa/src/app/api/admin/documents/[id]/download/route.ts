@@ -1,32 +1,26 @@
-import { NextResponse } from 'next/server';
-import { odoo } from '@/lib/odoo/api-adapter';
+import { NextRequest, NextResponse } from 'next/server';
+import { isOdooEnabled } from '@/config/system';
 
-// 10/09/2026 (Denis: "il documento creato" deve essere visibile nel
-// progetto) - scarica il file reale (erpv6.library.document.file,
-// Binary/base64) invece di mostrare solo il nome.
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const id = parseInt(params.id, 10);
-  if (!id) return NextResponse.json({ success: false, error: 'ID non valido' }, { status: 400 });
+const ODOO_URL = process.env.NEXT_PUBLIC_API_URL || 'https://erp.v6sviluppoimpresa.it';
 
-  try {
-    await odoo.connect();
-    const docs = await odoo.execute('erpv6.library.document', 'search_read', [
-      [['id', '=', id]], ['file', 'file_name', 'name'],
-    ]);
-    const doc = docs && docs[0];
-    if (!doc || !doc.file) {
-      return NextResponse.json({ success: false, error: 'Documento non trovato o senza file' }, { status: 404 });
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+    if (!isOdooEnabled()) return NextResponse.json({ error: 'Odoo non configurato' }, { status: 503 });
+    const authHeader = request.headers.get('authorization') || request.headers.get('cookie');
+    try {
+        const res = await fetch(`${ODOO_URL}/api/v1/admin/documents/${params.id}/download`, {
+            headers: { Authorization: authHeader || '' },
+        });
+        if (!res.ok) {
+            const text = await res.text();
+            return new NextResponse(text, { status: res.status });
+        }
+        const buffer = await res.arrayBuffer();
+        const cd = res.headers.get('content-disposition') || 'attachment';
+        return new NextResponse(buffer, {
+            status: 200,
+            headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': cd },
+        });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 502 });
     }
-    const buffer = Buffer.from(doc.file, 'base64');
-    const fileName = doc.file_name || `${doc.name || 'documento'}.pdf`;
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
-      },
-    });
-  } catch (error: any) {
-    console.error('❌ Errore /api/admin/documents/[id]/download:', error.message);
-    return NextResponse.json({ success: false, error: error.message || 'Errore di connessione a Odoo' }, { status: 503 });
-  }
 }

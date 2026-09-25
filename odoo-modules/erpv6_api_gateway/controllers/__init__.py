@@ -13,6 +13,7 @@ from . import consultant_payments_api
 from . import consultant_split_api
 from . import consultant_me_api
 from . import consultant_sign_api
+from . import admin_documents_api
 from . import frontend_error_api
 
 # API Trasversali
