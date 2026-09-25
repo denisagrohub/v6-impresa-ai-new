@@ -25,6 +25,7 @@ type SignRequest = {
   signedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  notes?: string | null;
 };
 
 const KIND_LABELS: Record<string, string> = {
@@ -37,7 +38,7 @@ const KIND_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string; icon: any }> = {
-  draft:     { label: "Bozza",     color: "bg-gray-100 text-gray-700",     icon: FileText },
+  draft:     { label: "In attesa dati", color: "bg-yellow-100 text-yellow-800", icon: AlertCircle },
   sent:      { label: "Inviata",   color: "bg-amber-100 text-amber-800",   icon: Send },
   viewed:    { label: "Vista",     color: "bg-blue-100 text-blue-800",     icon: Eye },
   signed:    { label: "Firmata",   color: "bg-emerald-100 text-emerald-800", icon: CheckCircle },
@@ -347,6 +348,9 @@ export default function AdminFirmePage() {
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${st.color}`}>
                             <Icon size={12} /> {st.label}
                           </span>
+                          {sr.status === "draft" && sr.notes && (
+                            <span className="ml-2 text-[10px] text-yellow-700">{sr.notes}</span>
+                          )}
                           {stale && <span className="ml-2 text-[10px] text-amber-600 font-semibold">ferma da giorni</span>}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500" title={refDate ? new Date(refDate.replace(" ", "T") + "Z").toLocaleString("it-IT") : ""}>

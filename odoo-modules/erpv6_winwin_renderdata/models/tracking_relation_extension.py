@@ -278,7 +278,7 @@ class Erpv6TrackingRelation(models.Model):
         SignReq = self.env['erpv6.sign.request'].sudo()
         orphans = SignReq.search([
             ('split_project_id', '=', self.id),
-            ('status', 'in', ['sent', 'viewed']),
+            ('status', 'in', ['draft', 'sent', 'viewed']),
         ])
         for orphan in orphans:
             try:
@@ -315,6 +315,28 @@ class Erpv6TrackingRelation(models.Model):
                     'partner_name': partner.name,
                     'missing': missing,
                 })
+                # 25/09/2026: crea un sign request in DRAFT per dare visibilita'
+                # nella tab /admin/firme. Prima non creava nulla -> il consulente
+                # in attesa dati non appariva da nessuna parte. Quando compilera'
+                # i dati (consultant_me_api), action_send_split_to_sign verra'
+                # richiamato e il draft diventera' 'sent' col PDF generato.
+                try:
+                    SignReq.create({
+                        'name': f'Accordo Split V6 — {self.name} — {partner.name}',
+                        'partner_id': pid,
+                        'split_project_id': self.id,
+                        'related_kind': 'split_v6',
+                        'related_id': self.id,
+                        'related_model': 'erpv6.tracking.relation',
+                        'status': 'draft',
+                        'notes': f"In attesa dati fiscali: {', '.join(missing)}",
+                    })
+                    _logger.info(
+                        'Creato sign request draft per partner %s (dati mancanti: %s)',
+                        pid, missing,
+                    )
+                except Exception:
+                    _logger.exception('Creazione sign request draft fallita per partner %s', pid)
                 continue
 
             # genera PDF + sign request

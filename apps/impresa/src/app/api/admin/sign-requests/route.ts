@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       domain,
       ['id', 'name', 'related_kind', 'status', 'external_id',
        'partner_id', 'split_project_id', 'sent_at', 'signed_at',
-       'create_date', 'write_date', 'request_url'],
+       'create_date', 'write_date', 'request_url', 'notes'],
       offset, limit, 'create_date desc',
     ]);
 
@@ -87,6 +87,7 @@ export async function GET(request: Request) {
         signedAt: sr.signed_at || null,
         createdAt: sr.create_date,
         updatedAt: sr.write_date,
+        notes: sr.notes || null,
       })),
       total: typeof total === 'number' ? total : (total?.length ?? 0),
       counts,
