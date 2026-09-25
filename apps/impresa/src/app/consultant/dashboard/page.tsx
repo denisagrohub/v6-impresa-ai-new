@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply, ReplyAll, Forward, Send,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
-, Trash2, Plus , Archive, ArchiveRestore } from "lucide-react";
+, Trash2, Plus, Archive, ArchiveRestore, PenTool, Download, FileCheck2 } from "lucide-react";
 import EmailAttachmentsInput from "@/components/EmailAttachmentsInput";
 import type { AttachedFile } from "@/components/EmailAttachmentsInput";
 import EmailRecipientInput from "@/components/EmailRecipientInput";
@@ -46,6 +46,9 @@ export default function ConsultantDashboard() {
     const [paymentsLoading, setPaymentsLoading] = useState(false);
     const [partnerProjects, setPartnerProjects] = useState<any>(null);
     const [partnerProjectsLoading, setPartnerProjectsLoading] = useState(false);
+    // 25/09/2026: firme del consulente (split, NDA, ...)
+    const [signRequests, setSignRequests] = useState<any[]>([]);
+    const [signLoading, setSignLoading] = useState(false);
 
     // Tab "Progetti" e "Richieste" collegati per davvero a Odoo il
     // 25/08/2026 (compito "dashboard consulente", compito 2) - prima
@@ -221,6 +224,7 @@ export default function ConsultantDashboard() {
 
     useEffect(() => {
         if (activeTab === 'partner' && user?.token) loadPartnerProjects();
+        if (activeTab === 'firme' && user?.token) loadSignRequests();
     }, [activeTab, user]);
 
     const loadCalendarEvents = async () => {
@@ -527,6 +531,24 @@ export default function ConsultantDashboard() {
         }
     };
 
+    const loadSignRequests = async () => {
+        if (!user?.token) return;
+        setSignLoading(true);
+        try {
+            const res = await fetch('/api/consultant/sign-requests', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.error || 'Errore caricamento firme');
+            setSignRequests(data.signRequests || []);
+        } catch (error) {
+            console.error('Errore caricamento firme:', error);
+            setSignRequests([]);
+        } finally {
+            setSignLoading(false);
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem("pi_session");
         document.cookie = "pi_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -552,6 +574,7 @@ export default function ConsultantDashboard() {
         { id: "progetti", label: "Progetti Consulenza", icon: FolderOpen },
         { id: "partner", label: "Progetti Partner", icon: Handshake },
         { id: "pagamenti", label: "Pagamenti", icon: Euro },
+        { id: "firme", label: "Firme", icon: PenTool },
         { id: "richieste", label: "Richieste", icon: AlertTriangle },
         { id: "calendario", label: "Calendario", icon: Calendar },
         { id: "profilo", label: "Profilo fiscale", icon: FileText },
@@ -613,6 +636,7 @@ export default function ConsultantDashboard() {
                         {activeTab === 'partner' && 'Progetti Partner'}
                         {activeTab === 'email' && 'Le Mie Email'}
                         {activeTab === 'pagamenti' && 'I Miei Compensi'}
+                        {activeTab === 'firme' && 'Le Mie Firme'}
                         {activeTab === 'richieste' && 'Richieste & Segnalazioni'}
                         {activeTab === 'calendario' && 'Calendario e Rischi'}
                         {activeTab === 'profilo' && 'Profilo fiscale'}
@@ -959,6 +983,95 @@ export default function ConsultantDashboard() {
 
                 
                 {/* TAB: PAGAMENTI (21/09/2026) */}
+                {activeTab === "firme" && (
+                    <div className="space-y-6">
+                        {/* Da firmare */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-bold text-[#1a2744] flex items-center gap-2">
+                                    <PenTool size={18} className="text-amber-500" />
+                                    Da firmare
+                                </h2>
+                                {signLoading && <span className="text-xs text-gray-400">Caricamento…</span>}
+                            </div>
+                            {(() => {
+                                const pending = signRequests.filter((s) => ['draft', 'sent', 'viewed'].includes(s.status));
+                                if (!signLoading && pending.length === 0) {
+                                    return <p className="text-sm text-gray-500">Nessuna firma in attesa. 🎉</p>;
+                                }
+                                return (
+                                    <div className="space-y-2">
+                                        {pending.map((s) => (
+                                            <div key={s.id} className="flex items-center justify-between gap-3 bg-gray-50 rounded-xl p-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-semibold text-[#1a2744] truncate" title={s.name}>{s.name}</div>
+                                                    <div className="text-xs text-gray-500 mt-0.5">
+                                                        {s.projectName && <span>{s.projectName}</span>}
+                                                        {s.status === 'draft' && <span className="ml-2 text-yellow-700 font-medium">In attesa dati fiscali</span>}
+                                                    </div>
+                                                    {s.notes && s.status === 'draft' && (
+                                                        <div className="text-[10px] text-yellow-700 mt-0.5">{s.notes}</div>
+                                                    )}
+                                                </div>
+                                                {s.status === 'draft' ? (
+                                                    <button
+                                                        onClick={() => setActiveTab('profilo')}
+                                                        className="px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-800 text-xs font-semibold hover:bg-yellow-200"
+                                                    >
+                                                        Compila profilo
+                                                    </button>
+                                                ) : s.requestUrl ? (
+                                                    <a href={s.requestUrl} target="_blank" rel="noopener noreferrer"
+                                                        className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 flex items-center gap-1">
+                                                        <PenTool size={12} /> Firma
+                                                    </a>
+                                                ) : null}
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Firmate */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                            <h2 className="text-lg font-bold text-[#1a2744] mb-4 flex items-center gap-2">
+                                <FileCheck2 size={18} className="text-emerald-500" />
+                                Firmate
+                            </h2>
+                            {(() => {
+                                const signed = signRequests.filter((s) => s.status === 'signed');
+                                if (!signLoading && signed.length === 0) {
+                                    return <p className="text-sm text-gray-500">Nessun documento firmato finora.</p>;
+                                }
+                                return (
+                                    <div className="space-y-2">
+                                        {signed.map((s) => (
+                                            <div key={s.id} className="flex items-center justify-between gap-3 bg-emerald-50/50 rounded-xl p-3 border border-emerald-100">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-semibold text-[#1a2744] truncate" title={s.name}>{s.name}</div>
+                                                    <div className="text-xs text-gray-500 mt-0.5">
+                                                        {s.projectName && <span>{s.projectName} · </span>}
+                                                        Firmato il {s.signedAt ? new Date(s.signedAt).toLocaleDateString('it-IT') : '—'}
+                                                    </div>
+                                                </div>
+                                                {s.hasSignedDocument ? (
+                                                    <a href={`/api/consultant/sign-requests/${s.id}/download`}
+                                                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1">
+                                                        <Download size={12} /> PDF
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-400">PDF in elaborazione</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === "pagamenti" && (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
