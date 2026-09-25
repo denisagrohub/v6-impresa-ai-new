@@ -179,12 +179,16 @@ export default function RevenueSplitCard({
                     >
                       <option value="">— scegli persona —</option>
                       {partners
-                        // 25/09/2026: escludi aziende target (Power Ventures,
-                        // RiESCo, ecc.) - sono nodi figli con is_company=true
-                        // e non hanno senso nello split consulenti. Prima
-                        // apparivano come '??' perché partnerName non è
-                        // risolto per loro.
-                        .filter((p: any) => !p.partnerIsCompany)
+                        // 25/09/2026: escludi:
+                        // - aziende target (Power Ventures, RiESCo, isCompany=true)
+                        // - referenti target (Marco Nardi, Attilio Fallini) che
+                        //   arrivano con fromTargetId != null - sono contatti
+                        //   delle aziende target, non consulenti V6.
+                        .filter((p: any) =>
+                          !p.partnerIsCompany
+                          && !p.fromTargetId
+                          && p.funzione_progetto !== 'referente_tecnico'
+                        )
                         .map((p) => (
                           <option key={p.id} value={p.partnerId || p.id}>{p.partnerName || p.name || '?'}</option>
                         ))}
