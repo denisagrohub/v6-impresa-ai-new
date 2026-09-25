@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FolderKanban, CheckCircle2, Mail, Users,
   Settings, LogOut, TrendingUp, Clock, FileText, Building2,
   Briefcase, Landmark, Palette, Target, Server, Calculator,
-  AlertTriangle, Brain, Shield, Key, Plus, Package, UserCog, Phone
+  AlertTriangle, Brain, Shield, Key, Plus, Package, UserCog, Phone, PenTool
 } from "lucide-react";
 import { OdooStatus } from "@/components/admin/OdooStatus";
 
@@ -135,6 +135,7 @@ export default function AdminDashboard() {
     { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
     { icon: FolderKanban, label: "Progetti", href: "/admin/projects" },
     { icon: Users, label: "Progetti Partner", href: "/admin/partner-projects" },
+    { icon: PenTool, label: "Firme", href: "/admin/firme" },
     { icon: UserCog, label: "Team (Consulenti/Referral/Slot)", href: "/admin/team" },
     { icon: Phone, label: "Call Prenotate", href: "/admin/bookings" },
     { icon: CheckCircle2, label: "Validazione", href: "/admin/validazione" },
