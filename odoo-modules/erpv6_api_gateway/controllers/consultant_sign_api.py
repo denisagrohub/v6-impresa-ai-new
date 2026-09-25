@@ -79,3 +79,41 @@ class ConsultantSignAPIController(ConsultantAPIController):
             'signRequests': result,
             'total': len(result),
         })
+
+    @http.route('/api/v1/consultant/sign-requests/<int:sr_id>/download',
+                type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def get_consultant_sign_request_download(self, sr_id, **kwargs):
+        """Scarica il PDF firmato di un sign request del consulente loggato.
+        Solo se status='signed' e partner_id == user.partner_id."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+
+        start_time = time.time()
+        user, error_response = self._authenticate(require_auth=True)
+        if error_response:
+            return error_response
+
+        env = request.env
+        if 'erpv6.sign.request' not in env:
+            return self._json_response({'error': 'erpv6_sign non installato'}, 501)
+
+        sr = env['erpv6.sign.request'].sudo().browse(sr_id)
+        if not sr.exists():
+            return self._json_response({'error': 'Firma non trovata'}, 404)
+        if sr.partner_id.id != user.partner_id.id:
+            return self._json_response({'error': 'Non autorizzato'}, 403)
+        if sr.status != 'signed':
+            return self._json_response({'error': 'Documento non ancora firmato'}, 400)
+        if not sr.signed_document:
+            return self._json_response({'error': 'PDF firmato non disponibile'}, 404)
+
+        import base64
+        pdf_bytes = base64.b64decode(sr.signed_document)
+        filename = f"{sr.name or 'documento'}.pdf".replace('/', '_').replace('—', '-')
+        return request.make_response(
+            pdf_bytes,
+            headers=[
+                ('Content-Type', 'application/pdf'),
+                ('Content-Disposition', f'attachment; filename="{filename}"'),
+            ],
+        )
