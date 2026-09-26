@@ -9,3 +9,5 @@ from . import production_order_dashboard_extension
 from . import email_log
 from . import partnership_candidacy
 from . import admin_dashboard_extension
+from . import res_partner_extension
+from . import revenue_split_version

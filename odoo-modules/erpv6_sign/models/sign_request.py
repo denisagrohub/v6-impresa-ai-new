@@ -57,6 +57,12 @@ class SignRequest(models.Model):
         ondelete='set null',
         help="Valorizzato quando la firma viene dal composer admin.")
 
+    # 26/09/2026: link alla versione split V6 (versioning)
+    split_version_id = fields.Many2one(
+        'erpv6.revenue.split.version', string='Versione Split',
+        ondelete='set null',
+        help="Valorizzato quando la firma viene da una versione split V6.")
+
     # 23/09/2026: dispatch generico per il webhook. Il tipo di documento
     # firmato determina quale handler applicare al callback Documenso.
     related_kind = fields.Selection([
