@@ -475,7 +475,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                     'recipient_emails': ', '.join(to_list),
                     'cc_emails': ', '.join(cc_list) if cc_list else '',
                     'direction': 'inviata',
-                    'match_status': 'manuale',
+                    'match_status': 'matched' if relation_id else 'alias_riconosciuto_progetto_mancante',
                     'matched_alias': user_slug or 'admin',
                     'recipient_user_id': user.id,
                     'relation_id': relation_id,
