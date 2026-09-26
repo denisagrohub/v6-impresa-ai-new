@@ -1,586 +1,431 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import {
-    ArrowLeft, Loader2, RefreshCw, Plus, Trash2, X, Send,
-    CornerUpLeft, CornerUpRight, ReplyAll,
-    Archive, ArchiveRestore } from "lucide-react";
-import EmailAttachmentsInput from "@/components/EmailAttachmentsInput";
-import type { AttachedFile } from "@/components/EmailAttachmentsInput";
-import EmailRecipientInput from "@/components/EmailRecipientInput";
+  LayoutDashboard, FolderKanban, Users, Settings, LogOut,
+  CheckCircle2, Mail, Calculator, Landmark, FileText, Palette, Target,
+  AlertTriangle, Brain, Shield, Package, UserCog, Phone, PenTool,
+  FileSignature, Code2, Search, RefreshCw, AlertCircle,
+  Inbox, Send, Archive, MailOpen, Mail as MailUnread, Reply, Trash2,
+  ArrowLeft, Paperclip, ChevronLeft, Circle
+} from "lucide-react";
+
+type Mailbox = {
+  alias: string;
+  label?: string;
+  total: number;
+  unread: number;
+  lastDate: string | null;
+};
+
+type Email = {
+  id: number;
+  kind: 'winwin' | 'project';
+  name: string;
+  sender_email: string;
+  recipient_emails: string;
+  cc_emails: string;
+  direction: 'ricevuta' | 'inviata';
+  matched_alias: string;
+  match_status: string;
+  relation_id: number | null;
+  relation_name: string | null;
+  is_read: boolean;
+  is_archived: boolean;
+  create_date: string | null;
+};
+
+function shortDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "ora";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}g`;
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
+}
+
+function extractEmail(s: string): string {
+  if (!s) return '';
+  const m = s.match(/<([^>]+)>/);
+  return m ? m[1] : s;
+}
 
 export default function AdminMiaEmailPage() {
-    const router = useRouter();
-    const [user, setUser] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    const [emailsData, setEmailsData] = useState<any>(null);
-    const [emailFolder, setEmailFolder] = useState<"all" | "ricevute" | "inviate">("all");
-    const [unreadCount, setUnreadCount] = useState(0);
-    const [emailSearch, setEmailSearch] = useState('');
-    const [emailArchivedView, setEmailArchivedView] = useState(false);
-    const [emailProjectFilter, setEmailProjectFilter] = useState<string>('');
-    const [emailsLoading, setEmailsLoading] = useState(false);
-    const [emailDetail, setEmailDetail] = useState<any>(null);
-    const [emailDetailLoading, setEmailDetailLoading] = useState(false);
-    const [emailAttachments, setEmailAttachments] = useState<{id:number;name:string;mimetype?:string;size?:number}[]>([]);
-    const [composer, setComposer] = useState<any>(null);
-    const [composerSending, setComposerSending] = useState(false);
-    const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
+  const [totalUnread, setTotalUnread] = useState(0);
+  const [activeMailbox, setActiveMailbox] = useState<string>('__all__');
 
-    useEffect(() => {
-        const session = localStorage.getItem("pi_session");
-        if (!session) { router.push("/login"); return; }
-        const u = JSON.parse(session);
-        setUser(u);
-        setLoading(false);
-    }, [router]);
+  const [emails, setEmails] = useState<Email[]>([]);
+  const [emailsLoading, setEmailsLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterDirection, setFilterDirection] = useState<'all' | 'in' | 'out'>('all');
+  const [showArchived, setShowArchived] = useState(false);
 
-    useEffect(() => { if (user?.token) { loadEmails(); loadUnread(); } }, [user, emailArchivedView]);
+  const [selected, setSelected] = useState<Email | null>(null);
+  const [detail, setDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
-    useEffect(() => {
-        if (!user?.token) return;
-        const t = setInterval(() => { loadEmails(); loadUnread(); }, 60000);
-        return () => clearInterval(t);
-    }, [user, emailArchivedView]);
+  useEffect(() => {
+    const session = localStorage.getItem("pi_session");
+    if (!session) { window.location.href = "/login"; return; }
+    const u = JSON.parse(session);
+    setUser(u);
+    loadMailboxes(u);
+  }, []);
 
-    const loadEmails = async () => {
-        if (!user?.token) return;
-        setEmailsLoading(true);
-        try {
-            const res = await fetch('/api/consultant/emails?' + (emailArchivedView ? 'archived=1&' : '') + 'all=1', {
-                headers: { Authorization: `JWT ${user.token}` },
-            });
-            const data = await res.json();
-            setEmailsData(data);
-        } catch {
-            setEmailsData({ emails: [], error: 'Errore di rete' });
-        } finally { setEmailsLoading(false); }
-    };
-
-    // 22/09/2026: lista progetti unici (relation_id) dalle email caricate
-    const projectOptions = (() => {
-        const map = new Map<number, string>();
-        (emailsData?.emails || []).forEach((e: any) => {
-            if (e.relation_id && e.relation_name) map.set(e.relation_id, e.relation_name);
-        });
-        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-    })();
-
-    const loadUnread = async () => {
-        if (!user?.token) return;
-        try {
-            const res = await fetch('/api/consultant/emails/unread-count', {
-                headers: { Authorization: `JWT ${user.token}` },
-            });
-            const d = await res.json();
-            setUnreadCount(d.unread || 0);
-        } catch { /* best effort */ }
-    };
-
-    const openEmailDetail = async (id: number) => {
-        if (!user?.token) return;
-        setEmailDetailLoading(true);
-        setEmailDetail({ id });
-        try {
-            const res = await fetch(`/api/consultant/emails/${id}`, {
-                headers: { Authorization: `JWT ${user.token}` },
-            });
-            const data = await res.json();
-            setEmailDetail({ id, ...data });
-            fetch(`/api/consultant/emails/${id}/mark-read`, {
-                method: 'POST',
-                headers: { Authorization: `JWT ${user.token}` },
-            }).then(() => { loadEmails(); loadUnread(); }).catch(() => {});
-        } catch {
-            setEmailDetail({ id, error: 'Errore caricamento' });
-        } finally { setEmailDetailLoading(false); }
-    };
-
-    const openComposer = async (emailId: number, mode: 'reply' | 'replyAll' | 'forward') => {
-        if (!user?.token) return;
-        try {
-            const res = await fetch(`/api/consultant/emails/${emailId}/reply-data`, {
-                headers: { Authorization: `JWT ${user.token}` },
-            });
-            const d = await res.json();
-            const orig = (d.original_body || '').trim();
-            const body = mode === 'forward'
-                ? (orig ? '<br><br><hr><p><b>----- Messaggio inoltrato -----</b></p>' + orig : '')
-                : (orig ? '<br><br><hr><p>' + orig + '</p>' : '');
-            setComposer({
-                mode,
-                in_reply_to_id: emailId,
-                from_email: d.from_email || '',
-                to: d.to || '',
-                cc: mode === 'replyAll' ? (d.cc || '') : '',
-                subject: d.subject || '',
-                body,
-            });
-        } catch {
-            alert('Impossibile aprire il composer');
-        }
-    };
-
-    const openNewComposer = () => {
-        const fromEmail = user?.emailSlug ? `${user.emailSlug}@v6impresa.it` : (user?.email || '');
-        const sigKey = `email_signature_${user?.emailSlug || user?.email || 'default'}`;
-        const savedSig = typeof window !== 'undefined' ? localStorage.getItem(sigKey) : null;
-        setComposer({ mode: 'new', from_email: fromEmail, to: '', cc: '', bcc: '', subject: '', body: savedSig || '' });
-    };
-
-    const archiveEmail = async (id: number) => {
-        if (!user?.token) return;
-        try {
-            const res = await fetch(`/api/consultant/emails/${id}/archive`, {
-                method: 'POST', headers: { Authorization: `JWT ${user.token}` },
-            });
-            if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || 'Archiviazione fallita'); return; }
-            if (emailDetail?.id === id) setEmailDetail(null);
-            loadEmails();
-        } catch { alert('Errore di rete'); }
-    };
-
-    const unarchiveEmail = async (id: number) => {
-        if (!user?.token) return;
-        try {
-            const res = await fetch(`/api/consultant/emails/${id}/unarchive`, {
-                method: 'POST', headers: { Authorization: `JWT ${user.token}` },
-            });
-            if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || 'Operazione fallita'); return; }
-            loadEmails();
-        } catch { alert('Errore di rete'); }
-    };
-
-    const deleteEmail = async (id: number, subject: string) => {
-        if (!user?.token) return;
-        if (!confirm(`Eliminare definitivamente "${subject}"?`)) return;
-        try {
-            const res = await fetch(`/api/consultant/emails/${id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `JWT ${user.token}` },
-            });
-            if (!res.ok) {
-                const d = await res.json().catch(() => ({}));
-                alert(d.error || 'Eliminazione fallita');
-                return;
-            }
-            if (emailDetail?.id === id) setEmailDetail(null);
-            loadEmails();
-        } catch { alert('Errore di rete'); }
-    };
-
-    const suggestAIReply = async () => {
-        if (!composer?.in_reply_to_id || !emailDetail) { alert('Funziona solo su una risposta.'); return; }
-        try {
-            const res = await fetch('/api/admin/assistant/suggest-reply', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    resModel: 'erpv6.winwin.email.log',
-                    resId: composer.in_reply_to_id,
-                    emailLogId: composer.in_reply_to_id,
-                    agentCode: 'susanna',
-                }),
-            });
-            const d = await res.json();
-            if (!res.ok || !d.success) { alert(d.error || 'Suggerimento fallito'); return; }
-            const draft = typeof d.draft === 'string' ? d.draft : (d.draft?.text || JSON.stringify(d.draft));
-            setComposer({ ...composer, body: (composer.body || '') + '<br/><br/>' + draft });
-        } catch { alert('Errore di rete'); }
-    };
-
-    const handleComposerSend = async () => {
-        if (!user?.token || !composer) return;
-        const bodyText = (composer.body || '').replace(/<[^>]*>/g, '').trim();
-        if (!composer.to?.trim() || !composer.subject?.trim() || !bodyText) {
-            alert('Compila destinatario, oggetto e corpo.');
-            return;
-        }
-        setComposerSending(true);
-        try {
-            const localFiles = await Promise.all(
-                attachedFiles.filter((f) => f.source === 'local' && f.fileRaw).map(async (f) => ({
-                    fileName: f.name,
-                    mimetype: f.fileRaw!.type,
-                    fileBase64: await new Promise<string>((resolve, reject) => {
-                        const r = new FileReader();
-                        r.onload = () => resolve((r.result as string).split(',')[1] || '');
-                        r.onerror = reject;
-                        r.readAsDataURL(f.fileRaw!);
-                    }),
-                }))
-            );
-            const attachments = [
-                ...localFiles,
-                ...attachedFiles.filter((f) => f.source === 'library' && f.id).map((f) => ({ attachmentId: f.id })),
-            ];
-            const res = await fetch('/api/consultant/emails/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `JWT ${user.token}`,
-                },
-                body: JSON.stringify({ ...composer, attachments }),
-            });
-            const data = await res.json();
-            if (!res.ok || data?.error) {
-                alert(data?.error || 'Invio fallito');
-                return;
-            }
-            setComposer(null);
-            setAttachedFiles([]);
-            loadEmails();
-        } catch { alert('Errore di rete'); }
-        finally { setComposerSending(false); }
-    };
-
-    const fmt = (d: string) => {
-        if (!d) return '—';
-        const iso = d.endsWith('Z') || d.includes('+') ? d : d + 'Z';
-        return new Date(iso).toLocaleString('it-IT', {
-            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-        });
-    };
-
-    if (loading) {
-        return <div className="min-h-screen flex items-center justify-center"><Loader2 size={40} className="animate-spin text-orange-500" /></div>;
+  const loadMailboxes = async (u?: any) => {
+    const session = u || user;
+    try {
+      const res = await fetch('/api/admin/emails/mailboxes', {
+        headers: session?.token ? { Authorization: `JWT ${session.token}` } : {},
+      });
+      const data = await res.json();
+      const p = data.data || data;
+      if (!p.success) { setError(p.error || 'Errore'); return; }
+      setMailboxes(p.mailboxes || []);
+      setTotalUnread(p.totalUnread || 0);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return (
-        <div className="min-h-screen bg-[#f8fafc]">
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <Link href="/admin/dashboard" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-2">
-                            <ArrowLeft size={16} /> Torna alla dashboard
-                        </Link>
-                        <h1 className="text-3xl font-bold text-[#1a2744]">La mia email</h1>
-                        <p className="text-sm text-gray-500">
-                            Posta personale su <span className="font-mono">{user?.emailSlug || user?.email}@v6impresa.it</span>
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={openNewComposer}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
-                        >
-                            <Plus size={14} /> Nuova email
-                        </button>
-                        <button
-                            onClick={loadEmails}
-                            disabled={emailsLoading}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            {emailsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                            Aggiorna
-                        </button>
-                    </div>
-                </div>
+  const loadEmails = async () => {
+    if (!user) return;
+    setEmailsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('mailbox', activeMailbox);
+      if (filterDirection === 'in') params.set('direction', 'in');
+      if (filterDirection === 'out') params.set('direction', 'out');
+      if (showArchived) params.set('archived', '1');
+      if (search.trim()) params.set('q', search.trim());
+      params.set('limit', '200');
 
-                <div className="flex items-center gap-3 flex-wrap mt-4">
-                    <div className="flex items-center gap-1 border-b border-gray-200 flex-1 min-w-[300px]">
-                        {(["all", "ricevute", "inviate"] as const).map((f) => (
-                            <button
-                                key={f}
-                                onClick={() => { setEmailFolder(f); setEmailArchivedView(false); }}
-                                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                                    !emailArchivedView && emailFolder === f
-                                        ? "border-blue-600 text-blue-700"
-                                        : "border-transparent text-gray-500 hover:text-gray-800"
-                                }`}
-                            >
-                                {f === "all" ? "Tutte" : f === "ricevute" ? "Ricevute" : "Inviate"}
-                            </button>
-                        ))}
-                        <button
-                            onClick={() => setEmailArchivedView(true)}
-                            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                                emailArchivedView
-                                    ? "border-blue-600 text-blue-700"
-                                    : "border-transparent text-gray-500 hover:text-gray-800"
-                            }`}
-                        >
-                            Archiviate
-                        </button>
-                    </div>
-                    <input
-                        type="text"
-                        placeholder="Cerca oggetto o mittente…"
-                        value={emailSearch}
-                        onChange={(ev) => setEmailSearch(ev.target.value)}
-                        className="px-3 py-2 rounded-lg border border-gray-200 text-sm w-56"
-                    />
-                    {projectOptions.length > 0 && (
-                        <select
-                            value={emailProjectFilter}
-                            onChange={(ev) => setEmailProjectFilter(ev.target.value)}
-                            className="px-3 py-2 rounded-lg border border-gray-200 text-sm max-w-[220px]"
-                        >
-                            <option value="">Tutti i progetti</option>
-                            {projectOptions.map((p) => (
-                                <option key={p.id} value={String(p.id)}>{p.name}</option>
-                            ))}
-                        </select>
+      const res = await fetch(`/api/admin/emails?${params}`, {
+        headers: { Authorization: `JWT ${user.token}` },
+      });
+      const data = await res.json();
+      const p = data.data || data;
+      if (!p.success) { setError(p.error); return; }
+      setEmails(p.emails || []);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setEmailsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) loadEmails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMailbox, filterDirection, showArchived, user]);
+
+  const handleSearch = () => loadEmails();
+
+  const openEmail = async (email: Email) => {
+    setSelected(email);
+    setDetailLoading(true);
+    setDetail(null);
+    try {
+      const res = await fetch(`/api/admin/emails/${email.id}?kind=${email.kind}`, {
+        headers: { Authorization: `JWT ${user?.token || ''}` },
+      });
+      const data = await res.json();
+      const p = data.data || data;
+      if (p.success) setDetail(p.email);
+      // Auto-mark-read
+      if (!email.is_read) {
+        await fetch(`/api/admin/emails/${email.id}/mark-read?kind=${email.kind}`, {
+          method: 'POST',
+          headers: { Authorization: `JWT ${user?.token || ''}`, 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        // Aggiorna stato locale
+        setEmails(prev => prev.map(e => e.id === email.id && e.kind === email.kind ? { ...e, is_read: true } : e));
+        loadMailboxes();
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const doAction = async (email: Email, action: 'archive' | 'unarchive' | 'mark-unread') => {
+    try {
+      await fetch(`/api/admin/emails/${email.id}/${action}?kind=${email.kind}`, {
+        method: 'POST',
+        headers: { Authorization: `JWT ${user?.token || ''}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      setSelected(null);
+      setDetail(null);
+      loadEmails();
+      loadMailboxes();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("pi_session");
+    document.cookie = "pi_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    window.location.href = "/login";
+  };
+
+  const menuItems = [
+    { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
+    { icon: FolderKanban, label: "Progetti", href: "/admin/projects" },
+    { icon: Users, label: "Progetti Partner", href: "/admin/partner-projects" },
+    { icon: PenTool, label: "Firme", href: "/admin/firme" },
+    { icon: FileText, label: "Documenti", href: "/admin/documenti" },
+    { icon: Code2, label: "Template", href: "/admin/template" },
+    { icon: FileSignature, label: "Contratti", href: "/admin/contratti" },
+    { icon: UserCog, label: "Team", href: "/admin/team" },
+    { icon: Phone, label: "Call Prenotate", href: "/admin/bookings" },
+    { icon: CheckCircle2, label: "Validazione", href: "/admin/validazione" },
+    { icon: Users, label: "Coda Lead", href: "/admin/leads" },
+    { icon: Calculator, label: "Pagamenti", href: "/admin/payments" },
+    { icon: Landmark, label: "Commissioni", href: "/admin/accounting" },
+    { icon: Mail, label: "La mia email", href: "/admin/mia-email" },
+    { icon: Brain, label: "Knowledge Base", href: "/admin/kb" },
+    { icon: Shield, label: "Sicurezza", href: "/admin/security" },
+    { icon: Settings, label: "Impostazioni", href: "/admin/settings/system" },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#f8fafc] flex">
+      {/* Sidebar admin */}
+      <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+        <div className="p-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1a2744] to-[#0f3460] flex items-center justify-center text-white text-xs font-bold">PI</div>
+            <div>
+              <div className="font-bold text-[#1a2744] text-sm">V6 Impresa AI</div>
+              <div className="text-xs text-gray-500">Admin</div>
+            </div>
+          </div>
+        </div>
+        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+          {menuItems.map((item, i) => {
+            const isActive = typeof window !== "undefined" && window.location.pathname === item.href;
+            return (
+              <Link key={i} href={item.href} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive ? "bg-[#1a2744] text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+                <item.icon size={14} /> {item.label}
+                {item.href === '/admin/mia-email' && totalUnread > 0 && (
+                  <span className="ml-auto min-w-[18px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {totalUnread}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="p-3 border-t border-gray-100">
+          <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 w-full">
+            <LogOut size={14} /> Esci
+          </button>
+        </div>
+      </aside>
+
+      {/* Client email 3 colonne */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Colonna 1: caselle */}
+        <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+          <div className="p-3 border-b border-gray-100">
+            <h2 className="text-xs font-bold text-[#1a2744] uppercase tracking-wider">Caselle</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {loading ? (
+              <div className="p-3 text-center text-xs text-gray-400">…</div>
+            ) : (
+              mailboxes.map((mb) => {
+                const isActive = activeMailbox === mb.alias;
+                const isSent = mb.alias === '__sent__';
+                const isAll = mb.alias === '__all__';
+                const Icon = isSent ? Send : (isAll ? Inbox : Mail);
+                const label = mb.label || mb.alias;
+                return (
+                  <button
+                    key={mb.alias}
+                    onClick={() => { setActiveMailbox(mb.alias); setSelected(null); setDetail(null); }}
+                    className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-medium transition-all text-left mb-0.5 ${isActive ? 'bg-[#1a2744] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                  >
+                    <Icon size={14} />
+                    <span className="flex-1 truncate" title={label}>{label}</span>
+                    {mb.unread > 0 && (
+                      <span className={`min-w-[18px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${isActive ? 'bg-white text-[#1a2744]' : 'bg-amber-500 text-white'}`}>
+                        {mb.unread}
+                      </span>
                     )}
-                </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </aside>
 
-                {emailsLoading && !emailsData && (
-                    <div className="flex items-center gap-2 text-gray-500 text-sm mt-4">
-                        <Loader2 size={16} className="animate-spin" /> Carico le email...
-                    </div>
-                )}
+        {/* Colonna 2: lista email */}
+        <div className={`${selected ? 'w-80' : 'flex-1'} bg-white border-r border-gray-200 flex flex-col flex-shrink-0`}>
+          <div className="p-3 border-b border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-1">
+                <Search size={12} className="text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cerca..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  className="flex-1 bg-transparent text-xs focus:outline-none"
+                />
+              </div>
+              <button onClick={() => { loadEmails(); loadMailboxes(); }} className="p-1.5 rounded hover:bg-gray-100">
+                <RefreshCw size={14} className={emailsLoading ? "animate-spin text-gray-400" : "text-gray-600"} />
+              </button>
+            </div>
+            <div className="flex items-center gap-1 flex-wrap">
+              <button onClick={() => setFilterDirection('all')}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium ${filterDirection === 'all' ? 'bg-[#1a2744] text-white' : 'bg-gray-100 text-gray-600'}`}>
+                Tutte
+              </button>
+              <button onClick={() => setFilterDirection('in')}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium ${filterDirection === 'in' ? 'bg-[#1a2744] text-white' : 'bg-gray-100 text-gray-600'}`}>
+                Ricevute
+              </button>
+              <button onClick={() => setFilterDirection('out')}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium ${filterDirection === 'out' ? 'bg-[#1a2744] text-white' : 'bg-gray-100 text-gray-600'}`}>
+                Inviate
+              </button>
+              <button onClick={() => setShowArchived(!showArchived)}
+                className={`ml-auto px-2 py-0.5 rounded text-[10px] font-medium flex items-center gap-1 ${showArchived ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
+                <Archive size={10} /> {showArchived ? 'Archivio' : 'Archivio'}
+              </button>
+            </div>
+          </div>
 
-                {emailsData && emailsData.emails?.length === 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-500">
-                        Nessuna email.
-                    </div>
-                )}
-
-                <div className="space-y-3">
-                    {emailsData && emailsData.emails?.filter((e: any) => {
-                            const q = emailSearch.trim().toLowerCase();
-                            const matchesSearch = !q || (e.subject || '').toLowerCase().includes(q) || (e.sender_email || '').toLowerCase().includes(q);
-                            const matchesProject = !emailProjectFilter || String(e.relation_id || '') === emailProjectFilter;
-                            if (emailArchivedView) return matchesSearch && matchesProject;
-                            const matchesFolder = emailFolder === "all" || e.direction === emailFolder;
-                            return matchesSearch && matchesFolder && matchesProject;
-                        }).map((e: any) => (
-                        <div
-                            key={e.id}
-                            className="w-full bg-white rounded-2xl border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-stretch"
-                        >
-                            <button
-                                onClick={() => openEmailDetail(e.id)}
-                                className="flex-1 text-left p-5 cursor-pointer"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-[#1a2744] truncate flex items-center gap-2">
-                                            {!e.is_read && e.direction === 'ricevuta' && (
-                                                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                                            )}
-                                            <span className="truncate">{e.subject}</span>
-                                            {e.has_attachments && <span title="Contiene allegati">📎</span>}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 mt-1 truncate">
-                                            Da: <span className="font-medium">{e.sender_email}</span>
-                                        </p>
-                                        {e.relation_name && (
-                                            <span className="inline-flex items-center gap-1 mt-2 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
-                                                {e.relation_name}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <span className="text-xs text-gray-400 whitespace-nowrap">{fmt(e.create_date)}</span>
-                                </div>
-                            </button>
-                            {!emailArchivedView ? (
-                                <button
-                                    onClick={(ev) => { ev.stopPropagation(); archiveEmail(e.id); }}
-                                    title="Archivia"
-                                    className="px-3 flex items-center text-gray-400 hover:text-amber-600 hover:bg-amber-50"
-                                >
-                                    <Archive size={16} />
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={(ev) => { ev.stopPropagation(); unarchiveEmail(e.id); }}
-                                    title="Ripristina"
-                                    className="px-3 flex items-center text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                                >
-                                    <ArchiveRestore size={16} />
-                                </button>
-                            )}
-                            <button
-                                onClick={(ev) => { ev.stopPropagation(); deleteEmail(e.id, e.subject); }}
-                                title="Elimina definitivamente"
-                                className="px-4 flex items-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-r-2xl"
-                            >
-                                <Trash2 size={16} />
-                            </button>
+          <div className="flex-1 overflow-y-auto">
+            {emailsLoading ? (
+              <div className="p-6 text-center text-xs text-gray-400">Caricamento…</div>
+            ) : emails.length === 0 ? (
+              <div className="p-6 text-center text-xs text-gray-400">Nessuna email</div>
+            ) : (
+              emails.map((e) => {
+                const isSel = selected?.id === e.id && selected?.kind === e.kind;
+                const isUnread = !e.is_read && e.direction === 'ricevuta';
+                return (
+                  <button
+                    key={`${e.kind}-${e.id}`}
+                    onClick={() => openEmail(e)}
+                    className={`w-full text-left border-b border-gray-100 hover:bg-gray-50 px-3 py-2 transition-colors ${isSel ? 'bg-blue-50' : ''}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {isUnread && <Circle size={6} className="fill-blue-500 text-blue-500 mt-1.5 flex-shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs truncate flex-1 ${isUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                            {e.direction === 'inviata' ? `→ ${e.recipient_emails?.split(',')[0]}` : (e.sender_email || '?')}
+                          </span>
+                          <span className="text-[10px] text-gray-400 flex-shrink-0">{shortDate(e.create_date)}</span>
                         </div>
-                    ))}
-                </div>
+                        <div className={`text-xs truncate mt-0.5 ${isUnread ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                          {e.name}
+                        </div>
+                        <div className="text-[10px] text-gray-400 truncate mt-0.5">
+                          {e.direction === 'inviata' ? <span className="text-emerald-600">Inviata</span> : <span className="text-blue-600">Ricevuta</span>}
+                          {e.matched_alias && <> · <span className="text-violet-600">{e.matched_alias}</span></>}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Colonna 3: dettaglio */}
+        {selected && (
+          <div className="flex-1 flex flex-col bg-white">
+            <div className="p-3 border-b border-gray-200 flex items-center gap-2">
+              <button onClick={() => { setSelected(null); setDetail(null); }} className="p-1.5 rounded hover:bg-gray-100 md:hidden">
+                <ChevronLeft size={16} />
+              </button>
+              <div className="flex-1" />
+              <button onClick={() => doAction(selected, 'mark-unread')} title="Segna non letta" className="p-1.5 rounded hover:bg-gray-100">
+                <MailUnread size={14} className="text-gray-600" />
+              </button>
+              {!selected.is_archived ? (
+                <button onClick={() => doAction(selected, 'archive')} title="Archivia" className="p-1.5 rounded hover:bg-gray-100">
+                  <Archive size={14} className="text-gray-600" />
+                </button>
+              ) : (
+                <button onClick={() => doAction(selected, 'unarchive')} title="Ripristina" className="p-1.5 rounded hover:bg-gray-100">
+                  <Inbox size={14} className="text-gray-600" />
+                </button>
+              )}
             </div>
 
-            {/* DETAIL MODAL */}
-            {emailDetail && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => { setEmailDetail(null); setEmailAttachments([]); }}>
-                    <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(ev) => ev.stopPropagation()}>
-                        <div className="p-5 border-b border-gray-100 flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                                <h2 className="text-lg font-bold text-[#1a2744] truncate">{emailDetail.subject || '(nessun oggetto)'}</h2>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    Da: <span className="font-medium">{emailDetail.sender_email || '—'}</span> · {fmt(emailDetail.create_date)}
-                                </p>
-                            </div>
-                            <button onClick={() => setEmailDetail(null)} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
-                        </div>
-
-                        {emailDetailLoading && (
-                            <div className="p-8 text-center"><Loader2 size={24} className="animate-spin text-blue-500 mx-auto" /></div>
-                        )}
-
-                        {!emailDetailLoading && (
-                            <div className="p-5 overflow-y-auto flex-1">
-                                <div
-                                    className="prose max-w-none text-sm"
-                                    dangerouslySetInnerHTML={{ __html: emailDetail.body || '<p class="text-gray-400 italic">(nessun corpo)</p>' }}
-                                />
-                            </div>
-                        )}
-
-                        {emailAttachments.length > 0 && (
-                            <div className="px-5 pb-3 border-t border-gray-100">
-                                <p className="text-xs font-semibold text-gray-500 uppercase mt-3 mb-2">Allegati ({emailAttachments.length})</p>
-                                <div className="space-y-1">
-                                    {emailAttachments.map((a) => (
-                                        <a key={a.id}
-                                            href={`/api/admin/attachments/${a.id}/download`}
-                                            target="_blank" rel="noopener noreferrer"
-                                            className="flex items-center justify-between text-sm bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded px-3 py-2">
-                                            <span className="truncate">📎 {a.name}</span>
-                                            <span className="text-xs text-gray-400 ml-2">{a.size ? Math.round(a.size / 1024) + ' KB' : ''}</span>
-                                        </a>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        <div className="p-4 border-t border-gray-100 flex items-center gap-2">
-                            <button
-                                onClick={() => { openComposer(emailDetail.id, 'reply'); }}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-                            >
-                                <CornerUpLeft size={14} /> Rispondi
-                            </button>
-                            <button
-                                onClick={() => { openComposer(emailDetail.id, 'replyAll'); }}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50"
-                            >
-                                <ReplyAll size={14} /> Rispondi a tutti
-                            </button>
-                            <button
-                                onClick={() => { openComposer(emailDetail.id, 'forward'); }}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50"
-                            >
-                                <CornerUpRight size={14} /> Inoltra
-                            </button>
-                        </div>
-                    </div>
+            {detailLoading ? (
+              <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Caricamento…</div>
+            ) : detail ? (
+              <div className="flex-1 overflow-y-auto p-4">
+                <h2 className="text-lg font-bold text-[#1a2744] mb-2">{detail.name}</h2>
+                <div className="text-xs text-gray-500 space-y-0.5 mb-4">
+                  <div><strong>Da:</strong> {detail.sender_email || '—'}</div>
+                  <div><strong>A:</strong> {detail.recipient_emails || '—'}</div>
+                  {detail.cc_emails && <div><strong>CC:</strong> {detail.cc_emails}</div>}
+                  <div><strong>Data:</strong> {detail.create_date ? new Date(detail.create_date).toLocaleString('it-IT') : '—'}</div>
+                  {detail.matched_alias && <div><strong>Casella:</strong> <span className="text-violet-600">{detail.matched_alias}</span></div>}
+                  {detail.relation_id && (
+                    <div><strong>Progetto:</strong> <Link href={`/admin/partner-projects/${detail.relation_id}`} className="text-[#0f3460] hover:underline">{detail.relation_name}</Link></div>
+                  )}
                 </div>
-            )}
 
-            {/* COMPOSER MODAL */}
-            {composer && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => !composerSending && setComposer(null)}>
-                    <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(ev) => ev.stopPropagation()}>
-                        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                            <h2 className="text-lg font-bold text-[#1a2744]">
-                                {composer.mode === 'new' ? 'Nuova email'
-                                    : composer.mode === 'forward' ? 'Inoltra email'
-                                    : composer.mode === 'replyAll' ? 'Rispondi a tutti'
-                                    : 'Rispondi'}
-                            </h2>
-                            <button onClick={() => !composerSending && setComposer(null)} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
-                        </div>
-                        <div className="p-5 overflow-y-auto flex-1 space-y-3">
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">Da</label>
-                                <input
-                                    type="text"
-                                    value={composer.from_email || ''}
-                                    readOnly
-                                    className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">A</label>
-                                <div className="mt-1">
-                                    <EmailRecipientInput
-                                        value={composer.to || ''}
-                                        onChange={(v) => setComposer({ ...composer, to: v })}
-                                        placeholder="Cerca nome o email…"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">Cc</label>
-                                <div className="mt-1">
-                                    <EmailRecipientInput
-                                        value={composer.cc || ''}
-                                        onChange={(v) => setComposer({ ...composer, cc: v })}
-                                        placeholder="Cerca nome o email…"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">Bcc</label>
-                                <div className="mt-1">
-                                    <EmailRecipientInput
-                                        value={composer.bcc || ''}
-                                        onChange={(v) => setComposer({ ...composer, bcc: v })}
-                                        placeholder="Cerca nome o email…"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">Oggetto</label>
-                                <input
-                                    type="text"
-                                    value={composer.subject || ''}
-                                    onChange={(e) => setComposer({ ...composer, subject: e.target.value })}
-                                    className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                                />
-                            </div>
-                            <div>
-                                <EmailAttachmentsInput
-                                    value={attachedFiles}
-                                    onChange={setAttachedFiles}
-                                    relationId={undefined}
-                                    userToken={user?.token}
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">Corpo (HTML)</label>
-                                <textarea
-                                    rows={12}
-                                    value={composer.body || ''}
-                                    onChange={(e) => setComposer({ ...composer, body: e.target.value })}
-                                    className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono"
-                                />
-                            </div>
-                        </div>
-                        <div className="p-4 border-t border-gray-100 flex items-center justify-end gap-2">
-                            <button
-                                onClick={() => !composerSending && setComposer(null)}
-                                className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50"
-                            >
-                                Annulla
-                            </button>
-                            {composer.mode !== 'new' && composer.in_reply_to_id && (
-                                <button
-                                    type="button"
-                                    onClick={suggestAIReply}
-                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-purple-200 text-purple-700 text-sm font-medium hover:bg-purple-50"
-                                    title="Suggerisci risposta con AI (Susanna)"
-                                >
-                                    ✨ Suggerisci
-                                </button>
-                            )}
-                            <button
-                                onClick={handleComposerSend}
-                                disabled={composerSending}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {composerSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                                Invia
-                            </button>
-                        </div>
+                {detail.attachments?.length > 0 && (
+                  <div className="mb-4 p-2 bg-gray-50 rounded">
+                    <div className="text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
+                      <Paperclip size={12} /> {detail.attachments.length} allegati
                     </div>
+                    {detail.attachments.map((a: any) => (
+                      <a key={a.id} href={`/api/admin/attachments/${a.id}/download`} target="_blank" rel="noopener noreferrer"
+                        className="block text-xs text-[#0f3460] hover:underline">
+                        {a.name} ({(a.size / 1024).toFixed(1)} KB)
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                <div className="prose prose-sm max-w-none text-sm border-t border-gray-100 pt-4"
+                  dangerouslySetInnerHTML={{ __html: detail.body_html || '<p class="text-gray-400 italic">(Corpo email non disponibile)</p>' }}
+                />
+
+                <div className="mt-6 pt-4 border-t border-gray-100 flex gap-2">
+                  <a href={`mailto:${extractEmail(detail.sender_email)}?subject=Re: ${encodeURIComponent(detail.name)}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460]">
+                    <Reply size={12} /> Rispondi via client email
+                  </a>
                 </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Errore caricamento</div>
             )}
-        </div>
-    );
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
