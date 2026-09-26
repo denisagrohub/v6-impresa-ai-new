@@ -215,13 +215,19 @@ class TypstEngine(models.Model):
         import os as _os, json as _json, base64 as _b64, logging as _log
         _logger = _log.getLogger(__name__)
 
-        # Fix: env.company può essere vuoto in shell (nessun utente contesto)
-        company = self.env.company
+        # Fix: env.company in shell è vuoto o IT Company (default Odoo).
+        # Cerchiamo il company con brand configurato o per nome 'V6 Impresa'.
+        # 26/09/2026: priorità al company "V6 Impresa" (non IT Company default).
+        # Cerca prima per nome, poi fallback su env.company.
+        company = self.env['res.company'].sudo().search([
+            ('name', 'ilike', 'V6 Impresa'),
+        ], limit=1, order='id asc')
         if not company:
-            company = self.env['res.company'].sudo().search([], limit=1, order='id asc')
+            company = self.env.company
         if not company:
             _logger.warning('_inject_brand_assets: nessun company trovato')
             return
+        _logger.info('_inject_brand_assets: uso company %s (id=%s)', company.name, company.id)
 
         _logger.info(
             '_inject_brand_assets: company=%s logo_len=%s tmp_dir=%s',
@@ -245,7 +251,7 @@ class TypstEngine(models.Model):
                 'street': company.street or '',
                 'city': company.city or '',
                 'zip': company.zip or '',
-                'email': company.email or '',
+                'email': getattr(company, 'x_v6_contact_email', None) or company.email or '',
                 'phone': company.phone or '',
                 'website': getattr(company, 'website', None) or 'v6impresa.it',
             }

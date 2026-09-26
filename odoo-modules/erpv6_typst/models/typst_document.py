@@ -172,7 +172,12 @@ class TypstDocument(models.Model):
         senza dover gestire nulla lato sorgente.
         """
         import os, json, base64
-        company = self.env.company
+        # 26/09/2026: priorità a "V6 Impresa"
+        company = self.env['res.company'].sudo().search([
+            ('name', 'ilike', 'V6 Impresa'),
+        ], limit=1, order='id asc')
+        if not company:
+            company = self.env.company
         if not company:
             return
         try:
@@ -197,7 +202,7 @@ class TypstDocument(models.Model):
                 'street': company.street or '',
                 'city': company.city or '',
                 'zip': company.zip or '',
-                'email': company.email or '',
+                'email': getattr(company, 'x_v6_contact_email', None) or company.email or '',
                 'phone': company.phone or '',
                 'website': getattr(company, 'website', None) or 'v6impresa.it',
             }

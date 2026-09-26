@@ -28,3 +28,8 @@ class ResCompany(models.Model):
     x_v6_tagline = fields.Char(
         string='Tagline', default='Consulenza B2B',
         help='Sottotitolo mostrato sotto il logo')
+
+    x_v6_contact_email = fields.Char(
+        string='Email contatto documenti', default='consulenza@v6impresa.it',
+        help='Email mostrata nei documenti (footer, contatti). '
+             'Non usata per notifiche automatiche.')
