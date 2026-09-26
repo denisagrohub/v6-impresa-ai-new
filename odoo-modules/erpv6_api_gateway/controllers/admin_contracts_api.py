@@ -48,6 +48,19 @@ class AdminContractsAPIController(ConsultantAPIController):
             'lastGeneratedAt': d.last_generated_at.isoformat() if d.last_generated_at else None,
             'createdAt': d.create_date.isoformat() if d.create_date else None,
             'signRequestIds': d.sign_request_ids.ids,
+            # 26/09/2026: V6 sign + integrity
+            'needsV6Signature': d.needs_v6_signature,
+            'v6SignerId': d.v6_signer_id.id if d.v6_signer_id else None,
+            'v6SignerName': d.v6_signer_id.name if d.v6_signer_id else None,
+            'v6SignOrder': d.v6_sign_order or 'second',
+            'originalPdfHash': d.original_pdf_hash,
+            'counterpartySignedPdfHash': d.counterparty_signed_pdf_hash,
+            'v6SignedPdfHash': d.v6_signed_pdf_hash,
+            'integrityVerified': d.integrity_verified,
+            'integrityVerifiedAt': d.integrity_verified_at.isoformat() if d.integrity_verified_at else None,
+            'integrityNotes': d.integrity_notes,
+            'counterpartySrId': d.counterparty_sign_request_id.id if d.counterparty_sign_request_id else None,
+            'v6SrId': d.v6_sign_request_id.id if d.v6_sign_request_id else None,
         }
         return data
 
