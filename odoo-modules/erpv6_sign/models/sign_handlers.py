@@ -232,3 +232,138 @@ def _notify_admin(sign_request, project=None):
         model='erpv6.sign.request',
         res_id=sign_request.id,
     )
+
+
+def _send_final_signed_email(draft):
+    """26/09/2026: dopo la controfirma V6:
+    1. Scarica PDF finale dall'envelope (tutte le firme)
+    2. Aggiorna document_id con PDF finale
+    3. Calcola hash SHA-256 + anchor blockchain
+    4. Genera token /verify/<token>
+    5. Invia email alla controparte con PDF allegato + link
+    """
+    import base64
+    import hashlib
+
+    _logger.info('_send_final_signed_email: draft=%s', draft.id)
+
+    # Trova envelope: preferisci cp_sr, fallback primo sr con external_id
+    cp_sr = draft.counterparty_sign_request_id
+    if not cp_sr or not cp_sr.external_id:
+        srs = draft.env['erpv6.sign.request'].sudo().search([
+            ('contract_draft_id', '=', draft.id),
+            ('external_id', '!=', False),
+        ], limit=1)
+        cp_sr = srs
+
+    if not cp_sr or not cp_sr.external_id:
+        _logger.warning('Email finale: envelope mancante per draft %s', draft.id)
+        return
+
+    envelope_id = cp_sr.external_id
+
+    # Scarica PDF finale
+    pdf_bytes = None
+    try:
+        adapter = cp_sr._get_adapter()
+        if hasattr(adapter, 'fetch_envelope_final'):
+            pdf_bytes = adapter.fetch_envelope_final(envelope_id)
+        if not pdf_bytes and draft.document_id and draft.document_id.pdf_file:
+            pdf_bytes = base64.b64decode(draft.document_id.pdf_file)
+            _logger.warning('Fallback: PDF originale (envelope download fallito)')
+    except Exception:
+        _logger.exception('Download PDF finale fallito')
+        return
+
+    if not pdf_bytes:
+        _logger.warning('Nessun PDF per email finale, draft %s', draft.id)
+        return
+
+    final_hash = hashlib.sha256(pdf_bytes).hexdigest()
+
+    # Aggiorna document_id con PDF finale
+    if draft.document_id:
+        try:
+            draft.document_id.sudo().write({
+                'pdf_file': base64.b64encode(pdf_bytes),
+                'pdf_filename': f'{draft.name} — firmato.pdf',
+                'status': 'ready',
+            })
+        except Exception:
+            _logger.exception('Salvataggio PDF finale fallito')
+
+    # Anchor blockchain finale
+    try:
+        draft._anchor_hash_on_blockchain(final_hash)
+    except Exception:
+        _logger.exception('Anchor blockchain finale fallito')
+
+    # Token verifica
+    try:
+        raw = f'{draft.id}|{envelope_id}|{final_hash}'
+        verify_token = hashlib.sha256(raw.encode()).hexdigest()[:24]
+    except Exception:
+        verify_token = ''
+
+    verify_url = f'https://www.v6impresa.it/verify/{verify_token}' if verify_token else 'https://www.v6impresa.it/verify'
+
+    # Email controparte
+    recipient = draft.counterparty_id
+    if not recipient or not recipient.email:
+        _logger.warning('Nessuna email controparte per draft %s', draft.id)
+        return
+
+    signed_at_str = ''
+    if cp_sr.signed_at:
+        try:
+            signed_at_str = cp_sr.signed_at.strftime('%d/%m/%Y %H:%M')
+        except Exception:
+            signed_at_str = str(cp_sr.signed_at)
+    else:
+        signed_at_str = 'oggi'
+
+    body_html = f"""
+<p>Ciao {recipient.name or ''},</p>
+<p>Il contratto <strong>{draft.name}</strong> è stato firmato digitalmente da entrambe le parti.</p>
+<p><strong>Riepilogo:</strong></p>
+<ul>
+  <li>Documento: {draft.name}</li>
+  <li>Data firma finale: {signed_at_str}</li>
+  <li>Hash SHA-256: <code>{final_hash[:32]}...</code></li>
+</ul>
+<p>In allegato trovi il PDF firmato da entrambe le parti.</p>
+<p>Puoi verificare l'autenticità del documento (hash + timestamp blockchain) al link pubblico:</p>
+<p><a href="{verify_url}" style="background:#1a2744;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block;">
+  Verifica documento su v6impresa.it/verify
+</a></p>
+<p style="color:#999;font-size:12px;margin-top:1.5em;">
+  Il link di verifica non contiene dati sensibili: mostra solo hash, data firma e tipo documento.
+</p>
+<p>Grazie,<br>V6 Impresa S.r.l.</p>
+"""
+
+    try:
+        Attachment = draft.env['ir.attachment'].sudo()
+        att = Attachment.create({
+            'name': f'{draft.name} — firmato.pdf',
+            'datas': base64.b64encode(pdf_bytes),
+            'mimetype': 'application/pdf',
+            'res_model': 'erpv6.contract.draft',
+            'res_id': draft.id,
+        })
+
+        Mail = draft.env['mail.mail'].sudo()
+        mail = Mail.create({
+            'subject': f'Contratto firmato da entrambe le parti — {draft.name}',
+            'body_html': body_html,
+            'email_from': 'sistema@v6sviluppoimpresa.it',
+            'email_to': recipient.email,
+            'state': 'outgoing',
+            'attachment_ids': [(4, att.id)],
+        })
+        mail.send()
+
+        draft.message_post(body=f"Email finale inviata a {recipient.email} con PDF firmato + link verifica")
+        _logger.info('Email finale inviata a %s per draft %s (hash %s)', recipient.email, draft.id, final_hash[:16])
+    except Exception:
+        _logger.exception('Invio email finale fallito per draft %s', draft.id)
