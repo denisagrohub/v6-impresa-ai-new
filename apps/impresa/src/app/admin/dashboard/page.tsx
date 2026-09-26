@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FolderKanban, CheckCircle2, Mail, Users,
   Settings, LogOut, TrendingUp, Clock, FileText, Building2,
   Briefcase, Landmark, Palette, Target, Server, Calculator,
-  AlertTriangle, Brain, Shield, Key, Plus, Package, UserCog, Phone, PenTool
+  AlertTriangle, Brain, Shield, Key, Plus, Package, UserCog, Phone, PenTool, FileSignature
 } from "lucide-react";
 import { OdooStatus } from "@/components/admin/OdooStatus";
 
@@ -143,7 +143,7 @@ export default function AdminDashboard() {
 
     { icon: Calculator, label: "Pagamenti", href: "/admin/payments" },
     { icon: Landmark, label: "Commissioni", href: "/admin/accounting" },
-    { icon: FileText, label: "Contratti", href: "/admin/contracts" },
+    { icon: FileSignature, label: "Contratti", href: "/admin/contratti" },
     { icon: Mail, label: "La mia email", href: "/admin/mia-email" },
     { icon: Mail, label: "Email funnel", href: "/admin/email" },
     { icon: FileText, label: "Blog", href: "/admin/blog" },
