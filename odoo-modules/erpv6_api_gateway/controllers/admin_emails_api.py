@@ -435,8 +435,15 @@ class AdminEmailsAPIController(ConsultantAPIController):
             return self._json_response({'error': 'Destinatario e oggetto obbligatori'}, 400)
 
         try:
+            # 27/09/2026: From pulito (nome + email senza tag) +
+            # Reply-To taggato (slug+progetto@) per routing risposte.
+            # L'utente vede solo "Denis D'Este", ma se risponde va
+            # all'indirizzo taggato che Odoo smista al progetto.
             user_slug = getattr(user, 'email_slug', None) or ''
-            from_addr = f'{user_slug}@v6impresa.it' if user_slug else (user.partner_id.email or 'noreply@v6impresa.it')
+            user_name = user.partner_id.name or 'V6 Impresa'
+            from_email_clean = f'{user_slug}@v6impresa.it' if user_slug else (user.partner_id.email or 'noreply@v6impresa.it')
+            from_addr = f'{user_name} <{from_email_clean}>'
+            reply_to_addr = from_email_clean
 
             relation_id = None
             if project_id:
@@ -445,7 +452,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                     relation_id = Relation.id
                     project_alias = Relation.email_alias or ''
                     if user_slug and project_alias:
-                        from_addr = f'{user_slug}+{project_alias}@v6impresa.it'
+                        reply_to_addr = f'{user_slug}+{project_alias}@v6impresa.it'
 
             full_body = body_html.replace('\n', '<br/>') if body_html else ''
             if relation_id:
@@ -459,7 +466,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                 'email_from': from_addr,
                 'email_to': ', '.join(to_list),
                 'email_cc': ', '.join(cc_list) if cc_list else False,
-                'reply_to': from_addr,
+                'reply_to': reply_to_addr,
                 'state': 'outgoing',
             }
             if attachment_ids:
