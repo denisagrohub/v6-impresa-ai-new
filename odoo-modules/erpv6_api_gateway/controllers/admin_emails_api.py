@@ -441,8 +441,10 @@ class AdminEmailsAPIController(ConsultantAPIController):
             # all'indirizzo taggato che Odoo smista al progetto.
             user_slug = getattr(user, 'email_slug', None) or ''
             user_name = user.partner_id.name or 'V6 Impresa'
+            company_name = request.env.company.name or 'V6 Impresa'
             from_email_clean = f'{user_slug}@v6impresa.it' if user_slug else (user.partner_id.email or 'noreply@v6impresa.it')
-            from_addr = f'{user_name} <{from_email_clean}>'
+            # 27/09/2026: display name = 'Nome Cognome V6 Impresa'
+            from_addr = f'{user_name} {company_name} <{from_email_clean}>'
             reply_to_addr = from_email_clean
 
             relation_id = None
