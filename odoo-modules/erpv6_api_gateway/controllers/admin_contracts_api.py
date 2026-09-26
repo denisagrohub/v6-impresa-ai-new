@@ -108,8 +108,10 @@ class AdminContractsAPIController(ConsultantAPIController):
             return err
 
         env = request.env
+        # 27/09/2026: solo template adatti al composer contratti
         templates = env['erpv6.typst.template'].sudo().search([
             ('active', '=', True),
+            ('category', 'in', ['contract', 'nda', 'ncnd', 'referral_agreement', 'proposal']),
         ])
         projects = env['erpv6.tracking.relation'].sudo().search([
             ('parent_id', '=', False),

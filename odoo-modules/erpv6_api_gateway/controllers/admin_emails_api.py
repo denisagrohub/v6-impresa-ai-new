@@ -419,51 +419,197 @@ class AdminEmailsAPIController(ConsultantAPIController):
         except json.JSONDecodeError:
             return self._json_response({'error': 'JSON non valido'}, 400)
 
-        to = (body.get('to') or '').strip()
+        to_list = body.get('to') or []
+        cc_list = body.get('cc') or []
+        if isinstance(to_list, str):
+            to_list = [x.strip() for x in to_list.split(',') if x.strip()]
+        if isinstance(cc_list, str):
+            cc_list = [x.strip() for x in cc_list.split(',') if x.strip()]
+
         subject = (body.get('subject') or '').strip()
         body_html = body.get('body') or ''
-        cc = (body.get('cc') or '').strip()
-        reply_to_id = body.get('replyToId')
-        reply_to_kind = body.get('replyToKind') or 'winwin'
+        attachment_ids = body.get('attachmentIds') or []
+        project_id = body.get('projectId')
 
-        if not to or not subject:
+        if not to_list or not subject:
             return self._json_response({'error': 'Destinatario e oggetto obbligatori'}, 400)
 
         try:
-            # SMTP via Odoo
-            from_addr = user.partner_id.email or 'noreply@v6impresa.it'
+            user_slug = getattr(user, 'email_slug', None) or ''
+            from_addr = f'{user_slug}@v6impresa.it' if user_slug else (user.partner_id.email or 'noreply@v6impresa.it')
+
+            relation_id = None
+            if project_id:
+                Relation = request.env['erpv6.tracking.relation'].sudo().browse(int(project_id))
+                if Relation.exists():
+                    relation_id = Relation.id
+                    project_alias = Relation.email_alias or ''
+                    if user_slug and project_alias:
+                        from_addr = f'{user_slug}+{project_alias}@v6impresa.it'
+
+            full_body = body_html.replace('
+', '<br/>') if body_html else ''
+            if relation_id:
+                Relation = request.env['erpv6.tracking.relation'].sudo().browse(relation_id)
+                full_body += f'<br/><br/><hr/><p style="color:#999;font-size:11px;">Progetto: <b>{Relation.name}</b></p>'
+
             Mail = request.env['mail.mail'].sudo()
-            mail = Mail.create({
+            vals = {
                 'subject': subject,
-                'body_html': body_html.replace('\n', '<br/>') if body_html else '',
+                'body_html': full_body,
                 'email_from': from_addr,
-                'email_to': to,
-                'email_cc': cc or False,
+                'email_to': ', '.join(to_list),
+                'email_cc': ', '.join(cc_list) if cc_list else False,
                 'reply_to': from_addr,
                 'state': 'outgoing',
-            })
+            }
+            if attachment_ids:
+                vals['attachment_ids'] = [(4, int(aid)) for aid in attachment_ids]
+
+            mail = Mail.create(vals)
             mail.send()
 
-            # Log nel modello winwin.email.log (per visibilità in casella "Inviate")
-            log_vals = {
-                'name': subject,
-                'sender_email': from_addr,
-                'recipient_emails': to,
-                'cc_emails': cc or '',
-                'direction': 'inviata',
-                'match_status': 'manuale',
-                'matched_alias': (user.partner_id.email or '').split('@')[0] if '@' in (user.partner_id.email or '') else 'admin',
-                'recipient_user_id': user.id,
-                'is_read': True,
-            }
             if 'erpv6.winwin.email.log' in request.env:
-                request.env['erpv6.winwin.email.log'].sudo().create(log_vals)
+                request.env['erpv6.winwin.email.log'].sudo().create({
+                    'name': subject,
+                    'sender_email': from_addr,
+                    'recipient_emails': ', '.join(to_list),
+                    'cc_emails': ', '.join(cc_list) if cc_list else '',
+                    'direction': 'inviata',
+                    'match_status': 'manuale',
+                    'matched_alias': user_slug or 'admin',
+                    'recipient_user_id': user.id,
+                    'relation_id': relation_id,
+                    'is_read': True,
+                })
 
             return self._json_response({
                 'success': True,
                 'mailId': mail.id,
+                'from': from_addr,
                 'message': 'Email inviata',
             })
         except Exception as e:
             _logger.exception('Errore invio email')
+            return self._json_response({'error': str(e)}, 500)
+
+
+    # ================================================================
+    # SEARCH PARTNERS (autocomplete destinatari)
+    # ================================================================
+    @http.route('/api/v1/admin/emails/search-partners',
+                type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def search_partners(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        q = (request.httprequest.args.get('q') or '').strip()
+        if len(q) < 2:
+            return self._json_response({'success': True, 'partners': []})
+
+        Partner = request.env['res.partner'].sudo()
+        partners = Partner.search([
+            '|', '|',
+            ('name', 'ilike', q),
+            ('email', 'ilike', q),
+            ('vat', 'ilike', q),
+            ('email', '!=', False),
+        ], limit=20)
+
+        result = []
+        for p in partners:
+            if not p.email:
+                continue
+            result.append({
+                'id': p.id,
+                'name': p.name,
+                'email': p.email,
+                'isCompany': p.is_company,
+            })
+
+        return self._json_response({'success': True, 'partners': result})
+
+    # ================================================================
+    # SEARCH PROJECTS (dropdown collegamento)
+    # ================================================================
+    @http.route('/api/v1/admin/emails/search-projects',
+                type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def search_projects(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        q = (request.httprequest.args.get('q') or '').strip()
+
+        is_admin = user.has_group('base.group_system')
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        domain = [('parent_id', '=', False)]
+
+        if not is_admin:
+            domain = ['|',
+                ('owner_user_id', '=', user.id),
+                ('access_user_ids', 'in', [user.id]),
+            ] + domain
+
+        if q:
+            domain.append(('name', 'ilike', q))
+
+        projects = Relation.search(domain, limit=50, order='name asc')
+
+        result = [{
+            'id': r.id,
+            'name': r.name,
+            'emailAlias': r.email_alias or '',
+        } for r in projects]
+
+        return self._json_response({'success': True, 'projects': result})
+
+    # ================================================================
+    # UPLOAD ATTACHMENT
+    # ================================================================
+    @http.route('/api/v1/admin/emails/upload',
+                type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
+    def upload_attachment(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        import base64
+        try:
+            body = request.httprequest.get_data(as_text=True)
+            data = json.loads(body or '{}')
+        except json.JSONDecodeError:
+            return self._json_response({'error': 'JSON non valido'}, 400)
+
+        name = data.get('name', 'allegato')
+        content_b64 = data.get('content', '')
+        if not content_b64:
+            return self._json_response({'error': 'File vuoto'}, 400)
+
+        try:
+            file_data = base64.b64decode(content_b64)
+            if len(file_data) > 10 * 1024 * 1024:
+                return self._json_response({'error': 'File > 10 MB'}, 400)
+
+            att = request.env['ir.attachment'].sudo().create({
+                'name': name,
+                'datas': base64.b64encode(file_data),
+                'res_model': 'mail.compose.temp',
+                'res_id': 0,
+            })
+            return self._json_response({
+                'success': True,
+                'attachmentId': att.id,
+                'name': name,
+                'size': len(file_data),
+            })
+        except Exception as e:
+            _logger.exception('Upload fallito')
             return self._json_response({'error': str(e)}, 500)
