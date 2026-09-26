@@ -139,6 +139,9 @@ class TypstDocument(models.Model):
             with open(data_file, 'w') as f:
                 json.dump(data, f)
 
+            # 26/09/2026: inietta brand (logo + colori) per template brandizzati
+            self._inject_brand_assets(tmp_dir)
+
             result = subprocess.run(
                 ['typst', 'compile', typst_file, pdf_file],
                 capture_output=True,
@@ -154,6 +157,57 @@ class TypstDocument(models.Model):
 
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+
+    def _inject_brand_assets(self, tmp_dir):
+        """26/09/2026: scrive logo.png + brand.json nella tmp_dir
+        di compilazione Typst. Chiamato sia da action_render sia
+        da preview_source. Cosi' ogni template puo' scrivere:
+
+            #image("logo.png", width: 4cm)
+            #let brand = json("brand.json")
+            #text(fill: rgb(brand.primary_color))[#brand.name]
+
+        senza dover gestire nulla lato sorgente.
+        """
+        import os, json, base64
+        company = self.env.company
+        if not company:
+            return
+        try:
+            # 1. Logo
+            if company.logo:
+                logo_bytes = base64.b64decode(company.logo)
+                logo_path = os.path.join(tmp_dir, 'logo.png')
+                with open(logo_path, 'wb') as f:
+                    f.write(logo_bytes)
+
+            # 2. brand.json
+            brand = {
+                'name': company.name or 'V6 Impresa',
+                'tagline': getattr(company, 'x_v6_tagline', None) or 'Consulenza B2B',
+                'primary_color': getattr(company, 'x_v6_primary_color', None) or '#0f172a',
+                'secondary_color': getattr(company, 'x_v6_secondary_color', None) or '#1a7fa8',
+                'accent_color': getattr(company, 'x_v6_accent_color', None) or '#ea580c',
+                'text_color': getattr(company, 'x_v6_text_color', None) or '#1a1a1a',
+                'font_body': getattr(company, 'x_v6_font_body', None) or 'Inter',
+                'font_heading': getattr(company, 'x_v6_font_heading', None) or 'Inter',
+                'vat': company.vat or '',
+                'street': company.street or '',
+                'city': company.city or '',
+                'zip': company.zip or '',
+                'email': company.email or '',
+                'phone': company.phone or '',
+                'website': getattr(company, 'website', None) or 'v6impresa.it',
+            }
+            brand_path = os.path.join(tmp_dir, 'brand.json')
+            with open(brand_path, 'w', encoding='utf-8') as f:
+                json.dump(brand, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                'Brand injection fallita: %s', e)
 
     def action_send_to_partner(self):
         """Invia il documento al partner via email"""
