@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import AdminSidebar from "@/components/admin/layout/AdminSidebar";
 import Link from "next/link";
 import {
   LayoutDashboard, FolderKanban, Users, Settings, LogOut,
@@ -206,66 +207,12 @@ export default function AdminMiaEmailPage() {
     } finally { setComposeBusy(false); }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("pi_session");
-    document.cookie = "pi_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    window.location.href = "/login";
-  };
-
-  const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
-    { icon: FolderKanban, label: "Progetti", href: "/admin/projects" },
-    { icon: Users, label: "Progetti Partner", href: "/admin/partner-projects" },
-    { icon: PenTool, label: "Firme", href: "/admin/firme" },
-    { icon: FileText, label: "Documenti", href: "/admin/documenti" },
-    { icon: Code2, label: "Template", href: "/admin/template" },
-    { icon: FileSignature, label: "Contratti", href: "/admin/contratti" },
-    { icon: UserCog, label: "Team", href: "/admin/team" },
-    { icon: Phone, label: "Call Prenotate", href: "/admin/bookings" },
-    { icon: CheckCircle2, label: "Validazione", href: "/admin/validazione" },
-    { icon: Users, label: "Coda Lead", href: "/admin/leads" },
-    { icon: Calculator, label: "Pagamenti", href: "/admin/payments" },
-    { icon: Landmark, label: "Commissioni", href: "/admin/accounting" },
-    { icon: Mail, label: "La mia email", href: "/admin/mia-email" },
-    { icon: Brain, label: "Knowledge Base", href: "/admin/kb" },
-    { icon: Shield, label: "Sicurezza", href: "/admin/security" },
-    { icon: Settings, label: "Impostazioni", href: "/admin/settings/system" },
-  ];
-
   return (
     <div className="min-h-screen bg-[#f8fafc] flex">
-      <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-        <div className="p-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1a2744] to-[#0f3460] flex items-center justify-center text-white text-xs font-bold">PI</div>
-            <div>
-              <div className="font-bold text-[#1a2744] text-sm">V6 Impresa AI</div>
-              <div className="text-xs text-gray-500">Admin</div>
-            </div>
-          </div>
-        </div>
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {menuItems.map((item, i) => {
-            const isActive = typeof window !== "undefined" && window.location.pathname === item.href;
-            return (
-              <Link key={i} href={item.href} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive ? "bg-[#1a2744] text-white" : "text-gray-600 hover:bg-gray-100"}`}>
-                <item.icon size={14} /> {item.label}
-                {item.href === '/admin/mia-email' && totalUnread > 0 && (
-                  <span className="ml-auto min-w-[18px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                    {totalUnread}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="p-3 border-t border-gray-100">
-          <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 w-full">
-            <LogOut size={14} /> Esci
-          </button>
-        </div>
-      </aside>
+      <AdminSidebar
+        badges={[{ href: '/admin/mia-email', count: totalUnread, color: 'bg-red-500' }]}
+        user={user}
+      />
 
       <div className="flex-1 flex overflow-hidden">
         <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
