@@ -29,6 +29,9 @@ export default function NuovoContrattoPage() {
     projectId: 0,
     counterpartyId: 0,
     pdfMode: 'official',
+    needsV6Signature: true,
+    v6SignerId: 0,
+    v6SignOrder: 'second',
   });
 
   useEffect(() => {
@@ -68,7 +71,16 @@ export default function NuovoContrattoPage() {
           'Content-Type': 'application/json',
           Authorization: `JWT ${user?.token || ''}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          templateId: form.templateId,
+          projectId: form.projectId,
+          counterpartyId: form.counterpartyId,
+          pdfMode: form.pdfMode,
+          needsV6Signature: form.needsV6Signature,
+          v6SignerId: form.v6SignerId,
+          v6SignOrder: form.v6SignOrder,
+        }),
       });
       const data = await res.json();
       if (!data.success) { setError(data.error || 'Errore creazione'); setSaving(false); return; }
@@ -199,12 +211,12 @@ export default function NuovoContrattoPage() {
             </div>
           )}
 
-          {/* STEP 3: PDF mode + Conferma */}
+          {/* STEP 3: PDF mode + V6 sign + Conferma */}
           {step === 3 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <FileSignature size={18} className="text-indigo-500" />
-                <h2 className="text-lg font-semibold text-[#1a2744]">Conferma e crea</h2>
+                <h2 className="text-lg font-semibold text-[#1a2744]">Modalità e firme</h2>
               </div>
 
               <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
@@ -226,28 +238,85 @@ export default function NuovoContrattoPage() {
                 </div>
               </div>
 
+              {/* PDF mode */}
               <div className="border border-gray-200 rounded-lg p-3">
+                <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Modalità PDF</div>
+                <label className="flex items-start gap-3 cursor-pointer mb-2">
+                  <input type="radio" checked={form.pdfMode === 'official'}
+                    onChange={() => setForm({...form, pdfMode: 'official'})} className="mt-1" />
+                  <div>
+                    <div className="text-sm font-medium">Ufficiale</div>
+                    <div className="text-xs text-gray-500">PDF senza filigrana. Invio per firma consentito.</div>
+                  </div>
+                </label>
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input type="radio" checked={form.pdfMode === 'preview'}
-                    onChange={() => setForm({...form, pdfMode: 'preview'})}
-                    className="mt-1" />
+                    onChange={() => setForm({...form, pdfMode: 'preview'})} className="mt-1" />
                   <div>
                     <div className="text-sm font-medium">Anteprima (filigrana)</div>
-                    <div className="text-xs text-gray-500">PDF con scritta ANTEPRIMA diagonale. NON inviabile per firma.</div>
+                    <div className="text-xs text-gray-500">PDF con scritta ANTEPRIMA. NON inviabile per firma.</div>
                   </div>
                 </label>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-3">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="radio" checked={form.pdfMode === 'official'}
-                    onChange={() => setForm({...form, pdfMode: 'official'})}
-                    className="mt-1" />
+              {/* V6 Signature */}
+              <div className="border border-violet-200 bg-violet-50/30 rounded-lg p-3">
+                <label className="flex items-start gap-3 cursor-pointer mb-3">
+                  <input type="checkbox" checked={form.needsV6Signature}
+                    onChange={(e) => setForm({...form, needsV6Signature: e.target.checked})} className="mt-1" />
                   <div>
-                    <div className="text-sm font-medium">Ufficiale</div>
-                    <div className="text-xs text-gray-500">PDF senza filigrana. Invio per firma consentito (se non ci sono placeholder).</div>
+                    <div className="text-sm font-medium">Richiede firma V6 (controfirma)</div>
+                    <div className="text-xs text-gray-500">Se attivo, V6 deve firmare. Se disattivo, firma solo la controparte (es. split consulente).</div>
                   </div>
                 </label>
+
+                {form.needsV6Signature && (
+                  <>
+                    <div className="mb-3">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Chi firma per V6</label>
+                      <select value={form.v6SignerId}
+                        onChange={(e) => setForm({...form, v6SignerId: parseInt(e.target.value)})}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">
+                        <option value={0}>— seleziona (default: utente corrente) —</option>
+                        {partners
+                          .filter((p: any) => p.email && p.email.includes('@v6impresa.it'))
+                          .map((p: any) => (
+                            <option key={p.id} value={p.id}>{p.name} · {p.email}</option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Ordine firma</label>
+                      <div className="space-y-2">
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input type="radio" checked={form.v6SignOrder === 'second'}
+                            onChange={() => setForm({...form, v6SignOrder: 'second'})} className="mt-1" />
+                          <div>
+                            <div className="text-xs font-medium">Controparte prima, V6 controfirma dopo ⭐</div>
+                            <div className="text-[10px] text-gray-500">Raccomandato per contratti bilaterali (NDA, NCND, Intro).</div>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input type="radio" checked={form.v6SignOrder === 'first'}
+                            onChange={() => setForm({...form, v6SignOrder: 'first'})} className="mt-1" />
+                          <div>
+                            <div className="text-xs font-medium">V6 firma per primo, controparte dopo</div>
+                            <div className="text-[10px] text-gray-500">V6 mostra impegno per primo.</div>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input type="radio" checked={form.v6SignOrder === 'parallel'}
+                            onChange={() => setForm({...form, v6SignOrder: 'parallel'})} className="mt-1" />
+                          <div>
+                            <div className="text-xs font-medium">Firma parallela</div>
+                            <div className="text-[10px] text-gray-500">Entrambi ricevono link contemporaneamente.</div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="flex justify-between gap-2 pt-4">

@@ -156,6 +156,23 @@ class AdminContractsAPIController(ConsultantAPIController):
             'extra_data': body.get('extraData') or {},
             'pdf_mode': body.get('pdfMode') or 'official',
         }
+        # 26/09/2026: campi V6 sign opzionali
+        if 'needsV6Signature' in body:
+            vals['needs_v6_signature'] = bool(body['needsV6Signature'])
+        if 'v6SignerId' in body and body['v6SignerId']:
+            # Il wizard passa il partner_id, convertiamo a res.users
+            partner_id = body['v6SignerId']
+            User = request.env['res.users'].sudo()
+            user = User.search([('partner_id', '=', partner_id)], limit=1)
+            if user:
+                vals['v6_signer_id'] = user.id
+            else:
+                # Se è già user id, prova direttamente
+                user = User.browse(partner_id)
+                if user.exists():
+                    vals['v6_signer_id'] = user.id
+        if 'v6SignOrder' in body and body['v6SignOrder'] in ('first', 'second', 'parallel'):
+            vals['v6_sign_order'] = body['v6SignOrder']
         d = request.env['erpv6.contract.draft'].sudo().create(vals)
         return self._json_response({'success': True, 'contract': self._draft_to_dict(d)})
 
