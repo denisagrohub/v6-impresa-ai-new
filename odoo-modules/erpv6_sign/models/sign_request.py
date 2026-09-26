@@ -51,6 +51,12 @@ class SignRequest(models.Model):
         ondelete='set null',
         help="Valorizzato quando la firma e' un accordo split V6 per un consulente.")
 
+    # 26/09/2026: collegamento a una bozza contratto (composer admin).
+    contract_draft_id = fields.Many2one(
+        'erpv6.contract.draft', string='Bozza contratto',
+        ondelete='set null',
+        help="Valorizzato quando la firma viene dal composer admin.")
+
     # 23/09/2026: dispatch generico per il webhook. Il tipo di documento
     # firmato determina quale handler applicare al callback Documenso.
     related_kind = fields.Selection([
