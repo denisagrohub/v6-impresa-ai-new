@@ -1,23 +1,15 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, FolderKanban, Users, Settings, LogOut,
-  CheckCircle2, Mail, Calculator, Landmark, FileText, Palette, Target,
-  AlertTriangle, Brain, Shield, Package, UserCog, Phone, PenTool,
-  FileSignature, Code2, Search, RefreshCw, AlertCircle,
-  Inbox, Send, Archive, MailOpen, Mail as MailUnread, Reply, Trash2,
-  ArrowLeft, Paperclip, ChevronLeft, Circle
+  CheckCircle2, Mail, Calculator, Landmark, FileText,
+  Brain, Shield, UserCog, Phone, PenTool, FileSignature, Code2,
+  Search, RefreshCw, Inbox, Send, Archive,
+  Reply, ChevronLeft, Circle, Paperclip
 } from "lucide-react";
 
-type Mailbox = {
-  alias: string;
-  label?: string;
-  total: number;
-  unread: number;
-  lastDate: string | null;
-};
-
+type Mailbox = { alias: string; label?: string; total: number; unread: number; lastDate: string | null };
 type Email = {
   id: number;
   kind: 'winwin' | 'project';
@@ -27,7 +19,6 @@ type Email = {
   cc_emails: string;
   direction: 'ricevuta' | 'inviata';
   matched_alias: string;
-  match_status: string;
   relation_id: number | null;
   relation_name: string | null;
   is_read: boolean;
@@ -38,8 +29,7 @@ type Email = {
 function shortDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
+  const diffMs = Date.now() - d.getTime();
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return "ora";
   if (mins < 60) return `${mins}m`;
@@ -53,7 +43,7 @@ function shortDate(iso: string | null): string {
 function extractEmail(s: string): string {
   if (!s) return '';
   const m = s.match(/<([^>]+)>/);
-  return m ? m[1] : s;
+  return m ? m[1] : s.trim();
 }
 
 export default function AdminMiaEmailPage() {
@@ -74,6 +64,11 @@ export default function AdminMiaEmailPage() {
   const [selected, setSelected] = useState<Email | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [compose, setCompose] = useState({ to: '', cc: '', subject: '', body: '' });
+  const [composeBusy, setComposeBusy] = useState(false);
+  const [composeMsg, setComposeMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const session = localStorage.getItem("pi_session");
@@ -96,9 +91,7 @@ export default function AdminMiaEmailPage() {
       setTotalUnread(p.totalUnread || 0);
     } catch (e: any) {
       setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const loadEmails = async () => {
@@ -112,7 +105,6 @@ export default function AdminMiaEmailPage() {
       if (showArchived) params.set('archived', '1');
       if (search.trim()) params.set('q', search.trim());
       params.set('limit', '200');
-
       const res = await fetch(`/api/admin/emails?${params}`, {
         headers: { Authorization: `JWT ${user.token}` },
       });
@@ -122,17 +114,13 @@ export default function AdminMiaEmailPage() {
       setEmails(p.emails || []);
     } catch (e: any) {
       setError(e.message);
-    } finally {
-      setEmailsLoading(false);
-    }
+    } finally { setEmailsLoading(false); }
   };
 
   useEffect(() => {
     if (user) loadEmails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMailbox, filterDirection, showArchived, user]);
-
-  const handleSearch = () => loadEmails();
 
   const openEmail = async (email: Email) => {
     setSelected(email);
@@ -145,22 +133,18 @@ export default function AdminMiaEmailPage() {
       const data = await res.json();
       const p = data.data || data;
       if (p.success) setDetail(p.email);
-      // Auto-mark-read
       if (!email.is_read) {
         await fetch(`/api/admin/emails/${email.id}/mark-read?kind=${email.kind}`, {
           method: 'POST',
           headers: { Authorization: `JWT ${user?.token || ''}`, 'Content-Type': 'application/json' },
           body: '{}',
         });
-        // Aggiorna stato locale
         setEmails(prev => prev.map(e => e.id === email.id && e.kind === email.kind ? { ...e, is_read: true } : e));
         loadMailboxes();
       }
     } catch (e: any) {
       setError(e.message);
-    } finally {
-      setDetailLoading(false);
-    }
+    } finally { setDetailLoading(false); }
   };
 
   const doAction = async (email: Email, action: 'archive' | 'unarchive' | 'mark-unread') => {
@@ -174,9 +158,52 @@ export default function AdminMiaEmailPage() {
       setDetail(null);
       loadEmails();
       loadMailboxes();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: any) { setError(e.message); }
+  };
+
+  const openNewCompose = () => {
+    setCompose({ to: '', cc: '', subject: '', body: '' });
+    setComposeMsg(null);
+    setComposeOpen(true);
+  };
+
+  const openReply = (email: Email) => {
+    const from = email.direction === 'ricevuta' ? extractEmail(email.sender_email) : '';
+    const subj = (email.name || '').startsWith('Re:') ? email.name : `Re: ${email.name || ''}`;
+    setCompose({ to: from, cc: '', subject: subj, body: '' });
+    setComposeMsg(null);
+    setComposeOpen(true);
+  };
+
+  const openForward = (email: Email, bodyHtml?: string) => {
+    const subj = (email.name || '').startsWith('Fwd:') ? email.name : `Fwd: ${email.name || ''}`;
+    const quoted = bodyHtml || '';
+    setCompose({ to: '', cc: '', subject: subj, body: quoted ? `\n\n---------- Forwarded ----------\n${quoted}` : '' });
+    setComposeMsg(null);
+    setComposeOpen(true);
+  };
+
+  const sendCompose = async () => {
+    if (!compose.to.trim() || !compose.subject.trim()) {
+      setComposeMsg('Destinatario e oggetto obbligatori');
+      return;
     }
+    setComposeBusy(true); setComposeMsg(null);
+    try {
+      const res = await fetch('/api/admin/emails/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `JWT ${user?.token || ''}` },
+        body: JSON.stringify(compose),
+      });
+      const data = await res.json();
+      const p = data.data || data;
+      if (!p.success) { setComposeMsg('Errore: ' + (p.error || 'invio fallito')); setComposeBusy(false); return; }
+      setComposeMsg('✓ Email inviata');
+      setCompose({ to: '', cc: '', subject: '', body: '' });
+      setTimeout(() => { setComposeOpen(false); setComposeMsg(null); loadEmails(); loadMailboxes(); }, 1500);
+    } catch (e: any) {
+      setComposeMsg('Errore: ' + e.message);
+    } finally { setComposeBusy(false); }
   };
 
   const handleLogout = () => {
@@ -208,7 +235,6 @@ export default function AdminMiaEmailPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex">
-      {/* Sidebar admin */}
       <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -241,12 +267,14 @@ export default function AdminMiaEmailPage() {
         </div>
       </aside>
 
-      {/* Client email 3 colonne */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Colonna 1: caselle */}
         <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-          <div className="p-3 border-b border-gray-100">
-            <h2 className="text-xs font-bold text-[#1a2744] uppercase tracking-wider">Caselle</h2>
+          <div className="p-3 border-b border-gray-100 flex items-center gap-2">
+            <h2 className="text-xs font-bold text-[#1a2744] uppercase tracking-wider flex-1">Caselle</h2>
+            <button onClick={openNewCompose} title="Nuovo messaggio"
+              className="px-2 py-1 rounded bg-[#1a2744] text-white text-[10px] font-medium hover:bg-[#0f3460] flex items-center gap-1">
+              <PenTool size={10} /> Nuovo
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
             {loading ? (
@@ -259,11 +287,9 @@ export default function AdminMiaEmailPage() {
                 const Icon = isSent ? Send : (isAll ? Inbox : Mail);
                 const label = mb.label || mb.alias;
                 return (
-                  <button
-                    key={mb.alias}
+                  <button key={mb.alias}
                     onClick={() => { setActiveMailbox(mb.alias); setSelected(null); setDetail(null); }}
-                    className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-medium transition-all text-left mb-0.5 ${isActive ? 'bg-[#1a2744] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
-                  >
+                    className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-medium transition-all text-left mb-0.5 ${isActive ? 'bg-[#1a2744] text-white' : 'text-gray-700 hover:bg-gray-100'}`}>
                     <Icon size={14} />
                     <span className="flex-1 truncate" title={label}>{label}</span>
                     {mb.unread > 0 && (
@@ -278,20 +304,15 @@ export default function AdminMiaEmailPage() {
           </div>
         </aside>
 
-        {/* Colonna 2: lista email */}
         <div className={`${selected ? 'w-80' : 'flex-1'} bg-white border-r border-gray-200 flex flex-col flex-shrink-0`}>
           <div className="p-3 border-b border-gray-200">
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-1 flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-1">
                 <Search size={12} className="text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Cerca..."
-                  value={search}
+                <input type="text" placeholder="Cerca..." value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="flex-1 bg-transparent text-xs focus:outline-none"
-                />
+                  onKeyDown={(e) => e.key === 'Enter' && loadEmails()}
+                  className="flex-1 bg-transparent text-xs focus:outline-none" />
               </div>
               <button onClick={() => { loadEmails(); loadMailboxes(); }} className="p-1.5 rounded hover:bg-gray-100">
                 <RefreshCw size={14} className={emailsLoading ? "animate-spin text-gray-400" : "text-gray-600"} />
@@ -312,11 +333,10 @@ export default function AdminMiaEmailPage() {
               </button>
               <button onClick={() => setShowArchived(!showArchived)}
                 className={`ml-auto px-2 py-0.5 rounded text-[10px] font-medium flex items-center gap-1 ${showArchived ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>
-                <Archive size={10} /> {showArchived ? 'Archivio' : 'Archivio'}
+                <Archive size={10} /> Archivio
               </button>
             </div>
           </div>
-
           <div className="flex-1 overflow-y-auto">
             {emailsLoading ? (
               <div className="p-6 text-center text-xs text-gray-400">Caricamento…</div>
@@ -327,17 +347,14 @@ export default function AdminMiaEmailPage() {
                 const isSel = selected?.id === e.id && selected?.kind === e.kind;
                 const isUnread = !e.is_read && e.direction === 'ricevuta';
                 return (
-                  <button
-                    key={`${e.kind}-${e.id}`}
-                    onClick={() => openEmail(e)}
-                    className={`w-full text-left border-b border-gray-100 hover:bg-gray-50 px-3 py-2 transition-colors ${isSel ? 'bg-blue-50' : ''}`}
-                  >
+                  <button key={`${e.kind}-${e.id}`} onClick={() => openEmail(e)}
+                    className={`w-full text-left border-b border-gray-100 hover:bg-gray-50 px-3 py-2 transition-colors ${isSel ? 'bg-blue-50' : ''}`}>
                     <div className="flex items-start gap-2">
                       {isUnread && <Circle size={6} className="fill-blue-500 text-blue-500 mt-1.5 flex-shrink-0" />}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className={`text-xs truncate flex-1 ${isUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                            {e.direction === 'inviata' ? `→ ${e.recipient_emails?.split(',')[0]}` : (e.sender_email || '?')}
+                            {e.direction === 'inviata' ? `→ ${extractEmail((e.recipient_emails || '').split(',')[0])}` : (extractEmail(e.sender_email) || '?')}
                           </span>
                           <span className="text-[10px] text-gray-400 flex-shrink-0">{shortDate(e.create_date)}</span>
                         </div>
@@ -357,16 +374,16 @@ export default function AdminMiaEmailPage() {
           </div>
         </div>
 
-        {/* Colonna 3: dettaglio */}
         {selected && (
           <div className="flex-1 flex flex-col bg-white">
             <div className="p-3 border-b border-gray-200 flex items-center gap-2">
-              <button onClick={() => { setSelected(null); setDetail(null); }} className="p-1.5 rounded hover:bg-gray-100 md:hidden">
-                <ChevronLeft size={16} />
+              <button onClick={() => { setSelected(null); setDetail(null); }} title="Torna alla lista"
+                className="p-1.5 rounded hover:bg-gray-100 flex items-center gap-1 text-xs text-gray-600">
+                <ChevronLeft size={16} /> <span className="hidden sm:inline">Torna</span>
               </button>
               <div className="flex-1" />
               <button onClick={() => doAction(selected, 'mark-unread')} title="Segna non letta" className="p-1.5 rounded hover:bg-gray-100">
-                <MailUnread size={14} className="text-gray-600" />
+                <Mail size={14} className="text-gray-600" />
               </button>
               {!selected.is_archived ? (
                 <button onClick={() => doAction(selected, 'archive')} title="Archivia" className="p-1.5 rounded hover:bg-gray-100">
@@ -413,11 +430,13 @@ export default function AdminMiaEmailPage() {
                   dangerouslySetInnerHTML={{ __html: detail.body_html || '<p class="text-gray-400 italic">(Corpo email non disponibile)</p>' }}
                 />
 
-                <div className="mt-6 pt-4 border-t border-gray-100 flex gap-2">
-                  <a href={`mailto:${extractEmail(detail.sender_email)}?subject=Re: ${encodeURIComponent(detail.name)}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460]">
-                    <Reply size={12} /> Rispondi via client email
-                  </a>
+                <div className="mt-6 pt-4 border-t border-gray-100 flex gap-2 flex-wrap">
+                  <button onClick={() => openReply(selected)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460]">
+                    <Reply size={12} /> Rispondi
+                  </button>
+                  <button onClick={() => openForward(selected, detail.body_html)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium hover:bg-gray-50">
+                    Inoltra
+                  </button>
                 </div>
               </div>
             ) : (
@@ -426,6 +445,59 @@ export default function AdminMiaEmailPage() {
           </div>
         )}
       </div>
+
+      {composeOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setComposeOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#1a2744] text-white px-4 py-2 rounded-t-lg flex items-center justify-between">
+              <h3 className="text-sm font-bold">Nuovo messaggio</h3>
+              <button onClick={() => setComposeOpen(false)} className="text-white/70 hover:text-white">✕</button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">A *</label>
+                <input type="email" value={compose.to}
+                  onChange={(e) => setCompose({...compose, to: e.target.value})}
+                  placeholder="destinatario@esempio.it"
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">CC</label>
+                <input type="email" value={compose.cc}
+                  onChange={(e) => setCompose({...compose, cc: e.target.value})}
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Oggetto *</label>
+                <input type="text" value={compose.subject}
+                  onChange={(e) => setCompose({...compose, subject: e.target.value})}
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Messaggio</label>
+                <textarea value={compose.body}
+                  onChange={(e) => setCompose({...compose, body: e.target.value})}
+                  rows={10}
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 resize-y" />
+              </div>
+              {composeMsg && (
+                <div className={`text-xs p-2 rounded ${composeMsg.startsWith('✓') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                  {composeMsg}
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setComposeOpen(false)} className="px-3 py-1.5 rounded text-xs text-gray-600 hover:bg-gray-100">
+                  Annulla
+                </button>
+                <button onClick={sendCompose} disabled={composeBusy}
+                  className="px-3 py-1.5 rounded bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460] disabled:opacity-50 flex items-center gap-1">
+                  <Send size={12} /> {composeBusy ? 'Invio…' : 'Invia'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
