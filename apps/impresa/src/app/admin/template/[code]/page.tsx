@@ -70,6 +70,11 @@ export default function TemplateStudioPage() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [promoting, setPromoting] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [importMdOpen, setImportMdOpen] = useState(false);
+  const [importMdText, setImportMdText] = useState("");
+  const [importMdResult, setImportMdResult] = useState<string | null>(null);
+  const [importMdWarnings, setImportMdWarnings] = useState<string[]>([]);
+  const [importMdBusy, setImportMdBusy] = useState(false);
 
   useEffect(() => {
     const session = localStorage.getItem("pi_session");
@@ -165,6 +170,51 @@ export default function TemplateStudioPage() {
     }
   };
 
+  const importMdPreview = async () => {
+    if (!importMdText.trim() || !template) return;
+    setImportMdBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/templates/${template.code}/import-md`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `JWT ${user?.token || ''}` },
+        body: JSON.stringify({ text: importMdText, mode: 'legal' }),
+      });
+      const data = await res.json();
+      const payload = data.data || data;
+      if (!payload.success) { setError(payload.error); setImportMdBusy(false); return; }
+      setImportMdResult(payload.typstSource);
+      setImportMdWarnings(payload.warnings || []);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setImportMdBusy(false);
+    }
+  };
+
+  const importMdApply = async () => {
+    if (!importMdText.trim() || !template) return;
+    if (!confirm("Applicare il testo convertito al draft del template?\nIl sorgente attuale in produzione NON sarà modificato finché non promuovi.")) return;
+    setImportMdBusy(true);
+    try {
+      const res = await fetch(`/api/admin/templates/${template.code}/import-md-apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `JWT ${user?.token || ''}` },
+        body: JSON.stringify({ text: importMdText, mode: 'legal' }),
+      });
+      const data = await res.json();
+      const payload = data.data || data;
+      if (!payload.success) { setError(payload.error); setImportMdBusy(false); return; }
+      setSaveMessage("Testo importato nel draft. Ricompila per verificare.");
+      setTimeout(() => setSaveMessage(null), 5000);
+      await loadTemplate();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setImportMdBusy(false);
+    }
+  };
+
   const promote = async () => {
     if (!template || promoting) return;
     if (!confirm("Promuovere la bozza a sorgente di produzione?\n\nDa questo momento tutti i nuovi documenti generati useranno questa versione.")) return;
@@ -245,6 +295,10 @@ export default function TemplateStudioPage() {
           </span>
         )}
 
+        <button onClick={() => setImportMdOpen(!importMdOpen)} disabled={importMdBusy}
+          className="px-3 py-1.5 rounded-lg border border-indigo-300 text-indigo-700 text-sm font-medium hover:bg-indigo-50 disabled:opacity-50 flex items-center gap-1.5">
+          <FileText size={14} /> Importa testo
+        </button>
         <button onClick={saveDraft} disabled={savingDraft}
           className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1.5">
           <Save size={14} /> {savingDraft ? '…' : 'Salva bozza'}
@@ -403,6 +457,62 @@ export default function TemplateStudioPage() {
           </div>
         </div>
       </div>
+      {importMdOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setImportMdOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <FileText size={16} className="text-indigo-600" />
+                Importa testo (markdown → Typst)
+              </h3>
+              <button onClick={() => setImportMdOpen(false)} className="text-gray-400 hover:text-gray-700">✕</button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              Incolla il testo (da Claude, avvocato, Word, ecc.). Il convertitore riconosce
+              <code className="mx-1 px-1 bg-gray-100 rounded">Art. 1 — Titolo</code>,
+              <code className="mx-1 px-1 bg-gray-100 rounded"># Heading</code>,
+              <code className="mx-1 px-1 bg-gray-100 rounded">**bold**</code>,
+              <code className="mx-1 px-1 bg-gray-100 rounded">[VAR]</code>.
+              Header brand, footer e firme vengono aggiunti automaticamente.
+            </p>
+            <textarea
+              value={importMdText}
+              onChange={(e) => setImportMdText(e.target.value)}
+              placeholder="Incolla qui il testo..."
+              rows={12}
+              className="w-full text-xs font-mono p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 mb-3"
+            />
+            <div className="flex gap-2 mb-3">
+              <button onClick={importMdPreview} disabled={importMdBusy || !importMdText.trim()}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+                {importMdBusy ? '…' : 'Converti (anteprima)'}
+              </button>
+              {importMdResult && (
+                <button onClick={importMdApply} disabled={importMdBusy}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+                  Applica al template
+                </button>
+              )}
+            </div>
+            {importMdWarnings.length > 0 && (
+              <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                <strong>Warning:</strong>
+                <ul className="list-disc list-inside">
+                  {importMdWarnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+            )}
+            {importMdResult && (
+              <div>
+                <div className="text-xs font-semibold text-gray-500 mb-1">Sorgente Typst generato:</div>
+                <pre className="text-xs font-mono bg-gray-900 text-gray-100 p-3 rounded-lg max-h-64 overflow-auto whitespace-pre-wrap">
+                  {importMdResult}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
