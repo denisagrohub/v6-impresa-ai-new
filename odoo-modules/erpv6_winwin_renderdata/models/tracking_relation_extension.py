@@ -45,6 +45,21 @@ class Erpv6TrackingRelation(models.Model):
         help="Soglia minima che la riserva V6 deve mantenere. La UI e "
              "il constraint Odoo bloccano split che scendono sotto.")
 
+    # 27/09/2026: versioning split V6 (Fase 2)
+    split_version_ids = fields.One2many(
+        'erpv6.revenue.split.version', 'relation_id',
+        string='Versioni Split V6')
+    active_split_version_id = fields.Many2one(
+        'erpv6.revenue.split.version', string='Versione split attiva',
+        compute='_compute_active_split_version', store=False)
+
+    @api.depends('split_version_ids', 'split_version_ids.state')
+    def _compute_active_split_version(self):
+        for r in self:
+            active = r.split_version_ids.filtered(
+                lambda v: v.state in ('bozza', 'in_firma'))
+            r.active_split_version_id = active[:1] if active else False
+
     x_v6_pitch_enabled = fields.Boolean(
         string='Pitch pubblico attivo', default=False,
         help="Se True, /p/<email_alias> è accessibile senza login.")

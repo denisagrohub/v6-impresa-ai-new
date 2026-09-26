@@ -15,31 +15,77 @@ from odoo import fields, models
 _logger = logging.getLogger(__name__)
 
 
+def _resolve_recipients(env, to_email):
+    """27/09/2026: rispetta la preferenza x_v6_email_mode del partner.
+
+    Ritorna (email_to, email_cc) tupla.
+    - 'personal' (default): email_to = to_email, cc vuoto
+    - 'v6': sostituisce con slug@v6impresa.it
+    - 'both': to_email personale + slug@v6impresa.it in cc
+    """
+    if not to_email:
+        return (to_email, '')
+    Partner = env['res.partner'].sudo()
+    if 'x_v6_email_mode' not in Partner._fields:
+        return (to_email, '')
+    partner = Partner.search([('email', '=', to_email)], limit=1)
+    if not partner:
+        return (to_email, '')
+
+    mode = partner.x_v6_email_mode or 'personal'
+    if mode == 'personal':
+        return (to_email, '')
+
+    # Determina slug: da user collegato o da company
+    slug = None
+    user = env['res.users'].sudo().search([('partner_id', '=', partner.id)], limit=1)
+    if user and getattr(user, 'email_slug', None):
+        slug = user.email_slug
+
+    if not slug:
+        # fallback: prova a ricavare dall'email (prima parte)
+        return (to_email, '')
+
+    alias_email = f'{slug}@v6impresa.it'
+
+    if mode == 'v6':
+        return (alias_email, '')
+    if mode == 'both':
+        return (to_email, alias_email)
+    return (to_email, '')
+
+
 def send_system_mail(env, to_email, subject, body_html, model=None, res_id=None):
     """Invia email sistema. Ritorna mail.mail o None se errore.
 
-    Non solleva eccezioni: log e ritorno None se qualcosa fallisce,
-    cosi' la logica chiamante (write, action, ecc.) non si blocca.
+    Rispetta la preferenza x_v6_email_mode del partner (personal/v6/both).
     """
     if not to_email:
         _logger.warning('send_system_mail: to_email vuoto, skip')
         return None
     try:
+        email_to, email_cc = _resolve_recipients(env, to_email)
         server = env['ir.mail_server'].sudo().search(
             [('from_filter', '=', 'v6sviluppoimpresa.it'), ('active', '=', True)],
             limit=1,
         )
         from_addr = 'V6impresa Sistema <sistema@v6sviluppoimpresa.it>'
-        mail = env['mail.mail'].sudo().create({
+        vals = {
             'email_from': from_addr,
-            'email_to': to_email,
+            'email_to': email_to,
             'subject': subject,
             'body_html': body_html,
             'mail_server_id': server.id if server else False,
             'auto_delete': False,
-        })
+        }
+        if email_cc:
+            vals['email_cc'] = email_cc
+        mail = env['mail.mail'].sudo().create(vals)
         mail.send()
-        _logger.info('send_system_mail OK -> %s (subject: %s)', to_email, subject[:60])
+        _logger.info(
+            'send_system_mail OK -> to=%s cc=%s (subject: %s)',
+            email_to, email_cc or '-', subject[:60],
+        )
         return mail
     except Exception:
         _logger.exception('send_system_mail fallito per %s', to_email)
