@@ -244,10 +244,19 @@ class AdminContractsAPIController(ConsultantAPIController):
         d = request.env['erpv6.contract.draft'].sudo().browse(contract_id)
         if not d.exists():
             return self._json_response({'error': 'Non trovato'}, 404)
+
         try:
-            r = d.action_send_for_signature()
+            body = json.loads(request.httprequest.get_data(as_text=True) or '{}')
+        except json.JSONDecodeError:
+            body = {}
+
+        partner_ids = body.get('partnerIds') or None
+
+        try:
+            r = d.action_send_for_signature(partner_ids=partner_ids)
             return self._json_response({'success': True, **r})
         except Exception as e:
+            _logger.exception('Errore send_contract')
             return self._json_response({'error': str(e)}, 400)
 
     @http.route('/api/v1/admin/contracts/<int:contract_id>/pdf',

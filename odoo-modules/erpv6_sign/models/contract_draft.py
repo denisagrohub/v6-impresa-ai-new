@@ -279,34 +279,84 @@ class Erpv6ContractDraft(models.Model):
                 'Cambia pdf_mode su "Ufficiale" e rigenera.'
             )
 
-        # Blocco placeholder
+        # Blocco placeholder: SOLO se il valore è un placeholder esplicito
+        # (es. "[DA COMPILARE]" o formato [CONTROPARTE_PIVA]). I campi
+        # legittimamente vuoti (P.IVA per persona fisica, PEC assente, ecc.)
+        # NON bloccano.
+        import re as _re
+        PLACEHOLDER_FORMAT = _re.compile(r'^\[[A-Z][A-Z_0-9/ ]+\]$')
+
         data = self._build_render_data()
-        placeholders = [
-            k for k, v in data.items()
-            if isinstance(v, str) and (
-                '[DA DEFINIRE]' in v.upper() or
-                '[DA COMPILARE]' in v.upper() or
-                v.strip() == ''
-            )
-        ]
-        # Escludi i campi che possono essere vuoti legittimamente
-        ALLOWED_EMPTY = {
-            'controparte_cf', 'controparte_telefono', 'v6_telefono',
-            'v6_cf', 'base_tipo', 'base_valore', 'base_unita',
-            'pdf_mode', 'revision', 'progetto_id',
-        }
-        blocking = [k for k in placeholders if k not in ALLOWED_EMPTY]
+        blocking = []
+        for k, v in data.items():
+            if not isinstance(v, str):
+                continue
+            vstrip = v.strip()
+            if not vstrip:
+                continue  # vuoto: OK (campo non applicabile)
+            vup = vstrip.upper()
+            if '[DA DEFINIRE]' in vup or '[DA COMPILARE]' in vup:
+                blocking.append(k)
+            elif PLACEHOLDER_FORMAT.match(vstrip):
+                blocking.append(k)
 
         if blocking:
             raise UserError(
-                'Impossibile inviare per firma. Campi mancanti o placeholder:\n'
+                'Impossibile inviare per firma. Campi ancora con placeholder:\n'
                 + '\n'.join(f'  • {k}' for k in blocking)
             )
 
-        # Crea sign request (logica delegata al modulo sign)
-        # In attesa di definire chi firma (V6 + controparte? solo controparte?)
-        # Lasciamo aperto: per ora crea solo una nota, l'invio firma vero e proprio
-        # lo aggiungiamo nello Step 2
+        # 26/09/2026: crea un sign request per la controparte e invia via Documenso.
+        # Se partner_ids è passato esplicitamente, li usa; altrimenti usa la controparte.
+        target_partner_ids = partner_ids or ([self.counterparty_id.id] if self.counterparty_id else [])
+        if not target_partner_ids:
+            raise UserError('Nessuna controparte o destinatario specificato per la firma.')
+
+        Sign = self.env['erpv6.sign.request'].sudo()
+        Partner = self.env['res.partner'].sudo()
+        created = []
+
+        for pid in target_partner_ids:
+            partner = Partner.browse(pid)
+            if not partner.exists():
+                _logger.warning('Partner %s non esiste, skip', pid)
+                continue
+
+            sr = Sign.create({
+                'name': self.name,
+                'partner_id': pid,
+                'document_id': self.document_id.id,
+                'contract_draft_id': self.id,
+                'related_kind': self._get_related_kind(),
+                'related_id': self.id,
+                'related_model': 'erpv6.contract.draft',
+                'notes': f'Bozza contratto rev. {self.revision}',
+            })
+            try:
+                sr.action_send_to_sign()
+                created.append(sr.id)
+                _logger.info('Sign request %s inviato a %s', sr.id, partner.name)
+            except Exception as e:
+                _logger.exception('Errore invio firma a %s: %s', partner.name, e)
+                # Non blocca gli altri, ma segnala
+                self.message_post(body=f"Errore invio firma a {partner.name}: {e}")
+
+        if not created:
+            raise UserError('Nessun sign request creato. Controlla i log.')
+
         self.write({'state': 'sent'})
-        self.message_post(body="Inviato per firma (workflow da completare nello Step 2).")
-        return {'success': True, 'state': 'sent'}
+        self.message_post(body=f"Inviato per firma a {len(created)} destinatario/i: {created}")
+        return {'success': True, 'state': 'sent', 'sign_request_ids': created}
+
+    def _get_related_kind(self):
+        """Mappa il template_code in un related_kind valido per sign_request."""
+        code = (self.template_id.code or '').upper()
+        if 'NDA' in code and 'NCND' not in code:
+            return 'nda'
+        if 'NCND' in code:
+            return 'ncnd'
+        if 'SPLIT' in code:
+            return 'split_v6'
+        if 'INTRO' in code:
+            return 'contratto'
+        return 'altro'
