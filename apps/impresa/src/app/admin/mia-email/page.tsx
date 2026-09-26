@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import AdminSidebar from "@/components/admin/layout/AdminSidebar";
+import ComposerModal from "@/components/admin/email/ComposerModal";
 import Link from "next/link";
 import {
   LayoutDashboard, FolderKanban, Users, Settings, LogOut,
@@ -66,10 +67,8 @@ export default function AdminMiaEmailPage() {
   const [detail, setDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [compose, setCompose] = useState({ to: '', cc: '', subject: '', body: '' });
-  const [composeBusy, setComposeBusy] = useState(false);
-  const [composeMsg, setComposeMsg] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerInitial, setComposerInitial] = useState({ to: '', cc: '', subject: '', body: '' });
 
   useEffect(() => {
     const session = localStorage.getItem("pi_session");
@@ -123,6 +122,28 @@ export default function AdminMiaEmailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMailbox, filterDirection, showArchived, user]);
 
+  const openNewCompose = () => {
+    setComposerInitial({ to: '', cc: '', subject: '', body: '' });
+    setComposerOpen(true);
+  };
+
+  const openReply = (email: Email) => {
+    const from = email.direction === 'ricevuta' ? extractEmail(email.sender_email) : '';
+    const subj = (email.name || '').startsWith('Re:') ? email.name : `Re: ${email.name || ''}`;
+    setComposerInitial({ to: from, cc: '', subject: subj, body: '' });
+    setComposerOpen(true);
+  };
+
+  const openForward = (email: Email, bodyHtml?: string) => {
+    const subj = (email.name || '').startsWith('Fwd:') ? email.name : `Fwd: ${email.name || ''}`;
+    const quoted = bodyHtml || '';
+    setComposerInitial({
+      to: '', cc: '', subject: subj,
+      body: quoted ? '\n\n---------- Forwarded ----------\n' + quoted : '',
+    });
+    setComposerOpen(true);
+  };
+
   const openEmail = async (email: Email) => {
     setSelected(email);
     setDetailLoading(true);
@@ -162,50 +183,7 @@ export default function AdminMiaEmailPage() {
     } catch (e: any) { setError(e.message); }
   };
 
-  const openNewCompose = () => {
-    setCompose({ to: '', cc: '', subject: '', body: '' });
-    setComposeMsg(null);
-    setComposeOpen(true);
-  };
 
-  const openReply = (email: Email) => {
-    const from = email.direction === 'ricevuta' ? extractEmail(email.sender_email) : '';
-    const subj = (email.name || '').startsWith('Re:') ? email.name : `Re: ${email.name || ''}`;
-    setCompose({ to: from, cc: '', subject: subj, body: '' });
-    setComposeMsg(null);
-    setComposeOpen(true);
-  };
-
-  const openForward = (email: Email, bodyHtml?: string) => {
-    const subj = (email.name || '').startsWith('Fwd:') ? email.name : `Fwd: ${email.name || ''}`;
-    const quoted = bodyHtml || '';
-    setCompose({ to: '', cc: '', subject: subj, body: quoted ? `\n\n---------- Forwarded ----------\n${quoted}` : '' });
-    setComposeMsg(null);
-    setComposeOpen(true);
-  };
-
-  const sendCompose = async () => {
-    if (!compose.to.trim() || !compose.subject.trim()) {
-      setComposeMsg('Destinatario e oggetto obbligatori');
-      return;
-    }
-    setComposeBusy(true); setComposeMsg(null);
-    try {
-      const res = await fetch('/api/admin/emails/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `JWT ${user?.token || ''}` },
-        body: JSON.stringify(compose),
-      });
-      const data = await res.json();
-      const p = data.data || data;
-      if (!p.success) { setComposeMsg('Errore: ' + (p.error || 'invio fallito')); setComposeBusy(false); return; }
-      setComposeMsg('✓ Email inviata');
-      setCompose({ to: '', cc: '', subject: '', body: '' });
-      setTimeout(() => { setComposeOpen(false); setComposeMsg(null); loadEmails(); loadMailboxes(); }, 1500);
-    } catch (e: any) {
-      setComposeMsg('Errore: ' + e.message);
-    } finally { setComposeBusy(false); }
-  };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex">
@@ -393,58 +371,16 @@ export default function AdminMiaEmailPage() {
         )}
       </div>
 
-      {composeOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setComposeOpen(false)}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-[#1a2744] text-white px-4 py-2 rounded-t-lg flex items-center justify-between">
-              <h3 className="text-sm font-bold">Nuovo messaggio</h3>
-              <button onClick={() => setComposeOpen(false)} className="text-white/70 hover:text-white">✕</button>
-            </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">A *</label>
-                <input type="email" value={compose.to}
-                  onChange={(e) => setCompose({...compose, to: e.target.value})}
-                  placeholder="destinatario@esempio.it"
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">CC</label>
-                <input type="email" value={compose.cc}
-                  onChange={(e) => setCompose({...compose, cc: e.target.value})}
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Oggetto *</label>
-                <input type="text" value={compose.subject}
-                  onChange={(e) => setCompose({...compose, subject: e.target.value})}
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Messaggio</label>
-                <textarea value={compose.body}
-                  onChange={(e) => setCompose({...compose, body: e.target.value})}
-                  rows={10}
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 resize-y" />
-              </div>
-              {composeMsg && (
-                <div className={`text-xs p-2 rounded ${composeMsg.startsWith('✓') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-                  {composeMsg}
-                </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={() => setComposeOpen(false)} className="px-3 py-1.5 rounded text-xs text-gray-600 hover:bg-gray-100">
-                  Annulla
-                </button>
-                <button onClick={sendCompose} disabled={composeBusy}
-                  className="px-3 py-1.5 rounded bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460] disabled:opacity-50 flex items-center gap-1">
-                  <Send size={12} /> {composeBusy ? 'Invio…' : 'Invia'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ComposerModal
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        user={user}
+        initialTo={composerInitial.to}
+        initialCc={composerInitial.cc}
+        initialSubject={composerInitial.subject}
+        initialBody={composerInitial.body}
+        onSent={() => { loadEmails(); loadMailboxes(); }}
+      />
     </div>
   );
 }

@@ -28,20 +28,20 @@ export default function AdminSidebar({ badges = [], onLogout, user }: Props) {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
-      <div className="p-6 border-b border-gray-100">
+    <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+      <div className="p-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1a2744] to-[#0f3460] flex items-center justify-center text-white font-bold">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1a2744] to-[#0f3460] flex items-center justify-center text-white font-bold">
             PI
           </div>
           <div>
-            <div className="font-bold text-[#1a2744]">V6 Impresa AI</div>
+            <div className="font-bold text-[#1a2744] text-sm">V6 Impresa AI</div>
             <div className="text-xs text-gray-500">Admin Panel</div>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         {ADMIN_MENU_ITEMS.map((item, i) => {
           const isActive = pathname === item.href;
           const badge = getBadge(item.href);
@@ -49,16 +49,16 @@ export default function AdminSidebar({ badges = [], onLogout, user }: Props) {
             <Link
               key={i}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                 isActive
                   ? "bg-[#1a2744] text-white shadow-lg shadow-blue-900/20"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              <item.icon size={18} /> {item.label}
+              <item.icon size={14} /> {item.label}
               {badge && (
                 <span
-                  className={`ml-auto min-w-[20px] h-5 px-1.5 rounded-full text-white text-xs font-bold flex items-center justify-center ${
+                  className={`ml-auto min-w-[18px] h-4 px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${
                     badge.color || "bg-red-500"
                   }`}
                 >
@@ -70,18 +70,18 @@ export default function AdminSidebar({ badges = [], onLogout, user }: Props) {
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-3 border-t border-gray-100">
         {user && (
-          <div className="px-4 py-2 mb-2 text-xs text-gray-500 truncate">
+          <div className="px-3 py-2 mb-2 text-xs text-gray-500 truncate">
             <div className="font-medium text-[#1a2744]">{user.name || "Admin"}</div>
             <div className="truncate">{user.email || ""}</div>
           </div>
         )}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 w-full"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 w-full"
         >
-          <LogOut size={18} /> Esci
+          <LogOut size={14} /> Esci
         </button>
       </div>
     </aside>
