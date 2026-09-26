@@ -158,3 +158,26 @@ class DocumensoAdapter(SignatureProviderAdapter):
             return resp.content
         _logger.warning('download firmato Documenso: %s', resp.status_code)
         return None
+
+    def fetch_envelope_final(self, envelope_id):
+        """26/09/2026: scarica il PDF finale dell'ENVELOPE con TUTTE le firme.
+        Usato per inviare alla controparte il contratto firmato da entrambe
+        le parti. Ritorna bytes o None."""
+        if not envelope_id:
+            return None
+        # Prova prima l'endpoint standard /envelope/{id}/download
+        for endpoint in [
+            f'{self._base()}/envelope/{envelope_id}/download',
+            f'{self._base()}/envelope/{envelope_id}/items',
+            f'{self._base()}/envelope/{envelope_id}',
+        ]:
+            try:
+                resp = requests.get(endpoint, headers=self._headers(), timeout=30)
+                if resp.status_code == 200:
+                    ctype = resp.headers.get('content-type', '')
+                    if 'pdf' in ctype.lower() or resp.content[:4] == b'%PDF':
+                        return resp.content
+            except Exception as e:
+                _logger.warning('fetch_envelope_final %s fallito: %s', endpoint, e)
+        _logger.warning('fetch_envelope_final: nessun endpoint funzionante per %s', envelope_id)
+        return None
