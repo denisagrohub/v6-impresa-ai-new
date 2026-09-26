@@ -106,18 +106,28 @@ class AdminEmailsAPIController(ConsultantAPIController):
         """
         if not alias or '@' in alias:
             return False
-        candidates = [
-            f'{alias}@v6impresa.it',
-            f'{alias}@v6sviluppoimpresa.it',
-        ]
         User = request.env['res.users'].sudo()
-        u = User.search([
-            '|',
-            ('login', 'in', candidates),
-            ('partner_id.email', 'in', candidates),
-        ], limit=1)
+
+        # 27/09/2026 fix definitivo: cerca per email_slug (campo V6 custom).
+        # email_slug contiene 'christian.girardi', 'martina.garbin', ecc.
+        # per ogni utente con alias V6. Se l'alias matcha un utente NON
+        # admin/responsabile e diverso dall'utente corrente -> hide.
+        u = False
+        if 'email_slug' in User._fields:
+            u = User.search([('email_slug', '=', alias)], limit=1)
         if not u:
-            return False
+            # Fallback: cerca email V6 esatta
+            candidates = [
+                f'{alias}@v6impresa.it',
+                f'{alias}@v6sviluppoimpresa.it',
+            ]
+            u = User.search([
+                '|',
+                ('login', 'in', candidates),
+                ('partner_id.email', 'in', candidates),
+            ], limit=1)
+        if not u:
+            return False  # alias non associato a un utente: mostra (progetto)
         if u.id == current_user.id:
             return False
         try:
