@@ -447,8 +447,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                     if user_slug and project_alias:
                         from_addr = f'{user_slug}+{project_alias}@v6impresa.it'
 
-            full_body = body_html.replace('
-', '<br/>') if body_html else ''
+            full_body = body_html.replace('\n', '<br/>') if body_html else ''
             if relation_id:
                 Relation = request.env['erpv6.tracking.relation'].sudo().browse(relation_id)
                 full_body += f'<br/><br/><hr/><p style="color:#999;font-size:11px;">Progetto: <b>{Relation.name}</b></p>'
