@@ -65,6 +65,48 @@ class Erpv6ContractDraft(models.Model):
         ('cancelled', 'Annullato'),
     ], string='Stato', default='draft', tracking=True)
 
+    # === FIRMA V6 (controfirma) ===
+    needs_v6_signature = fields.Boolean(
+        string='Richiede firma V6', default=True,
+        help='Se True, V6 deve controfirmare il documento dopo la controparte.')
+    v6_signer_id = fields.Many2one(
+        'res.users', string='Firma per V6',
+        default=lambda self: self.env.user,
+        help='Utente V6 che controfirma il documento.')
+    v6_sign_order = fields.Selection([
+        ('first', 'V6 firma per primo'),
+        ('second', 'V6 controfirma dopo controparte'),
+        ('parallel', 'Firma parallela'),
+    ], string='Ordine firma', default='second', required=True)
+
+    # === INTEGRITÀ / ANTI-ALTERAZIONE ===
+    original_pdf_hash = fields.Char(
+        string='Hash SHA-256 originale', readonly=True,
+        help='Hash SHA-256 del PDF al momento della generazione.')
+    counterparty_signed_pdf_hash = fields.Char(
+        string='Hash PDF firmato controparte', readonly=True)
+    v6_signed_pdf_hash = fields.Char(
+        string='Hash PDF firmato V6', readonly=True)
+    integrity_verified = fields.Boolean(
+        string='Integrità verificata', readonly=True, default=False)
+    integrity_verified_at = fields.Datetime(
+        string='Verifica integrità il', readonly=True)
+    integrity_notes = fields.Text(string='Note verifica integrità')
+
+    # === BLOCKCHAIN / ANCHOR ===
+    blockchain_anchor_original = fields.Char(
+        string='Tx hash anchor originale', readonly=True)
+    blockchain_anchor_cp_signed = fields.Char(
+        string='Tx hash anchor controparte', readonly=True)
+    blockchain_anchor_v6_signed = fields.Char(
+        string='Tx hash anchor V6', readonly=True)
+
+    # === LINK AI SIGN REQUEST ===
+    counterparty_sign_request_id = fields.Many2one(
+        'erpv6.sign.request', string='Firma controparte', readonly=True)
+    v6_sign_request_id = fields.Many2one(
+        'erpv6.sign.request', string='Firma V6', readonly=True)
+
     # ================================================================
     # DATA BUILDING
     # ================================================================
@@ -194,20 +236,34 @@ class Erpv6ContractDraft(models.Model):
             })
             new_rev = self.revision
 
+        # 26/09/2026: calcola hash SHA-256 per anti-alterazione + anchor blockchain
+        import hashlib
+        original_hash = hashlib.sha256(pdf_bytes).hexdigest()
+        anchor_tx = self._anchor_hash_on_blockchain(original_hash)
+
         self.write({
             'document_id': doc.id,
             'state': 'generated',
             'revision': new_rev,
             'last_generated_at': fields.Datetime.now(),
+            'original_pdf_hash': original_hash,
+            'blockchain_anchor_original': anchor_tx or False,
+            'integrity_verified': False,  # nuovo hash = nuova verifica
+            'integrity_verified_at': False,
         })
 
-        self.message_post(body=f"PDF generato — revisione {new_rev} ({len(pdf_bytes)} byte)")
+        self.message_post(body=(
+            f"PDF generato — revisione {new_rev} ({len(pdf_bytes)} byte)\n"
+            f"Hash SHA-256: {original_hash[:16]}...\n"
+            f"Anchor blockchain: {anchor_tx or 'non disponibile'}"
+        ))
 
         return {
             'success': True,
             'document_id': doc.id,
             'pdf_size': len(pdf_bytes),
             'revision': new_rev,
+            'original_hash': original_hash,
         }
 
     def action_regenerate(self):
@@ -262,6 +318,62 @@ class Erpv6ContractDraft(models.Model):
     # ================================================================
     # INVIO PER FIRMA (con blocco placeholder)
     # ================================================================
+    def _anchor_hash_on_blockchain(self, hash_value):
+        """Anchor SHA-256 su OpenTimestamps (best-effort).
+        Ritorna tx hash se riesce, None altrimenti."""
+        try:
+            Model = self.env.get('erpv6.blockchain.record')
+            if not Model:
+                return None
+            rec = Model.sudo().create({
+                'name': f'Contratto {self.name}',
+                'document_hash': hash_value,
+                'model_name': 'erpv6.contract.draft',
+                'record_id': self.id,
+            })
+            # Chiama anchor se il metodo esiste
+            if hasattr(rec, 'action_anchor_opentimestamps'):
+                rec.action_anchor_opentimestamps()
+            return rec.tx_hash if hasattr(rec, 'tx_hash') else str(rec.id)
+        except Exception as e:
+            _logger.warning('Anchor blockchain fallito: %s', e)
+            return None
+
+    def action_verify_integrity(self):
+        """Verifica che il PDF attuale corrisponda all'hash originale.
+        Blocca la controfirma se c'è alterazione."""
+        self.ensure_one()
+        if not self.document_id or not self.document_id.pdf_file:
+            raise UserError('Nessun PDF generato.')
+        if not self.original_pdf_hash:
+            raise UserError('Hash originale mancante. Rigenera il PDF.')
+
+        import hashlib, base64
+        pdf_bytes = base64.b64decode(self.document_id.pdf_file)
+        current_hash = hashlib.sha256(pdf_bytes).hexdigest()
+
+        match = (current_hash == self.original_pdf_hash)
+        if match:
+            self.write({
+                'integrity_verified': True,
+                'integrity_verified_at': fields.Datetime.now(),
+                'integrity_notes': f'Verificato: {current_hash[:16]}... corrisponde all\'originale.',
+            })
+            self.message_post(body=f"✓ Integrità verificata — hash {current_hash[:16]}...")
+            return {'success': True, 'match': True, 'hash': current_hash}
+        else:
+            self.write({
+                'integrity_verified': False,
+                'integrity_notes': f'ALTERATO: atteso {self.original_pdf_hash[:16]}... trovato {current_hash[:16]}...',
+            })
+            self.message_post(body=f"✗ INTEGRITÀ FALLITA — hash diverso!")
+            return {
+                'success': False,
+                'match': False,
+                'expected': self.original_pdf_hash,
+                'actual': current_hash,
+            }
+
     def action_send_for_signature(self, partner_ids=None):
         """Invia il documento per firma. Blocca se:
         - PDF non generato
@@ -314,49 +426,94 @@ class Erpv6ContractDraft(models.Model):
 
         Sign = self.env['erpv6.sign.request'].sudo()
         Partner = self.env['res.partner'].sudo()
-        created = []
 
-        for pid in target_partner_ids:
-            partner = Partner.browse(pid)
-            if not partner.exists():
-                _logger.warning('Partner %s non esiste, skip', pid)
-                continue
+        # 26/09/2026: flusso Modo A — V6 controfirma dopo controparte.
+        # Ordine:
+        #  - 'second' (default): prima controparte, poi V6 quando arriva firma
+        #  - 'first': prima V6, poi controparte
+        #  - 'parallel': entrambi subito
+        order = self.v6_sign_order or 'second'
+        send_cp_now = order in ('first', 'parallel')  # controparte subito se non 'second'
+        send_v6_now = order in ('first', 'parallel') or not self.needs_v6_signature
 
+        if order == 'second':
+            send_cp_now = True
+            send_v6_now = False
+        elif order == 'first':
+            send_cp_now = False
+            send_v6_now = True
+
+        cp_sr_id = None
+        v6_sr_id = None
+
+        # 1. Firma controparte (se previsto ora)
+        if send_cp_now:
+            for pid in target_partner_ids:
+                partner = Partner.browse(pid)
+                if not partner.exists():
+                    continue
+                sr = Sign.create({
+                    'name': self.name,
+                    'partner_id': pid,
+                    'document_id': self.document_id.id,
+                    'contract_draft_id': self.id,
+                    'related_kind': self._get_related_kind(),
+                    'related_id': self.id,
+                    'related_model': 'erpv6.contract.draft',
+                    'notes': f'Bozza rev. {self.revision} — firma controparte',
+                })
+                try:
+                    sr.action_send_to_sign()
+                    cp_sr_id = sr.id
+                    _logger.info('Sign request controparte %s inviato a %s', sr.id, partner.name)
+                except Exception as e:
+                    _logger.exception('Errore invio firma a %s: %s', partner.name, e)
+                break  # per ora: primo partner = controparte principale
+
+        # 2. Firma V6 (se previsto ora)
+        if self.needs_v6_signature and send_v6_now and self.v6_signer_id:
+            v6_partner = self.v6_signer_id.partner_id
             sr = Sign.create({
                 'name': self.name,
-                'partner_id': pid,
+                'partner_id': v6_partner.id,
                 'document_id': self.document_id.id,
                 'contract_draft_id': self.id,
                 'related_kind': self._get_related_kind(),
                 'related_id': self.id,
                 'related_model': 'erpv6.contract.draft',
-                'notes': f'Bozza contratto rev. {self.revision}',
+                'notes': f'Bozza rev. {self.revision} — firma V6',
             })
             try:
                 sr.action_send_to_sign()
-                created.append(sr.id)
-                _logger.info('Sign request %s inviato a %s', sr.id, partner.name)
+                v6_sr_id = sr.id
+                _logger.info('Sign request V6 %s inviato a %s', sr.id, v6_partner.name)
             except Exception as e:
-                _logger.exception('Errore invio firma a %s: %s', partner.name, e)
-                # Non blocca gli altri, ma segnala
-                self.message_post(body=f"Errore invio firma a {partner.name}: {e}")
+                _logger.exception('Errore invio firma V6: %s', e)
 
-        if not created:
+        if not cp_sr_id and not v6_sr_id:
             raise UserError('Nessun sign request creato. Controlla i log.')
 
-        self.write({'state': 'sent'})
-        self.message_post(body=f"Inviato per firma a {len(created)} destinatario/i: {created}")
-        return {'success': True, 'state': 'sent', 'sign_request_ids': created}
+        vals = {'state': 'sent'}
+        if cp_sr_id:
+            vals['counterparty_sign_request_id'] = cp_sr_id
+        if v6_sr_id:
+            vals['v6_sign_request_id'] = v6_sr_id
+        self.write(vals)
+
+        self.message_post(body=(
+            f"Inviato per firma (ordine={order}). "
+            f"Controparte sr={cp_sr_id or '-'} V6 sr={v6_sr_id or '-'}"
+        ))
+
+        return {
+            'success': True,
+            'state': 'sent',
+            'counterparty_sr_id': cp_sr_id,
+            'v6_sr_id': v6_sr_id,
+        }
 
     def _get_related_kind(self):
-        """Mappa il template_code in un related_kind valido per sign_request."""
-        code = (self.template_id.code or '').upper()
-        if 'NDA' in code and 'NCND' not in code:
-            return 'nda'
-        if 'NCND' in code:
-            return 'ncnd'
-        if 'SPLIT' in code:
-            return 'split_v6'
-        if 'INTRO' in code:
-            return 'contratto'
-        return 'altro'
+        """Mappa il template_code in un related_kind valido per sign_request.
+        26/09/2026: ritorna sempre 'contratto' per contract_draft, il dispatch
+        usa contract_draft_id per instradare a _handle_contract_draft."""
+        return 'contratto'

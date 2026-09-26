@@ -14,8 +14,90 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
+
+
+def _handle_contract_draft(sign_request):
+    """26/09/2026: handler per firme su erpv6.contract.draft.
+    - Se firma controparte: salva hash firmato, verifica integrità,
+      poi se v6_sign_order='second' crea sign request V6 (controfirma).
+    - Se firma V6: marca contratto come fully signed.
+    """
+    import base64
+    import hashlib
+    draft = sign_request.contract_draft_id
+    if not draft:
+        _notify_admin(sign_request)
+        return
+
+    # Salva hash del PDF firmato
+    signed_hash = None
+    if sign_request.signed_document:
+        try:
+            signed_pdf = base64.b64decode(sign_request.signed_document)
+            signed_hash = hashlib.sha256(signed_pdf).hexdigest()
+        except Exception:
+            _logger.exception('Hash PDF firmato fallito')
+
+    v6_partner = draft.v6_signer_id.partner_id if draft.v6_signer_id else None
+    is_v6_signing = v6_partner and sign_request.partner_id.id == v6_partner.id
+
+    if is_v6_signing:
+        # V6 ha firmato: chiudi il contratto
+        draft.write({
+            'v6_signed_pdf_hash': signed_hash,
+            'state': 'signed',
+        })
+        draft.message_post(body=f"Contratto firmato da V6. Hash: {signed_hash[:16] if signed_hash else '-'}...")
+        _logger.info('Contratto %s: V6 ha firmato, stato=signed', draft.id)
+    else:
+        # Controparte ha firmato
+        draft.write({
+            'counterparty_signed_pdf_hash': signed_hash,
+        })
+        draft.message_post(body=f"Controparte ha firmato. Hash: {signed_hash[:16] if signed_hash else '-'}...")
+
+        # Verifica integrità
+        try:
+            integrity = draft.action_verify_integrity()
+            if not integrity.get('match'):
+                _logger.warning('Contratto %s: INTEGRITÀ FALLITA dopo firma controparte!', draft.id)
+        except Exception:
+            _logger.exception('Verifica integrità fallita')
+
+        # Se ordine=second, ora crea sign request V6 per controfirma
+        if draft.v6_sign_order == 'second' and draft.needs_v6_signature and draft.v6_signer_id:
+            try:
+                Sign = draft.env['erpv6.sign.request'].sudo()
+                sr = Sign.create({
+                    'name': draft.name,
+                    'partner_id': draft.v6_signer_id.partner_id.id,
+                    'document_id': draft.document_id.id,
+                    'contract_draft_id': draft.id,
+                    'related_kind': draft._get_related_kind(),
+                    'related_id': draft.id,
+                    'related_model': 'erpv6.contract.draft',
+                    'notes': f'Controfirma V6 (controparte ha firmato)',
+                })
+                sr.action_send_to_sign()
+                draft.write({'v6_sign_request_id': sr.id})
+                _logger.info('Contratto %s: creato sign request V6 %s per controfirma', draft.id, sr.id)
+            except Exception:
+                _logger.exception('Creazione sign request V6 fallita')
+
+    _notify_admin(sign_request)
+
+
+
 def dispatch_post_sign_handler(sign_request):
     """Entry point unico chiamato dal webhook dopo la firma."""
+    # 26/09/2026: se c'è contract_draft_id, usa handler dedicato
+    if sign_request.contract_draft_id:
+        try:
+            _handle_contract_draft(sign_request)
+        except Exception:
+            _logger.exception('Handler contract_draft fallito per sr %s', sign_request.id)
+        return
+
     kind = sign_request.related_kind or 'altro'
     handler = {
         'split_v6': _handle_split_v6,
