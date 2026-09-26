@@ -95,12 +95,50 @@ class AdminEmailsAPIController(ConsultantAPIController):
         result.sort(key=lambda x: x['create_date'] or '', reverse=True)
         return result
 
-    def _all_aliases(self, logs):
-        """Estrae caselle uniche dai matched_alias."""
+    def _is_consultant_alias(self, alias, current_user):
+        """Ritorna True SOLO se esiste un utente interno V6 il cui login
+        è esattamente `<alias>@v6impresa.it` o `<alias>@v6sviluppoimpresa.it`,
+        e questo utente è un consulente (non admin/responsabile, non se stesso).
+        In tal caso NON mostriamo la casella (privacy consulente).
+
+        26/09/2026 fix: la ricerca precedente con '=like %@%' era troppo
+        larga e crashava. Ora cerchiamo esattamente l'email V6.
+        """
+        if not alias or '@' in alias:
+            return False
+        candidates = [
+            f'{alias}@v6impresa.it',
+            f'{alias}@v6sviluppoimpresa.it',
+        ]
+        User = request.env['res.users'].sudo()
+        u = User.search([
+            '|',
+            ('login', 'in', candidates),
+            ('partner_id.email', 'in', candidates),
+        ], limit=1)
+        if not u:
+            return False
+        if u.id == current_user.id:
+            return False
+        try:
+            is_admin_or_manager = (
+                u.has_group('base.group_system') or
+                u.has_group('sales_team.group_sale_manager')
+            )
+        except Exception:
+            is_admin_or_manager = False
+        return not is_admin_or_manager
+
+    def _all_aliases(self, logs, current_user=None):
+        """Estrae caselle uniche dai matched_alias.
+        Esclude gli alias di consulenti (privacy): mostra solo
+        alias progetti + l'alias dell'admin loggato."""
         seen = {}
         for l in logs:
             alias = (l.get('matched_alias') or '').strip()
             if not alias:
+                continue
+            if current_user and self._is_consultant_alias(alias, current_user):
                 continue
             if alias not in seen:
                 seen[alias] = {
@@ -129,7 +167,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
             return err
 
         logs = self._fetch_all_logs()
-        mailboxes = self._all_aliases(logs)
+        mailboxes = self._all_aliases(logs, current_user=user)
 
         # Aggiungi "Tutte" come casella speciale
         total_unread = sum(m['unread'] for m in mailboxes)
@@ -179,6 +217,10 @@ class AdminEmailsAPIController(ConsultantAPIController):
         limit = int(args.get('limit', 100) or 100)
 
         logs = self._fetch_all_logs()
+
+        # Filtra consulenti (privacy) — a meno che mailbox specifico
+        logs = [l for l in logs
+                if not self._is_consultant_alias(l.get('matched_alias') or '', user)]
 
         # Filtri
         def keep(l):
@@ -349,3 +391,69 @@ class AdminEmailsAPIController(ConsultantAPIController):
         if 'is_archived' in r._fields:
             r.write({'is_archived': False})
         return self._json_response({'success': True})
+
+    # ================================================================
+    # SEND / REPLY
+    # ================================================================
+    @http.route('/api/v1/admin/emails/send',
+                type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
+    def send_email(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        try:
+            body = json.loads(request.httprequest.get_data(as_text=True) or '{}')
+        except json.JSONDecodeError:
+            return self._json_response({'error': 'JSON non valido'}, 400)
+
+        to = (body.get('to') or '').strip()
+        subject = (body.get('subject') or '').strip()
+        body_html = body.get('body') or ''
+        cc = (body.get('cc') or '').strip()
+        reply_to_id = body.get('replyToId')
+        reply_to_kind = body.get('replyToKind') or 'winwin'
+
+        if not to or not subject:
+            return self._json_response({'error': 'Destinatario e oggetto obbligatori'}, 400)
+
+        try:
+            # SMTP via Odoo
+            from_addr = user.partner_id.email or 'noreply@v6impresa.it'
+            Mail = request.env['mail.mail'].sudo()
+            mail = Mail.create({
+                'subject': subject,
+                'body_html': body_html.replace('\n', '<br/>') if body_html else '',
+                'email_from': from_addr,
+                'email_to': to,
+                'email_cc': cc or False,
+                'reply_to': from_addr,
+                'state': 'outgoing',
+            })
+            mail.send()
+
+            # Log nel modello winwin.email.log (per visibilità in casella "Inviate")
+            log_vals = {
+                'name': subject,
+                'sender_email': from_addr,
+                'recipient_emails': to,
+                'cc_emails': cc or '',
+                'direction': 'inviata',
+                'match_status': 'manuale',
+                'matched_alias': (user.partner_id.email or '').split('@')[0] if '@' in (user.partner_id.email or '') else 'admin',
+                'recipient_user_id': user.id,
+                'is_read': True,
+            }
+            if 'erpv6.winwin.email.log' in request.env:
+                request.env['erpv6.winwin.email.log'].sudo().create(log_vals)
+
+            return self._json_response({
+                'success': True,
+                'mailId': mail.id,
+                'message': 'Email inviata',
+            })
+        except Exception as e:
+            _logger.exception('Errore invio email')
+            return self._json_response({'error': str(e)}, 500)
