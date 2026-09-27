@@ -52,12 +52,33 @@ def _get_var(v, name, key='base', default=0.0):
     return var.get(key, default)
 
 
+def _aggregate_legs(deal, prezzo_vendita_scenarios, quantita_deal):
+    """Aggrega N leg in un dict di scenario -> {gross, quantita, ...}.
+    Se non ci sono leg, ritorna None (fallback a variabili deal)."""
+    if not getattr(deal, 'leg_ids', None):
+        return None
+
+    aggregated = {s: {'quantita': 0, 'gross_acquisto': 0, 'gross_vendita': 0}
+                  for s in ('min', 'base', 'max')}
+
+    for leg in deal.leg_ids:
+        for s in ('min', 'base', 'max'):
+            prezzo_v = leg.prezzo_vendita or prezzo_vendita_scenarios[s]
+            prezzo_a = leg.prezzo_acquisto
+            q = leg.quantita
+            aggregated[s]['quantita'] += q
+            aggregated[s]['gross_acquisto'] += prezzo_a * q
+            aggregated[s]['gross_vendita'] += prezzo_v * q
+
+    return aggregated
+
+
 def _compute_tee_rolling(deal, snapshot):
     v = snapshot['variables']
     revenue_model = getattr(deal, 'revenue_model', 'fee') or 'fee'
 
     prezzo_vendita = v['prezzo_tee']
-    quantita = v['quantita_mese']['base']
+    quantita_deal = v['quantita_mese']['base']
     prezzo_acquisto = v.get('prezzo_acquisto', prezzo_vendita)
     fee_pct = v['fee_v6_pct']
 
@@ -71,20 +92,35 @@ def _compute_tee_rolling(deal, snapshot):
     v6_entity_pct = _get_var(v, 'v6_entity_pct', 'base', 0.0)
     reserve_pct = _get_var(v, 'reserve_pct', 'base', 0.0)
 
+    # Aggrega leg (se presenti)
+    legs_agg = _aggregate_legs(deal, prezzo_vendita, quantita_deal)
+
     scenarios = {}
     for s in ('min', 'base', 'max'):
-        prezzo_v = prezzo_vendita[s]
-        prezzo_a = prezzo_acquisto[s] if isinstance(prezzo_acquisto, dict) else prezzo_v
+        if legs_agg:
+            # multi-leg: usa aggregato
+            prezzo_v = (legs_agg[s]['gross_vendita'] / legs_agg[s]['quantita']
+                        if legs_agg[s]['quantita'] else 0)
+            prezzo_a = (legs_agg[s]['gross_acquisto'] / legs_agg[s]['quantita']
+                        if legs_agg[s]['quantita'] else 0)
+            quantita = legs_agg[s]['quantita']
+            gross_vendita = legs_agg[s]['gross_vendita']
+            gross_acquisto = legs_agg[s]['gross_acquisto']
+        else:
+            prezzo_v = prezzo_vendita[s]
+            prezzo_a = prezzo_acquisto[s] if isinstance(prezzo_acquisto, dict) else prezzo_v
+            quantita = quantita_deal
+            gross_vendita = prezzo_v * quantita
+            gross_acquisto = prezzo_a * quantita
 
         if revenue_model == 'spread':
-            spread = (prezzo_v - prezzo_a) * quantita
-            gross = spread
+            gross = gross_vendita - gross_acquisto
         elif revenue_model == 'mixed':
-            spread = (prezzo_v - prezzo_a) * quantita
-            fee_extra = prezzo_v * quantita * (fee_pct[s] / 100.0)
+            spread = gross_vendita - gross_acquisto
+            fee_extra = gross_vendita * (fee_pct[s] / 100.0)
             gross = spread + fee_extra
         else:  # 'fee'
-            gross = prezzo_v * quantita * (fee_pct[s] / 100.0)
+            gross = gross_vendita * (fee_pct[s] / 100.0)
 
         # componenti opzionali
         v6_entity = gross * (v6_entity_pct / 100.0) if v6_entity_pct else 0.0
@@ -95,7 +131,7 @@ def _compute_tee_rolling(deal, snapshot):
         if ref_type == 'fixed':
             ref_mese = ref_value[s]
         else:
-            ref_mese = prezzo_v * quantita * (ref_value[s] / 100.0)
+            ref_mese = gross_vendita * (ref_value[s] / 100.0)
 
         if ref_imputation == 'all':
             pool = pool_before_ref - ref_mese
@@ -104,12 +140,16 @@ def _compute_tee_rolling(deal, snapshot):
 
         scenarios[s] = {
             'gross': gross,
+            'gross_vendita': gross_vendita,
+            'gross_acquisto': gross_acquisto,
+            'quantita': quantita,
             'v6_entity': v6_entity,
             'reserve': reserve,
             'referral': ref_mese,
             'pool_consulenti': pool,
             'referral_imputation': ref_imputation,
             'revenue_model': revenue_model,
+            'multi_leg': bool(legs_agg),
         }
 
     per_participant = {}

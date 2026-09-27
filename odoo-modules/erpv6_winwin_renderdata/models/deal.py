@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 from odoo import models, fields, api
 from odoo.exceptions import UserError
 
@@ -79,6 +80,8 @@ class Erpv6Deal(models.Model):
                                     string='Variabili')
     participant_ids = fields.One2many('erpv6.deal.participant', 'deal_id',
                                        string='Partecipanti')
+    leg_ids = fields.One2many('erpv6.deal.leg', 'deal_id',
+                               string='Leg (venditori / Camere)')
     prospetto_ids = fields.One2many('erpv6.deal.prospetto', 'deal_id',
                                      string='Prospetti')
 
@@ -152,7 +155,7 @@ class Erpv6Deal(models.Model):
             'version': len(self.prospetto_ids) + 1,
             'state': 'frozen' if freeze else 'draft',
             'computed_by': self.env.user.id,
-            'snapshot_json': str(snapshot),
+            'snapshot_json': json.dumps(snapshot, default=str),
             'frozen_at': fields.Datetime.now() if freeze else False,
             'frozen_by': self.env.user.id if freeze else False,
         })
@@ -278,6 +281,38 @@ class Erpv6DealParticipant(models.Model):
         help="Se True, il costo referral e' dedotto dalla quota di questo "
              "partecipante invece che dal pool generale")
     notes = fields.Char()
+
+
+class Erpv6DealLeg(models.Model):
+    """Leg di un deal: un venditore (o Camera di Commercio) che fornisce
+    una quota di TEE al deal. Un deal può avere N leg (aggregazione).
+    Se leg_ids è vuoto, il deal usa le variabili prezzo_tee/quantita_mese
+    (modalità single-leg retrocompatibile)."""
+    _name = 'erpv6.deal.leg'
+    _description = 'Leg di un deal (venditore / Camera di Commercio)'
+    _order = 'deal_id, sequence, id'
+
+    deal_id = fields.Many2one('erpv6.deal', required=True, ondelete='cascade',
+                               index=True)
+    sequence = fields.Integer(default=10)
+    seller_id = fields.Many2one('res.partner', required=True,
+                                 ondelete='restrict', string='Venditore')
+    seller_is_placeholder = fields.Boolean(
+        related='seller_id.is_placeholder', string='Venditore placeholder')
+
+    quantita = fields.Float(string='Quantità (TEE/mese)', digits=(16, 2))
+    prezzo_acquisto = fields.Float(string='Prezzo acquisto',
+                                    digits=(16, 4),
+                                    help='Prezzo pagato al venditore, €/TEE')
+    prezzo_vendita = fields.Float(string='Prezzo vendita',
+                                   digits=(16, 4),
+                                   help='Prezzo al compratore, €/TEE. '
+                                        'Se 0, usa il valore del deal')
+
+    referral_id = fields.Many2one('erpv6.referral',
+                                    string='Referral specifico del leg',
+                                    ondelete='set null')
+    notes = fields.Text()
 
 
 class Erpv6DealProspetto(models.Model):

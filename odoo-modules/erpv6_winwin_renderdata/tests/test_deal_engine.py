@@ -125,3 +125,51 @@ def test_rolling_totals():
     p = res['per_participant']
     assert abs(p[1]['rolling_12_min'] - 197600 * 12) < 1
     assert abs(p[1]['rolling_24_min'] - 197600 * 24) < 1
+
+
+def test_multi_leg_aggregation():
+    """Verifica aggregazione 2 leg con revenue_model='spread'."""
+    class FakeLeg:
+        def __init__(self, quantita, prezzo_acquisto, prezzo_vendita=0):
+            self.quantita = quantita
+            self.prezzo_acquisto = prezzo_acquisto
+            self.prezzo_vendita = prezzo_vendita
+
+    class FakeDealMultiLeg:
+        def __init__(self, participants, legs):
+            self.participant_ids = participants
+            self.leg_ids = legs
+            self.revenue_model = 'spread'
+
+    FakeParticipant._counter = 0
+    third = 1.0 / 3.0
+    participants = [
+        FakeParticipant('V6 Impresa', 'v6_entity', third),
+        FakeParticipant('Enzo', 'consultant', third, login='enzo'),
+        FakeParticipant('Christian Girardi', 'consultant', third,
+                        login='christian.girardi', is_referral_payer=True),
+    ]
+    legs = [
+        FakeLeg(quantita=60000, prezzo_acquisto=200),
+        FakeLeg(quantita=40000, prezzo_acquisto=210),
+    ]
+    deal = FakeDealMultiLeg(participants, legs)
+
+    snap = snapshot(
+        prezzo_min=197.60, prezzo_base=222.30, prezzo_max=247.00,
+        fee_min=3.0, fee_base=4.5, fee_max=6.0,
+        ref_min=60000, ref_base=70000, ref_max=80000,
+        ref_type='fixed', ref_imputation='christian',
+    )
+    snap['variables']['prezzo_acquisto'] = {
+        'min': 0, 'base': 0, 'max': 0, 'enabled': False}
+
+    res = compute_prospetto('TEE-ROLLING-001', deal, snap)
+    sc = res['scenarios']
+
+    # BASE: gross_vendita = 100000 * 222.30 = 22.230.000
+    # gross_acquisto = 60000*200 + 40000*210 = 20.400.000
+    # spread = 1.830.000
+    assert abs(sc['base']['gross'] - 1_830_000) < 1
+    assert abs(sc['base']['quantita'] - 100_000) < 1
+    assert sc['base']['multi_leg'] is True
