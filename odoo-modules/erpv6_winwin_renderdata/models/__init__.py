@@ -11,3 +11,6 @@ from . import partnership_candidacy
 from . import admin_dashboard_extension
 from . import res_partner_extension
 from . import revenue_split_version
+from . import revenue_split_version_migration
+from . import deal
+from . import deal_engine

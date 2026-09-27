@@ -27,9 +27,11 @@
         'mail', 'sale', 'payment', 'erpv6_core', 'erpv6_core_dispatch', 'erpv6_core_engine', 'erpv6_kb',
         'erpv6_production', 'erpv6_omni_bridge', 'erpv6_validation', 'erpv6_agent',
         'aeosv6_booking', 'aeosv6_relation', 'aeosv6_project_relay',
+        'erpv6_sign', 'erpv6_typst',
     ],
     'data': [
         'security/ir.model.access.csv',
+        'data/deal_schemas.xml',
         'data/kb_winwin_thresholds_data.xml',
         'data/kb_roadmap_raccomandazione_data.xml',
         'data/kb_bilancio_extraction_data.xml',

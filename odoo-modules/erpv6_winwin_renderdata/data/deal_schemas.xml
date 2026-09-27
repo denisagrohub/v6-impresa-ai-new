@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="schema_tee_rolling_001" model="erpv6.deal.schema">
+            <field name="code">TEE-ROLLING-001</field>
+            <field name="name">TEE Rolling 12-24 mesi</field>
+            <field name="deal_type">tee</field>
+            <field name="version">1</field>
+            <field name="active" eval="True"/>
+            <field name="locked" eval="False"/>
+            <field name="description">Schema per deal TEE (Tonnellate Equivalenti di Petrolio) con contratto rolling 12-24 mesi. Prezzo base d'asta 247 €/TEE, venditore vende min 80%, compratore compra max 100%. Fee V6 da negoziare (3-6%). Referral fisso o percentuale.</field>
+        </record>
+
+    </data>
+</odoo>

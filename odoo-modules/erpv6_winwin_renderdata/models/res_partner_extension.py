@@ -22,3 +22,16 @@ class ResPartnerFiscalExtension(models.Model):
        default='personal',
        help="Dove inviare notifiche di sistema (firma, split, ecc.)")
 
+
+
+class ResPartnerPlaceholderExtension(models.Model):
+    """27/09/2026: controparti placeholder (Alpha/Omega) usate nei deal
+    in negoziazione per non rivelare i nomi reali fino alla chiusura."""
+    _inherit = 'res.partner'
+
+    is_placeholder = fields.Boolean(
+        string='Placeholder', default=False, index=True,
+        help="Controparte non ancora rivelata (es. Alpha/Omega)")
+    placeholder_code = fields.Char(
+        string='Codice placeholder',
+        help="Codice identificativo, es. ALPHA, OMEGA")
