@@ -70,6 +70,28 @@ export default function RevenueSplitCard({
     finally { setVersionsLoading(false); }
   };
 
+  const computeLocalDiff = () => {
+    const last = versions.find((v: any) => v.state !== 'superata');
+    const prevPayload: any = last?.payload || null;
+    const prevB: Record<number, any> = {};
+    (prevPayload?.beneficiari || []).forEach((b: any) => {
+      if (b.tipo === 'consulente' && b.res_partner_id) prevB[b.res_partner_id] = b;
+    });
+    const newB: Record<number, any> = {};
+    (beneficiari || []).forEach((b: any) => {
+      if (b.tipo === 'consulente' && b.res_partner_id) newB[b.res_partner_id] = b;
+    });
+    const added = Object.keys(newB).filter((k: any) => !prevB[k]).map(Number);
+    const removed = Object.keys(prevB).filter((k: any) => !newB[k]).map(Number);
+    const changed = Object.keys(newB)
+      .filter((k: any) => prevB[k] && Number(newB[k].pct) !== Number(prevB[k].pct))
+      .map(Number);
+    const unchanged = Object.keys(newB)
+      .filter((k: any) => prevB[k] && Number(newB[k].pct) === Number(prevB[k].pct))
+      .map(Number);
+    return { added, removed, changed, unchanged, signers_required: [...added, ...changed] };
+  };
+
   const createVersion = async () => {
     if (!newVersionMotivation.trim()) {
       setVersionErr('Motivazione obbligatoria');
@@ -281,8 +303,54 @@ export default function RevenueSplitCard({
                   <div className="border border-violet-200 rounded p-3 bg-violet-50/30">
                     <div className="text-xs font-semibold text-violet-800 mb-2">Nuova versione</div>
                     <p className="text-[10px] text-gray-600 mb-2">
-                      La versione attuale passerà a <b>superata</b>, la nuova parte in <b>bozza</b>. Il payload sarà quello attualmente editato (beneficiari, riserva, note).
+                      La versione attuale passerà a <b>superata</b>, la nuova parte in <b>bozza</b>. Il payload sarà quello attualmente editato.
                     </p>
+
+                    {(() => {
+                      const d = computeLocalDiff();
+                      const namesById: Record<number, string> = {};
+                      (beneficiari || []).forEach((b: any) => {
+                        if (b.res_partner_id) namesById[b.res_partner_id] = b.nome || `#${b.res_partner_id}`;
+                      });
+                      const lastPrev: any = versions.find((v: any) => v.state !== 'superata');
+                      (lastPrev?.payload?.beneficiari || []).forEach((b: any) => {
+                        if (b.res_partner_id && !namesById[b.res_partner_id]) {
+                          namesById[b.res_partner_id] = b.nome || `#${b.res_partner_id}`;
+                        }
+                      });
+                      return (
+                        <div className="mb-3 p-2 rounded bg-white/60 border border-violet-100 text-[10px] space-y-1">
+                          <div className="font-semibold text-violet-800 mb-1">
+                            Firma incrementale — chi dovrà firmare
+                          </div>
+                          {d.signers_required.length === 0 && d.removed.length === 0 && (
+                            <div className="text-emerald-700">
+                              Nessuna modifica sostanziale → approvazione automatica, nessuno firma.
+                            </div>
+                          )}
+                          {d.added.length > 0 && (
+                            <div className="text-emerald-700">
+                              + Nuovi (firmeranno): {d.added.map(id => namesById[id]).join(', ')}
+                            </div>
+                          )}
+                          {d.changed.length > 0 && (
+                            <div className="text-amber-700">
+                              ~ % cambiate (firmeranno): {d.changed.map(id => namesById[id]).join(', ')}
+                            </div>
+                          )}
+                          {d.unchanged.length > 0 && (
+                            <div className="text-gray-500">
+                              = Invariati (skip): {d.unchanged.map(id => namesById[id]).join(', ')}
+                            </div>
+                          )}
+                          {d.removed.length > 0 && (
+                            <div className="text-red-600">
+                              − Rimossi (cessazione Fase 4): {d.removed.map(id => namesById[id]).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <textarea
                       value={newVersionMotivation}
                       onChange={(e) => setNewVersionMotivation(e.target.value)}
