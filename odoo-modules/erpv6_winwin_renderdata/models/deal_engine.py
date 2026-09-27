@@ -83,10 +83,15 @@ def _compute_tee_rolling(deal, snapshot):
         share = p.share_pct or 0.0
         entry = {}
         for s in ('min', 'base', 'max'):
-            quota = scenarios[s]['pool_consulenti'] * share
-            if (scenarios[s]['referral_imputation'] == 'christian'
-                    and getattr(p, 'is_referral_payer', False)):
-                quota -= scenarios[s]['referral']
+            if p.role == 'referral':
+                # Il referral percepisce il valore lordo del referral
+                # (ripartito su più referral via share_pct, se necessario)
+                quota = scenarios[s]['referral'] * share
+            else:
+                quota = scenarios[s]['pool_consulenti'] * share
+                if (scenarios[s]['referral_imputation'] == 'christian'
+                        and getattr(p, 'is_referral_payer', False)):
+                    quota -= scenarios[s]['referral']
             entry['monthly_%s' % s] = round(quota, 2)
             entry['rolling_%s_%s' % (durata_min, s)] = round(quota * durata_min, 2)
             entry['rolling_%s_%s' % (durata_max, s)] = round(quota * durata_max, 2)

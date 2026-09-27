@@ -66,7 +66,7 @@ def test_tee_referral_on_christian():
     snap = snapshot(
         prezzo_min=197.60, prezzo_base=222.30, prezzo_max=247.00,
         fee_min=3.0, fee_base=4.5, fee_max=6.0,
-        ref_min=80000, ref_base=70000, ref_max=60000,
+        ref_min=60000, ref_base=70000, ref_max=80000,
         ref_type='fixed', ref_imputation='christian',
     )
     res = compute_prospetto('TEE-ROLLING-001', deal, snap)
@@ -74,11 +74,11 @@ def test_tee_referral_on_christian():
 
     assert abs(p[1]['monthly_min'] - 197600) < 1
     assert abs(p[2]['monthly_min'] - 197600) < 1
-    assert abs(p[3]['monthly_min'] - 117600) < 1
+    assert abs(p[3]['monthly_min'] - 137600) < 1
     assert abs(p[1]['monthly_base'] - 333450) < 1
     assert abs(p[3]['monthly_base'] - (333450 - 70000)) < 1
     assert abs(p[1]['monthly_max'] - 494000) < 1
-    assert abs(p[3]['monthly_max'] - (494000 - 60000)) < 1
+    assert abs(p[3]['monthly_max'] - (494000 - 80000)) < 1
 
 
 def test_tee_referral_on_all():
@@ -86,13 +86,13 @@ def test_tee_referral_on_all():
     snap = snapshot(
         prezzo_min=197.60, prezzo_base=222.30, prezzo_max=247.00,
         fee_min=3.0, fee_base=4.5, fee_max=6.0,
-        ref_min=80000, ref_base=70000, ref_max=60000,
+        ref_min=60000, ref_base=70000, ref_max=80000,
         ref_type='fixed', ref_imputation='all',
     )
     res = compute_prospetto('TEE-ROLLING-001', deal, snap)
     p = res['per_participant']
 
-    expected_min = (592800 - 80000) / 3
+    expected_min = (592800 - 60000) / 3
     assert abs(p[1]['monthly_min'] - expected_min) < 1
     assert abs(p[2]['monthly_min'] - expected_min) < 1
     assert abs(p[3]['monthly_min'] - expected_min) < 1
@@ -118,7 +118,7 @@ def test_rolling_totals():
     snap = snapshot(
         prezzo_min=197.60, prezzo_base=222.30, prezzo_max=247.00,
         fee_min=3.0, fee_base=4.5, fee_max=6.0,
-        ref_min=80000, ref_base=70000, ref_max=60000,
+        ref_min=60000, ref_base=70000, ref_max=80000,
         ref_type='fixed', ref_imputation='christian',
     )
     res = compute_prospetto('TEE-ROLLING-001', deal, snap)
