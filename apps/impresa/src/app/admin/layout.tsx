@@ -21,6 +21,7 @@ const SKIP_PREFIXES = [
   '/admin/template',
   '/admin/contratti',
   '/admin/dashboard',
+  '/admin/deals',
 ];
 
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
