@@ -188,6 +188,44 @@ class Erpv6Deal(models.Model):
             d.current_prospetto_id = d._generate_prospetto().id
         return True
 
+    def action_auto_add_participants(self):
+        """Aggiunge automaticamente i participant con scope='global' o
+        scope='project' (stesso progetto del deal corrente) a questo deal.
+        Evita duplicati per partner_id."""
+        self.ensure_one()
+        Participant = self.env['erpv6.deal.participant'].sudo()
+        existing_partners = set(self.participant_ids.mapped('partner_id').ids)
+
+        # Cerca template: participant attivi su un altro deal dello stesso
+        # progetto (o globali) con tier impostato.
+        domain = [
+            ('deal_id', '!=', self.id),
+            '|',
+            ('scope', '=', 'global'),
+            '&', ('scope', '=', 'project'),
+            ('scope_relation_id', '=', self.relation_id.id),
+        ]
+        templates = Participant.search(domain)
+        added = 0
+        for t in templates:
+            if t.partner_id.id in existing_partners:
+                continue
+            Participant.create({
+                'deal_id': self.id,
+                'partner_id': t.partner_id.id,
+                'role': t.role,
+                'tier': t.tier,
+                'scope': t.scope,
+                'scope_relation_id': t.scope_relation_id.id if t.scope_relation_id else False,
+                'share_pct': t.share_pct,
+                'consultant_user_id': t.consultant_user_id.id if t.consultant_user_id else False,
+                'is_referral_payer': t.is_referral_payer,
+                'notes': 'Auto-aggiunto da deal precedente',
+            })
+            added += 1
+
+        return added
+
     def unlink(self):
         for d in self:
             d.current_prospetto_id = False
