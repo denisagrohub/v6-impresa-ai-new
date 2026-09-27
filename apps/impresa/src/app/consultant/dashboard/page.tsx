@@ -26,7 +26,7 @@ export default function ConsultantDashboard() {
     const [unreadCount, setUnreadCount] = useState(0);
     // 23/09/2026: profilo fiscale (form)
     const [fiscalData, setFiscalData] = useState<any>(null);
-    const [fiscalForm, setFiscalForm] = useState<any>({ vat:'', codice_fiscale:'', street:'', street2:'', city:'', zip:'' });
+    const [fiscalForm, setFiscalForm] = useState<any>({ vat:'', codice_fiscale:'', street:'', street2:'', city:'', zip:'', email_mode: 'personal' });
     const [fiscalMsg, setFiscalMsg] = useState<{ ok: boolean; text: string } | null>(null);
     const [fiscalSaving, setFiscalSaving] = useState(false);
     const [fiscalDeclaration, setFiscalDeclaration] = useState(false);
@@ -468,6 +468,7 @@ export default function ConsultantDashboard() {
                 street2: d.street2 || '',
                 city: d.city || '',
                 zip: d.zip || '',
+                email_mode: d.email_mode || 'personal',
             });
         } catch { /* best effort */ }
     };
@@ -1313,6 +1314,48 @@ export default function ConsultantDashboard() {
                                     className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-mono" />
                             </div>
                         </div>
+                        {/* 27/09/2026: preferenza email */}
+                        <div className="mt-6 pt-5 border-t border-gray-100">
+                            <label className="block text-xs font-semibold text-gray-600 mb-2">
+                                Preferenza invio email di sistema
+                            </label>
+                            <p className="text-[10px] text-gray-500 mb-3">
+                                Dove vuoi ricevere le notifiche (firme, split, reminder)?
+                            </p>
+                            <div className="space-y-2">
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                    <input type="radio" name="email_mode" value="personal"
+                                        checked={(fiscalForm.email_mode || 'personal') === 'personal'}
+                                        onChange={(e) => setFiscalForm({ ...fiscalForm, email_mode: e.target.value })}
+                                        className="mt-0.5" />
+                                    <div>
+                                        <div className="text-xs font-medium">Solo email personale</div>
+                                        <div className="text-[10px] text-gray-500">Ricevi tutto sulla tua email privata (default).</div>
+                                    </div>
+                                </label>
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                    <input type="radio" name="email_mode" value="v6"
+                                        checked={fiscalForm.email_mode === 'v6'}
+                                        onChange={(e) => setFiscalForm({ ...fiscalForm, email_mode: e.target.value })}
+                                        className="mt-0.5" />
+                                    <div>
+                                        <div className="text-xs font-medium">Solo alias V6</div>
+                                        <div className="text-[10px] text-gray-500">Tutte le notifiche arrivano all'alias V6 (nome.cognome@v6impresa.it).</div>
+                                    </div>
+                                </label>
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                    <input type="radio" name="email_mode" value="both"
+                                        checked={fiscalForm.email_mode === 'both'}
+                                        onChange={(e) => setFiscalForm({ ...fiscalForm, email_mode: e.target.value })}
+                                        className="mt-0.5" />
+                                    <div>
+                                        <div className="text-xs font-medium">Entrambe (personale + V6 in CC)</div>
+                                        <div className="text-[10px] text-gray-500">Massima copertura.</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
                         <label className="flex items-start gap-2 mt-5 cursor-pointer">
                             <input type="checkbox" checked={fiscalDeclaration} onChange={(e) => setFiscalDeclaration(e.target.checked)} className="mt-0.5" />
                             <span className="text-xs text-gray-700">

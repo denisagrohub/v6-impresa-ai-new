@@ -50,6 +50,8 @@ class ConsultantMeAPIController(ConsultantAPIController):
             'phone': p.phone or '',
             'confirmed_at': p.fiscal_data_confirmed_at.isoformat() if p.fiscal_data_confirmed_at else None,
             'confirmed_ip': p.fiscal_data_confirmed_ip or None,
+            # 27/09/2026: preferenza invio email
+            'email_mode': getattr(p, 'x_v6_email_mode', 'personal') or 'personal',
         })
 
     @http.route('/api/v1/consultant/me/fiscal-data', type='http', auth='none',
@@ -66,6 +68,10 @@ class ConsultantMeAPIController(ConsultantAPIController):
 
         cf = (data.get('codice_fiscale') or '').strip().upper()
         piva = (data.get('vat') or '').strip()
+        # 27/09/2026: email_mode opzionale
+        email_mode = (data.get('email_mode') or '').strip()
+        if email_mode not in ('personal', 'v6', 'both'):
+            email_mode = None
         street = (data.get('street') or '').strip()
         city = (data.get('city') or '').strip()
         zipcode = (data.get('zip') or '').strip()
@@ -89,14 +95,17 @@ class ConsultantMeAPIController(ConsultantAPIController):
 
         p = user.partner_id
         ip = request.httprequest.headers.get('X-Forwarded-For', '') or request.httprequest.remote_addr or ''
-        p.sudo().write({
+        write_vals = {
             'vat': piva or False,
             'l10n_it_codice_fiscale': cf,
             'street': street,
             'street2': (data.get('street2') or '').strip() or False,
             'city': city,
             'zip': zipcode,
-        })
+        }
+        if email_mode:
+            write_vals['x_v6_email_mode'] = email_mode
+        p.sudo().write(write_vals)
         try:
             if 'fiscal_data_confirmed_at' in p._fields:
                 p.sudo().write({
