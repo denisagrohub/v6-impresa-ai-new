@@ -58,6 +58,13 @@ class Erpv6Deal(models.Model):
     schema_code = fields.Char(related='schema_id.code', store=True)
     schema_version = fields.Integer(related='schema_id.version', store=True)
 
+    revenue_model = fields.Selection([
+        ('spread', 'Spread (acquisto → vendita)'),
+        ('fee', 'Fee % sul transato'),
+        ('mixed', 'Mixed (spread + fee)'),
+    ], string='Modello ricavi', default='fee', required=True,
+       help='Come V6 calcola la sua remunerazione su questo deal')
+
     state = fields.Selection([
         ('forecasting', 'Previsione'),
         ('negotiating', 'In trattativa'),
@@ -214,6 +221,8 @@ class Erpv6DealVariable(models.Model):
     source_ref = fields.Char()
     is_critical = fields.Boolean(default=False)
     locked = fields.Boolean(default=False)
+    enabled = fields.Boolean(default=True,
+        help='Se False, la variabile viene ignorata nel calcolo')
     locked_at = fields.Datetime(readonly=True)
     locked_by = fields.Many2one('res.users', readonly=True)
     notes = fields.Text()
@@ -247,6 +256,21 @@ class Erpv6DealParticipant(models.Model):
         ('referral', 'Referral'),
         ('other', 'Altro'),
     ], required=True)
+    tier = fields.Selection([
+        ('', 'Nessuno'),
+        ('founder', 'Founder'),
+        ('associate', 'Associate'),
+    ], default='', help='Livello gerarchico (solo etichetta + filtri)')
+    scope = fields.Selection([
+        ('deal', 'Solo questo deal'),
+        ('project', 'Tutti i deal del progetto'),
+        ('global', 'Tutti i deal'),
+    ], default='deal', required=True,
+       help='Su quali deal questo partecipante è automaticamente attivo')
+    scope_relation_id = fields.Many2one(
+        'erpv6.tracking.relation', string='Progetto (scope)',
+        ondelete='set null',
+        help='Se scope=project, indica di quale progetto')
     share_pct = fields.Float(digits=(6, 4))
     consultant_user_id = fields.Many2one('res.users')
     is_referral_payer = fields.Boolean(

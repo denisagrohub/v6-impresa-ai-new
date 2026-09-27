@@ -13,6 +13,7 @@ def build_snapshot(deal):
             'unit': v.unit,
             'source': v.source,
             'locked': v.locked,
+            'enabled': v.enabled,
             'locked_at': v.locked_at.isoformat() if v.locked_at else None,
         }
     return {
@@ -43,39 +44,72 @@ def compute_prospetto(schema_code, deal, snapshot):
     raise NotImplementedError("Schema non implementato: %s" % schema_code)
 
 
+def _get_var(v, name, key='base', default=0.0):
+    """Legge una variabile se esiste e enabled, altrimenti default."""
+    var = v.get(name)
+    if not var or not var.get('enabled', True):
+        return default
+    return var.get(key, default)
+
+
 def _compute_tee_rolling(deal, snapshot):
     v = snapshot['variables']
+    revenue_model = getattr(deal, 'revenue_model', 'fee') or 'fee'
 
-    prezzo = v['prezzo_tee']
+    prezzo_vendita = v['prezzo_tee']
     quantita = v['quantita_mese']['base']
+    prezzo_acquisto = v.get('prezzo_acquisto', prezzo_vendita)
     fee_pct = v['fee_v6_pct']
+
     ref_type = v['referral_type']['text'] or 'fixed'
     ref_value = v['referral_value']
     ref_imputation = v['referral_imputation']['text'] or 'christian'
     durata_min = int(v['durata_mesi']['min'])
     durata_max = int(v['durata_mesi']['max'])
 
+    # componenti opzionali (on/off)
+    v6_entity_pct = _get_var(v, 'v6_entity_pct', 'base', 0.0)
+    reserve_pct = _get_var(v, 'reserve_pct', 'base', 0.0)
+
     scenarios = {}
     for s in ('min', 'base', 'max'):
-        transato = prezzo[s] * quantita
-        fee_v6 = transato * (fee_pct[s] / 100.0)
+        prezzo_v = prezzo_vendita[s]
+        prezzo_a = prezzo_acquisto[s] if isinstance(prezzo_acquisto, dict) else prezzo_v
 
+        if revenue_model == 'spread':
+            spread = (prezzo_v - prezzo_a) * quantita
+            gross = spread
+        elif revenue_model == 'mixed':
+            spread = (prezzo_v - prezzo_a) * quantita
+            fee_extra = prezzo_v * quantita * (fee_pct[s] / 100.0)
+            gross = spread + fee_extra
+        else:  # 'fee'
+            gross = prezzo_v * quantita * (fee_pct[s] / 100.0)
+
+        # componenti opzionali
+        v6_entity = gross * (v6_entity_pct / 100.0) if v6_entity_pct else 0.0
+        reserve = gross * (reserve_pct / 100.0) if reserve_pct else 0.0
+        pool_before_ref = gross - v6_entity - reserve
+
+        # referral
         if ref_type == 'fixed':
             ref_mese = ref_value[s]
         else:
-            ref_mese = transato * (ref_value[s] / 100.0)
+            ref_mese = prezzo_v * quantita * (ref_value[s] / 100.0)
 
         if ref_imputation == 'all':
-            pool = fee_v6 - ref_mese
+            pool = pool_before_ref - ref_mese
         else:
-            pool = fee_v6
+            pool = pool_before_ref
 
         scenarios[s] = {
-            'transato': transato,
-            'fee_v6': fee_v6,
+            'gross': gross,
+            'v6_entity': v6_entity,
+            'reserve': reserve,
             'referral': ref_mese,
             'pool_consulenti': pool,
             'referral_imputation': ref_imputation,
+            'revenue_model': revenue_model,
         }
 
     per_participant = {}
