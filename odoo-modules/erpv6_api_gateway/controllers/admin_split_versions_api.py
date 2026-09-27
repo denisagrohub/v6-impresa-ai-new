@@ -43,7 +43,16 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
             'supersededById': v.superseded_by_id.id if v.superseded_by_id else None,
             'signRequestIds': v.sign_request_ids.ids,
             'signRequestsCount': len(v.sign_request_ids),
+            # 27/09/2026: firma incrementale
+            'predecessorId': v.predecessor_id.id if v.predecessor_id else None,
+            'signersRequired': v.signers_required or [],
+            'diff': None,
         }
+        try:
+            if v.diff_json:
+                d['diff'] = json.loads(v.diff_json)
+        except Exception:
+            d['diff'] = None
         if include_payload:
             try:
                 d['payload'] = json.loads(v.payload_json or '{}')
@@ -114,7 +123,22 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
         payload_json = json.dumps(payload, ensure_ascii=False)
         hash_value = hashlib.sha256(payload_json.encode('utf-8')).hexdigest()
 
-        # Crea versione
+        # 27/09/2026: calcola diff vs versione precedente (firma incrementale)
+        if last:
+            diff = Version._compute_diff(last.payload_json, payload_json)
+        else:
+            # Prima versione: tutti i consulenti devono firmare
+            all_signers = [
+                b['res_partner_id']
+                for b in (payload.get('beneficiari') or [])
+                if b.get('tipo') == 'consulente' and b.get('res_partner_id')
+            ]
+            diff = {
+                'added': all_signers, 'removed': [], 'changed': [],
+                'unchanged': [], 'signers_required': all_signers,
+            }
+
+        # Crea versione con diff + signers_required
         new_version = Version.create({
             'relation_id': relation_id,
             'version_number': next_number,
@@ -123,6 +147,9 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
             'state': 'bozza',
             'motivation': motivation,
             'created_by': user.id,
+            'predecessor_id': last.id if last else False,
+            'diff_json': json.dumps(diff),
+            'signers_required': diff['signers_required'],
         })
 
         # Supersede la precedente se era approvata/in_firma
@@ -163,31 +190,104 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
         v = Version.browse(vid)
         if not v.exists() or v.relation_id.id != relation_id:
             return self._json_response({'error': 'Versione non trovata'}, 404)
-
         if v.state != 'bozza':
             return self._json_response({'error': f'Versione in stato {v.state}, non congelabile'}, 400)
 
         Relation = v.relation_id
         try:
-            # Aggiorna Relation con payload della versione + hash
+            import json as _json
+            import hashlib
+            from odoo import fields
+
+            # 1. Aggiorna Relation con payload + hash della versione
             Relation.write({
                 'x_v6_revenue_split': v.payload_json,
                 'revenue_split_hash': v.hash,
                 'revenue_split_state': 'in_firma',
-                'revenue_split_approved_at': __import__('odoo').fields.Datetime.now(),
+                'revenue_split_approved_at': fields.Datetime.now(),
                 'revenue_split_approved_by': user.id,
             })
 
-            # Chiama freeze + send
-            if hasattr(Relation, 'action_freeze_and_send_split'):
-                Relation.action_freeze_and_send_split()
+            # 2. Firma incrementale: solo signers_required (added + changed)
+            signers = v.signers_required or []
+            split_data = _json.loads(v.payload_json or '{}')
+
+            # Cancella eventuali sign request orfani
+            SignReq = env['erpv6.sign.request'].sudo()
+            orphans = SignReq.search([
+                ('split_project_id', '=', relation_id),
+                ('status', 'in', ['draft', 'sent', 'viewed']),
+            ])
+            for o in orphans:
+                try:
+                    o.action_cancel()
+                except Exception:
+                    o.write({'status': 'cancelled'})
+
+            sent = []
+            skipped = []
+            removed = []
+
+            if not signers:
+                # Nessun firmatario richiesto: auto-approva
+                v.write({'state': 'approvata'})
+                Relation.write({
+                    'revenue_split_state': 'approvato',
+                    'revenue_split_approved': True,
+                })
+                return self._json_response({
+                    'success': True,
+                    'version': self._version_to_dict(v),
+                    'message': 'Nessun firmatario richiesto: approvato automaticamente',
+                    'sent': [], 'skipped': [], 'removed': [],
+                })
+
+            # Crea sign request solo per signers_required
+            Partner = env['res.partner'].sudo()
+            for pid in signers:
+                partner = Partner.browse(pid)
+                if not partner.exists():
+                    continue
+                benef = next(
+                    (b for b in (split_data.get('beneficiari') or [])
+                     if b.get('res_partner_id') == pid),
+                    None,
+                )
+                if not benef:
+                    continue
+                try:
+                    result = Relation._generate_split_sign_request(partner, benef, split_data)
+                    if result.get('sign_request_id'):
+                        sent.append({
+                            'partner_id': pid,
+                            'partner_name': partner.name,
+                            'sign_request_id': result['sign_request_id'],
+                        })
+                    # Marca il sign request con la versione
+                    if result.get('sign_request_id'):
+                        SignReq.browse(result['sign_request_id']).write({
+                            'split_version_id': v.id,
+                        })
+                except Exception:
+                    _logger.exception('Invio firma fallito per partner %s', pid)
+
+            # Traccia skipped (unchanged) e removed
+            try:
+                diff = _json.loads(v.diff_json or '{}')
+                skipped = diff.get('unchanged', [])
+                removed = diff.get('removed', [])
+            except Exception:
+                pass
 
             v.write({'state': 'in_firma'})
 
             return self._json_response({
                 'success': True,
                 'version': self._version_to_dict(v),
-                'message': 'Versione congelata e inviata a firma',
+                'message': f'Congelata e inviata a {len(sent)} firmatari (skipped {len(skipped)}, removed {len(removed)})',
+                'sent': sent,
+                'skipped': skipped,
+                'removed': removed,
             })
         except Exception as e:
             _logger.exception('Freeze fallito')

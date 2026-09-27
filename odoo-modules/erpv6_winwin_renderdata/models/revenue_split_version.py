@@ -48,6 +48,15 @@ class RevenueSplitVersion(models.Model):
         'erpv6.revenue.split.version', string='Superata da',
         ondelete='set null')
 
+    # 27/09/2026: firma incrementale (Fase 3)
+    predecessor_id = fields.Many2one(
+        'erpv6.revenue.split.version', string='Versione precedente',
+        ondelete='set null')
+    diff_json = fields.Text(string='Diff vs precedente',
+        help='JSON con added/removed/changed/unchanged')
+    signers_required = fields.Json(string='Firmatari richiesti', default=list,
+        help='Partner IDs che devono firmare questa versione (added + changed)')
+
     # Firme per questa versione
     sign_request_ids = fields.One2many(
         'erpv6.sign.request', 'split_version_id', string='Firme')
@@ -83,3 +92,46 @@ class RevenueSplitVersion(models.Model):
             'state': 'superata',
             'superseded_by_id': new_version.id,
         })
+
+    @api.model
+    def _compute_diff(self, prev_payload_json, new_payload_json):
+        """Confronta due payload split e ritorna dict con:
+        added, removed, changed, unchanged, signers_required.
+
+        Firma incrementale: solo added + changed devono firmare vN.
+        removed riceverà (in Fase 4) un accordo di cessazione.
+        unchanged non firma di nuovo (la loro accettazione vN-1 vale).
+        """
+        import json as _json
+        prev = _json.loads(prev_payload_json or '{}')
+        new = _json.loads(new_payload_json or '{}')
+
+        def _cons_map(d):
+            return {
+                b['res_partner_id']: b
+                for b in (d.get('beneficiari') or [])
+                if b.get('tipo') == 'consulente' and b.get('res_partner_id')
+            }
+
+        prev_b = _cons_map(prev)
+        new_b = _cons_map(new)
+
+        added = [pid for pid in new_b if pid not in prev_b]
+        removed = [pid for pid in prev_b if pid not in new_b]
+        changed = [
+            pid for pid in new_b
+            if pid in prev_b and float(new_b[pid].get('pct') or 0) != float(prev_b[pid].get('pct') or 0)
+        ]
+        unchanged = [
+            pid for pid in new_b
+            if pid in prev_b and float(new_b[pid].get('pct') or 0) == float(prev_b[pid].get('pct') or 0)
+        ]
+
+        return {
+            'added': added,
+            'removed': removed,
+            'changed': changed,
+            'unchanged': unchanged,
+            'signers_required': added + changed,
+        }
+
