@@ -2,7 +2,7 @@ import {
   LayoutDashboard, FolderKanban, Users, Settings,
   CheckCircle2, Mail, Calculator, Landmark, FileText,
   Brain, Shield, UserCog, Phone, PenTool, FileSignature, Code2,
-  Palette, Target, AlertTriangle, Package,
+  Palette, Target, AlertTriangle, Package, Briefcase,
 } from "lucide-react";
 
 // 27/09/2026: menu admin unificato (era duplicato in 5+ pagine).
@@ -11,6 +11,7 @@ export const ADMIN_MENU_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
   { icon: FolderKanban, label: "Progetti", href: "/admin/projects" },
   { icon: Users, label: "Progetti Partner", href: "/admin/partner-projects" },
+  { icon: Briefcase, label: "Deal", href: "/admin/deals" },
   { icon: PenTool, label: "Firme", href: "/admin/firme" },
   { icon: FileText, label: "Documenti", href: "/admin/documenti" },
   { icon: Code2, label: "Template", href: "/admin/template" },

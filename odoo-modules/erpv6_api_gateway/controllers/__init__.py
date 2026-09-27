@@ -16,6 +16,7 @@ from . import consultant_sign_api
 from . import admin_documents_api
 from . import admin_templates_api
 from . import admin_contracts_api
+from . import admin_deals_api
 from . import admin_emails_api
 from . import admin_split_versions_api
 from . import typst_import_api
