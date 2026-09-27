@@ -225,3 +225,68 @@ class AdminDealsAPIController(ConsultantAPIController):
             'success': True,
             'deal': self._deal_to_dict(d, include_detail=True),
         })
+
+    # ------------------------------------------------------------------
+    # POST /api/v1/admin/deals/<id>/freeze — congela il deal
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/deals/<int:deal_id>/freeze', type='http',
+                auth='none', methods=['POST'], csrf=False)
+    def admin_deal_freeze(self, deal_id, **kw):
+        start_time = time.time()
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        Deal = request.env['erpv6.deal'].sudo()
+        d = Deal.browse(deal_id)
+        if not d.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+
+        try:
+            d.action_freeze()
+            self.env.cr.commit() if hasattr(self, 'env') else None
+            request.env.cr.commit()
+        except Exception as e:
+            _logger.exception('Errore freeze deal %s', deal_id)
+            return self._json_response({'error': str(e)}, 400)
+
+        self._log_api_call(
+            '/api/v1/admin/deals/%s/freeze' % deal_id, 'POST', user.id, 200, start_time)
+        return self._json_response({
+            'success': True,
+            'deal': self._deal_to_dict(d, include_detail=True),
+        })
+
+    # ------------------------------------------------------------------
+    # POST /api/v1/admin/deals/<id>/send-to-sign — invia in firma
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/deals/<int:deal_id>/send-to-sign', type='http',
+                auth='none', methods=['POST'], csrf=False)
+    def admin_deal_send_to_sign(self, deal_id, **kw):
+        start_time = time.time()
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        Deal = request.env['erpv6.deal'].sudo()
+        d = Deal.browse(deal_id)
+        if not d.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+
+        try:
+            d.action_send_to_sign()
+            request.env.cr.commit()
+        except Exception as e:
+            _logger.exception('Errore send-to-sign deal %s', deal_id)
+            return self._json_response({'error': str(e)}, 400)
+
+        self._log_api_call(
+            '/api/v1/admin/deals/%s/send-to-sign' % deal_id, 'POST', user.id, 200, start_time)
+        return self._json_response({
+            'success': True,
+            'deal': self._deal_to_dict(d, include_detail=True),
+        })

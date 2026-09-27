@@ -102,9 +102,10 @@ export default function DealDetailPage() {
     const [deal, setDeal] = useState<Deal | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!dealId) return;
+    const fetchDeal = () => {
         try {
             const raw = localStorage.getItem('pi_session');
             const session = raw ? JSON.parse(raw) : null;
@@ -120,6 +121,49 @@ export default function DealDetailPage() {
                 })
                 .catch(e => { setError(e.message); setLoading(false); });
         } catch (e: any) { setError(e.message); setLoading(false); }
+    };
+
+    const runAction = (action: 'freeze' | 'send-to-sign' | 'recompute') => {
+        const raw = localStorage.getItem('pi_session');
+        const session = raw ? JSON.parse(raw) : null;
+        const token = session?.token;
+        if (!token) return;
+
+        setActionLoading(action);
+        setActionMessage(null);
+
+        const endpoint = action === 'freeze'
+            ? `/api/admin/deals/${dealId}/freeze`
+            : action === 'send-to-sign'
+                ? `/api/admin/deals/${dealId}/send-to-sign`
+                : `/api/admin/deals/${dealId}/freeze`; // recompute = refreeze per ora
+
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { Authorization: `JWT ${token}` },
+        })
+            .then(r => r.json())
+            .then(json => {
+                const payload = json.data ?? json;
+                if (payload.error) {
+                    setActionMessage(`Errore: ${payload.error}`);
+                } else {
+                    setActionMessage(`OK: ${action} eseguito`);
+                    if (payload.deal) setDeal(payload.deal);
+                    else fetchDeal();
+                }
+                setActionLoading(null);
+            })
+            .catch(e => {
+                setActionMessage(`Errore: ${e.message}`);
+                setActionLoading(null);
+            });
+    };
+
+    useEffect(() => {
+        if (!dealId) return;
+        fetchDeal();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dealId]);
 
     if (loading) return (
@@ -151,22 +195,40 @@ export default function DealDetailPage() {
                     <a href="/admin/deals" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
                         <ArrowLeft className="w-4 h-4" /> Torna alla lista
                     </a>
-                    <div className="flex gap-2">
-                        <button className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-1.5">
-                            <RefreshCw className="w-3.5 h-3.5" /> Rigenera
+                    <div className="flex gap-2 items-center">
+                        <button
+                            onClick={() => runAction('recompute')}
+                            disabled={actionLoading !== null}
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-1.5 disabled:opacity-50">
+                            <RefreshCw className={`w-3.5 h-3.5 ${actionLoading === 'recompute' ? 'animate-spin' : ''}`} />
+                            {actionLoading === 'recompute' ? 'Rigenero…' : 'Rigenera'}
                         </button>
                         <button
-                            disabled={!deal.canFreeze}
-                            className={`px-3 py-1.5 text-sm rounded flex items-center gap-1.5 ${deal.canFreeze ? 'bg-cyan-600 text-white hover:bg-cyan-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                            <Snowflake className="w-3.5 h-3.5" /> Congela
+                            onClick={() => runAction('freeze')}
+                            disabled={!deal.canFreeze || actionLoading !== null}
+                            className={`px-3 py-1.5 text-sm rounded flex items-center gap-1.5 ${deal.canFreeze && !actionLoading ? 'bg-cyan-600 text-white hover:bg-cyan-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                            <Snowflake className="w-3.5 h-3.5" />
+                            {actionLoading === 'freeze' ? 'Congelo…' : 'Congela'}
                         </button>
                         <button
-                            disabled={!deal.canSign}
-                            className={`px-3 py-1.5 text-sm rounded flex items-center gap-1.5 ${deal.canSign ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                            <FileSignature className="w-3.5 h-3.5" /> Invia in firma
+                            onClick={() => runAction('send-to-sign')}
+                            disabled={!deal.canSign || actionLoading !== null}
+                            className={`px-3 py-1.5 text-sm rounded flex items-center gap-1.5 ${deal.canSign && !actionLoading ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                            <FileSignature className="w-3.5 h-3.5" />
+                            {actionLoading === 'send-to-sign' ? 'Invio…' : 'Invia in firma'}
                         </button>
                     </div>
                 </div>
+
+                {actionMessage && (
+                    <div className={`mb-4 p-3 rounded-md text-sm ${
+                        actionMessage.startsWith('OK') 
+                            ? 'bg-green-50 border border-green-200 text-green-700'
+                            : 'bg-red-50 border border-red-200 text-red-700'
+                    }`}>
+                        {actionMessage}
+                    </div>
+                )}
 
                 {/* Info deal */}
                 <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
