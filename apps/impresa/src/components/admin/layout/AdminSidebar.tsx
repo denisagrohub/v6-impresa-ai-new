@@ -27,23 +27,46 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
     }
   }, [userProp]);
 
+  // 27/09/2026: fetch autonomo dei 2 badge SEMPRE (firme + email),
+  // indipendentemente da quale pagina sono. Aggiorna ogni 60s.
   useEffect(() => {
-    if (badges.length > 0) return; // passati dall'esterno: usa quelli
-    // Fetch unread email count
     const u = userProp || user;
     if (!u?.token) return;
-    fetch('/api/admin/emails/mailboxes', {
-      headers: { Authorization: `JWT ${u.token}` },
-    })
-      .then(r => r.json())
-      .then(d => {
-        const p = d.data || d;
-        if (p.success && p.totalUnread > 0) {
-          setBadges2([{ href: '/admin/mia-email', count: p.totalUnread, color: 'bg-red-500' }]);
+
+    const fetchBadges = () => {
+      Promise.all([
+        fetch('/api/admin/sign-requests?limit=1', {
+          headers: { Authorization: `JWT ${u.token}` },
+        }).then(r => r.json()).catch(() => null),
+        fetch('/api/admin/emails/mailboxes', {
+          headers: { Authorization: `JWT ${u.token}` },
+        }).then(r => r.json()).catch(() => null),
+      ]).then(([srRes, emRes]) => {
+        const list: AdminMenuBadge[] = [];
+
+        // Firme: sent + viewed
+        const srP = srRes?.data || srRes;
+        if (srP?.success && srP?.counts) {
+          const firmeCount = (srP.counts.sent || 0) + (srP.counts.viewed || 0);
+          if (firmeCount > 0) {
+            list.push({ href: '/admin/firme', count: firmeCount, color: 'bg-amber-500' });
+          }
         }
-      })
-      .catch(() => {});
-  }, [user, userProp, badges]);
+
+        // Email: totalUnread
+        const emP = emRes?.data || emRes;
+        if (emP?.success && emP.totalUnread > 0) {
+          list.push({ href: '/admin/mia-email', count: emP.totalUnread, color: 'bg-red-500' });
+        }
+
+        setBadges2(list);
+      });
+    };
+
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 60000);
+    return () => clearInterval(interval);
+  }, [user, userProp]);
 
   const handleLogout = () => {
     if (onLogout) return onLogout();
