@@ -333,7 +333,9 @@ export default function DealDetailPage() {
                                         <td className="px-4 py-2 text-gray-600">{roleLabel[p.role] || p.role}</td>
                                         <td className="px-4 py-2 text-gray-500">{p.tier || '—'}</td>
                                         <td className="px-4 py-2 text-right font-mono">
-                                            {(p.sharePct * 100).toFixed(2)}%
+                                            {p.role === 'referral'
+                                                ? 'fisso'
+                                                : `${(p.sharePct * 100).toFixed(2)}%`}
                                         </td>
                                     </tr>
                                 ))}
