@@ -227,6 +227,73 @@ class AdminDealsAPIController(ConsultantAPIController):
         })
 
     # ------------------------------------------------------------------
+    # POST /api/v1/admin/deals/<id>/variable — aggiorna una variabile
+    # Body: {"name": "v6_entity_pct", "enabled": true, "valueBase": 15.0}
+    # Se il deal è frozen, lo riporta a negotiating (auto-unfreeze).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/deals/<int:deal_id>/variable', type='http',
+                auth='none', methods=['POST'], csrf=False)
+    def admin_deal_update_variable(self, deal_id, **kw):
+        start_time = time.time()
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        Deal = request.env['erpv6.deal'].sudo()
+        d = Deal.browse(deal_id)
+        if not d.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except Exception:
+            return self._json_response({'error': 'JSON non valido'}, 400)
+
+        name = body.get('name')
+        if not name:
+            return self._json_response({'error': 'Parametro name mancante'}, 400)
+
+        var = d.variable_ids.filtered(lambda v: v.name == name)
+        if not var:
+            return self._json_response(
+                {'error': 'Variabile %s non trovata' % name}, 404)
+
+        vals = {}
+        if 'enabled' in body:
+            vals['enabled'] = bool(body['enabled'])
+        if 'valueBase' in body:
+            vals['value_base'] = float(body['valueBase'])
+        if 'valueMin' in body:
+            vals['value_min'] = float(body['valueMin'])
+        if 'valueMax' in body:
+            vals['value_max'] = float(body['valueMax'])
+
+        try:
+            # Se il deal è frozen, lo riporta a negotiating e cancella
+            # il prospetto corrente (va rigenerato).
+            if d.state in ('frozen', 'signing') and vals:
+                if d.current_prospetto_id:
+                    d.current_prospetto_id.unlink()
+                    d.current_prospetto_id = False
+                d.state = 'negotiating'
+
+            var.write(vals)
+            request.env.cr.commit()
+        except Exception as e:
+            _logger.exception('Errore update variable deal %s', deal_id)
+            return self._json_response({'error': str(e)}, 400)
+
+        self._log_api_call(
+            '/api/v1/admin/deals/%s/variable' % deal_id, 'POST',
+            user.id, 200, start_time)
+        return self._json_response({
+            'success': True,
+            'deal': self._deal_to_dict(d, include_detail=True),
+        })
+
+    # ------------------------------------------------------------------
     # POST /api/v1/admin/deals/<id>/freeze — congela il deal
     # ------------------------------------------------------------------
     @http.route('/api/v1/admin/deals/<int:deal_id>/freeze', type='http',

@@ -160,6 +160,37 @@ export default function DealDetailPage() {
             });
     };
 
+    const updateVariable = (name: string, payload: { enabled?: boolean; valueBase?: number }) => {
+        const raw = localStorage.getItem('pi_session');
+        const session = raw ? JSON.parse(raw) : null;
+        const token = session?.token;
+        if (!token) return;
+
+        setActionLoading(`var:${name}`);
+        setActionMessage(null);
+
+        fetch(`/api/admin/deals/${dealId}/variable`, {
+            method: 'POST',
+            headers: { Authorization: `JWT ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, ...payload }),
+        })
+            .then(r => r.json())
+            .then(json => {
+                const payload2 = json.data ?? json;
+                if (payload2.error) {
+                    setActionMessage(`Errore: ${payload2.error}`);
+                } else {
+                    setActionMessage(`OK: variabile ${name} aggiornata`);
+                    if (payload2.deal) setDeal(payload2.deal);
+                }
+                setActionLoading(null);
+            })
+            .catch(e => {
+                setActionMessage(`Errore: ${e.message}`);
+                setActionLoading(null);
+            });
+    };
+
     useEffect(() => {
         if (!dealId) return;
         fetchDeal();
@@ -274,29 +305,60 @@ export default function DealDetailPage() {
                             Variabili ({deal.variables.length})
                         </div>
                         <div className="divide-y divide-gray-100">
-                            {deal.variables.map(v => (
-                                <div key={v.id} className="px-4 py-2.5 text-sm">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="font-medium text-gray-800">
-                                            {v.label || v.name}
-                                            {v.isCritical && <span className="ml-2 text-xs text-amber-600">critica</span>}
-                                            {!v.enabled && <span className="ml-2 text-xs text-gray-400">OFF</span>}
-                                        </span>
-                                        <span className="text-xs text-gray-500">{v.unit}</span>
+                            {deal.variables.map(v => {
+                                const isOptional = !v.isCritical;
+                                const isEditing = actionLoading === `var:${v.name}`;
+                                return (
+                                    <div key={v.id} className="px-4 py-2.5 text-sm">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="font-medium text-gray-800 flex items-center gap-2">
+                                                {v.label || v.name}
+                                                {v.isCritical && <span className="text-xs text-amber-600">critica</span>}
+                                                {!v.enabled && <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">OFF</span>}
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-gray-500">{v.unit}</span>
+                                                {isOptional && (
+                                                    <button
+                                                        onClick={() => updateVariable(v.name, { enabled: !v.enabled })}
+                                                        disabled={isEditing}
+                                                        className={`text-xs px-2 py-0.5 rounded ${v.enabled ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}>
+                                                        {isEditing ? '…' : (v.enabled ? 'ON' : 'OFF')}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-4 text-xs text-gray-600 items-center">
+                                            {v.valueText ? (
+                                                <span className="font-mono">{v.valueText}</span>
+                                            ) : (
+                                                <>
+                                                    <span>MIN: <span className="font-mono">{v.valueMin.toLocaleString('it-IT')}</span></span>
+                                                    <span className="flex items-center gap-1">
+                                                        BASE:
+                                                        {isOptional ? (
+                                                            <input
+                                                                type="number"
+                                                                defaultValue={v.valueBase}
+                                                                onBlur={(e) => {
+                                                                    const newVal = parseFloat(e.target.value);
+                                                                    if (!isNaN(newVal) && newVal !== v.valueBase) {
+                                                                        updateVariable(v.name, { valueBase: newVal, enabled: true });
+                                                                    }
+                                                                }}
+                                                                className="font-mono w-20 px-1 py-0.5 border border-gray-200 rounded text-xs"
+                                                            />
+                                                        ) : (
+                                                            <span className="font-mono">{v.valueBase.toLocaleString('it-IT')}</span>
+                                                        )}
+                                                    </span>
+                                                    <span>MAX: <span className="font-mono">{v.valueMax.toLocaleString('it-IT')}</span></span>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="flex gap-4 text-xs text-gray-600">
-                                        {v.valueText ? (
-                                            <span className="font-mono">{v.valueText}</span>
-                                        ) : (
-                                            <>
-                                                <span>MIN: <span className="font-mono">{v.valueMin.toLocaleString('it-IT')}</span></span>
-                                                <span>BASE: <span className="font-mono">{v.valueBase.toLocaleString('it-IT')}</span></span>
-                                                <span>MAX: <span className="font-mono">{v.valueMax.toLocaleString('it-IT')}</span></span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 
