@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Plus, X, Users, ShieldCheck, AlertCircle, Lock } from "lucide-react";
+import { Plus, X, Users, ShieldCheck, AlertCircle, Lock, History, GitBranch } from "lucide-react";
 
 interface Beneficiario {
   res_partner_id: number | null;
@@ -34,6 +34,14 @@ export default function RevenueSplitCard({
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
 
+  // 27/09/2026: versioning split V6
+  const [tab, setTab] = useState<'split' | 'versions'>('split');
+  const [versions, setVersions] = useState<any[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [newVersionOpen, setNewVersionOpen] = useState(false);
+  const [newVersionMotivation, setNewVersionMotivation] = useState('');
+  const [versionErr, setVersionErr] = useState<string | null>(null);
+
   const load = async () => {
     try {
       const r = await fetch(`/api/admin/partner-projects/${projectId}/revenue-split`);
@@ -50,9 +58,75 @@ export default function RevenueSplitCard({
     } catch {}
   };
 
+  const loadVersions = async () => {
+    setVersionsLoading(true);
+    setVersionErr(null);
+    try {
+      const r = await fetch(`/api/admin/splits/${projectId}/versions?includePayload=1`);
+      const d = await r.json();
+      const payload = d.data || d;
+      if (payload.success) setVersions(payload.versions || []);
+    } catch (e: any) { setVersionErr(e.message); }
+    finally { setVersionsLoading(false); }
+  };
+
+  const createVersion = async () => {
+    if (!newVersionMotivation.trim()) {
+      setVersionErr('Motivazione obbligatoria');
+      return;
+    }
+    setBusy(true); setVersionErr(null);
+    try {
+      // Payload attuale = quello editato nello split corrente
+      const payload = {
+        base: baseCompenso || {},
+        beneficiari,
+        riserva_v6_pct: riserva,
+        note,
+      };
+      const r = await fetch(`/api/admin/splits/${projectId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motivation: newVersionMotivation, payload }),
+      });
+      const d = await r.json();
+      const p2 = d.data || d;
+      if (!p2.success) { setVersionErr(p2.error || 'Errore creazione'); setBusy(false); return; }
+      setNewVersionOpen(false);
+      setNewVersionMotivation('');
+      setSaved(`Versione v${p2.version?.versionNumber} creata (bozza)`);
+      await loadVersions();
+      await load();
+      onReload?.();
+    } catch (e: any) { setVersionErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const freezeVersion = async (vid: number) => {
+    if (!confirm('Congelare e inviare a firma questa versione?')) return;
+    setBusy(true); setVersionErr(null);
+    try {
+      const r = await fetch(`/api/admin/splits/${projectId}/versions/${vid}/freeze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const d = await r.json();
+      const p2 = d.data || d;
+      if (!p2.success) { setVersionErr(p2.error || 'Errore freeze'); setBusy(false); return; }
+      setSaved(p2.message || 'Versione inviata a firma');
+      await loadVersions();
+      await load();
+      onReload?.();
+    } catch (e: any) { setVersionErr(e.message); }
+    finally { setBusy(false); }
+  };
+
   const openModal = async () => {
     setOpen(true); setErr(null); setSaved(null);
+    setTab('split');
     await load();
+    await loadVersions();
   };
 
   const somma = beneficiari.reduce((s, b) => s + (b.pct || 0), 0) + riserva;
@@ -145,6 +219,94 @@ export default function RevenueSplitCard({
               </h3>
               <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-700"><X size={16} /></button>
             </div>
+
+            {/* 27/09/2026: tabs Split attuale / Versioni */}
+            <div className="flex gap-1 mb-4 border-b border-gray-200">
+              <button
+                onClick={() => setTab('split')}
+                className={`px-3 py-2 text-xs font-semibold border-b-2 -mb-px ${tab === 'split' ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                Split attuale
+              </button>
+              <button
+                onClick={() => { setTab('versions'); loadVersions(); }}
+                className={`px-3 py-2 text-xs font-semibold border-b-2 -mb-px flex items-center gap-1 ${tab === 'versions' ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                <History size={12} /> Versioni ({versions.length})
+              </button>
+            </div>
+
+            {tab === 'versions' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Storico versioni</span>
+                  <button onClick={() => setNewVersionOpen(true)}
+                    className="text-violet-600 hover:text-violet-800 text-xs flex items-center gap-1">
+                    <GitBranch size={12} /> Nuova versione
+                  </button>
+                </div>
+
+                {versionsLoading && <div className="text-xs text-gray-400 text-center py-2">Caricamento…</div>}
+
+                {!versionsLoading && versions.length === 0 && (
+                  <div className="text-xs text-gray-400 text-center py-2">Nessuna versione registrata</div>
+                )}
+
+                {versions.map((v) => (
+                  <div key={v.id} className="border border-gray-200 rounded p-3 bg-white">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-violet-700">v{v.versionNumber}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                        v.state === 'approvata' ? 'bg-emerald-100 text-emerald-800' :
+                        v.state === 'in_firma' ? 'bg-amber-100 text-amber-800' :
+                        v.state === 'bozza' ? 'bg-gray-100 text-gray-700' :
+                        v.state === 'superata' ? 'bg-blue-100 text-blue-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>{v.state}</span>
+                      <span className="ml-auto text-[10px] text-gray-400">
+                        {v.createdAt ? new Date(v.createdAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600 mb-1">{v.motivation}</div>
+                    {v.hash && <div className="text-[10px] font-mono text-gray-400">hash: {v.hash.slice(0, 20)}…</div>}
+                    {v.createdBy && <div className="text-[10px] text-gray-400">creata da {v.createdBy}</div>}
+                    {v.state === 'bozza' && (
+                      <button onClick={() => freezeVersion(v.id)} disabled={busy}
+                        className="mt-2 px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-semibold hover:bg-emerald-700 disabled:opacity-50">
+                        Congela e invia a firma
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {newVersionOpen && (
+                  <div className="border border-violet-200 rounded p-3 bg-violet-50/30">
+                    <div className="text-xs font-semibold text-violet-800 mb-2">Nuova versione</div>
+                    <p className="text-[10px] text-gray-600 mb-2">
+                      La versione attuale passerà a <b>superata</b>, la nuova parte in <b>bozza</b>. Il payload sarà quello attualmente editato (beneficiari, riserva, note).
+                    </p>
+                    <textarea
+                      value={newVersionMotivation}
+                      onChange={(e) => setNewVersionMotivation(e.target.value)}
+                      placeholder="Motivazione (obbligatoria): es. Aggiunto consulente Marco 5%"
+                      rows={2}
+                      className="w-full px-2 py-1 rounded border text-xs mb-2 resize-y"
+                    />
+                    {versionErr && <div className="text-[10px] text-red-600 mb-2">{versionErr}</div>}
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => { setNewVersionOpen(false); setVersionErr(null); setNewVersionMotivation(''); }}
+                        className="px-2 py-1 text-[10px] text-gray-600 hover:bg-gray-100 rounded">
+                        Annulla
+                      </button>
+                      <button onClick={createVersion} disabled={busy}
+                        className="px-2 py-1 rounded bg-violet-600 text-white text-[10px] font-semibold hover:bg-violet-700 disabled:opacity-50">
+                        {busy ? '…' : 'Crea versione'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tab === 'split' && (<>
 
             {baseCompenso && (
               <div className="bg-violet-50 border border-violet-100 rounded p-3 mb-4 text-xs">
@@ -263,6 +425,8 @@ export default function RevenueSplitCard({
 
             {err && <p className="text-xs text-red-600 mb-2 flex items-center gap-1"><AlertCircle size={11} /> {err}</p>}
             {saved && <p className="text-xs text-emerald-600 mb-2">✓ {saved}</p>}
+
+            </>)}
 
             <div className="flex justify-end gap-2">
               <button onClick={() => setOpen(false)} className="px-3 py-1.5 text-xs text-gray-600">Chiudi</button>
