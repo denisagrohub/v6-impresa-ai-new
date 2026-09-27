@@ -193,7 +193,8 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
         if v.state != 'bozza':
             return self._json_response({'error': f'Versione in stato {v.state}, non congelabile'}, 400)
 
-        Relation = v.relation_id
+        # 27/09/2026: auth='none' -> env.user vuoto, forziamo l'utente autenticato
+        Relation = v.relation_id.with_user(user.id).sudo()
         try:
             import json as _json
             import hashlib
@@ -213,7 +214,7 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
             split_data = _json.loads(v.payload_json or '{}')
 
             # Cancella eventuali sign request orfani
-            SignReq = env['erpv6.sign.request'].sudo()
+            SignReq = env['erpv6.sign.request'].with_user(user.id).sudo()
             orphans = SignReq.search([
                 ('split_project_id', '=', relation_id),
                 ('status', 'in', ['draft', 'sent', 'viewed']),
@@ -243,7 +244,7 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
                 })
 
             # Crea sign request solo per signers_required
-            Partner = env['res.partner'].sudo()
+            Partner = env['res.partner'].with_user(user.id).sudo()
             for pid in signers:
                 partner = Partner.browse(pid)
                 if not partner.exists():
