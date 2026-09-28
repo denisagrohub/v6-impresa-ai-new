@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import DealNarrative from '@/components/deal/DealNarrative';
 import { SignRequestsPanel, type SignRequest } from '@/components/deal/SignRequestsPanel';
+import { SettlementsPanel, type Settlement } from '@/components/deal/SettlementsPanel';
 import { Loader2, ArrowLeft, Snowflake, FileSignature, RefreshCw } from 'lucide-react';
 
 type Variable = {
@@ -86,6 +87,7 @@ type Deal = {
     participants: Participant[];
     prospetto: Prospetto | null;
     signRequests: SignRequest[];
+    settlements: Settlement[];
 };
 
 const fmt = (n: number) =>
@@ -119,8 +121,20 @@ export default function DealDetailPage() {
                 .then(r => r.json())
                 .then(json => {
                     const payload = json.data ?? json;
-                    if (payload.deal) setDeal(payload.deal);
-                    else setError('Deal non trovato.');
+                    if (payload.deal) {
+                        setDeal(payload.deal);
+                        // Fetch settlements separatamente
+                        fetch(`/api/admin/deals/${dealId}/settlements`, {
+                            headers: { Authorization: `JWT ${token}` },
+                        })
+                            .then(r => r.json())
+                            .then(sd => {
+                                if (sd.settlements) {
+                                    setDeal(prev => prev ? { ...prev, settlements: sd.settlements } : prev);
+                                }
+                            })
+                            .catch(() => {});
+                    } else setError('Deal non trovato.');
                     setLoading(false);
                 })
                 .catch(e => { setError(e.message); setLoading(false); });
@@ -286,6 +300,22 @@ export default function DealDetailPage() {
                         <SignRequestsPanel requests={deal.signRequests} />
                     </section>
                 )}
+
+                {/* 28/09/2026: consuntivi mensili */}
+                <SettlementsPanel
+                    dealId={deal.id}
+                    settlements={deal.settlements || []}
+                    onRefresh={fetchDeal}
+                    authToken={
+                        (() => {
+                            try {
+                                const raw = localStorage.getItem('pi_session');
+                                const s = raw ? JSON.parse(raw) : null;
+                                return s?.token || '';
+                            } catch { return ''; }
+                        })()
+                    }
+                />
 
                 {/* Info deal */}
                 <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">

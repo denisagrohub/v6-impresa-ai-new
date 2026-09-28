@@ -9,7 +9,7 @@ import json
 import logging
 import time
 
-from odoo import http
+from odoo import fields, http
 from odoo.http import request
 
 from .consultant_api import ConsultantAPIController
@@ -155,6 +155,186 @@ class AdminDealsAPIController(ConsultantAPIController):
             data['signRequests'] = sign_reqs
 
         return data
+
+
+    # ══════════════════════════════════════════════════════════════
+    # SETTLEMENT MENSLIE — consuntivi deal V6
+    # ══════════════════════════════════════════════════════════════
+
+    def _settlement_to_dict(self, s, include_lines=True):
+        d = {
+            'id': s.id,
+            'name': s.name,
+            'dealId': s.deal_id.id,
+            'prospettoId': s.prospetto_id.id if s.prospetto_id else None,
+            'periodoMese': s.periodo_mese,
+            'periodoAnno': s.periodo_anno,
+            'state': s.state,
+            'quantitaReale': s.quantita_reale or 0,
+            'prezzoMedioReale': s.prezzo_medio_reale or 0,
+            'feePctReale': s.fee_pct_reale or 0,
+            'unita': s.unita or '',
+            'transatoTotale': s.transato_totale or 0,
+            'ricavoLordo': s.ricavo_lordo or 0,
+            'nettoRipartizione': s.netto_ripartizione or 0,
+            'transparencyUnlocked': s.transparency_unlocked,
+            'noteMensili': s.note_mensili or '',
+            'narrativeHtml': s.narrative_html or '',
+            'computedAt': s.computed_at.isoformat() if s.computed_at else None,
+            'frozenAt': s.frozen_at.isoformat() if s.frozen_at else None,
+            'frozenBy': s.frozen_by.name if s.frozen_by else None,
+            'sentAt': s.sent_at.isoformat() if s.sent_at else None,
+            'signedAt': s.signed_at.isoformat() if s.signed_at else None,
+            'pdfDocumentId': s.pdf_document_id.id if s.pdf_document_id else None,
+            'lineCount': len(s.line_ids),
+        }
+        if include_lines:
+            d['lines'] = [{
+                'id': l.id,
+                'participantId': l.participant_id.id,
+                'partnerName': l.participant_id.partner_id.name,
+                'tier': l.participant_id.tier or '',
+                'sharePct': (l.participant_id.share_pct or 0) * 100,
+                'importoEffettivo': l.importo_effettivo or 0,
+                'visibility': l.visibility,
+                'causaleFattura': l.causale_fattura or '',
+                'sentAt': l.sent_at.isoformat() if l.sent_at else None,
+                'paid': l.pagato,
+                'paidAt': l.pagato_il.isoformat() if l.pagato_il else None,
+            } for l in s.line_ids]
+        return d
+
+    @http.route('/api/v1/admin/deals/<int:deal_id>/settlements', type='http',
+                auth='none', methods=['GET'], csrf=False)
+    def list_settlements(self, deal_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        Deal = request.env['erpv6.deal'].sudo()
+        d = Deal.browse(deal_id)
+        if not d.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+        return self._json_response({
+            'success': True,
+            'settlements': [self._settlement_to_dict(s, include_lines=False)
+                            for s in d.settlement_ids],
+        })
+
+    @http.route('/api/v1/admin/deals/<int:deal_id>/settlements', type='http',
+                auth='none', methods=['POST'], csrf=False)
+    def create_settlement(self, deal_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        Deal = request.env['erpv6.deal'].sudo()
+        d = Deal.browse(deal_id)
+        if not d.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            return self._json_response({'error': 'JSON non valido'}, 400)
+        required = ['periodo_mese', 'periodo_anno']
+        for f in required:
+            if not body.get(f):
+                return self._json_response({'error': f'Campo {f} mancante'}, 400)
+        try:
+            vals = {
+                'deal_id': deal_id,
+                'prospetto_id': d.current_prospetto_id.id or False,
+                'periodo_mese': str(body['periodo_mese']),
+                'periodo_anno': int(body['periodo_anno']),
+                'quantita_reale': float(body.get('quantita_reale', 0)),
+                'prezzo_medio_reale': float(body.get('prezzo_medio_reale', 0)),
+                'fee_pct_reale': float(body.get('fee_pct_reale', 0)),
+                'unita': body.get('unita', 'TEE'),
+                'note_mensili': body.get('note_mensili', ''),
+            }
+            s = request.env['erpv6.deal.settlement'].sudo().create(vals)
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'settlement': self._settlement_to_dict(s),
+            })
+        except Exception as e:
+            _logger.exception('Errore create settlement per deal %s', deal_id)
+            return self._json_response({'error': str(e)}, 400)
+
+    @http.route('/api/v1/admin/settlements/<int:settlement_id>/freeze',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def freeze_settlement(self, settlement_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        S = request.env['erpv6.deal.settlement'].sudo()
+        s = S.browse(settlement_id)
+        if not s.exists():
+            return self._json_response({'error': 'Settlement non trovato'}, 404)
+        try:
+            s.action_freeze()
+            s.action_generate_pdf()
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'settlement': self._settlement_to_dict(s),
+            })
+        except Exception as e:
+            _logger.exception('Errore freeze settlement %s', settlement_id)
+            return self._json_response({'error': str(e)}, 400)
+
+    @http.route('/api/v1/admin/settlements/<int:settlement_id>/send-to-sign',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def send_settlement_to_sign(self, settlement_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        S = request.env['erpv6.deal.settlement'].sudo()
+        s = S.browse(settlement_id)
+        if not s.exists():
+            return self._json_response({'error': 'Settlement non trovato'}, 404)
+        if not s.pdf_document_id or not s.pdf_document_id.pdf_file:
+            return self._json_response(
+                {'error': 'PDF non generato: congela prima il consuntivo'}, 400)
+        try:
+            Sign = request.env['erpv6.sign.request'].sudo()
+            sign_ids = []
+            # Crea SR per ogni participant con email
+            for line in s.line_ids:
+                partner = line.participant_id.partner_id
+                if not partner or not partner.email:
+                    continue
+                sr = Sign.create({
+                    'name': f'{s.name} — firma {partner.name}',
+                    'partner_id': partner.id,
+                    'document_id': s.pdf_document_id.id,
+                    'related_kind': 'deal_settlement',
+                    'related_id': s.id,
+                    'related_model': 'erpv6.deal.settlement',
+                    'notes': f'Consuntivo {s.periodo_mese}/{s.periodo_anno}',
+                })
+                sr.action_send_to_sign()
+                sign_ids.append(sr.id)
+            if not sign_ids:
+                return self._json_response(
+                    {'error': 'Nessun partecipante con email'}, 400)
+            s.write({'state': 'sent', 'sent_at': fields.Datetime.now()})
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'signRequestIds': sign_ids,
+                'settlement': self._settlement_to_dict(s),
+            })
+        except Exception as e:
+            _logger.exception('Errore send-to-sign settlement %s', settlement_id)
+            return self._json_response({'error': str(e)}, 400)
 
     # ------------------------------------------------------------------
     # GET /api/v1/admin/deals — lista deal + KPI
