@@ -291,6 +291,55 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // (in tal caso è un "progetto root con pipeline" → dashboard kanban)
     const hasPipelineBoard = targets.length > 0;
 
+    // 28/09/2026: se questo nodo è figlio progetto (child_kind='progetto'),
+    // ritorna il deal collegato con progress per Deal Command Center
+    let dealCollegato: any = null;
+    if (project.child_kind === 'progetto') {
+      try {
+        const deals = await odoo.execute('erpv6.deal', 'search_read', [
+          [['relation_id', '=', id]],
+          ['id', 'name', 'state', 'revenue_model', 'schema_code',
+           'seller_id', 'buyer_id', 'progress_done', 'progress_total',
+           'next_step_id', 'current_prospetto_id'],
+        ]);
+        if (deals && deals.length > 0) {
+          const d = deals[0];
+          const sellerId = Array.isArray(d.seller_id) ? d.seller_id[0] : null;
+          const buyerId = Array.isArray(d.buyer_id) ? d.buyer_id[0] : null;
+          const pids = [sellerId, buyerId].filter(x => x != null);
+          const partnerMap: Record<number, any> = {};
+          if (pids.length > 0) {
+            const partners = await odoo.execute('res.partner', 'search_read', [
+              [['id', 'in', pids]],
+              ['id', 'name', 'is_placeholder', 'placeholder_code'],
+            ]);
+            for (const p of partners || []) partnerMap[p.id] = p;
+          }
+          const seller = sellerId ? partnerMap[sellerId] : null;
+          const buyer = buyerId ? partnerMap[buyerId] : null;
+          const nextStepId = Array.isArray(d.next_step_id) ? d.next_step_id[0] : null;
+          const nextStepCode = Array.isArray(d.next_step_id) ? d.next_step_id[1] : null;
+          dealCollegato = {
+            id: d.id,
+            name: d.name,
+            state: d.state,
+            revenueModel: d.revenue_model,
+            schemaCode: d.schema_code,
+            sellerName: seller?.is_placeholder ? seller.placeholder_code : seller?.name,
+            sellerIsPlaceholder: seller?.is_placeholder || false,
+            buyerName: buyer?.is_placeholder ? buyer.placeholder_code : buyer?.name,
+            buyerIsPlaceholder: buyer?.is_placeholder || false,
+            progressDone: d.progress_done || 0,
+            progressTotal: d.progress_total || 0,
+            nextStepId,
+            nextStepLabel: nextStepCode || null,
+          };
+        }
+      } catch (e: any) {
+        console.error('deal collegato fallito:', e.message);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       project: {
@@ -305,7 +354,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
         state: project.state || 'attivo',
         hasPipelineBoard,
         parent_id: Array.isArray(project.parent_id) ? project.parent_id[0] : null,
+        childKind: project.child_kind || null,
       },
+      dealCollegato: dealCollegato,
       partners: [...parts, ...targetContacts].map((c: any) => ({
         id: c.id,
         name: c.name,
