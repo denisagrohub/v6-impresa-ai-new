@@ -39,6 +39,8 @@ import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 import RelationScoutingPanel, { type RelationScoutingData } from "@/components/admin/RelationScoutingPanel";
 import CallEndPanel from "@/components/admin/CallEndPanel";
 import PersonCard from "@/components/admin/PersonCard";
+import { DealCard } from "@/components/deals/DealCard";
+import { ChildProjectsList } from "@/components/projects/ChildProjectsList";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -1106,6 +1108,26 @@ export default function PartnerProjectDetailPage() {
                             )}
                         </section>
                     )}
+                    {/* Progetti operativi (padre) */}
+                    {childProjects.length > 0 && (
+                        <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+                            <h2 className="text-base font-semibold mb-3">Progetti operativi</h2>
+                            <ChildProjectsList projects={childProjects} />
+                        </section>
+                    )}
+
+                    {/* Deal collegato (figlio) */}
+                    {deals.length > 0 && (
+                        <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+                            <h2 className="text-base font-semibold mb-3">Deal collegato</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {deals.map((d) => (
+                                    <DealCard key={d.id} deal={d} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
                 </main>
 
                 {/* ═══ COLONNA DESTRA: sidebar con intelligence, parti, documenti, attività ═══ */}
