@@ -1,0 +1,6 @@
+# 28/09/2026: escludi cache webpack/turbo dal deploy
+.next/cache
+.next/trace
+.next/trace-build
+**/.turbo
+**/node_modules/.cache
