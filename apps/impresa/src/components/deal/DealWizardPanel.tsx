@@ -195,7 +195,28 @@ function StepWizardModal({
   const [note, setNote] = useState('');
   const [externalRef, setExternalRef] = useState(step.externalReference || '');
   const [busy, setBusy] = useState(false);
+  const [sendBusy, setSendBusy] = useState(false);
+  const [signResult, setSignResult] = useState<{ requestUrl: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const handleSendDocument = async () => {
+    setSendBusy(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/admin/checklist/${step.id}/send-document`, {
+        method: 'POST',
+        headers: { Authorization: `JWT ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await r.json();
+      if (data.error) { setError(data.error); return; }
+      setSignResult({ requestUrl: data.request_url });
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSendBusy(false);
+    }
+  };
 
   const handleComplete = async () => {
     setBusy(true);
