@@ -37,19 +37,39 @@ class DocumensoAdapter(SignatureProviderAdapter):
         pdf_bytes = base64.b64decode(sign_request.document_id.pdf_file)
         filename = sign_request.document_id.pdf_filename or f'{sign_request.name}.pdf'
 
+        # 28/09/2026: se il firmatario ha x_v6_email_mode='both',
+        # aggiungo la sua email V6 (slug@v6impresa.it) come CC su Documenso.
+        # In CC riceve notifica firma ma NON firma.
+        partner = sign_request.partner_id
+        recipients = [{
+            'email': partner.email,
+            'name': partner.name or partner.email,
+            'role': 'SIGNER',
+            'fields': [{
+                'type': 'SIGNATURE',
+                'page': 1, 'positionX': 70, 'positionY': 85,
+                'width': 25, 'height': 6,
+            }],
+        }]
+
+        if (getattr(partner, 'x_v6_email_mode', 'personal') == 'both'
+                and partner.id):
+            user = sign_request.env['res.users'].sudo().search(
+                [('partner_id', '=', partner.id)], limit=1)
+            slug = getattr(user, 'email_slug', None) if user else None
+            if slug:
+                alias = f'{slug}@v6impresa.it'
+                if alias.lower() != (partner.email or '').lower():
+                    recipients.append({
+                        'email': alias,
+                        'name': f'{partner.name} (V6)',
+                        'role': 'CC',
+                    })
+
         create_payload = {
             'title': sign_request.name,
             'type': 'DOCUMENT',
-            'recipients': [{
-                'email': sign_request.partner_id.email,
-                'name': sign_request.partner_id.name or sign_request.partner_id.email,
-                'role': 'SIGNER',
-                'fields': [{
-                    'type': 'SIGNATURE',
-                    'page': 1, 'positionX': 70, 'positionY': 85,
-                    'width': 25, 'height': 6,
-                }],
-            }],
+            'recipients': recipients,
         }
 
         create_resp = requests.post(

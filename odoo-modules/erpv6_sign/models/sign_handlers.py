@@ -105,10 +105,12 @@ def _handle_deal_prospetto(sign_request):
         return
 
     # Verifica se tutte le firme sono complete
-    all_signed = all(
-        sr.status == 'signed'
-        for sr in deal.sign_request_ids
-    ) if deal.sign_request_ids else False
+    all_srs = (deal.current_prospetto_id.sign_request_ids
+               if deal.current_prospetto_id
+               else deal.env['erpv6.sign.request'].browse([]))
+    all_signed = bool(all_srs) and all(
+        sr.status == 'signed' for sr in all_srs
+    )
 
     if all_signed:
         prospetto = deal.current_prospetto_id
@@ -124,7 +126,7 @@ def _handle_deal_prospetto(sign_request):
         deal.message_post(body="✓ Prospetto firmato da tutti i partecipanti. Deal attivato.")
         _logger.info('Deal %s: tutte le firme complete, state=active', deal.id)
     else:
-        pending = deal.sign_request_ids.filtered(lambda s: s.status != 'signed')
+        pending = deal.current_prospetto_id.sign_request_ids if deal.current_prospetto_id else deal.env["erpv6.sign.request"].filtered(lambda s: s.status != 'signed')
         deal.message_post(body=f"Firma ricevuta. In attesa di {len(pending)} firme rimanenti.")
         _logger.info('Deal %s: firma parziale, %s pending', deal.id, len(pending))
 
@@ -133,6 +135,16 @@ def _handle_deal_prospetto(sign_request):
 
 def dispatch_post_sign_handler(sign_request):
     """Entry point unico chiamato dal webhook dopo la firma."""
+    # 28/09/2026: deal_prospetto ha priorità — gestisce la firma del deal V6.
+    if sign_request.related_kind == 'deal_prospetto':
+        try:
+            _handle_deal_prospetto(sign_request)
+        except Exception:
+            _logger.exception('Handler deal_prospetto fallito per sr %s', sign_request.id)
+        # Il deal_prospetto NON innesca la controfirma V6 automatica:
+        # i firmatari del prospetto sono già le parti del deal.
+        return
+
     # 26/09/2026: se c'è contract_draft_id, usa handler dedicato
     if sign_request.contract_draft_id:
         try:
