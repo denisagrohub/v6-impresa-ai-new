@@ -45,6 +45,7 @@ import { ChildProjectsList } from "@/components/projects/ChildProjectsList";
 import { DealsKanban, type KanbanDeal } from "@/components/deal/DealsKanban";
 import { KpiDealRow, type KpiDeal } from "@/components/deal/KpiDealRow";
 import { SplitSquadraCard, type SplitLine } from "@/components/deal/SplitSquadraCard";
+import { DealCommandCenter, type DealCollegato as DealCollegatoCC } from "@/components/deal/DealCommandCenter";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -154,6 +155,7 @@ export default function PartnerProjectDetailPage() {
     const [dealsFlat, setDealsFlat] = useState<KanbanDeal[]>([]);
     const [kpiDeal, setKpiDeal] = useState<KpiDeal | null>(null);
     const [splitSquadra, setSplitSquadra] = useState<SplitLine[]>([]);
+    const [dealCollegato, setDealCollegato] = useState<DealCollegatoCC | null>(null);
     // Progetti figli con child_kind='progetto' (deal operativi)
     const [childProjects, setChildProjects] = useState<ChildProject[]>([]);
     const [showAcqModal, setShowAcqModal] = useState(false);
@@ -924,6 +926,14 @@ export default function PartnerProjectDetailPage() {
 
                 {/* ═══ COLONNA SINISTRA: contenuto contestuale alla vista ═══ */}
                 <main className="flex flex-col min-w-0 bg-white overflow-y-auto p-6 border-r border-[#e2e8f0]">
+
+                    {/* 28/09/2026: Deal Command Center (figlio progetto) */}
+                    {dealCollegato && (
+                        <DealCommandCenter
+                            deal={dealCollegato}
+                            childProjectId={Number(id)}
+                        />
+                    )}
 
                     {/* HEADER CONTESTUALE (se contesto != progetto) */}
                     {operativeContext && operativeContext.type !== 'project' && (
