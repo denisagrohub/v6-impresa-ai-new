@@ -36,6 +36,14 @@ class Erpv6DealSchema(models.Model):
 
 class Erpv6Deal(models.Model):
     _name = 'erpv6.deal'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for rec in records:
+            if rec.schema_id:
+                rec._generate_checklist_from_schema()
+        return records
     _description = 'Deal commerciale con schema parametrico'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'create_date desc'
@@ -110,6 +118,16 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
     )
     settlement_ids = fields.One2many(
         'erpv6.deal.settlement', 'deal_id', string='Consuntivi mensili')
+
+    checklist_ids = fields.One2many(
+        'erpv6.deal.checklist', 'deal_id', string='Checklist deal')
+    next_step_id = fields.Many2one(
+        'erpv6.deal.checklist', string='Prossimo step',
+        compute='_compute_checklist_progress')
+    progress_done = fields.Integer(
+        compute='_compute_checklist_progress', string='Step completati')
+    progress_total = fields.Integer(
+        compute='_compute_checklist_progress', string='Step totali')
     current_prospetto_id = fields.Many2one('erpv6.deal.prospetto',
                                             string='Prospetto corrente',
                                             ondelete='set null')
@@ -230,8 +248,52 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
         _logger.info('Deal %s: %s inviate, %s saltate', self.id, sent, skipped)
         return sent
 
+    @api.depends('checklist_ids.status', 'checklist_ids.sequence', 'checklist_ids.is_ready')
+    def _compute_checklist_progress(self):
+        for d in self:
+            items = d.checklist_ids.sorted('sequence')
+            d.progress_total = len(items)
+            d.progress_done = len(items.filtered(lambda c: c.status == 'done'))
+            nxt = items.filtered(lambda c: c.status in ('pending', 'in_progress') and c.is_ready)[:1]
+            d.next_step_id = nxt.id if nxt else False
+
+    def _generate_checklist_from_schema(self):
+        self.ensure_one()
+        if not self.schema_id:
+            return 0
+        Step = self.env['erpv6.deal.schema.step'].sudo()
+        steps = Step.search([('schema_id', '=', self.schema_id.id),
+                             ('auto_generate', '=', True)], order='sequence, id')
+        existing = set(self.checklist_ids.mapped('code'))
+        created = 0
+        for s in steps:
+            if s.code in existing:
+                continue
+            self.env['erpv6.deal.checklist'].sudo().create({
+                'deal_id': self.id, 'sequence': s.sequence, 'code': s.code,
+                'label': s.label, 'description': s.description,
+                'completion_type': s.completion_type,
+                'blocks_deal_state': s.blocks_deal_state,
+                'requires_codes': s.requires_codes,
+                'template_document_code': s.template_document_code,
+            })
+            created += 1
+        _logger.info('Deal %s: checklist creata (%s step)', self.id, created)
+        return created
+
+    def _check_checklist_gates(self, target_state=None):
+        self.ensure_one()
+        blocking = self.checklist_ids.filtered(
+            lambda c: c.blocks_deal_state and c.status not in ('done', 'na'))
+        if blocking:
+            labels = ', '.join(blocking.mapped('label'))
+            raise UserError(
+                f"Bloccato ({target_state or 'transizione'}): "
+                f"{len(blocking)} step non completati — {labels}")
+
     def action_freeze(self):
         for d in self:
+            d._check_checklist_gates(target_state='frozen')
             if not d.can_freeze:
                 missing = d.variable_ids.filtered(
                     lambda v: v.is_critical and not v.locked)
@@ -292,6 +354,8 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
     def action_send_to_sign(self):
         """Crea contract_draft Typst, genera PDF, invia a firma su Documenso
         per ogni partecipante con email. Imposta deal.state='signing'."""
+        for d in self:
+            d._check_checklist_gates(target_state='signing')
         Draft = self.env['erpv6.contract.draft'].sudo()
         Sign = self.env['erpv6.sign.request'].sudo()
         Template = self.env['erpv6.typst.template'].sudo()

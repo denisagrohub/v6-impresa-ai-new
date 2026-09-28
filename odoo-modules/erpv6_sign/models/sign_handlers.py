@@ -210,6 +210,8 @@ def dispatch_post_sign_handler(sign_request):
         _logger.exception('Handler post-firma fallito per sign_request %s (kind=%s)',
                           sign_request.id, kind)
 
+    _sync_checklist_from_sign(sign_request)
+
 
 def _handle_split_v6(sign_request):
     """25/09/2026: finalizza lo split SOLO quando TUTTI i consulenti
@@ -464,3 +466,16 @@ def _send_final_signed_email(draft):
         _logger.info('Email finale inviata a %s per draft %s (hash %s)', recipient.email, draft.id, final_hash[:16])
     except Exception:
         _logger.exception('Invio email finale fallito per draft %s', draft.id)
+
+def _sync_checklist_from_sign(sign_request):
+    """28/09/2026: marca done lo step checklist collegato alla firma."""
+    try:
+        C = sign_request.env['erpv6.deal.checklist'].sudo()
+        steps = C.search([('sign_request_id', '=', sign_request.id)])
+        for s in steps:
+            if s.status != 'done':
+                s.action_complete(note='Firmato da %s' % sign_request.partner_id.name)
+                _logger.info('Checklist step %s -> done (deal %s)', s.code, s.deal_id.id)
+    except Exception:
+        _logger.exception('Sync checklist fallito per sr %s', sign_request.id)
+

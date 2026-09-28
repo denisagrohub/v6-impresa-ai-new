@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="step_tee_ncnd" model="erpv6.deal.schema.step">
+            <field name="schema_id" ref="schema_tee_rolling_001"/>
+            <field name="sequence">10</field>
+            <field name="code">NCND</field>
+            <field name="label">NCND firmato con controparte</field>
+            <field name="completion_type">sign</field>
+            <field name="blocks_deal_state" eval="True"/>
+            <field name="template_document_code">NCND-V6-001</field>
+        </record>
+        <record id="step_tee_nda" model="erpv6.deal.schema.step">
+            <field name="schema_id" ref="schema_tee_rolling_001"/>
+            <field name="sequence">20</field>
+            <field name="code">NDA</field>
+            <field name="label">NDA firmato con controparte</field>
+            <field name="completion_type">sign</field>
+            <field name="blocks_deal_state" eval="True"/>
+            <field name="requires_codes">NCND</field>
+            <field name="template_document_code">NDA-V6-001</field>
+        </record>
+        <record id="step_tee_contratto_quadro" model="erpv6.deal.schema.step">
+            <field name="schema_id" ref="schema_tee_rolling_001"/>
+            <field name="sequence">30</field>
+            <field name="code">CONTRATTO_QUADRO</field>
+            <field name="label">Contratto Quadro Introduzione</field>
+            <field name="completion_type">sign</field>
+            <field name="blocks_deal_state" eval="True"/>
+            <field name="requires_codes">NDA</field>
+            <field name="template_document_code">CONTRATTO-INTRO-001</field>
+        </record>
+        <record id="step_tee_split_v6" model="erpv6.deal.schema.step">
+            <field name="schema_id" ref="schema_tee_rolling_001"/>
+            <field name="sequence">40</field>
+            <field name="code">SPLIT_V6</field>
+            <field name="label">Split V6 consulenti firmato</field>
+            <field name="completion_type">sign</field>
+            <field name="blocks_deal_state" eval="True"/>
+            <field name="requires_codes">CONTRATTO_QUADRO</field>
+            <field name="template_document_code">SPLIT-V6-001</field>
+        </record>
+        <record id="step_tee_prospetto" model="erpv6.deal.schema.step">
+            <field name="schema_id" ref="schema_tee_rolling_001"/>
+            <field name="sequence">50</field>
+            <field name="code">PROSPETTO_FIRMA</field>
+            <field name="label">Prospetto deal firmato</field>
+            <field name="completion_type">sign</field>
+            <field name="blocks_deal_state" eval="True"/>
+            <field name="requires_codes">SPLIT_V6</field>
+            <field name="template_document_code">PROSPETTO-DEAL-001</field>
+        </record>
+        <record id="step_tee_incasso" model="erpv6.deal.schema.step">
+            <field name="schema_id" ref="schema_tee_rolling_001"/>
+            <field name="sequence">60</field>
+            <field name="code">INCASSO_CLIENTE</field>
+            <field name="label">Incasso dal cliente</field>
+            <field name="completion_type">system</field>
+            <field name="blocks_deal_state" eval="True"/>
+            <field name="requires_codes">PROSPETTO_FIRMA</field>
+        </record>
+    </data>
+</odoo>

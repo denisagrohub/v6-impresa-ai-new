@@ -32,6 +32,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/deal_schemas.xml',
+        'data/deal_schema_steps.xml',
         'data/kb_winwin_thresholds_data.xml',
         'data/kb_roadmap_raccomandazione_data.xml',
         'data/kb_bilancio_extraction_data.xml',
