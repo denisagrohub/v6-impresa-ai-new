@@ -1,4 +1,5 @@
-from odoo import fields, models
+from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class ResPartnerFiscalExtension(models.Model):
@@ -35,3 +36,56 @@ class ResPartnerPlaceholderExtension(models.Model):
     placeholder_code = fields.Char(
         string='Codice placeholder',
         help="Codice identificativo, es. ALPHA, OMEGA")
+
+
+class ResPartnerLifecycleExtension(models.Model):
+    """28/09/2026: lifecycle stage per gestire contatti dormienti
+    (es. Manuel Bortolami id=10) senza cancellarli, preservando storico."""
+    _inherit = 'res.partner'
+
+    lifecycle_stage = fields.Selection(
+        selection=[
+            ('scouting', 'Scouting'),
+            ('partner', 'Partner'),
+            ('attivo', 'Attivo'),
+            ('degradato', 'Degradato'),
+            ('chiuso', 'Chiuso'),
+        ],
+        string='Lifecycle',
+        default='partner',
+        tracking=True,
+        index=True,
+        help="Stato del contatto nel ciclo di vita V6. "
+             "'degradato' = dormiente ma conservato per storico.",
+    )
+    quality_score = fields.Integer(
+        string='Quality Score',
+        default=50,
+        tracking=True,
+        help="Punteggio 0-100 della qualità del contatto.",
+    )
+    degraded_reason = fields.Text(
+        string='Motivo degradamento',
+        tracking=True,
+    )
+    degraded_at = fields.Datetime(
+        string='Degradato il',
+        tracking=True,
+    )
+
+    @api.constrains('quality_score')
+    def _check_quality_score_lifecycle(self):
+        for rec in self:
+            if rec.quality_score < 0 or rec.quality_score > 100:
+                raise ValidationError(
+                    "Quality Score deve essere un valore tra 0 e 100."
+                )
+
+    @api.onchange('lifecycle_stage')
+    def _onchange_lifecycle_stage(self):
+        # Entrata in 'degradato' senza data → la imposto ora
+        if self.lifecycle_stage == 'degradato' and not self.degraded_at:
+            self.degraded_at = fields.Datetime.now()
+        # Uscita da 'degradato' → pulisco la data (storico resta in chatter via tracking)
+        elif self.lifecycle_stage != 'degradato' and self.degraded_at:
+            self.degraded_at = False
