@@ -28,6 +28,20 @@ class AdminDealsAPIController(ConsultantAPIController):
                 {'error': 'Riservato agli amministratori'}, 403)
         return user, None
 
+    def _build_relation_breadcrumb(self, relation):
+        """Risale la catena parent_id della relation (max 5 livelli)."""
+        breadcrumb = []
+        current = relation
+        for _ in range(5):
+            if not current:
+                break
+            breadcrumb.insert(0, {
+                'id': current.id,
+                'name': current.name or '',
+            })
+            current = current.parent_id
+        return breadcrumb
+
     def _deal_to_dict(self, d, include_detail=False):
         data = {
             'id': d.id,
