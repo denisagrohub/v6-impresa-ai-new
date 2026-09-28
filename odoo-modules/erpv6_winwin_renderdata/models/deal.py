@@ -351,17 +351,22 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
             'totals': totals,
         }
 
-    def action_send_to_sign(self):
-        """Crea contract_draft Typst, genera PDF, invia a firma su Documenso
-        per ogni partecipante con email. Imposta deal.state='signing'."""
+    def action_send_to_sign(self, filter_partner_ids=None, force=False):
+        """Crea contract_draft Typst, genera PDF, invia a firma su Documenso.
+
+        filter_partner_ids: se specificato, manda SOLO a questi partner_id
+                            (utile per test mirati / invii selettivi).
+        force: se True, bypassa la guardia checklist (solo per test).
+        """
         for d in self:
-            d._check_checklist_gates(target_state='signing')
+            if not force:
+                d._check_checklist_gates(target_state='signing')
         Draft = self.env['erpv6.contract.draft'].sudo()
         Sign = self.env['erpv6.sign.request'].sudo()
         Template = self.env['erpv6.typst.template'].sudo()
 
         for d in self:
-            if not d.can_sign:
+            if not force and not d.can_sign:
                 raise UserError(
                     "Impossibile inviare in firma: congela prima il deal.")
             if not d.current_prospetto_id:
@@ -395,6 +400,9 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
             for p in d.participant_ids:
                 partner = p.partner_id
                 if not partner or not partner.email:
+                    continue
+                # Filtro opzionale (test mirato)
+                if filter_partner_ids and partner.id not in filter_partner_ids:
                     continue
                 sr = Sign.create({
                     'name': f'{d.name} — firma {partner.name}',
