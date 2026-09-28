@@ -15,6 +15,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         });
         return NextResponse.json(result.data);
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 502 });
+        // 28/09/2026: se Odoo risponde con errore business (400), il messaggio
+        // contiene "400 Bad Request". Lo estraiamo e lo ritorniamo con status 400.
+        const msg = String(error?.message || 'Errore');
+        if (msg.includes('400')) {
+            // Estrai il messaggio HTML di Odoo se presente
+            const clean = msg.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            return NextResponse.json({ error: clean }, { status: 400 });
+        }
+        return NextResponse.json({ error: msg }, { status: 502 });
     }
 }

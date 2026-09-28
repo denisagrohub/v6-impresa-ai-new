@@ -139,6 +139,7 @@ export function SettlementsPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [showFrozen, setShowFrozen] = useState(false);
 
   const authHeader = { Authorization: `JWT ${authToken}` };
 
@@ -258,13 +259,26 @@ export function SettlementsPanel({
         <h2 className="text-base font-semibold flex items-center gap-2">
           <Calendar size={16} className="text-indigo-600" />
           Consuntivi mensili
+          {!showFrozen && settlements.filter(s => ['draft','frozen','closed'].includes(s.state)).length > 0 && (
+            <span className="text-xs font-normal text-gray-400">
+              ({settlements.filter(s => ['draft','frozen','closed'].includes(s.state)).length} nascosti)
+            </span>
+          )}
         </h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="text-xs px-3 py-1 rounded border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-        >
-          {showForm ? 'Annulla' : '+ Nuovo consuntivo'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFrozen(!showFrozen)}
+            className="text-xs px-3 py-1 rounded border border-gray-300 hover:bg-gray-50"
+          >
+            {showFrozen ? 'Solo attivi' : 'Mostra tutti'}
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="text-xs px-3 py-1 rounded border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+          >
+            {showForm ? 'Annulla' : '+ Nuovo consuntivo'}
+          </button>
+        </div>
       </div>
 
       {msg && (
@@ -342,7 +356,10 @@ export function SettlementsPanel({
         <p className="text-sm text-gray-500 italic">Nessun consuntivo. Creane uno per iniziare.</p>
       ) : (
         <div className="space-y-2">
-          {settlements.map((s) => {
+          {(showFrozen
+            ? settlements
+            : settlements.filter(s => !['draft', 'frozen', 'closed'].includes(s.state))
+          ).map((s) => {
             const isExp = expanded === s.id;
             const st = STATE_STYLE[s.state] || STATE_STYLE.draft;
             return (
@@ -510,7 +527,7 @@ export function SettlementsPanel({
                               {l.pagamentoStato === 'attesa_fattura' && (
                                 <button
                                   onClick={() => handlePagamento(l.id, 'fattura_ricevuta')}
-                                  disabled={busy === `pay-${l.id}` || !l.pagabile}
+                                  disabled={busy === `pay-${l.id}` || l.pagabile !== true}
                                   title={!l.pagabile ? 'Attendi incasso dal cliente' : ''}
                                   className="px-2 py-0.5 rounded border border-blue-400 text-[10px] font-semibold hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
