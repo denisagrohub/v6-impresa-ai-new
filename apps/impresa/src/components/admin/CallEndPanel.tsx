@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { X, Loader2, FileText, Zap, Mail, CheckCircle2 } from "lucide-react";
+import { X, Loader2, FileText, Zap, Mail, CheckCircle2, AlertTriangle } from "lucide-react";
 
 interface Sibling { id: number; name: string; }
 
@@ -11,6 +11,8 @@ export default function CallEndPanel({
   onOpenDebrief,
   onOpenEmail,
   onLeadGenerated,
+  partnerId,
+  onDegrade,
 }: {
   callId: number;
   durationSeconds: number;
@@ -18,6 +20,8 @@ export default function CallEndPanel({
   onOpenDebrief: (prefill: { objective: string; targetAudience: string; keyDeliverables: string; risksOrNotes: string }) => void;
   onOpenEmail: (prefill: { subject: string; body: string }) => void;
   onLeadGenerated?: () => void;
+  partnerId?: number | null;
+  onDegrade?: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [partnerName, setPartnerName] = useState<string>("");
@@ -29,6 +33,11 @@ export default function CallEndPanel({
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [genOk, setGenOk] = useState<number | null>(null);
+  const [degradeOpen, setDegradeOpen] = useState(false);
+  const [degradeReason, setDegradeReason] = useState("");
+  const [degradeBusy, setDegradeBusy] = useState(false);
+  const [degradeError, setDegradeError] = useState<string | null>(null);
+  const [degradeOk, setDegradeOk] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -152,6 +161,73 @@ export default function CallEndPanel({
                   <div className="text-[10px] text-gray-500">Pre-compilata con punti discussi + prossimi passi</div>
                 </div>
               </button>
+
+              {partnerId && onDegrade && !degradeOk && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-2">
+                  {!degradeOpen ? (
+                    <button
+                      onClick={() => setDegradeOpen(true)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-left transition-colors"
+                    >
+                      <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                      <div className="flex-1">
+                        <div className="text-xs font-semibold text-[#0f172a]">Degrada contatto</div>
+                        <div className="text-[10px] text-gray-500">Dormiente ma conservato per storico</div>
+                      </div>
+                    </button>
+                  ) : (
+                    <>
+                      <div className="text-xs font-semibold text-[#0f172a]">Motivo degradamento (opzionale)</div>
+                      <input
+                        value={degradeReason}
+                        onChange={(e) => setDegradeReason(e.target.value)}
+                        placeholder="Es. non attivo da 60gg, contatto non interessato"
+                        className="w-full px-2 py-1.5 rounded border border-amber-200 text-xs bg-white"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => { setDegradeOpen(false); setDegradeReason(""); setDegradeError(null); }}
+                          className="px-2.5 py-1 rounded border border-gray-200 text-xs text-gray-600 hover:bg-white"
+                        >
+                          Annulla
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setDegradeBusy(true); setDegradeError(null);
+                            try {
+                              const res = await fetch(`/api/admin/partners/${partnerId}/lifecycle`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ stage: "degradato", reason: degradeReason || "" }),
+                              });
+                              const data = await res.json();
+                              if (!data.success) { setDegradeError(data.error || "Errore"); return; }
+                              setDegradeOk(true);
+                              onDegrade();
+                            } catch (e: any) {
+                              setDegradeError(e.message);
+                            } finally {
+                              setDegradeBusy(false);
+                            }
+                          }}
+                          disabled={degradeBusy}
+                          className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold disabled:opacity-40 flex items-center gap-1.5"
+                        >
+                          {degradeBusy && <Loader2 size={12} className="animate-spin" />}
+                          {degradeBusy ? "Degrado…" : "Conferma degradamento"}
+                        </button>
+                      </div>
+                      {degradeError && <p className="text-[11px] text-red-600">{degradeError}</p>}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {degradeOk && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800">
+                  ✓ Contatto degradato. Conservato per storico.
+                </div>
+              )}
             </>
           )}
         </div>

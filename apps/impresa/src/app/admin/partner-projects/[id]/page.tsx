@@ -288,7 +288,7 @@ export default function PartnerProjectDetailPage() {
     // 19/09/2026: lista persone/target per il selettore contesto
     const [contextOptions, setContextOptions] = useState<{ persone: any[]; targets: any[] }>({ persone: [], targets: [] });
     // 18/09/2026 (Denis): pannello post-call (debrief + lead + email)
-    const [lastCallEnd, setLastCallEnd] = useState<{ callId: number; durationSeconds: number } | null>(null);
+    const [lastCallEnd, setLastCallEnd] = useState<{ callId: number; durationSeconds: number; partnerId: number | null } | null>(null);
     // 19/09/2026: scheda persona (modal dettagli) — dati SEMPRE su Odoo
     const [detailPerson, setDetailPerson] = useState<any | null>(null);
     // 19/09/2026: modal Charter aperto dalla Copertina
@@ -1924,9 +1924,10 @@ export default function PartnerProjectDetailPage() {
                     onClose={() => { setLiveCallOpen(false); setLiveCallPartnerId(null); }}
                     onScoutingUpdated={(s) => setPartnerScouting(prev => ({ ...prev, [liveCallPartnerId!]: s }))}
                     onEnd={(info) => {
+                        const pid = liveCallPartnerId;
                         setLiveCallOpen(false);
                         setLiveCallPartnerId(null);
-                        setLastCallEnd({ callId: info.callId, durationSeconds: info.durationSeconds });
+                        setLastCallEnd({ callId: info.callId, durationSeconds: info.durationSeconds, partnerId: pid });
                     }}
                 />
             )}
@@ -1950,6 +1951,8 @@ export default function PartnerProjectDetailPage() {
                 <CallEndPanel
                     callId={lastCallEnd.callId}
                     durationSeconds={lastCallEnd.durationSeconds}
+                    partnerId={lastCallEnd.partnerId}
+                    onDegrade={() => load()}
                     onClose={() => setLastCallEnd(null)}
                     onOpenDebrief={(prefill) => {
                         setBriefType('debrief');
