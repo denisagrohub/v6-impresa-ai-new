@@ -351,8 +351,13 @@ export default function PartnerProjectDetailPage() {
                 targets: data.targets || [],
             });
 
-            // 18/09/2026: detection kanban SINCRONA — arriva nel payload principale
-            if (data.project?.hasPipelineBoard === true) {
+            // 28/09/2026: detection kanban target SOLO se il nodo è pipeline pura
+            // (no padre con deal, no figlio deal). Priorità a DASH-4/DASH-3.
+            const hasChildProjects = (data.childProjects || []).length > 0;
+            const hasDealCollegato = !!data.dealCollegato;
+            if (data.project?.hasPipelineBoard === true
+                && !hasChildProjects
+                && !hasDealCollegato) {
                 setIsKanbanBoard(true);
             }
             setEmails((data.emails || []).map((e: any) => ({
