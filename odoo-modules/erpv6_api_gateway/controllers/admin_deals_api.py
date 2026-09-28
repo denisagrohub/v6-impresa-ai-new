@@ -154,6 +154,31 @@ class AdminDealsAPIController(ConsultantAPIController):
                     })
             data['signRequests'] = sign_reqs
 
+            # 28/09/2026: checklist wizard
+            data['checklist'] = [{
+                'id': ck.id,
+                'sequence': ck.sequence,
+                'code': ck.code,
+                'label': ck.label,
+                'description': ck.description or '',
+                'completionType': ck.completion_type,
+                'blocksDealState': ck.blocks_deal_state,
+                'requiresCodes': ck.requires_codes or '',
+                'templateDocumentCode': ck.template_document_code or '',
+                'status': ck.status,
+                'isReady': ck.is_ready,
+                'isBlocking': ck.is_blocking,
+                'signRequestId': ck.sign_request_id.id if ck.sign_request_id else None,
+                'completedAt': ck.completed_at.isoformat() if ck.completed_at else None,
+                'completedBy': ck.completed_by.name if ck.completed_by else None,
+                'evidenceNote': ck.evidence_note or '',
+                'externalReference': ck.external_reference or '',
+            } for ck in d.checklist_ids.sorted('sequence')]
+            data['progressDone'] = d.progress_done
+            data['progressTotal'] = d.progress_total
+            data['nextStepId'] = d.next_step_id.id if d.next_step_id else None
+            data['nextStepCode'] = d.next_step_id.code if d.next_step_id else None
+
         return data
 
 
@@ -296,6 +321,126 @@ class AdminDealsAPIController(ConsultantAPIController):
             'totalePagato': totale_pagato,
             'totaleDaPagare': totale_da_pagare,
             'totale': totale_pagato + totale_da_pagare,
+        })
+
+    # ══════════════════════════════════════════════════════════════
+    # CHECKLIST DEAL — wizard per fase
+    # ══════════════════════════════════════════════════════════════
+
+    def _checklist_to_dict(self, c):
+        return {
+            'id': c.id,
+            'dealId': c.deal_id.id,
+            'sequence': c.sequence,
+            'code': c.code,
+            'label': c.label,
+            'description': c.description or '',
+            'completionType': c.completion_type,
+            'blocksDealState': c.blocks_deal_state,
+            'requiresCodes': c.requires_codes or '',
+            'templateDocumentCode': c.template_document_code or '',
+            'status': c.status,
+            'isReady': c.is_ready,
+            'isBlocking': c.is_blocking,
+            'signRequestId': c.sign_request_id.id if c.sign_request_id else None,
+            'completedAt': c.completed_at.isoformat() if c.completed_at else None,
+            'completedBy': c.completed_by.name if c.completed_by else None,
+            'evidenceNote': c.evidence_note or '',
+            'externalReference': c.external_reference or '',
+        }
+
+    @http.route('/api/v1/admin/deals/<int:deal_id>/checklist', type='http',
+                auth='none', methods=['GET'], csrf=False)
+    def get_checklist(self, deal_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        Deal = request.env['erpv6.deal'].sudo()
+        d = Deal.browse(deal_id)
+        if not d.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+        return self._json_response({
+            'success': True,
+            'checklist': [self._checklist_to_dict(c) for c in d.checklist_ids.sorted('sequence')],
+            'progressDone': d.progress_done,
+            'progressTotal': d.progress_total,
+            'nextStepId': d.next_step_id.id if d.next_step_id else None,
+            'nextStepCode': d.next_step_id.code if d.next_step_id else None,
+        })
+
+    @http.route('/api/v1/admin/checklist/<int:checklist_id>/complete',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def checklist_complete(self, checklist_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        C = request.env['erpv6.deal.checklist'].sudo()
+        c = C.browse(checklist_id)
+        if not c.exists():
+            return self._json_response({'error': 'Step non trovato'}, 404)
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            body = {}
+        try:
+            c.action_complete(note=body.get('note'), attachment=None)
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'step': self._checklist_to_dict(c),
+            })
+        except Exception as e:
+            _logger.exception('Errore complete checklist %s', checklist_id)
+            return self._json_response({'error': str(e)}, 400)
+
+    @http.route('/api/v1/admin/checklist/<int:checklist_id>/skip',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def checklist_skip(self, checklist_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        C = request.env['erpv6.deal.checklist'].sudo()
+        c = C.browse(checklist_id)
+        if not c.exists():
+            return self._json_response({'error': 'Step non trovato'}, 404)
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            body = {}
+        try:
+            c.action_skip(reason=body.get('reason'))
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'step': self._checklist_to_dict(c),
+            })
+        except Exception as e:
+            _logger.exception('Errore skip checklist %s', checklist_id)
+            return self._json_response({'error': str(e)}, 400)
+
+    @http.route('/api/v1/admin/checklist/<int:checklist_id>/start',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def checklist_start(self, checklist_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        C = request.env['erpv6.deal.checklist'].sudo()
+        c = C.browse(checklist_id)
+        if not c.exists():
+            return self._json_response({'error': 'Step non trovato'}, 404)
+        c.action_start()
+        request.env.cr.commit()
+        return self._json_response({
+            'success': True,
+            'step': self._checklist_to_dict(c),
         })
 
     # ══════════════════════════════════════════════════════════════

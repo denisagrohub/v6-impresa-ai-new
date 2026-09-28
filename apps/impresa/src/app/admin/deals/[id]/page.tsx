@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import DealNarrative from '@/components/deal/DealNarrative';
 import { SignRequestsPanel, type SignRequest } from '@/components/deal/SignRequestsPanel';
+import { DealWizardPanel, type ChecklistStep } from '@/components/deal/DealWizardPanel';
 import { SettlementsPanel, type Settlement } from '@/components/deal/SettlementsPanel';
 import { Loader2, ArrowLeft, Snowflake, FileSignature, RefreshCw } from 'lucide-react';
 
@@ -88,6 +89,11 @@ type Deal = {
     prospetto: Prospetto | null;
     signRequests: SignRequest[];
     settlements: Settlement[];
+    checklist: ChecklistStep[];
+    progressDone: number;
+    progressTotal: number;
+    nextStepId: number | null;
+    nextStepCode: string | null;
 };
 
 const fmt = (n: number) =>
@@ -239,6 +245,25 @@ export default function DealDetailPage() {
     return (
         <AdminLayout title={deal.name} subtitle={`${deal.schemaCode} · ${deal.revenueModel} · ${stateLabel[deal.state] || deal.state}`}>
             <div className="p-6 max-w-[1600px] mx-auto">
+
+                {/* 28/09/2026: wizard checklist per fase */}
+                <DealWizardPanel
+                    dealId={deal.id}
+                    checklist={deal.checklist || []}
+                    progressDone={deal.progressDone || 0}
+                    progressTotal={deal.progressTotal || 0}
+                    nextStepId={deal.nextStepId || null}
+                    authToken={
+                        (() => {
+                            try {
+                                const raw = localStorage.getItem('pi_session');
+                                const s = raw ? JSON.parse(raw) : null;
+                                return s?.token || '';
+                            } catch { return ''; }
+                        })()
+                    }
+                    onRefresh={fetchDeal}
+                />
 
                 <div className="mb-4 flex items-center justify-between">
                     <a href="/admin/deals" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
