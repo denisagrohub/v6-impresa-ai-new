@@ -120,6 +120,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
           progressDone: d.progress_done || 0,
           progressTotal: d.progress_total || 0,
           feeMonthlyBase: feeByDeal[d.id] || 0,
+          currentProspettoId: Array.isArray(d.current_prospetto_id) ? d.current_prospetto_id[0] : null,
         };
 
         if (!dealsByRelation[rid]) dealsByRelation[rid] = [];
@@ -128,6 +129,68 @@ export async function GET(request: Request, { params }: { params: { id: string }
       }
     } catch (e: any) {
       console.error('⚠️ deal collegati fallito:', e.message);
+    }
+
+    // 28/09/2026: split squadra (dal prospetto corrente di ogni deal)
+    let splitSquadra: any[] = [];
+    let kpiDeal = {
+      dealAttivi: 0, feeMonthly: 0, pipelineTotale: 0, raccoltaIncassi: 0,
+    };
+    try {
+      const prospettoIds: number[] = dealsFlat
+        .map((d: any) => d.currentProspettoId)
+        .filter((x: any) => x != null);
+
+      if (prospettoIds.length > 0) {
+        const lines = await odoo.execute('erpv6.deal.prospetto.line', 'search_read', [
+          [['prospetto_id', 'in', prospettoIds]],
+          ['participant_id', 'share_pct', 'monthly_base', 'role'],
+        ]);
+        const splitMap: Record<number, any> = {};
+        for (const l of lines || []) {
+          const pid = Array.isArray(l.participant_id) ? l.participant_id[0] : null;
+          if (!pid) continue;
+          if (!splitMap[pid]) {
+            splitMap[pid] = {
+              participantId: pid,
+              partnerName: Array.isArray(l.participant_id) ? l.participant_id[1] : null,
+              sharePct: (l.share_pct || 0) * 100,
+              monthlyBase: 0,
+              tier: l.role || '',
+            };
+          }
+          splitMap[pid].monthlyBase += l.monthly_base || 0;
+        }
+        splitSquadra = Object.values(splitMap).sort((a: any, b: any) =>
+          b.sharePct - a.sharePct);
+      }
+
+      // KPI deal-centrici
+      const activeDealIds = dealsFlat.map((d: any) => d.id);
+      kpiDeal.dealAttivi = dealsFlat.filter((d: any) => d.state === 'active').length;
+      kpiDeal.feeMonthly = dealsFlat.reduce((s: number, d: any) => s + (d.feeMonthlyBase || 0), 0);
+      kpiDeal.pipelineTotale = dealsFlat
+        .filter((d: any) => ['forecasting', 'negotiating', 'frozen', 'signing'].includes(d.state))
+        .reduce((s: number, d: any) => s + (d.feeMonthlyBase || 0), 0);
+
+      // Raccolta incassi (da tutti i settlement dei deal)
+      if (activeDealIds.length > 0) {
+        const setts = await odoo.execute('erpv6.deal.settlement', 'search_read', [
+          [['deal_id', 'in', activeDealIds], ['state', '!=', 'closed']],
+          ['transato_totale', 'incasso_importo'],
+        ]);
+        let totIncassato = 0;
+        let totTransato = 0;
+        for (const s of setts || []) {
+          totIncassato += s.incasso_importo || 0;
+          totTransato += s.transato_totale || 0;
+        }
+        kpiDeal.raccoltaIncassi = totTransato > 0
+          ? Math.round((totIncassato / totTransato) * 100)
+          : 0;
+      }
+    } catch (e: any) {
+      console.error('⚠️ split/kpi fallito:', e.message);
     }
 
     // 19/09/2026: arricchisci con email partner E email contatto principale
@@ -282,6 +345,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         })),
       deals: dealsByRelation[id] || [],
       dealsFlat: dealsFlat,
+      splitSquadra: splitSquadra,
+      kpiDeal: kpiDeal,
       emails: (emails || []).map((e: any) => ({
         id: e.id,
         subject: e.name,

@@ -43,6 +43,8 @@ import { LifecycleBadge } from "@/components/admin/LifecycleBadge";
 import { DealCard } from "@/components/deals/DealCard";
 import { ChildProjectsList } from "@/components/projects/ChildProjectsList";
 import { DealsKanban, type KanbanDeal } from "@/components/deal/DealsKanban";
+import { KpiDealRow, type KpiDeal } from "@/components/deal/KpiDealRow";
+import { SplitSquadraCard, type SplitLine } from "@/components/deal/SplitSquadraCard";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -150,6 +152,8 @@ export default function PartnerProjectDetailPage() {
     // 28/09/2026: deal collegati (dal modello erpv6.deal)
     const [deals, setDeals] = useState<DealCollegato[]>([]);
     const [dealsFlat, setDealsFlat] = useState<KanbanDeal[]>([]);
+    const [kpiDeal, setKpiDeal] = useState<KpiDeal | null>(null);
+    const [splitSquadra, setSplitSquadra] = useState<SplitLine[]>([]);
     // Progetti figli con child_kind='progetto' (deal operativi)
     const [childProjects, setChildProjects] = useState<ChildProject[]>([]);
     const [showAcqModal, setShowAcqModal] = useState(false);
@@ -333,6 +337,8 @@ export default function PartnerProjectDetailPage() {
             setTargets(data.targets || []);
             setDeals(data.deals || []);
             setDealsFlat(data.dealsFlat || []);
+            setKpiDeal(data.kpiDeal || null);
+            setSplitSquadra(data.splitSquadra || []);
             setChildProjects(data.childProjects || []);
             setContextOptions({
                 persone: (data.partners || []).filter((p: any) => p.funzione_progetto !== 'target'),
@@ -1114,9 +1120,21 @@ export default function PartnerProjectDetailPage() {
                             )}
                         </section>
                     )}
-                    {/* Pipeline deal (padre TEE) — kanban */}
-                    {childProjects.length > 0 && dealsFlat.length > 0 && (
-                        <DealsKanban deals={dealsFlat} />
+                    {/* 28/09/2026: dashboard padre TEE — KPI + Split + Pipeline */}
+                    {childProjects.length > 0 && (
+                        <section className="mt-6 space-y-4">
+                            {kpiDeal && <KpiDealRow kpi={kpiDeal} />}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <div className="lg:col-span-2">
+                                    {dealsFlat.length > 0 && <DealsKanban deals={dealsFlat} />}
+                                </div>
+                                <div>
+                                    {splitSquadra.length > 0 && (
+                                        <SplitSquadraCard lines={splitSquadra} />
+                                    )}
+                                </div>
+                            </div>
+                        </section>
                     )}
 
                     {/* Progetti operativi (padre) — vista lista */}
