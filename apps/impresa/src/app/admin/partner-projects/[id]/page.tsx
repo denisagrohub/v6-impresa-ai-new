@@ -1148,7 +1148,24 @@ export default function PartnerProjectDetailPage() {
                             {kpiDeal && <KpiDealRow kpi={kpiDeal} />}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 <div className="lg:col-span-2">
-                                    {dealsFlat.length > 0 && <DealsKanban deals={dealsFlat} />}
+                                    <DealsKanban
+                                        deals={dealsFlat}
+                                        parentProjectId={Number(id)}
+                                        authToken={
+                                            (() => {
+                                                try {
+                                                    const raw = localStorage.getItem('pi_session');
+                                                    const s = raw ? JSON.parse(raw) : null;
+                                                    return s?.token || '';
+                                                } catch { return ''; }
+                                            })()
+                                        }
+                                        onDealCreated={() => {
+                                            if (typeof window !== 'undefined') {
+                                                window.location.reload();
+                                            }
+                                        }}
+                                    />
                                 </div>
                                 <div>
                                     {splitSquadra.length > 0 && (
