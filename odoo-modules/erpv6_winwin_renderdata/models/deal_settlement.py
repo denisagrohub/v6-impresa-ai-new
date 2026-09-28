@@ -12,6 +12,8 @@ Transparency: se TUTTI i participant hanno share_transparency=True,
 il settlement mostra la ripartizione completa a tutti. Altrimenti
 ognuno vede solo la propria riga (silenziosamente, senza rivelare chi ha rifiutato).
 """
+from datetime import timedelta
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -523,6 +525,27 @@ class Erpv6DealSettlementLine(models.Model):
     pagato = fields.Boolean(default=False)
     pagato_il = fields.Datetime()
 
+    # 28/09/2026: state machine pagamento
+    pagamento_stato = fields.Selection([
+        ('attesa_fattura', 'Attesa fattura'),
+        ('fattura_ricevuta', 'Fattura ricevuta'),
+        ('in_pagamento', 'In pagamento'),
+        ('pagato', 'Pagato'),
+        ('contestato', 'Contestato'),
+    ], string='Stato pagamento', default='attesa_fattura',
+       tracking=True, index=True)
+
+    fattura_ricevuta_il = fields.Datetime(
+        string='Fattura ricevuta il', tracking=True)
+    fattura_scadenza = fields.Date(
+        string='Scadenza fattura',
+        help='Data scadenza pagamento (default: ricezione + 30gg).')
+    giorni_ritardo = fields.Integer(
+        string='Giorni ritardo', compute='_compute_giorni_ritardo', store=True)
+    contestato_motivo = fields.Text(
+        string='Motivo contestazione', tracking=True)
+    note_pagamento = fields.Text(string='Note pagamento')
+
     pdf_document_id = fields.Many2one('erpv6.typst.document')
     sent_at = fields.Datetime()
     viewed_at = fields.Datetime()
@@ -534,3 +557,66 @@ class Erpv6DealSettlementLine(models.Model):
     def _compute_visibility(self):
         for rec in self:
             rec.visibility = 'full' if rec.settlement_id.transparency_unlocked else 'self'
+
+
+    @api.depends('pagamento_stato', 'fattura_scadenza')
+    def _compute_giorni_ritardo(self):
+        today = fields.Date.today()
+        for rec in self:
+            if (rec.pagamento_stato in ('in_pagamento', 'fattura_ricevuta')
+                    and rec.fattura_scadenza
+                    and rec.fattura_scadenza < today):
+                rec.giorni_ritardo = (today - rec.fattura_scadenza).days
+            else:
+                rec.giorni_ritardo = 0
+
+    def action_segna_fattura_ricevuta(self):
+        for rec in self:
+            if rec.pagamento_stato not in ('attesa_fattura',):
+                continue
+            vals = {
+                'pagamento_stato': 'fattura_ricevuta',
+                'fattura_ricevuta_il': fields.Datetime.now(),
+            }
+            if not rec.fattura_scadenza:
+                vals['fattura_scadenza'] = (fields.Date.today() + timedelta(days=30))
+            rec.write(vals)
+            if rec.settlement_id:
+                rec.settlement_id.message_post(
+                    body=f"Fattura ricevuta per {rec.participant_id.partner_id.name}")
+        return True
+
+    def action_segna_in_pagamento(self):
+        for rec in self:
+            if rec.pagamento_stato != 'fattura_ricevuta':
+                continue
+            rec.pagamento_stato = 'in_pagamento'
+            if rec.settlement_id:
+                rec.settlement_id.message_post(
+                    body=f"Bonifico autorizzato per {rec.participant_id.partner_id.name}")
+        return True
+
+    def action_segna_pagato(self):
+        for rec in self:
+            if rec.pagamento_stato == 'pagato':
+                continue
+            rec.write({
+                'pagamento_stato': 'pagato',
+                'pagato': True,
+                'pagato_il': fields.Datetime.now(),
+            })
+            if rec.settlement_id:
+                rec.settlement_id.message_post(
+                    body=f"Pagamento completato per {rec.participant_id.partner_id.name}")
+        return True
+
+    def action_segna_contestato(self, motivo=None):
+        for rec in self:
+            rec.write({
+                'pagamento_stato': 'contestato',
+                'contestato_motivo': motivo or 'Contestazione senza motivo specificato',
+            })
+            if rec.settlement_id:
+                rec.settlement_id.message_post(
+                    body=f"Fattura contestata per {rec.participant_id.partner_id.name}: {motivo or '-'}")
+        return True

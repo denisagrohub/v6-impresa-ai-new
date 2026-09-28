@@ -14,6 +14,13 @@ export type SettlementLine = {
   sentAt: string | null;
   paid: boolean;
   paidAt: string | null;
+  // 28/09/2026: pagamento
+  pagamentoStato: 'attesa_fattura' | 'fattura_ricevuta' | 'in_pagamento' | 'pagato' | 'contestato';
+  fatturaRicevutaIl: string | null;
+  fatturaScadenza: string | null;
+  giorniRitardo: number;
+  contestatoMotivo: string;
+  notePagamento: string;
 };
 
 export type Settlement = {
@@ -60,6 +67,22 @@ const STATE_LABEL: Record<string, string> = {
   sent: 'In firma',
   signed: 'Firmato',
   closed: 'Chiuso',
+};
+
+const PAGAMENTO_STYLE: Record<string, string> = {
+  attesa_fattura: 'bg-gray-100 text-gray-700 border-gray-300',
+  fattura_ricevuta: 'bg-blue-50 text-blue-700 border-blue-300',
+  in_pagamento: 'bg-amber-50 text-amber-800 border-amber-300',
+  pagato: 'bg-emerald-50 text-emerald-700 border-emerald-300',
+  contestato: 'bg-red-50 text-red-700 border-red-300',
+};
+
+const PAGAMENTO_LABEL: Record<string, string> = {
+  attesa_fattura: 'Attesa fattura',
+  fattura_ricevuta: 'Fattura ricevuta',
+  in_pagamento: 'In pagamento',
+  pagato: 'Pagato',
+  contestato: 'Contestato',
 };
 
 export function SettlementsPanel({
@@ -120,6 +143,22 @@ export function SettlementsPanel({
       const d = await r.json();
       if (d.error) setMsg(`Errore: ${d.error}`);
       else { setMsg('✓ Consuntivo congelato + PDF generato'); onRefresh(); }
+    } catch (e: any) { setMsg(`Errore: ${e.message}`); }
+    finally { setBusy(null); }
+  };
+
+  const handlePagamento = async (lineId: number, action: string, motivo?: string) => {
+    setBusy(`pay-${lineId}`);
+    setMsg(null);
+    try {
+      const r = await fetch(`/api/admin/settlements/lines/${lineId}/pagamento`, {
+        method: 'POST',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, motivo }),
+      });
+      const d = await r.json();
+      if (d.error) setMsg(`Errore: ${d.error}`);
+      else { setMsg(`✓ Stato aggiornato: ${PAGAMENTO_LABEL[d.line.pagamentoStato] || d.line.pagamentoStato}`); onRefresh(); }
     } catch (e: any) { setMsg(`Errore: ${e.message}`); }
     finally { setBusy(null); }
   };
@@ -284,14 +323,80 @@ export function SettlementsPanel({
                       <div className="text-right">Quota</div>
                       <div className="text-right">Importo</div>
                     </div>
-                    {s.lines.map((l) => (
-                      <div key={l.id} className="grid grid-cols-4 gap-2 py-1 border-t border-current/10">
-                        <div>{l.partnerName}</div>
-                        <div className="opacity-70">{l.tier}</div>
-                        <div className="text-right font-mono">{l.sharePct.toFixed(2)}%</div>
-                        <div className="text-right font-mono">{eur(l.importoEffettivo)}</div>
-                      </div>
-                    ))}
+                    {s.lines.map((l) => {
+                      const pstyle = PAGAMENTO_STYLE[l.pagamentoStato] || PAGAMENTO_STYLE.attesa_fattura;
+                      const plabel = PAGAMENTO_LABEL[l.pagamentoStato] || l.pagamentoStato;
+                      const isRitardo = (l.giorniRitardo || 0) > 0;
+                      return (
+                        <div key={l.id} className="py-2 border-t border-current/10">
+                          <div className="grid grid-cols-4 gap-2 items-center">
+                            <div className="font-medium">{l.partnerName}</div>
+                            <div className="opacity-70">{l.tier}</div>
+                            <div className="text-right font-mono">{l.sharePct.toFixed(2)}%</div>
+                            <div className="text-right font-mono">{eur(l.importoEffettivo)}</div>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold ${pstyle}`}>
+                              {plabel}
+                              {isRitardo && <span className="ml-1 text-red-700">+{l.giorniRitardo}gg</span>}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {l.pagamentoStato === 'attesa_fattura' && (
+                                <button
+                                  onClick={() => handlePagamento(l.id, 'fattura_ricevuta')}
+                                  disabled={busy === `pay-${l.id}`}
+                                  className="px-2 py-0.5 rounded border border-blue-400 text-[10px] font-semibold hover:bg-blue-50"
+                                >
+                                  Fattura ricevuta
+                                </button>
+                              )}
+                              {l.pagamentoStato === 'fattura_ricevuta' && (
+                                <>
+                                  <button
+                                    onClick={() => handlePagamento(l.id, 'in_pagamento')}
+                                    disabled={busy === `pay-${l.id}`}
+                                    className="px-2 py-0.5 rounded border border-amber-400 text-[10px] font-semibold hover:bg-amber-50"
+                                  >
+                                    Autorizza
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const m = window.prompt('Motivo contestazione?');
+                                      if (m) handlePagamento(l.id, 'contestato', m);
+                                    }}
+                                    disabled={busy === `pay-${l.id}`}
+                                    className="px-2 py-0.5 rounded border border-red-300 text-[10px] text-red-700 hover:bg-red-50"
+                                  >
+                                    Contesta
+                                  </button>
+                                </>
+                              )}
+                              {l.pagamentoStato === 'in_pagamento' && (
+                                <button
+                                  onClick={() => handlePagamento(l.id, 'pagato')}
+                                  disabled={busy === `pay-${l.id}`}
+                                  className="px-2 py-0.5 rounded border border-emerald-400 text-[10px] font-semibold hover:bg-emerald-50"
+                                >
+                                  Segna pagato
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {l.fatturaScadenza && (
+                            <div className="mt-1 text-[10px] opacity-60">
+                              Fattura ricevuta: {l.fatturaRicevutaIl ? new Date(l.fatturaRicevutaIl).toLocaleDateString('it-IT') : '—'}
+                              {' · '}
+                              Scadenza: {new Date(l.fatturaScadenza).toLocaleDateString('it-IT')}
+                            </div>
+                          )}
+                          {l.contestatoMotivo && (
+                            <div className="mt-1 text-[10px] text-red-700">
+                              ⚠ {l.contestatoMotivo}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                     <div className="mt-2 text-[10px] opacity-70">
                       Causale fattura: <span className="italic">{s.lines[0]?.causaleFattura}</span>
                     </div>

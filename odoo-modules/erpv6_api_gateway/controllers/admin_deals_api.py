@@ -157,6 +157,84 @@ class AdminDealsAPIController(ConsultantAPIController):
         return data
 
 
+
+    # ══════════════════════════════════════════════════════════════
+    # AZIONI PAGAMENTO — state machine
+    # ══════════════════════════════════════════════════════════════
+
+    @http.route('/api/v1/admin/settlements/lines/<int:line_id>/pagamento',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def set_pagamento_stato(self, line_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        L = request.env['erpv6.deal.settlement.line'].sudo()
+        line = L.browse(line_id)
+        if not line.exists():
+            return self._json_response({'error': 'Linea non trovata'}, 404)
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            return self._json_response({'error': 'JSON non valido'}, 400)
+        action = body.get('action')
+        if action == 'fattura_ricevuta':
+            line.action_segna_fattura_ricevuta()
+        elif action == 'in_pagamento':
+            line.action_segna_in_pagamento()
+        elif action == 'pagato':
+            line.action_segna_pagato()
+        elif action == 'contestato':
+            line.action_segna_contestato(body.get('motivo'))
+        else:
+            return self._json_response(
+                {'error': f"Azione non valida: {action}. Ammesse: fattura_ricevuta, in_pagamento, pagato, contestato"},
+                400)
+        request.env.cr.commit()
+        return self._json_response({
+            'success': True,
+            'line': {
+                'id': line.id,
+                'pagamentoStato': line.pagamento_stato,
+                'fatturaRicevutaIl': line.fattura_ricevuta_il.isoformat() if line.fattura_ricevuta_il else None,
+                'fatturaScadenza': line.fattura_scadenza.isoformat() if line.fattura_scadenza else None,
+                'giorniRitardo': line.giorni_ritardo or 0,
+                'paid': line.pagato,
+                'paidAt': line.pagato_il.isoformat() if line.pagato_il else None,
+            },
+        })
+
+    @http.route('/api/v1/admin/settlements/<int:settlement_id>/pagamenti-summary',
+                type='http', auth='none', methods=['GET'], csrf=False)
+    def get_pagamenti_summary(self, settlement_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        S = request.env['erpv6.deal.settlement'].sudo()
+        s = S.browse(settlement_id)
+        if not s.exists():
+            return self._json_response({'error': 'Settlement non trovato'}, 404)
+        counts = {}
+        totale_pagato = 0.0
+        totale_da_pagare = 0.0
+        for l in s.line_ids:
+            st = l.pagamento_stato or 'attesa_fattura'
+            counts[st] = counts.get(st, 0) + 1
+            if st == 'pagato':
+                totale_pagato += l.importo_effettivo or 0
+            else:
+                totale_da_pagare += l.importo_effettivo or 0
+        return self._json_response({
+            'success': True,
+            'counts': counts,
+            'totalePagato': totale_pagato,
+            'totaleDaPagare': totale_da_pagare,
+            'totale': totale_pagato + totale_da_pagare,
+        })
+
     # ══════════════════════════════════════════════════════════════
     # SETTLEMENT MENSLIE — consuntivi deal V6
     # ══════════════════════════════════════════════════════════════
@@ -201,6 +279,13 @@ class AdminDealsAPIController(ConsultantAPIController):
                 'sentAt': l.sent_at.isoformat() if l.sent_at else None,
                 'paid': l.pagato,
                 'paidAt': l.pagato_il.isoformat() if l.pagato_il else None,
+                # 28/09/2026: pagamento state machine
+                'pagamentoStato': l.pagamento_stato,
+                'fatturaRicevutaIl': l.fattura_ricevuta_il.isoformat() if l.fattura_ricevuta_il else None,
+                'fatturaScadenza': l.fattura_scadenza.isoformat() if l.fattura_scadenza else None,
+                'giorniRitardo': l.giorni_ritardo or 0,
+                'contestatoMotivo': l.contestato_motivo or '',
+                'notePagamento': l.note_pagamento or '',
             } for l in s.line_ids]
         return d
 
