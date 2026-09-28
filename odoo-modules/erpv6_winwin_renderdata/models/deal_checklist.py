@@ -106,6 +106,108 @@ class Erpv6DealChecklist(models.Model):
             rec.deal_id.message_post(body=f"✓ Step: {rec.label}" + (f" — {note}" if note else ""))
         return True
 
+    def action_send_sign_document(self, partner_id=None):
+        """Genera il PDF del documento dello step e invia firma al partner.
+        Riusa erpv6.contract.draft (pattern esistente)."""
+        self.ensure_one()
+        if not self.template_document_code:
+            raise UserError(
+                "Nessun template documento configurato per questo step.")
+        if self.completion_type != 'sign':
+            raise UserError(
+                f"Step '{self.label}' non prevede firma (tipo: {self.completion_type}).")
+
+        Template = self.env['erpv6.typst.template'].sudo()
+        tpl = Template.search(
+            [('code', '=', self.template_document_code)], limit=1)
+        if not tpl:
+            raise UserError(
+                f"Template '{self.template_document_code}' non trovato.")
+
+        kind_map = {
+            'NCND': 'ncnd', 'NDA': 'nda',
+            'CONTRATTO_QUADRO': 'contratto',
+            'SPLIT_V6': 'split_v6',
+            'PROSPETTO_FIRMA': 'deal_prospetto',
+        }
+        related_kind = kind_map.get(self.code, 'altro')
+
+        deal = self.deal_id
+        Partner = self.env['res.partner'].sudo()
+        Draft = self.env['erpv6.contract.draft'].sudo()
+        Sign = self.env['erpv6.sign.request'].sudo()
+
+        if partner_id:
+            partner_ids = [partner_id]
+        else:
+            partner_ids = [p.partner_id.id for p in deal.participant_ids
+                           if p.partner_id and p.partner_id.email][:1]
+        if not partner_ids:
+            raise UserError("Nessun firmatario con email.")
+
+        partner = Partner.browse(partner_ids[0])
+        if not partner.email:
+            raise UserError(f"Il partner {partner.name} non ha email.")
+
+        seller = deal.seller_id
+        buyer = deal.buyer_id
+        extra = {
+            'deal_name': deal.name or '',
+            'deal_id': deal.id,
+            'deal_schema_code': deal.schema_code or '',
+            'seller_name': (seller.placeholder_code if seller and seller.is_placeholder
+                            else (seller.name if seller else '')),
+            'buyer_name': (buyer.placeholder_code if buyer and buyer.is_placeholder
+                           else (buyer.name if buyer else '')),
+            'prospetto_version': (deal.current_prospetto_id.version
+                                  if deal.current_prospetto_id else 1),
+            'step_code': self.code,
+            'step_label': self.label,
+        }
+
+        draft = Draft.create({
+            'name': f'{deal.name} — {self.label}',
+            'template_id': tpl.id,
+            'project_id': deal.relation_id.id if deal.relation_id else False,
+            'counterparty_id': partner.id,
+            'extra_data': extra,
+            'pdf_mode': 'official',
+        })
+        draft.action_generate_pdf()
+
+        if not draft.document_id or not draft.document_id.pdf_file:
+            raise UserError("Generazione PDF fallita.")
+
+        sr = Sign.create({
+            'name': f'{deal.name} — {self.label} ({partner.name})',
+            'partner_id': partner.id,
+            'document_id': draft.document_id.id,
+            'contract_draft_id': draft.id,
+            'related_kind': related_kind,
+            'related_id': deal.id,
+            'related_model': 'erpv6.deal',
+            'notes': f'Step {self.code} del deal {deal.name}',
+        })
+        sr.action_send_to_sign()
+
+        self.write({
+            'sign_request_id': sr.id,
+            'status': 'in_progress',
+            'started_at': fields.Datetime.now(),
+            'external_reference': draft.document_id.pdf_filename or '',
+        })
+        self.message_post(
+            body=f"Documento inviato in firma a {partner.name}.")
+
+        _logger.info('Step %s -> SR %s a %s', self.code, sr.id, partner.name)
+        return {
+            'sign_request_id': sr.id,
+            'contract_draft_id': draft.id,
+            'document_id': draft.document_id.id,
+            'external_id': sr.external_id,
+            'request_url': sr.request_url,
+        }
+
     def action_skip(self, reason=None):
         for rec in self:
             if rec.blocks_deal_state:
