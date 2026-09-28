@@ -155,9 +155,9 @@ class SignRequest(models.Model):
         """24/09/2026: cron di riconciliazione. Il webhook Documenso ha
         timeout basso e fallisce su payload grandi (verificato: status 0).
         Questo cron chiama action_check_status su tutti i sign request
-        'sent'/'viewed' da piu' di 10 minuti, cosi' lo stato si allinea
+        'sent'/'viewed' da piu' di 2 minuti, cosi' lo stato si allinea
         senza dipendere dal webhook."""
-        cutoff = fields.Datetime.now() - timedelta(minutes=10)
+        cutoff = fields.Datetime.now() - timedelta(minutes=2)
         pending = self.sudo().search([
             ('status', 'in', ['sent', 'viewed']),
             ('external_id', '!=', False),

@@ -85,6 +85,19 @@ class Erpv6Deal(models.Model):
     prospetto_ids = fields.One2many('erpv6.deal.prospetto', 'deal_id',
                                      string='Prospetti')
 
+    narrative_template = fields.Text(
+        string='Template narrativa (deal-level)',
+        help='Template con placeholder {{ var }} per generare automaticamente '
+             'la narrativa di ogni consuntivo mensile. Compilato una volta, '
+             'riutilizzato per tutti i mesi. Dati sempre dal DB.',
+        default='''Nel mese di {{ periodo_mese }} {{ periodo_anno }} il deal «{{ deal_name }}» ha registrato un transato di {{ quantita }} {{ unita }} a un prezzo medio di {{ prezzo_medio }} EUR/{{ unita }}.
+
+Applicando il modello {{ revenue_model }} con fee del {{ fee_pct }}%, il netto da ripartire ammonta a {{ netto_ripartizione }}, così distribuito tra {{ n_partecipanti }} partecipanti secondo i tier concordati.
+
+{{ nota_mensile }}''',
+    )
+    settlement_ids = fields.One2many(
+        'erpv6.deal.settlement', 'deal_id', string='Consuntivi mensili')
     current_prospetto_id = fields.Many2one('erpv6.deal.prospetto',
                                             string='Prospetto corrente',
                                             ondelete='set null')
@@ -418,6 +431,12 @@ class Erpv6DealParticipant(models.Model):
         help='Se scope=project, indica di quale progetto')
     share_pct = fields.Float(digits=(6, 4))
     consultant_user_id = fields.Many2one('res.users')
+    share_transparency = fields.Boolean(
+        string='Mostra quota agli altri',
+        default=False,
+        help='Se TUTTI i partecipanti accettano, il consuntivo mostra '
+             'la ripartizione completa. Altrimenti ognuno vede solo la sua riga.',
+    )
     is_referral_payer = fields.Boolean(
         string='Paga il referral',
         help="Se True, il costo referral e' dedotto dalla quota di questo "

@@ -14,3 +14,4 @@ from . import revenue_split_version
 from . import revenue_split_version_migration
 from . import deal
 from . import deal_engine
+from . import deal_settlement
