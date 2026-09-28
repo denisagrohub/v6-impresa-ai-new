@@ -382,7 +382,8 @@ class AdminDealsAPIController(ConsultantAPIController):
             return self._json_response({'error': 'Deal non trovato'}, 404)
         return self._json_response({
             'success': True,
-            'settlements': [self._settlement_to_dict(s, include_lines=False)
+            # 28/09/2026: include_lines=True (piccoli, serve UI espansione)
+            'settlements': [self._settlement_to_dict(s, include_lines=True)
                             for s in d.settlement_ids],
         })
 

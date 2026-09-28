@@ -62,6 +62,7 @@ const stateLabel: Record<string, string> = {
 };
 
 export default function AdminDealsPage() {
+    const [showAll, setShowAll] = useState(false);
     const [groups, setGroups] = useState<Group[]>([]);
     const [kpi, setKpi] = useState<Kpi | null>(null);
     const [loading, setLoading] = useState(true);
@@ -134,7 +135,43 @@ export default function AdminDealsPage() {
                     </div>
                 )}
 
-                {groups.map(group => (
+                {/* 28/09/2026: filtro attivi/tutti */}
+                {(() => {
+                    const filtered = groups
+                        .map(g => ({
+                            ...g,
+                            deals: showAll
+                                ? g.deals
+                                : g.deals.filter(d => !['frozen', 'closed', 'cancelled'].includes(d.state)),
+                        }))
+                        .filter(g => g.deals.length > 0);
+                    const hiddenCount = groups.reduce((acc, g) => acc + g.deals.length, 0)
+                        - filtered.reduce((acc, g) => acc + g.deals.length, 0);
+
+                    return (
+                        <>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-sm font-semibold text-gray-700">
+                                    {showAll ? 'Tutti i deal' : 'Deal attivi'}
+                                    {!showAll && hiddenCount > 0 && (
+                                        <span className="ml-2 text-xs text-gray-400">
+                                            ({hiddenCount} nascosti)
+                                        </span>
+                                    )}
+                                </h2>
+                                <button
+                                    onClick={() => setShowAll(!showAll)}
+                                    className="text-xs px-3 py-1 rounded border border-gray-300 hover:bg-gray-50"
+                                >
+                                    {showAll ? 'Solo attivi' : 'Mostra tutti'}
+                                </button>
+                            </div>
+                            {filtered.length === 0 && (
+                                <div className="bg-gray-50 border border-gray-200 rounded-md p-8 text-center text-gray-500">
+                                    Nessun deal {showAll ? '' : 'attivo'}. Clicca "Mostra tutti" per vedere quelli congelati.
+                                </div>
+                            )}
+                            {filtered.map(group => (
                     <div key={group.relationId} className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
                         <button
                             onClick={() => setExpanded(e => ({ ...e, [group.relationId]: !e[group.relationId] }))}
@@ -208,6 +245,9 @@ export default function AdminDealsPage() {
                         )}
                     </div>
                 ))}
+                        </>
+                    );
+                })()}
             </div>
         </AdminLayout>
     );
