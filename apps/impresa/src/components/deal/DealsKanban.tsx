@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
+import { Plus, Loader2 } from 'lucide-react';
+import { CreateDealModal } from './CreateDealModal';
 
 export type KanbanDeal = {
   id: number;
@@ -90,8 +93,23 @@ function DealCard({ deal }: { deal: KanbanDeal }) {
   );
 }
 
-export function DealsKanban({ deals }: { deals: KanbanDeal[] }) {
-  if (!deals || deals.length === 0) return null;
+export function DealsKanban({
+  deals,
+  parentProjectId,
+  authToken,
+  onDealCreated,
+}: {
+  deals: KanbanDeal[];
+  parentProjectId?: number;
+  authToken?: string;
+  onDealCreated?: () => void;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+  const canCreate = parentProjectId != null && authToken != null && onDealCreated != null;
+
+  if (!deals || deals.length === 0) {
+    if (!canCreate) return null;
+  }
 
   const byColumn = COLUMNS.map(col => ({
     ...col,
@@ -116,9 +134,20 @@ export function DealsKanban({ deals }: { deals: KanbanDeal[] }) {
               <span className="text-[11px] font-bold uppercase tracking-wider text-gray-700">
                 {col.label}
               </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white font-semibold text-gray-600">
-                {col.deals.length}
-              </span>
+              <div className="flex items-center gap-1">
+                {col.key === 'scouting' && canCreate && (
+                  <button
+                    onClick={() => setShowCreate(true)}
+                    className="w-5 h-5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center"
+                    title="Nuovo deal"
+                  >
+                    <Plus size={12} />
+                  </button>
+                )}
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white font-semibold text-gray-600">
+                  {col.deals.length}
+                </span>
+              </div>
             </div>
             <div className="space-y-2 min-h-[40px]">
               {col.deals.length === 0 ? (
@@ -132,6 +161,18 @@ export function DealsKanban({ deals }: { deals: KanbanDeal[] }) {
           </div>
         ))}
       </div>
+
+      {showCreate && canCreate && (
+        <CreateDealModal
+          parentId={parentProjectId!}
+          authToken={authToken!}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => {
+            setShowCreate(false);
+            onDealCreated?.();
+          }}
+        />
+      )}
     </section>
   );
 }
