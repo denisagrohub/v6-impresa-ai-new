@@ -103,6 +103,12 @@ class Erpv6DealSettlement(models.Model):
         compute='_compute_incasso_stato',
         help='Somma di tutti i movimenti incasso registrati.')
 
+    incasso_target_importo = fields.Float(
+        string='Importo target', digits=(16, 2),
+        compute='_compute_incasso_stato',
+        help='Quanto V6 deve incassare per sbloccare i pagamenti. '
+             'Derivato da revenue_model del deal: fee → solo fee; spread/mixed → transato.')
+
     incasso_stato = fields.Selection([
         ('attesa', 'Attesa incasso'),
         ('parziale', 'Incasso parziale'),
@@ -160,21 +166,31 @@ class Erpv6DealSettlement(models.Model):
             rec.transparency_unlocked = all(
                 p.share_transparency for p in participants)
 
-    @api.depends('incasso_movimento_ids.importo', 'transato_totale')
+    @api.depends('incasso_movimento_ids.importo', 'transato_totale',
+                 'ricavo_lordo', 'deal_id.revenue_model')
     def _compute_incasso_stato(self):
         for rec in self:
             tot_mov = sum(rec.incasso_movimento_ids.mapped('importo')) or 0.0
             rec.incasso_importo = tot_mov
-            transato = rec.transato_totale or 0.0
-            if tot_mov <= 0 or transato <= 0:
+            # 28/09/2026: target DERIVATO da revenue_model del deal:
+            # - fee → V6 incassa solo la commissione (target = ricavo_lordo)
+            # - spread → V6 compra e rivende (target = transato)
+            # - mixed → default prudente: transato
+            rm = rec.deal_id.revenue_model if rec.deal_id else 'fee'
+            if rm == 'fee':
+                target = rec.ricavo_lordo or 0.0
+            else:
+                target = rec.transato_totale or 0.0
+            rec.incasso_target_importo = target
+            if tot_mov <= 0 or target <= 0:
                 rec.incasso_stato = 'attesa'
                 rec.incasso_percentuale = 0.0
-            elif tot_mov >= transato:
+            elif tot_mov >= target:
                 rec.incasso_stato = 'totale'
                 rec.incasso_percentuale = 100.0
             else:
                 rec.incasso_stato = 'parziale'
-                rec.incasso_percentuale = (tot_mov / transato) * 100.0
+                rec.incasso_percentuale = (tot_mov / target) * 100.0
 
     def action_registra_incasso(self, importo, riferimento=None, data=None, note=None):
         """Registra un movimento incasso da cliente."""
