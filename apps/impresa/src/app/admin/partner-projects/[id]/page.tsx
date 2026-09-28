@@ -46,6 +46,7 @@ import { DealsKanban, type KanbanDeal } from "@/components/deal/DealsKanban";
 import { KpiDealRow, type KpiDeal } from "@/components/deal/KpiDealRow";
 import { SplitSquadraCard, type SplitLine } from "@/components/deal/SplitSquadraCard";
 import { DealCommandCenter, type DealCollegato as DealCollegatoCC } from "@/components/deal/DealCommandCenter";
+import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -156,6 +157,7 @@ export default function PartnerProjectDetailPage() {
     const [kpiDeal, setKpiDeal] = useState<KpiDeal | null>(null);
     const [splitSquadra, setSplitSquadra] = useState<SplitLine[]>([]);
     const [dealCollegato, setDealCollegato] = useState<DealCollegatoCC | null>(null);
+    const [breadcrumbItems, setBreadcrumbItems] = useState<BreadcrumbItem[]>([]);
     // Progetti figli con child_kind='progetto' (deal operativi)
     const [childProjects, setChildProjects] = useState<ChildProject[]>([]);
     const [showAcqModal, setShowAcqModal] = useState(false);
@@ -341,6 +343,8 @@ export default function PartnerProjectDetailPage() {
             setDealsFlat(data.dealsFlat || []);
             setKpiDeal(data.kpiDeal || null);
             setSplitSquadra(data.splitSquadra || []);
+            setDealCollegato(data.dealCollegato || null);
+            setBreadcrumbItems(data.breadcrumb || []);
             setChildProjects(data.childProjects || []);
             setContextOptions({
                 persone: (data.partners || []).filter((p: any) => p.funzione_progetto !== 'target'),
@@ -926,6 +930,14 @@ export default function PartnerProjectDetailPage() {
 
                 {/* ═══ COLONNA SINISTRA: contenuto contestuale alla vista ═══ */}
                 <main className="flex flex-col min-w-0 bg-white overflow-y-auto p-6 border-r border-[#e2e8f0]">
+
+                    {/* 28/09/2026: breadcrumb gerarchico */}
+                    {breadcrumbItems.length > 0 && (
+                        <Breadcrumb
+                            items={breadcrumbItems.slice(0, -1)}
+                            current={breadcrumbItems[breadcrumbItems.length - 1]?.name}
+                        />
+                    )}
 
                     {/* 28/09/2026: Deal Command Center (figlio progetto) */}
                     {dealCollegato && (

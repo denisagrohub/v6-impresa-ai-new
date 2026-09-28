@@ -287,6 +287,32 @@ export async function GET(request: Request, { params }: { params: { id: string }
       }
     }
 
+    // 28/09/2026: breadcrumb — catena parent → questo nodo
+    const breadcrumb: { id: number; name: string; url: string }[] = [];
+    try {
+      let currentId = id;
+      const path: any[] = [];
+      // Max 5 livelli per sicurezza
+      for (let i = 0; i < 5 && currentId; i++) {
+        const rel = await odoo.execute('erpv6.tracking.relation', 'search_read', [
+          [['id', '=', currentId]],
+          ['id', 'name', 'parent_id'],
+        ]);
+        if (!rel || rel.length === 0) break;
+        const r = rel[0];
+        path.unshift({
+          id: r.id,
+          name: r.name,
+          url: `/admin/partner-projects/${r.id}`,
+        });
+        const pid = Array.isArray(r.parent_id) ? r.parent_id[0] : null;
+        currentId = pid;
+      }
+      breadcrumb.push(...path);
+    } catch (e: any) {
+      console.error('breadcrumb fallito:', e.message);
+    }
+
     // hasPipelineBoard = questo nodo ha figli con funzione_progetto='target'
     // (in tal caso è un "progetto root con pipeline" → dashboard kanban)
     const hasPipelineBoard = targets.length > 0;
@@ -357,6 +383,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         childKind: project.child_kind || null,
       },
       dealCollegato: dealCollegato,
+      breadcrumb: breadcrumb,
       partners: [...parts, ...targetContacts].map((c: any) => ({
         id: c.id,
         name: c.name,
