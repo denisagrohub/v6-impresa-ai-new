@@ -96,6 +96,14 @@ Applicando il modello {{ revenue_model }} con fee del {{ fee_pct }}%, il netto d
 
 {{ nota_mensile }}''',
     )
+    narrative_template_self = fields.Text(
+        string='Template narrativa (variante self)',
+        help='Template ridotto per la variante self: NIENTE fee, NIENTE netto, '
+             'NIENTE n_partecipanti. Solo la riga del destinatario.',
+        default='''Il tuo compenso per il mese di {{ periodo }} relativo al deal «{{ deal_name }}» è indicato di seguito.
+
+Per riceverlo, segui le istruzioni riportate in calce.''',
+    )
     settlement_ids = fields.One2many(
         'erpv6.deal.settlement', 'deal_id', string='Consuntivi mensili')
     current_prospetto_id = fields.Many2one('erpv6.deal.prospetto',

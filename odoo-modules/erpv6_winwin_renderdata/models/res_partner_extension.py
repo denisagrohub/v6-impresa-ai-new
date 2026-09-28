@@ -89,3 +89,18 @@ class ResPartnerLifecycleExtension(models.Model):
         # Uscita da 'degradato' → pulisco la data (storico resta in chatter via tracking)
         elif self.lifecycle_stage != 'degradato' and self.degraded_at:
             self.degraded_at = False
+
+
+class ResPartnerRegimeFiscale(models.Model):
+    """28/09/2026: regime fiscale del consulente per la generazione
+    automatica della sezione 'Come ricevere il compenso' nei PDF consuntivi."""
+    _inherit = 'res.partner'
+
+    x_v6_regime_fiscale = fields.Selection([
+        ('forfettario', 'Forfettario (no IVA, no ritenuta)'),
+        ('ordinario', 'Ordinario (IVA 22% + ritenuta 20%)'),
+        ('occasionale', 'Occasionale (no IVA, ritenuta 20%)'),
+        ('non_specificato', 'Non specificato (mostra tutte le ipotesi)'),
+    ], string='Regime fiscale',
+       default='non_specificato',
+       help="Determina come generare la sezione 'Come ricevere il compenso' nei PDF.")

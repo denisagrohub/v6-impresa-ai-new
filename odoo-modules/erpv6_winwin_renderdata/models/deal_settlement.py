@@ -154,15 +154,23 @@ class Erpv6DealSettlement(models.Model):
             if not rec.prospetto_id:
                 continue
             lines = []
+            # 28/09/2026: base di ripartizione = FEE V6 (ricavo_lordo),
+            # NON il netto. I consulenti prendono una % del fee V6 sul transato.
             for line in rec.prospetto_id.line_ids:
                 p = line.participant_id
                 share = (p.share_pct or 0) * 100  # frazione → percentuale
-                importo = (rec.netto_ripartizione or 0) * (share / 100.0)
+                importo = (rec.ricavo_lordo or 0) * (share / 100.0)
+                # Causale fattura auto-generata
+                causale = (
+                    f"Consulenza commerciale deal {rec.deal_id.name} - "
+                    f"{dict(MONTHS).get(rec.periodo_mese, '?')} {rec.periodo_anno}"
+                )
                 lines.append({
                     'settlement_id': rec.id,
                     'participant_id': p.id,
                     'share_pct': share,
                     'importo_effettivo': importo,
+                    'causale_fattura': causale,
                 })
             self.env['erpv6.deal.settlement.line'].create(lines)
 
@@ -270,24 +278,46 @@ class Erpv6DealSettlement(models.Model):
         html.append('</tbody></table>')
         return ''.join(html)
 
-    def _render_narrative(self):
+    def _render_narrative(self, self_mode=False, viewer_partner_id=None):
         """Applica il template del deal + il contesto dati → narrative_html.
-        Il template usa placeholder {{ var }}. Ignora placeholder sconosciuti.
-        Il rendering è idempotente: se chiamato due volte, stesso output."""
+        
+        self_mode=True: usa il template 'self' ridotto (niente fee/netto/n_partecipanti)
+        viewer_partner_id: per il template self, aggiunge 'mio_importo' + 'mio_nome'
+        """
         import re
         for rec in self:
-            template = rec.deal_id.narrative_template or ''
+            if self_mode:
+                template = rec.deal_id.narrative_template_self or ''
+            else:
+                template = rec.deal_id.narrative_template or ''
             if not template:
                 rec.narrative_html = '<p><em>Template narrativa non configurato.</em></p>'
                 continue
+
             ctx = rec._build_narrative_context()
+
+            # In self mode, arricchisci con dati personali del viewer
+            if self_mode:
+                # Trova la riga del viewer
+                target_pid = viewer_partner_id or rec.env.user.partner_id.id
+                my_line = rec.line_ids.filtered(
+                    lambda l: l.participant_id.partner_id.id == target_pid
+                )[:1]
+                if not my_line and rec.env.user.has_group('base.group_system'):
+                    # Admin preview: prendi la prima riga
+                    my_line = rec.line_ids[:1]
+                if my_line:
+                    ctx['mio_importo'] = rec._fmt_eur(my_line.importo_effettivo)
+                    ctx['mio_nome'] = my_line.participant_id.partner_id.name or ''
+                else:
+                    ctx['mio_importo'] = '—'
+                    ctx['mio_nome'] = ''
 
             def _sub(match):
                 key = match.group(1).strip()
-                return str(ctx.get(key, match.group(0)))  # lascia placeholder se non trovato
+                return str(ctx.get(key, match.group(0)))
 
             rendered = re.sub(r'\{\{\s*(\w+)\s*\}\}', _sub, template)
-            # Converti newline in paragrafi HTML
             paragraphs = [p.strip() for p in rendered.split('\n') if p.strip()]
             html = ''.join(f'<p>{p}</p>' for p in paragraphs)
             rec.narrative_html = html
@@ -316,40 +346,153 @@ class Erpv6DealSettlement(models.Model):
 
         engine = self.env['erpv6.typst.engine'].sudo()
         data = self._build_pdf_data()
-        result = engine.generate_document(
+        # 28/09/2026: generate_document ritorna erpv6.typst.document (record)
+        doc = engine.generate_document(
             template_id=template.id,
             res_model='erpv6.deal.settlement',
             res_id=self.id,
             data=data,
         )
-        if result and result.get('document_id'):
+        if doc:
             self.write({
-                'pdf_document_id': result['document_id'],
-                'pdf_hash': result.get('hash'),
+                'pdf_document_id': doc.id,
+                'pdf_hash': getattr(doc, 'blockchain_hash', False),
             })
         return True
 
-    def _build_pdf_data(self):
-        """Dict per il rendering Typst del consuntivo. Contiene dati reali
-        (settlement) + branding + tabella partecipanti (self o full)."""
+    def _build_pdf_data(self, viewer_partner_id=None):
+        """Dict per il rendering Typst del consuntivo. BLINDATO per la
+        variante self: se transparency_unlocked=False, NON passa transato,
+        ricavo, netto, n_partecipanti, fee_pct — solo la riga del viewer.
+        """
         self.ensure_one()
+        # Full se: transparency_unlocked OR (admin senza viewer specifico)
+        is_admin = self.env.user.has_group('base.group_system')
+        is_full = self.transparency_unlocked or (is_admin and not viewer_partner_id)
         ctx = self._build_narrative_context()
-        # Per il PDF il testo narrativo è plain (senza HTML tags)
-        narrative_plain = (self.narrative_html or '') \
-            .replace('<p>', '').replace('</p>', '\n\n') \
-            .replace('<em>', '').replace('</em>', '') \
-            .replace('<br/>', '\n').replace('<br>', '\n')
+
+        # 28/09/2026: rigenera la narrativa con il template giusto.
+        # In self mode, usa il template ridotto (niente fee/netto/n_partecipanti).
+        if not is_full:
+            self._render_narrative(self_mode=True, viewer_partner_id=viewer_partner_id)
+
+        import html as _html
+        import re as _re
+        raw = self.narrative_html or ''
+        raw = _html.unescape(raw)
+        raw = _re.sub(r'</p>\s*<p>', '\n\n', raw)
+        raw = _re.sub(r'<br\s*/?>', '\n', raw)
+        raw = _re.sub(r'<[^>]+>', '', raw)
+        narrative_plain = raw.strip()
+
+        visible_lines = self.line_ids
+        if not is_full:
+            target_partner_id = viewer_partner_id or self.env.user.partner_id.id
+            visible_lines = self.line_ids.filtered(
+                lambda l: l.participant_id.partner_id.id == target_partner_id
+            )
+            if not visible_lines and self.env.user.has_group('base.group_system'):
+                visible_lines = self.line_ids
+
+        if is_full:
+            data = {
+                **ctx,
+                'narrative_plain': narrative_plain,
+                'transparency_unlocked': 'sì',
+                'show_full_details': True,
+                'lines': [self._line_to_dict(l) for l in visible_lines],
+            }
+        else:
+            data = {
+                'deal_name': ctx['deal_name'],
+                'periodo': ctx['periodo'],
+                'periodo_mese': ctx['periodo_mese'],
+                'periodo_anno': ctx['periodo_anno'],
+                'quantita': ctx['quantita'],
+                'prezzo_medio': ctx['prezzo_medio'],
+                'unita': ctx['unita'],
+                'schema_code': ctx['schema_code'],
+                'revenue_model': ctx['revenue_model'],
+                'data_generazione': ctx.get('data_generazione', ''),
+                'fee_pct': '',
+                'transato_totale': '',
+                'ricavo_lordo': '',
+                'netto_ripartizione': '',
+                'n_partecipanti': '',
+                'transparency_unlocked': 'no',
+                'show_full_details': False,
+                'narrative_plain': narrative_plain,
+                'lines': [self._line_to_dict(l) for l in visible_lines],
+            }
+
+        data['compenso'] = self._build_compenso_block(visible_lines[:1], is_full)
+        data['payment_info'] = self._build_payment_info()
+        return data
+
+    def _line_to_dict(self, line):
+        p = line.participant_id
+        partner = p.partner_id
         return {
-            **ctx,
-            'narrative_plain': narrative_plain.strip(),
-            'lines': [{
-                'partner_name': l.participant_id.partner_id.name or '',
-                'tier': l.participant_id.tier or '',
-                'share_pct': l.participant_id.share_pct or 0,
-                'importo_effettivo': l.importo_effettivo or 0,
-            } for l in self.line_ids],
+            'partner_name': partner.name or '',
+            'tier': p.tier or '',
+            'share_pct': (p.share_pct or 0) * 100,
+            'importo_effettivo': line.importo_effettivo or 0,
+            'causale_fattura': line.causale_fattura or '',
+            'regime_fiscale': getattr(partner, 'x_v6_regime_fiscale', 'non_specificato') or 'non_specificato',
+            'vat': partner.vat or '',
+            'cf': getattr(partner, 'l10n_it_codice_fiscale', '') or '',
         }
 
+    def _build_compenso_block(self, lines, is_full):
+        if not lines:
+            return {'lordo': '€ 0', 'iva': '', 'totale': '€ 0',
+                    'regime_label': '—', 'has_iva': False, 'has_ritenuta': False, 'causale': ''}
+        line = lines[0]
+        partner = line.participant_id.partner_id
+        lordo = line.importo_effettivo or 0
+        regime = getattr(partner, 'x_v6_regime_fiscale', 'non_specificato') or 'non_specificato'
+
+        iva = 0.0
+        has_iva = False
+        has_ritenuta = False
+        if regime == 'forfettario':
+            regime_label = 'Forfettario (no IVA, no ritenuta)'
+        elif regime == 'ordinario':
+            iva = lordo * 0.22
+            has_iva = True
+            has_ritenuta = True
+            regime_label = 'Ordinario (IVA 22%, ritenuta 20%)'
+        elif regime == 'occasionale':
+            has_ritenuta = True
+            regime_label = 'Occasionale (no IVA, ritenuta 20%)'
+        else:
+            regime_label = 'Non specificato'
+
+        return {
+            'lordo': self._fmt_eur(lordo),
+            'iva': self._fmt_eur(iva) if has_iva else '',
+            'totale': self._fmt_eur(lordo + iva),
+            'has_iva': has_iva,
+            'has_ritenuta': has_ritenuta,
+            'regime_label': regime_label,
+            'causale': line.causale_fattura or '',
+        }
+
+    def _build_payment_info(self):
+        company = self.env.company or self.env['res.company'].sudo().search(
+            [('name', 'ilike', 'V6 Impresa')], limit=1)
+        return {
+            'v6_name': company.name or 'V6 Impresa S.r.l.',
+            'v6_vat': company.vat or '',
+            'v6_cf': getattr(company, 'l10n_it_codice_fiscale', '') or '',
+            'v6_address': ', '.join(filter(None, [
+                company.street or '', company.street2 or '',
+                f"{company.zip or ''} {company.city or ''}".strip(),
+                company.state_id.name if company.state_id else '',
+            ])),
+            'v6_invoice_email': 'fatture@v6impresa.it',
+            'payment_days': 30,
+        }
 
 
 class Erpv6DealSettlementLine(models.Model):
@@ -369,6 +512,16 @@ class Erpv6DealSettlementLine(models.Model):
         ('self', 'Solo propria riga'),
         ('full', 'Completa (trasparenza attiva)'),
     ], compute='_compute_visibility', store=True)
+
+    # 28/09/2026: campi per fatturazione e match automatico futuro
+    causale_fattura = fields.Char(
+        string='Causale fattura',
+        help='Testo da inserire nella causale della fattura emessa dal consulente.')
+    fattura_ricevuta_id = fields.Many2one(
+        'account.move', string='Fattura ricevuta',
+        help='Collegamento alla fattura fornitore per riconciliazione automatica.')
+    pagato = fields.Boolean(default=False)
+    pagato_il = fields.Datetime()
 
     pdf_document_id = fields.Many2one('erpv6.typst.document')
     sent_at = fields.Datetime()

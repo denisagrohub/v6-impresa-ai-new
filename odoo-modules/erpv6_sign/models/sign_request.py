@@ -72,6 +72,7 @@ class SignRequest(models.Model):
         ('ncnd', 'NCND'),
         ('contratto', 'Contratto'),
         ('deal_prospetto', 'Prospetto Deal V6'),
+        ('deal_settlement', 'Consuntivo Mensile Deal V6'),
         ('altro', 'Altro'),
     ], string='Tipo documento', default='altro', index=True)
     related_id = fields.Integer(
@@ -112,11 +113,62 @@ class SignRequest(models.Model):
                 'details': result.get('details') or 'Firma inviata',
             })
             self.message_post(body=_("Richiesta di firma inviata a %s") % self.partner_id.name)
+
+            # 28/09/2026: notifica V6 (personal + slug) via Odoo.
+            # Documenso invia solo al SIGNER (personal). Se l'utente ha
+            # x_v6_email_mode='both' o 'v6', invio email Odoo all'alias V6.
+            self._notify_v6_email()
         except UserError:
             raise
         except Exception as e:
             _logger.exception('Invio firma fallito')
             raise UserError(_('Errore durante l\'invio della richiesta: %s') % str(e))
+
+    def _notify_v6_email(self):
+        """28/09/2026: invia email all'alias V6 del firmatario se
+        x_v6_email_mode è 'both' o 'v6'. Non duplica la mail Documenso:
+        è una notifica informativa con il link di firma."""
+        self.ensure_one()
+        partner = self.partner_id
+        if not partner or not partner.email:
+            return
+        mode = getattr(partner, 'x_v6_email_mode', 'personal') or 'personal'
+        if mode not in ('both', 'v6'):
+            return
+        user = self.env['res.users'].sudo().search(
+            [('partner_id', '=', partner.id)], limit=1)
+        slug = getattr(user, 'email_slug', None) if user else None
+        if not slug:
+            _logger.warning('_notify_v6_email: nessuno slug per partner %s', partner.id)
+            return
+        v6_email = f'{slug}@v6impresa.it'
+
+        try:
+            from odoo.addons.erpv6_referral.models.system_mail_helper import send_system_mail
+            subject = f'Richiesta di firma: {self.name}'
+            body = (
+                f'<p>Ciao {partner.name or ""},</p>'
+                f'<p>Ti è stata inviata una richiesta di firma per:</p>'
+                f'<p><b>{self.name}</b></p>'
+                f'<p><a href="{self.request_url}" '
+                f'style="background:#0f172a;color:white;padding:8px 16px;'
+                f'border-radius:4px;text-decoration:none;display:inline-block;">'
+                f'Apri e firma</a></p>'
+                f'<p>La richiesta è stata inviata anche al tuo indirizzo personale. '
+                f'Puoi firmare da uno qualsiasi dei due link.</p>'
+            )
+            send_system_mail(
+                self.env,
+                v6_email,
+                subject,
+                body,
+                model='erpv6.sign.request',
+                res_id=self.id,
+            )
+            _logger.info('_notify_v6_email: notifica V6 inviata a %s per SR %s',
+                         v6_email, self.id)
+        except Exception:
+            _logger.exception('_notify_v6_email fallita per SR %s', self.id)
 
 
     def action_check_status(self):

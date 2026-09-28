@@ -37,39 +37,23 @@ class DocumensoAdapter(SignatureProviderAdapter):
         pdf_bytes = base64.b64decode(sign_request.document_id.pdf_file)
         filename = sign_request.document_id.pdf_filename or f'{sign_request.name}.pdf'
 
-        # 28/09/2026: se il firmatario ha x_v6_email_mode='both',
-        # aggiungo la sua email V6 (slug@v6impresa.it) come CC su Documenso.
-        # In CC riceve notifica firma ma NON firma.
+        # 28/09/2026: SOLO il firmatario (SIGNER) su Documenso.
+        # I CC vengono gestiti da Odoo con email separate (send_system_mail),
+        # perché Documenso auto-marca i CC come SIGNED (nessun campo firma).
         partner = sign_request.partner_id
-        recipients = [{
-            'email': partner.email,
-            'name': partner.name or partner.email,
-            'role': 'SIGNER',
-            'fields': [{
-                'type': 'SIGNATURE',
-                'page': 1, 'positionX': 70, 'positionY': 85,
-                'width': 25, 'height': 6,
-            }],
-        }]
-
-        if (getattr(partner, 'x_v6_email_mode', 'personal') == 'both'
-                and partner.id):
-            user = sign_request.env['res.users'].sudo().search(
-                [('partner_id', '=', partner.id)], limit=1)
-            slug = getattr(user, 'email_slug', None) if user else None
-            if slug:
-                alias = f'{slug}@v6impresa.it'
-                if alias.lower() != (partner.email or '').lower():
-                    recipients.append({
-                        'email': alias,
-                        'name': f'{partner.name} (V6)',
-                        'role': 'CC',
-                    })
-
         create_payload = {
             'title': sign_request.name,
             'type': 'DOCUMENT',
-            'recipients': recipients,
+            'recipients': [{
+                'email': partner.email,
+                'name': partner.name or partner.email,
+                'role': 'SIGNER',
+                'fields': [{
+                    'type': 'SIGNATURE',
+                    'page': 1, 'positionX': 70, 'positionY': 85,
+                    'width': 25, 'height': 6,
+                }],
+            }],
         }
 
         create_resp = requests.post(
@@ -107,7 +91,16 @@ class DocumensoAdapter(SignatureProviderAdapter):
             raise UserError(_('Errore invio envelope Documenso: %s') % distribute_resp.text)
         data = distribute_resp.json()
         recipients = data.get('recipients') or []
-        signing_url = recipients[0].get('signingUrl') if recipients else ''
+        # 28/09/2026: prendi l'URL del SIGNER, non del CC.
+        # I CC vengono auto-marcati SIGNED da Documenso (nessun campo firma),
+        # e il loro signingUrl rimanda subito a /complete.
+        signing_url = ''
+        for r in recipients:
+            if (r.get('role') or '').upper() == 'SIGNER':
+                signing_url = r.get('signingUrl') or ''
+                break
+        if not signing_url and recipients:
+            signing_url = recipients[0].get('signingUrl') or ''
 
         return {
             'status': 'sent',

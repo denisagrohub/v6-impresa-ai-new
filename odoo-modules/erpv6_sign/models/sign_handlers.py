@@ -90,6 +90,46 @@ def _handle_contract_draft(sign_request):
 
 
 
+
+
+def _handle_deal_settlement(sign_request):
+    """28/09/2026: post-firma di un consuntivo mensile deal V6.
+    Marca il settlement.line come firmato + il settlement come sent.
+    NON tocca deal.state (il deal è già active dal prospetto).
+    """
+    from odoo import fields as odoo_fields
+    settlement = sign_request.env['erpv6.deal.settlement'].sudo().browse(
+        sign_request.related_id)
+    if not settlement.exists():
+        _logger.warning('Settlement %s non trovato per sr %s',
+                        sign_request.related_id, sign_request.id)
+        _notify_admin(sign_request)
+        return
+
+    # Trova la linea del firmatario
+    partner_id = sign_request.partner_id.id
+    line = settlement.line_ids.filtered(
+        lambda l: l.participant_id.partner_id.id == partner_id)[:1]
+
+    if line:
+        line.write({
+            'sent_at': line.sent_at or odoo_fields.Datetime.now(),
+            'viewed_at': odoo_fields.Datetime.now(),
+        })
+
+    # Se tutte le linee firmate (per ora: un solo firmatario), stato sent
+    settlement.write({
+        'state': 'sent',
+        'sent_at': odoo_fields.Datetime.now(),
+    })
+    settlement.message_post(
+        body=f"Consuntivo firmato da {sign_request.partner_id.name}.")
+    _logger.info('Settlement %s: firmato da %s, state=sent',
+                 settlement.id, sign_request.partner_id.name)
+
+    _notify_admin(sign_request)
+
+
 def _handle_deal_prospetto(sign_request):
     """28/09/2026: post-firma di un prospetto deal V6.
     Quando TUTTE le sign request del deal sono firmate:
@@ -161,6 +201,7 @@ def dispatch_post_sign_handler(sign_request):
         'ncnd': _handle_generic,
         'contratto': _handle_generic,
         'deal_prospetto': _handle_deal_prospetto,
+        'deal_settlement': _handle_deal_settlement,  # stesso handler: deal.state='active' quando firma
         'altro': _handle_generic,
     }.get(kind, _handle_generic)
     try:
