@@ -90,6 +90,33 @@ class Erpv6DealSettlement(models.Model):
         string='Trasparenza sbloccata',
         help='True se TUTTI i partecipanti hanno accettato di mostrare il proprio importo.')
 
+    # ══════════════════════════════════════════════════════════════
+    # INCASSO DAL CLIENTE (upstream)
+    # ══════════════════════════════════════════════════════════════
+    incasso_modalita = fields.Selection([
+        ('totale', 'Totale (blocca pagamenti fino al 100%)'),
+        ('proporzionale', 'Proporzionale (paga fino alla % incassata)'),
+    ], string='Modalità incasso', default='totale', required=True)
+
+    incasso_importo = fields.Float(
+        string='Incassato cumulativo', digits=(16, 2),
+        compute='_compute_incasso_stato',
+        help='Somma di tutti i movimenti incasso registrati.')
+
+    incasso_stato = fields.Selection([
+        ('attesa', 'Attesa incasso'),
+        ('parziale', 'Incasso parziale'),
+        ('totale', 'Incasso completo'),
+    ], string='Stato incasso', compute='_compute_incasso_stato', index=True)
+
+    incasso_percentuale = fields.Float(
+        string='% incassata', digits=(5, 2),
+        compute='_compute_incasso_stato')
+
+    incasso_movimento_ids = fields.One2many(
+        'erpv6.deal.settlement.incasso', 'settlement_id',
+        string='Movimenti incasso')
+
     # ── Linee (una per partecipante) ──
     line_ids = fields.One2many(
         'erpv6.deal.settlement.line', 'settlement_id', string='Linee')
@@ -132,6 +159,38 @@ class Erpv6DealSettlement(models.Model):
                 continue
             rec.transparency_unlocked = all(
                 p.share_transparency for p in participants)
+
+    @api.depends('incasso_movimento_ids.importo', 'transato_totale')
+    def _compute_incasso_stato(self):
+        for rec in self:
+            tot_mov = sum(rec.incasso_movimento_ids.mapped('importo')) or 0.0
+            rec.incasso_importo = tot_mov
+            transato = rec.transato_totale or 0.0
+            if tot_mov <= 0 or transato <= 0:
+                rec.incasso_stato = 'attesa'
+                rec.incasso_percentuale = 0.0
+            elif tot_mov >= transato:
+                rec.incasso_stato = 'totale'
+                rec.incasso_percentuale = 100.0
+            else:
+                rec.incasso_stato = 'parziale'
+                rec.incasso_percentuale = (tot_mov / transato) * 100.0
+
+    def action_registra_incasso(self, importo, riferimento=None, data=None, note=None):
+        """Registra un movimento incasso da cliente."""
+        for rec in self:
+            self.env['erpv6.deal.settlement.incasso'].sudo().create({
+                'settlement_id': rec.id,
+                'importo': importo,
+                'riferimento': riferimento or '',
+                'data': data or fields.Datetime.now(),
+                'source': 'manuale',
+                'note': note or '',
+            })
+            rec.message_post(
+                body=f"Incasso registrato: € {importo:,.2f}"
+                     f" (rif: {riferimento or '-'})")
+        return True
 
     def action_freeze(self):
         """Congela il settlement: snapshot definitivo, non più modificabile.
@@ -525,6 +584,17 @@ class Erpv6DealSettlementLine(models.Model):
     pagato = fields.Boolean(default=False)
     pagato_il = fields.Datetime()
 
+    # 28/09/2026: blocco pagamento finché cliente non incassa
+    pagabile = fields.Boolean(
+        string='Pagabile',
+        compute='_compute_pagabile',
+        help='True se il cliente ha incassato abbastanza per sbloccare il pagamento.')
+    importo_sbloccato = fields.Float(
+        string='Importo sbloccato',
+        compute='_compute_pagabile',
+        digits=(16, 2),
+        help='Quanto effettivamente pagabile in base all incasso ricevuto.')
+
     # 28/09/2026: state machine pagamento
     pagamento_stato = fields.Selection([
         ('attesa_fattura', 'Attesa fattura'),
@@ -560,6 +630,30 @@ class Erpv6DealSettlementLine(models.Model):
 
 
     @api.depends('pagamento_stato', 'fattura_scadenza')
+
+    @api.depends('settlement_id.incasso_stato',
+                 'settlement_id.incasso_percentuale',
+                 'settlement_id.incasso_modalita',
+                 'importo_effettivo')
+    def _compute_pagabile(self):
+        for rec in self:
+            s = rec.settlement_id
+            if not s:
+                rec.pagabile = False
+                rec.importo_sbloccato = 0.0
+                continue
+            if s.incasso_modalita == 'totale':
+                if s.incasso_stato == 'totale':
+                    rec.pagabile = True
+                    rec.importo_sbloccato = rec.importo_effettivo or 0.0
+                else:
+                    rec.pagabile = False
+                    rec.importo_sbloccato = 0.0
+            else:
+                pct = (s.incasso_percentuale or 0.0) / 100.0
+                rec.importo_sbloccato = (rec.importo_effettivo or 0.0) * pct
+                rec.pagabile = rec.importo_sbloccato > 0
+
     def _compute_giorni_ritardo(self):
         today = fields.Date.today()
         for rec in self:
@@ -574,6 +668,10 @@ class Erpv6DealSettlementLine(models.Model):
         for rec in self:
             if rec.pagamento_stato not in ('attesa_fattura',):
                 continue
+            if not rec.pagabile:
+                raise UserError(
+                    'Incasso dal cliente non ancora ricevuto. '
+                    'Registra l\'incasso sul consuntivo prima di procedere.')
             vals = {
                 'pagamento_stato': 'fattura_ricevuta',
                 'fattura_ricevuta_il': fields.Datetime.now(),
@@ -620,3 +718,32 @@ class Erpv6DealSettlementLine(models.Model):
                 rec.settlement_id.message_post(
                     body=f"Fattura contestata per {rec.participant_id.partner_id.name}: {motivo or '-'}")
         return True
+
+
+class Erpv6DealSettlementIncasso(models.Model):
+    """28/09/2026: singolo movimento di incasso dal cliente (OMEGA).
+    Un settlement può avere più movimenti (acconti, saldi, tranche)."""
+    _name = 'erpv6.deal.settlement.incasso'
+    _description = 'Movimento incasso da cliente'
+    _order = 'data desc, id desc'
+    _inherit = ['mail.thread']
+
+    settlement_id = fields.Many2one(
+        'erpv6.deal.settlement', required=True, ondelete='cascade', index=True)
+    data = fields.Datetime(
+        string='Data incasso', default=fields.Datetime.now, required=True)
+    importo = fields.Float(
+        string='Importo EUR', digits=(16, 2), required=True)
+    riferimento = fields.Char(
+        string='Riferimento',
+        help='CRO, numero bonifico, ID transazione, ecc.')
+    source = fields.Selection([
+        ('manuale', 'Inserimento manuale'),
+        ('csv', 'Import CSV'),
+        ('api_banca', 'API banca'),
+        ('email', 'Lettura email banca'),
+    ], string='Sorgente', default='manuale', required=True)
+    matched_auto = fields.Boolean(
+        string='Match automatico', default=False)
+    note = fields.Text(string='Note')
+    attivo = fields.Boolean(default=True)
