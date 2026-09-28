@@ -17,6 +17,9 @@ from datetime import timedelta
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+import logging
+_logger = logging.getLogger(__name__)
+
 
 MONTHS = [
     ('1', 'Gennaio'), ('2', 'Febbraio'), ('3', 'Marzo'),
@@ -736,6 +739,65 @@ class Erpv6DealSettlementLine(models.Model):
         return True
 
 
+    @api.model
+    def action_alert_pagamenti_scaduti(self):
+        """28/09/2026: cron notturno. Trova linee con fattura scaduta e
+        manda email di alert a Denis. Evita duplicati con tracking.
+        """
+        from datetime import date
+        from odoo.addons.erpv6_referral.models.system_mail_helper import (
+            send_system_mail, get_admin_email,
+        )
+        today = date.today()
+        scadute = self.sudo().search([
+            ('pagamento_stato', 'in', ['fattura_ricevuta', 'in_pagamento']),
+            ('fattura_scadenza', '<', today),
+        ])
+        if not scadute:
+            _logger.info('Alert pagamenti: nessuna scaduta')
+            return 0
+
+        admin_email = get_admin_email(self.env)
+        if not admin_email:
+            _logger.warning('Alert pagamenti: nessuna email admin')
+            return 0
+
+        righe_html = []
+        totale_ritardo = 0.0
+        for line in scadute:
+            giorni = (today - line.fattura_scadenza).days
+            importo = line.importo_effettivo or 0
+            totale_ritardo += importo
+            righe_html.append(
+                f'<tr>'
+                f'<td>{line.participant_id.partner_id.name}</td>'
+                f'<td>{line.settlement_id.name}</td>'
+                f'<td>€ {importo:,.2f}</td>'
+                f'<td style="color:red">{giorni}gg</td>'
+                f'<td>{line.pagamento_stato}</td>'
+                f'</tr>'
+            )
+
+        subject = f'[V6] {len(scadute)} pagamenti scaduti — € {totale_ritardo:,.2f}'
+        body = (
+            f'<h3>Pagamenti scaduti al {today.strftime("%d/%m/%Y")}</h3>'
+            f'<p><b>Totale in ritardo:</b> € {totale_ritardo:,.2f}</p>'
+            f'<table border="1" cellpadding="6" style="border-collapse:collapse">'
+            f'<thead><tr><th>Consulente</th><th>Consuntivo</th>'
+            f'<th>Importo</th><th>Ritardo</th><th>Stato</th></tr></thead>'
+            f'<tbody>{"".join(righe_html)}</tbody></table>'
+            f'<p style="margin-top:1em">'
+            f'<a href="https://www.v6impresa.it/admin/deals" '
+            f'style="background:#0f172a;color:white;padding:8px 16px;'
+            f'border-radius:4px;text-decoration:none;">Apri admin deals</a>'
+            f'</p>'
+        )
+        send_system_mail(self.env, admin_email, subject, body)
+        _logger.info('Alert pagamenti inviato: %s scadute, totale €%.2f',
+                     len(scadute), totale_ritardo)
+        return len(scadute)
+
+
 class Erpv6DealSettlementIncasso(models.Model):
     """28/09/2026: singolo movimento di incasso dal cliente (OMEGA).
     Un settlement può avere più movimenti (acconti, saldi, tranche)."""
@@ -763,3 +825,4 @@ class Erpv6DealSettlementIncasso(models.Model):
         string='Match automatico', default=False)
     note = fields.Text(string='Note')
     attivo = fields.Boolean(default=True)
+
