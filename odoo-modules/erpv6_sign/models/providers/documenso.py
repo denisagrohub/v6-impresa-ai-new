@@ -76,7 +76,7 @@ class DocumensoAdapter(SignatureProviderAdapter):
             json={
                 'envelopeId': envelope_id,
                 'meta': {
-                    'subject': _('Documento da firmare: %s') % sign_request.name,
+                    'subject': f'Documento da firmare: {sign_request.name}',
                     'message': sign_request.notes or '',
                     'distributionMethod': 'EMAIL',
                 },

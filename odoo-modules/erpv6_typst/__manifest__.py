@@ -34,6 +34,7 @@
         'views/menu_views.xml',
         'data/typst_template_winwin.xml',
         'data/typst_templates_data.xml',
+        'data/prospetto_deal_data.xml',
     ],
     'demo': [],
     'installable': True,

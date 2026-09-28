@@ -88,6 +88,49 @@ def _handle_contract_draft(sign_request):
 
 
 
+
+
+def _handle_deal_prospetto(sign_request):
+    """28/09/2026: post-firma di un prospetto deal V6.
+    Quando TUTTE le sign request del deal sono firmate:
+    - prospetto.state = 'signed'
+    - deal.state = 'active'
+    - deal.signed_at = now
+    """
+    from odoo import fields as odoo_fields
+    deal = sign_request.env['erpv6.deal'].sudo().browse(sign_request.related_id)
+    if not deal.exists():
+        _logger.warning('Deal %s non trovato per sr %s', sign_request.related_id, sign_request.id)
+        _notify_admin(sign_request)
+        return
+
+    # Verifica se tutte le firme sono complete
+    all_signed = all(
+        sr.status == 'signed'
+        for sr in deal.sign_request_ids
+    ) if deal.sign_request_ids else False
+
+    if all_signed:
+        prospetto = deal.current_prospetto_id
+        if prospetto:
+            prospetto.write({
+                'state': 'signed',
+                'signed_at': odoo_fields.Datetime.now(),
+            })
+        deal.write({
+            'state': 'active',
+            'signed_at': odoo_fields.Datetime.now(),
+        })
+        deal.message_post(body="✓ Prospetto firmato da tutti i partecipanti. Deal attivato.")
+        _logger.info('Deal %s: tutte le firme complete, state=active', deal.id)
+    else:
+        pending = deal.sign_request_ids.filtered(lambda s: s.status != 'signed')
+        deal.message_post(body=f"Firma ricevuta. In attesa di {len(pending)} firme rimanenti.")
+        _logger.info('Deal %s: firma parziale, %s pending', deal.id, len(pending))
+
+    _notify_admin(sign_request)
+
+
 def dispatch_post_sign_handler(sign_request):
     """Entry point unico chiamato dal webhook dopo la firma."""
     # 26/09/2026: se c'è contract_draft_id, usa handler dedicato
@@ -105,6 +148,7 @@ def dispatch_post_sign_handler(sign_request):
         'nda': _handle_generic,
         'ncnd': _handle_generic,
         'contratto': _handle_generic,
+        'deal_prospetto': _handle_deal_prospetto,
         'altro': _handle_generic,
     }.get(kind, _handle_generic)
     try:

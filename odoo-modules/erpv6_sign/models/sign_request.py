@@ -71,6 +71,7 @@ class SignRequest(models.Model):
         ('nda', 'NDA'),
         ('ncnd', 'NCND'),
         ('contratto', 'Contratto'),
+        ('deal_prospetto', 'Prospetto Deal V6'),
         ('altro', 'Altro'),
     ], string='Tipo documento', default='altro', index=True)
     related_id = fields.Integer(

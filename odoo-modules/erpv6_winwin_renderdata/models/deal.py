@@ -136,12 +136,116 @@ class Erpv6Deal(models.Model):
             })
         return True
 
+    def _build_prospetto_render_data(self):
+        """Costruisce il dict per Typst dal prospetto frozen corrente."""
+        self.ensure_one()
+        prospetto = self.current_prospetto_id
+        if not prospetto:
+            raise UserError("Nessun prospetto: congela prima il deal.")
+
+        lines = []
+        totals = {
+            'monthly_min': 0, 'monthly_base': 0, 'monthly_max': 0,
+            'rolling_12_min': 0, 'rolling_12_base': 0, 'rolling_12_max': 0,
+            'rolling_24_min': 0, 'rolling_24_base': 0, 'rolling_24_max': 0,
+        }
+
+        for l in prospetto.line_ids:
+            p = l.participant_id
+            lines.append({
+                'partner_name': p.partner_id.name or p.name or '',
+                'role': l.role or p.role or '',
+                'tier': p.tier or '',
+                'share_pct': (p.share_pct or 0) * 100,
+                'monthly_min': l.monthly_min or 0,
+                'monthly_base': l.monthly_base or 0,
+                'monthly_max': l.monthly_max or 0,
+            })
+            for k in ('monthly_min', 'monthly_base', 'monthly_max',
+                      'rolling_12_min', 'rolling_12_base', 'rolling_12_max',
+                      'rolling_24_min', 'rolling_24_base', 'rolling_24_max'):
+                totals[k] += getattr(l, k, 0) or 0
+
+        return {
+            'deal_id': self.id,
+            'deal_name': self.name,
+            'schema_code': self.schema_code or '',
+            'relation_name': self.relation_id.name if self.relation_id else '',
+            'revenue_model': self.revenue_model or '',
+            'state': self.state or '',
+            'prospetto_version': prospetto.version,
+            'prospetto_lines': lines,
+            'totals': totals,
+        }
+
     def action_send_to_sign(self):
+        """Crea contract_draft Typst, genera PDF, invia a firma su Documenso
+        per ogni partecipante con email. Imposta deal.state='signing'."""
+        Draft = self.env['erpv6.contract.draft'].sudo()
+        Sign = self.env['erpv6.sign.request'].sudo()
+        Template = self.env['erpv6.typst.template'].sudo()
+
         for d in self:
             if not d.can_sign:
                 raise UserError(
                     "Impossibile inviare in firma: congela prima il deal.")
-            d.state = 'signing'
+            if not d.current_prospetto_id:
+                raise UserError("Nessun prospetto congelato: congela prima.")
+
+            template = Template.search(
+                [('code', '=', 'PROSPETTO-DEAL-001')], limit=1)
+            if not template:
+                raise UserError(
+                    "Template 'PROSPETTO-DEAL-001' non trovato. "
+                    "Aggiorna erpv6_typst per installarlo.")
+
+            # 1) Contract draft (contenitore PDF)
+            counterparty = d.env.company.partner_id
+            draft = Draft.create({
+                'name': f'{d.name} — prospetto v{d.current_prospetto_id.version}',
+                'template_id': template.id,
+                'project_id': d.relation_id.id if d.relation_id else False,
+                'counterparty_id': counterparty.id if counterparty else False,
+                'extra_data': d._build_prospetto_render_data(),
+                'pdf_mode': 'official',
+            })
+            draft.action_generate_pdf()
+
+            if not draft.document_id or not draft.document_id.pdf_file:
+                raise UserError(
+                    "Generazione PDF fallita: nessun documento prodotto.")
+
+            # 2) Sign request per ogni partecipante con email
+            sign_ids = []
+            for p in d.participant_ids:
+                partner = p.partner_id
+                if not partner or not partner.email:
+                    continue
+                sr = Sign.create({
+                    'name': f'{d.name} — firma {partner.name}',
+                    'partner_id': partner.id,
+                    'document_id': draft.document_id.id,
+                    'contract_draft_id': draft.id,
+                    'related_kind': 'deal_prospetto',
+                    'related_id': d.id,
+                    'related_model': 'erpv6.deal',
+                    'notes': f'Prospetto deal {d.name} v{d.current_prospetto_id.version}',
+                })
+                sign_ids.append(sr.id)
+
+            if not sign_ids:
+                raise UserError(
+                    "Nessun partecipante con email: impossibile inviare in firma.")
+
+            # 3) Invia a Documenso
+            for sr in Sign.browse(sign_ids):
+                sr.action_send_to_sign()
+
+            # 4) Collega sign request al prospetto + stato deal
+            d.current_prospetto_id.write({
+                'sign_request_ids': [(6, 0, sign_ids)],
+            })
+            d.write({'state': 'signing'})
         return True
 
     def _generate_prospetto(self, freeze=False):
