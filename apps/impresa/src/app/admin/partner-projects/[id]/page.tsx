@@ -925,12 +925,9 @@ export default function PartnerProjectDetailPage() {
                 )}
             </div>
 
-            {/* ───── MAIN: due colonne ───── */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] flex-1 overflow-hidden">
-
-                {/* ═══ COLONNA SINISTRA: contenuto contestuale alla vista ═══ */}
-                <main className="flex flex-col min-w-0 bg-white overflow-y-auto p-6 border-r border-[#e2e8f0]">
-
+            {/* ───── COPERTINA FULL-WIDTH: breadcrumb + deal CC + KPI + kanban + split ───── */}
+            {(breadcrumbItems.length > 0 || dealCollegato || childProjects.length > 0) && (
+                <div className="bg-[#f8fafc] border-b border-[#e2e8f0] px-6 py-4 shrink-0 overflow-y-auto max-h-[45vh]">
                     {/* 28/09/2026: breadcrumb gerarchico */}
                     {breadcrumbItems.length > 0 && (
                         <Breadcrumb
@@ -946,6 +943,49 @@ export default function PartnerProjectDetailPage() {
                             childProjectId={Number(id)}
                         />
                     )}
+
+                    {/* 28/09/2026: dashboard padre TEE — KPI + Split + Pipeline */}
+                    {childProjects.length > 0 && (
+                        <section className="space-y-4">
+                            {kpiDeal && <KpiDealRow kpi={kpiDeal} />}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <div className="lg:col-span-2">
+                                    <DealsKanban
+                                        deals={dealsFlat}
+                                        parentProjectId={Number(id)}
+                                        authToken={
+                                            (() => {
+                                                try {
+                                                    const raw = localStorage.getItem('pi_session');
+                                                    const s = raw ? JSON.parse(raw) : null;
+                                                    return s?.token || '';
+                                                } catch { return ''; }
+                                            })()
+                                        }
+                                        onDealCreated={() => {
+                                            if (typeof window !== 'undefined') {
+                                                window.location.reload();
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    {splitSquadra.length > 0 && (
+                                        <SplitSquadraCard lines={splitSquadra} />
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                </div>
+            )}
+
+            {/* ───── MAIN: due colonne ───── */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] flex-1 overflow-hidden">
+
+                {/* ═══ COLONNA SINISTRA: contenuto contestuale alla vista ═══ */}
+                <main className="flex flex-col min-w-0 bg-white overflow-y-auto p-6 border-r border-[#e2e8f0]">
 
                     {/* HEADER CONTESTUALE (se contesto != progetto) */}
                     {operativeContext && operativeContext.type !== 'project' && (
@@ -1142,40 +1182,6 @@ export default function PartnerProjectDetailPage() {
                             )}
                         </section>
                     )}
-                    {/* 28/09/2026: dashboard padre TEE — KPI + Split + Pipeline */}
-                    {childProjects.length > 0 && (
-                        <section className="mt-6 space-y-4">
-                            {kpiDeal && <KpiDealRow kpi={kpiDeal} />}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <div className="lg:col-span-2">
-                                    <DealsKanban
-                                        deals={dealsFlat}
-                                        parentProjectId={Number(id)}
-                                        authToken={
-                                            (() => {
-                                                try {
-                                                    const raw = localStorage.getItem('pi_session');
-                                                    const s = raw ? JSON.parse(raw) : null;
-                                                    return s?.token || '';
-                                                } catch { return ''; }
-                                            })()
-                                        }
-                                        onDealCreated={() => {
-                                            if (typeof window !== 'undefined') {
-                                                window.location.reload();
-                                            }
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    {splitSquadra.length > 0 && (
-                                        <SplitSquadraCard lines={splitSquadra} />
-                                    )}
-                                </div>
-                            </div>
-                        </section>
-                    )}
-
                     {/* Progetti operativi (padre) — vista lista */}
                     {childProjects.length > 0 && (
                         <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
