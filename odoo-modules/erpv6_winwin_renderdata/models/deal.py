@@ -165,6 +165,71 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
             self.id, last.partner_id.name, shares[-1], new_last)
         return
 
+    def _gen_transparency_token(self, participant):
+        """Genera un token univoco per il consenso."""
+        import hashlib, secrets
+        raw = f"{self.id}:{participant.id}:{secrets.token_urlsafe(16)}"
+        return hashlib.sha256(raw.encode()).hexdigest()[:48]
+
+    def action_send_transparency_request(self, filter_partner_ids=None):
+        """Manda email ai participant chiedendo consenso condivisione quota.
+
+        filter_partner_ids: se specificato, manda SOLO a questi res.partner.id
+                            (utile per test/mirati).
+        Salta chi ha già impostato x_v6_share_transparency_default.
+        """
+        self.ensure_one()
+        from odoo.addons.erpv6_referral.models.system_mail_helper import send_system_mail
+
+        sent = 0
+        skipped = 0
+        for p in self.participant_ids:
+            partner = p.partner_id
+            if not partner or not partner.email:
+                continue
+            if filter_partner_ids and partner.id not in filter_partner_ids:
+                skipped += 1
+                continue
+            if partner.x_v6_share_transparency_default != 'unset':
+                skipped += 1
+                continue
+            if not p.share_transparency_token:
+                p.share_transparency_token = self._gen_transparency_token(p)
+            token = p.share_transparency_token
+            base_url = 'https://www.v6impresa.it/api/public/transparency-confirm'
+            yes_url = f'{base_url}?token={token}&r=yes'
+            no_url = f'{base_url}?token={token}&r=no'
+
+            subject = f'Consenso condivisione quote — {self.name}'
+            body = f'''
+<p>Ciao {partner.name or ''},</p>
+<p>Per il deal <b>{self.name}</b> stiamo predisponendo il consuntivo mensile.</p>
+<p>Possiamo mostrare la tua quota agli altri partecipanti del deal?</p>
+<ul>
+  <li><b>Se tutti accettano</b>: il consuntivo mostra la ripartizione completa a tutti.</li>
+  <li><b>Se anche uno rifiuta</b>: ognuno vede solo la propria riga (nessuno saprà chi ha rifiutato).</li>
+</ul>
+<p style="margin-top:1.5em">
+  <a href="{yes_url}" style="background:#059669;color:white;padding:10px 20px;border-radius:4px;text-decoration:none;font-weight:bold;">✓ Accetto di condividere</a>
+  &nbsp;&nbsp;
+  <a href="{no_url}" style="background:#6b7280;color:white;padding:10px 20px;border-radius:4px;text-decoration:none;font-weight:bold;">✗ Preferisco non condividere</a>
+</p>
+<p style="font-size:0.85em;color:#666;margin-top:1.5em">
+  La tua scelta è riservata. Se rifiuti, gli altri non sapranno chi ha rifiutato.
+</p>
+'''
+            try:
+                send_system_mail(self.env, partner.email, subject, body)
+                p.share_transparency_requested_at = fields.Datetime.now()
+                sent += 1
+            except Exception:
+                _logger.exception('Invio transparency fallito per %s', partner.id)
+
+        self.message_post(
+            body=f"Richiesta consenso: {sent} inviate, {skipped} saltate.")
+        _logger.info('Deal %s: %s inviate, %s saltate', self.id, sent, skipped)
+        return sent
+
     def action_freeze(self):
         for d in self:
             if not d.can_freeze:
@@ -435,6 +500,16 @@ class Erpv6DealVariable(models.Model):
 
 class Erpv6DealParticipant(models.Model):
     _name = 'erpv6.deal.participant'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """28/09/2026: applica default transparency del partner se presente."""
+        for vals in vals_list:
+            if 'partner_id' in vals and 'share_transparency' not in vals:
+                partner = self.env['res.partner'].browse(vals['partner_id'])
+                if partner.x_v6_share_transparency_default == 'yes':
+                    vals['share_transparency'] = True
+        return super().create(vals_list)
     _description = 'Partecipante a un deal'
 
     deal_id = fields.Many2one('erpv6.deal', required=True, ondelete='cascade',
@@ -470,6 +545,12 @@ class Erpv6DealParticipant(models.Model):
         help='Se TUTTI i partecipanti accettano, il consuntivo mostra '
              'la ripartizione completa. Altrimenti ognuno vede solo la sua riga.',
     )
+    share_transparency_token = fields.Char(
+        string='Token consenso', readonly=True, index=True)
+    share_transparency_requested_at = fields.Datetime(
+        string='Richiesta consenso il', readonly=True)
+    share_transparency_responded_at = fields.Datetime(
+        string='Risposta ricevuta il', readonly=True)
     is_referral_payer = fields.Boolean(
         string='Paga il referral',
         help="Se True, il costo referral e' dedotto dalla quota di questo "

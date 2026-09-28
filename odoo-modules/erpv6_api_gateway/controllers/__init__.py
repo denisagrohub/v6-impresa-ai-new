@@ -38,3 +38,4 @@ from . import partnership_api
 from . import public_project_api
 from . import public_verify_api
 from . import magic_link_api
+from . import public_transparency_api

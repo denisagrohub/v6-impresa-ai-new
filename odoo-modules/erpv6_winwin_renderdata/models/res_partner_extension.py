@@ -104,3 +104,20 @@ class ResPartnerRegimeFiscale(models.Model):
     ], string='Regime fiscale',
        default='non_specificato',
        help="Determina come generare la sezione 'Come ricevere il compenso' nei PDF.")
+
+class ResPartnerTransparencyDefault(models.Model):
+    """28/09/2026: preferenza di default del consulente sulla condivisione
+    della propria quota nei deal. Vale per tutti i deal futuri, con
+    override per-deal sul participant."""
+    _inherit = 'res.partner'
+
+    x_v6_share_transparency_default = fields.Selection([
+        ('yes', 'Sì, condivido la mia quota'),
+        ('no', 'No, non condivido la mia quota'),
+        ('unset', 'Non ancora impostato'),
+    ], string='Condivisione quota deal (default)',
+       default='unset',
+       help='Preferenza che si applica a tutti i deal futuri. '
+            'Può essere sovrascritta per singolo deal.')
+    x_v6_share_transparency_set_at = fields.Datetime(
+        string='Preferenza impostata il', readonly=True)
