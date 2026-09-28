@@ -38,23 +38,93 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const allChildren = children || [];
 
     // Deal collegati: cerca tutti i deal che hanno relation_id in (id, figli)
+    // 28/09/2026: arricchito con dati per kanban (progress, seller/buyer, fee)
     let dealsByRelation: Record<number, any[]> = {};
+    const dealsFlat: any[] = [];
     try {
       const childIds = [id, ...allChildren.map((c: any) => c.id)];
       const deals = await odoo.execute('erpv6.deal', 'search_read', [
         [['relation_id', 'in', childIds]],
-        ['id', 'name', 'state', 'revenue_model', 'relation_id'],
+        ['id', 'name', 'state', 'revenue_model', 'schema_code',
+         'relation_id', 'seller_id', 'buyer_id',
+         'current_prospetto_id', 'progress_done', 'progress_total'],
       ]);
+
+      // Lookup partner per seller/buyer
+      const partnerIds = new Set<number>();
+      for (const d of (deals || [])) {
+        const sid = Array.isArray(d.seller_id) ? d.seller_id[0] : null;
+        const bid = Array.isArray(d.buyer_id) ? d.buyer_id[0] : null;
+        if (sid) partnerIds.add(sid);
+        if (bid) partnerIds.add(bid);
+      }
+      const partnerMap: Record<number, any> = {};
+      if (partnerIds.size > 0) {
+        const partners = await odoo.execute('res.partner', 'search_read', [
+          [['id', 'in', Array.from(partnerIds)]],
+          ['id', 'name', 'is_placeholder', 'placeholder_code'],
+        ]);
+        for (const p of (partners || [])) partnerMap[p.id] = p;
+      }
+
+      // Fee mensile per deal dal prospetto corrente
+      const feeByDeal: Record<number, number> = {};
+      const prospettoIds = new Set<number>();
+      for (const d of (deals || [])) {
+        const pid = Array.isArray(d.current_prospetto_id) ? d.current_prospetto_id[0] : null;
+        if (pid) prospettoIds.add(pid);
+      }
+      if (prospettoIds.size > 0) {
+        const lines = await odoo.execute('erpv6.deal.prospetto.line', 'search_read', [
+          [['prospetto_id', 'in', Array.from(prospettoIds)]],
+          ['prospetto_id', 'monthly_base'],
+        ]);
+        const sumByProspetto: Record<number, number> = {};
+        for (const l of (lines || [])) {
+          const pid = Array.isArray(l.prospetto_id) ? l.prospetto_id[0] : null;
+          if (!pid) continue;
+          sumByProspetto[pid] = (sumByProspetto[pid] || 0) + (l.monthly_base || 0);
+        }
+        for (const d of (deals || [])) {
+          const pid = Array.isArray(d.current_prospetto_id) ? d.current_prospetto_id[0] : null;
+          if (pid) feeByDeal[d.id] = sumByProspetto[pid] || 0;
+        }
+      }
+
+      // Arricchisci deals
       for (const d of (deals || [])) {
         const rid = Array.isArray(d.relation_id) ? d.relation_id[0] : null;
+        const relName = Array.isArray(d.relation_id) ? d.relation_id[1] : null;
         if (!rid) continue;
-        if (!dealsByRelation[rid]) dealsByRelation[rid] = [];
-        dealsByRelation[rid].push({
+        const sid = Array.isArray(d.seller_id) ? d.seller_id[0] : null;
+        const bid = Array.isArray(d.buyer_id) ? d.buyer_id[0] : null;
+        const seller = sid ? partnerMap[sid] : null;
+        const buyer = bid ? partnerMap[bid] : null;
+
+        const enriched = {
           id: d.id,
           name: d.name,
           state: d.state,
           revenueModel: d.revenue_model,
-        });
+          schemaCode: d.schema_code,
+          relationId: rid,
+          relationName: relName,
+          sellerId: sid,
+          sellerName: seller?.name || null,
+          sellerIsPlaceholder: seller?.is_placeholder || false,
+          sellerPlaceholderCode: seller?.placeholder_code || null,
+          buyerId: bid,
+          buyerName: buyer?.name || null,
+          buyerIsPlaceholder: buyer?.is_placeholder || false,
+          buyerPlaceholderCode: buyer?.placeholder_code || null,
+          progressDone: d.progress_done || 0,
+          progressTotal: d.progress_total || 0,
+          feeMonthlyBase: feeByDeal[d.id] || 0,
+        };
+
+        if (!dealsByRelation[rid]) dealsByRelation[rid] = [];
+        dealsByRelation[rid].push(enriched);
+        dealsFlat.push(enriched);
       }
     } catch (e: any) {
       console.error('⚠️ deal collegati fallito:', e.message);

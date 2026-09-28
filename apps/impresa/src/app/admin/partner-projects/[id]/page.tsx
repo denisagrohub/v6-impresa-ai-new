@@ -42,6 +42,7 @@ import PersonCard from "@/components/admin/PersonCard";
 import { LifecycleBadge } from "@/components/admin/LifecycleBadge";
 import { DealCard } from "@/components/deals/DealCard";
 import { ChildProjectsList } from "@/components/projects/ChildProjectsList";
+import { DealsKanban, type KanbanDeal } from "@/components/deal/DealsKanban";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -148,6 +149,7 @@ export default function PartnerProjectDetailPage() {
     const [emails, setEmails] = useState<EmailLog[]>([]);
     // 28/09/2026: deal collegati (dal modello erpv6.deal)
     const [deals, setDeals] = useState<DealCollegato[]>([]);
+    const [dealsFlat, setDealsFlat] = useState<KanbanDeal[]>([]);
     // Progetti figli con child_kind='progetto' (deal operativi)
     const [childProjects, setChildProjects] = useState<ChildProject[]>([]);
     const [showAcqModal, setShowAcqModal] = useState(false);
@@ -330,6 +332,7 @@ export default function PartnerProjectDetailPage() {
             setPartners(data.partners || []);
             setTargets(data.targets || []);
             setDeals(data.deals || []);
+            setDealsFlat(data.dealsFlat || []);
             setChildProjects(data.childProjects || []);
             setContextOptions({
                 persone: (data.partners || []).filter((p: any) => p.funzione_progetto !== 'target'),
@@ -1111,7 +1114,12 @@ export default function PartnerProjectDetailPage() {
                             )}
                         </section>
                     )}
-                    {/* Progetti operativi (padre) */}
+                    {/* Pipeline deal (padre TEE) — kanban */}
+                    {childProjects.length > 0 && dealsFlat.length > 0 && (
+                        <DealsKanban deals={dealsFlat} />
+                    )}
+
+                    {/* Progetti operativi (padre) — vista lista */}
                     {childProjects.length > 0 && (
                         <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
                             <h2 className="text-base font-semibold mb-3">Progetti operativi</h2>
