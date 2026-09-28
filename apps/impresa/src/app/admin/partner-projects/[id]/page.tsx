@@ -19,7 +19,7 @@ import { useRouter, useParams } from "next/navigation"; // routing App Router
 import Link from "next/link";
 // Icone SVG (lucide): mantenerle piccole per performance
 import {
-    Loader2, ArrowLeft, Send, ChevronDown, ChevronUp, UserPlus,
+    Loader2, ArrowLeft, Send, ChevronDown, ChevronUp, UserPlus, Briefcase, ExternalLink,
     Sparkles, Download, Settings, LayoutGrid, Table, UploadCloud,
     Activity, FileText, Zap, Video, Monitor, ChevronDown as ChevD, Layers, Plus, ChevronRight, Phone, } from "lucide-react";
 // DOMPurify: i body email arrivano come HTML da Odoo → vanno SANITIZZATI (anti-XSS)
@@ -43,6 +43,21 @@ import PersonCard from "@/components/admin/PersonCard";
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
 // Una "parte" collegata al progetto (utile per raggruppare contatti)
+interface ChildProject {
+    id: number;
+    name: string;
+    state: string;
+    partnerName: string | null;
+    deals: DealCollegato[];
+}
+
+interface DealCollegato {
+    id: number;
+    name: string;
+    state: string;
+    revenueModel: string;
+}
+
 interface Partner {
     id: number;
     name: string;
@@ -126,6 +141,10 @@ export default function PartnerProjectDetailPage() {
     // 19/09/2026: target = figli con funzione_progetto='target' (kanban)
     const [targets, setTargets] = useState<{ id: number; name: string; partnerName: string | null; partnerEmail?: string | null; contattoName: string | null; contattoEmail?: string | null; stageId: number | null; state: string }[]>([]);
     const [emails, setEmails] = useState<EmailLog[]>([]);
+    // 28/09/2026: deal collegati (dal modello erpv6.deal)
+    const [deals, setDeals] = useState<DealCollegato[]>([]);
+    // Progetti figli con child_kind='progetto' (deal operativi)
+    const [childProjects, setChildProjects] = useState<ChildProject[]>([]);
     const [showAcqModal, setShowAcqModal] = useState(false);
     const [acqName, setAcqName] = useState('Acquisizione Aziende');
     const [acqAlias, setAcqAlias] = useState('');
@@ -305,6 +324,8 @@ export default function PartnerProjectDetailPage() {
             fetch(`/api/admin/partner-projects/${id}/emails-seen`, { method: 'POST' }).catch(() => {});
             setPartners(data.partners || []);
             setTargets(data.targets || []);
+            setDeals(data.deals || []);
+            setChildProjects(data.childProjects || []);
             setContextOptions({
                 persone: (data.partners || []).filter((p: any) => p.funzione_progetto !== 'target'),
                 targets: data.targets || [],

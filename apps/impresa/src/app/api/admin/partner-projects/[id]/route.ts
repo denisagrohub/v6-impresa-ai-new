@@ -31,11 +31,34 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const children = await odoo.execute('erpv6.tracking.relation', 'search_read', [
       [['parent_id', '=', id]],
-      ['id', 'name', 'ruolo', 'partner_id', 'funzione_progetto', 'email_alias', 'contatto_principale_id', 'ruolo_contatto', 'state', 'stage_id'],
+      ['id', 'name', 'ruolo', 'partner_id', 'funzione_progetto', 'email_alias', 'contatto_principale_id', 'ruolo_contatto', 'state', 'stage_id', 'child_kind'],
       0, 0, 'name asc',
     ]);
 
     const allChildren = children || [];
+
+    // Deal collegati: cerca tutti i deal che hanno relation_id in (id, figli)
+    let dealsByRelation: Record<number, any[]> = {};
+    try {
+      const childIds = [id, ...allChildren.map((c: any) => c.id)];
+      const deals = await odoo.execute('erpv6.deal', 'search_read', [
+        [['relation_id', 'in', childIds]],
+        ['id', 'name', 'state', 'revenue_model', 'relation_id'],
+      ]);
+      for (const d of (deals || [])) {
+        const rid = Array.isArray(d.relation_id) ? d.relation_id[0] : null;
+        if (!rid) continue;
+        if (!dealsByRelation[rid]) dealsByRelation[rid] = [];
+        dealsByRelation[rid].push({
+          id: d.id,
+          name: d.name,
+          state: d.state,
+          revenueModel: d.revenue_model,
+        });
+      }
+    } catch (e: any) {
+      console.error('⚠️ deal collegati fallito:', e.message);
+    }
 
     // 19/09/2026: arricchisci con email partner E email contatto principale
     // (per filtro email contestuale: cerco sia info@azienda sia mario@azienda)
@@ -178,6 +201,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
         stageId: Array.isArray(c.stage_id) ? c.stage_id[0] : null,
         state: c.state || 'attivo',
       })),
+      childProjects: allChildren
+        .filter((c: any) => c.child_kind === 'progetto')
+        .map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          state: c.state || 'attivo',
+          partnerName: Array.isArray(c.partner_id) ? c.partner_id[1] : null,
+          deals: dealsByRelation[c.id] || [],
+        })),
+      deals: dealsByRelation[id] || [],
       emails: (emails || []).map((e: any) => ({
         id: e.id,
         subject: e.name,
