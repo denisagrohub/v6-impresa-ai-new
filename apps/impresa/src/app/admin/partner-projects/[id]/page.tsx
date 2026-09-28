@@ -39,6 +39,7 @@ import AcquisitionKanban from "@/components/admin/AcquisitionKanban";
 import RelationScoutingPanel, { type RelationScoutingData } from "@/components/admin/RelationScoutingPanel";
 import CallEndPanel from "@/components/admin/CallEndPanel";
 import PersonCard from "@/components/admin/PersonCard";
+import { LifecycleBadge } from "@/components/admin/LifecycleBadge";
 import { DealCard } from "@/components/deals/DealCard";
 import { ChildProjectsList } from "@/components/projects/ChildProjectsList";
 
@@ -66,6 +67,7 @@ interface Partner {
     ruolo: string | null;
     partnerId: number | null;   // res.partner in Odoo, se mappato
     partnerName: string | null;
+    lifecycleStage?: string | null;
 }
 
 // Log email mostrato nell'elenco (senza body: caricato on-demand)
@@ -105,6 +107,7 @@ export default function PartnerProjectDetailPage() {
     const [activeEngine, setActiveEngine] = useState<IntelligenceEngine>('susanna');
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({ intelligence: true, sottoprogetti: true, parti: true, documenti: true, attivita: true });
     const toggleSection = (k: string) => setOpenSections(s => ({ ...s, [k]: !s[k] }));
+    const [lifecycleFilter, setLifecycleFilter] = useState<'all' | 'active' | 'degraded'>('all');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     // 19/09/2026: target di rendimento (vive su x_v6_kpi_targets in Odoo)
     const [kpiTargetsEdit, setKpiTargetsEdit] = useState<{ targetAttivi: number; partnerAnno: number; callMese: number; emailMese: number }>({ targetAttivi: 20, partnerAnno: 5, callMese: 10, emailMese: 30 });
@@ -1233,13 +1236,31 @@ export default function PartnerProjectDetailPage() {
                             </form>
                         )}
 
+                        {/* 28/09/2026: filtro lifecycle */}
+                        <div className="mb-2 flex items-center gap-1">
+                            {(['all', 'active', 'degraded'] as const).map((f) => (
+                                <button
+                                    key={f}
+                                    onClick={() => setLifecycleFilter(f)}
+                                    className={`px-2 py-0.5 rounded text-[10.5px] font-semibold transition-colors ${lifecycleFilter === f ? 'bg-[#0f172a] text-white' : 'text-gray-500 hover:text-gray-900'}`}
+                                >
+                                    {f === 'all' ? 'Tutti' : f === 'active' ? 'Attivi' : 'Degradati'}
+                                </button>
+                            ))}
+                        </div>
                         {partners.length === 0 ? (
                             <p className="text-xs text-gray-400 italic">Nessuna parte collegata.</p>
                         ) : (
                             <div className="space-y-1.5">
-                                {partners.map((p) => (
+                                {partners
+                                    .filter((p) => {
+                                        if (lifecycleFilter === 'all') return true;
+                                        if (lifecycleFilter === 'active') return p.lifecycleStage !== 'degradato' && p.lifecycleStage !== 'chiuso';
+                                        return p.lifecycleStage === 'degradato';
+                                    })
+                                    .map((p) => (
                                     <div key={p.id} className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-100">
-                                        <div className="font-semibold text-[#0f172a]">{p.partnerName || p.name}</div>
+                                        <div className="flex items-center gap-1.5 font-semibold text-[#0f172a]"><span>{p.partnerName || p.name}</span><LifecycleBadge stage={p.lifecycleStage ?? null} /></div>
                                         {/* Pannello AI per singola parte (analisi del rapporto) */}
                                         <div className="mt-1 flex items-center gap-1">
                                             {p.partnerId && (
