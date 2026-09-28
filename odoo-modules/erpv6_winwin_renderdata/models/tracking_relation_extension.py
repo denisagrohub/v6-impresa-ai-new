@@ -530,3 +530,94 @@ class Erpv6TrackingRelation(models.Model):
                     f"Riserva V6 ({riserva:.1f}%) sotto il minimo "
                     f"configurato per questo progetto ({minimo:.1f}%)"
                 )
+
+    @api.model
+    def action_create_deal(self, params):
+        """28/09/2026: crea figlio progetto + deal + variabili iniziali.
+        Riceve un dict `params`:
+          parent_id (req), seller_partner_id (req), buyer_partner_id (req),
+          nome, volume_month, prezzo_base, fee_pct, durata_mesi,
+          revenue_model, schema_code, unit
+        """
+        parent_id = params.get('parent_id')
+        seller_partner_id = params.get('seller_partner_id')
+        buyer_partner_id = params.get('buyer_partner_id')
+        volume_month = params.get('volume_month', 100000)
+        prezzo_base = params.get('prezzo_base', 222.30)
+        fee_pct = params.get('fee_pct', 4.5)
+        durata_mesi = params.get('durata_mesi', 12)
+        revenue_model = params.get('revenue_model', 'fee')
+        schema_code = params.get('schema_code', 'TEE-ROLLING-001')
+        unit = params.get('unit', 'TEE')
+        nome = params.get('nome')
+        parent = self.browse(parent_id)
+        if not parent.exists():
+            raise UserError('Progetto padre non trovato')
+        if parent.parent_id:
+            raise UserError('Il deal va creato su un progetto radice.')
+
+        Seller = self.env['res.partner'].sudo().browse(seller_partner_id)
+        Buyer = self.env['res.partner'].sudo().browse(buyer_partner_id)
+        if not Seller.exists() or not Buyer.exists():
+            raise UserError('Venditore o compratore non trovati.')
+
+        # Nome: dal chiamante o auto-generato da placeholder/name
+        def _display(p):
+            if p.is_placeholder and p.placeholder_code:
+                return p.placeholder_code
+            return p.name or '—'
+
+        if not nome:
+            nome = f'{parent.name} — Deal ({_display(Seller)} -> {_display(Buyer)})'
+
+        # 1. Figlio progetto (uso action_create_subproject esistente)
+        child = self.env['erpv6.tracking.relation'].sudo().create({
+            'name': nome,
+            'parent_id': parent_id,
+            'child_kind': 'progetto',
+            'partner_id': self.env.company.partner_id.id,
+            'state': 'attivo',
+        })
+
+        # 2. Schema deal
+        Schema = self.env['erpv6.deal.schema'].sudo()
+        schema = Schema.search([('code', '=', schema_code)], limit=1)
+        if not schema:
+            raise UserError(f'Schema "{schema_code}" non trovato.')
+
+        # 3. Deal
+        Deal = self.env['erpv6.deal'].sudo()
+        deal = Deal.create({
+            'name': nome,
+            'relation_id': child.id,
+            'schema_id': schema.id,
+            'seller_id': seller_partner_id,
+            'buyer_id': buyer_partner_id,
+            'revenue_model': revenue_model,
+            'state': 'forecasting',
+        })
+
+        # 4. Variabili iniziali (source=manual, enabled=True)
+        Var = self.env['erpv6.deal.variable'].sudo()
+        Var.create([
+            {'deal_id': deal.id, 'name': 'prezzo_tee', 'label': 'Prezzo unitario',
+             'unit': 'EUR/' + unit, 'value_base': prezzo_base,
+             'source': 'manual', 'enabled': True},
+            {'deal_id': deal.id, 'name': 'quantita_mese', 'label': 'Quantità mensile',
+             'unit': unit, 'value_base': volume_month,
+             'source': 'manual', 'enabled': True},
+            {'deal_id': deal.id, 'name': 'fee_v6_pct', 'label': 'Fee V6',
+             'unit': '%', 'value_base': fee_pct,
+             'source': 'manual', 'enabled': True},
+            {'deal_id': deal.id, 'name': 'durata_mesi', 'label': 'Durata',
+             'unit': 'mesi', 'value_base': durata_mesi,
+             'source': 'manual', 'enabled': True},
+        ])
+
+        _logger.info('Deal %s creato da %s (parent %s)',
+                     deal.id, nome, parent_id)
+        return {
+            'project_id': child.id,
+            'deal_id': deal.id,
+            'name': nome,
+        }
