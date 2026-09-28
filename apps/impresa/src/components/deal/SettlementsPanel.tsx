@@ -291,6 +291,8 @@ export function SettlementsPanel({
         <div className="mb-4 p-3 border border-indigo-200 rounded bg-indigo-50/30 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <select
+              id="settlement-periodo-mese"
+              name="periodo_mese"
               value={form.periodo_mese}
               onChange={(e) => setForm({ ...form, periodo_mese: e.target.value })}
               className="px-2 py-1.5 rounded border text-xs"
@@ -298,6 +300,8 @@ export function SettlementsPanel({
               {MESI.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
             </select>
             <input
+              id="settlement-periodo-anno"
+              name="periodo_anno"
               type="number"
               value={form.periodo_anno}
               onChange={(e) => setForm({ ...form, periodo_anno: parseInt(e.target.value || '0') })}
@@ -307,6 +311,8 @@ export function SettlementsPanel({
           </div>
           <div className="grid grid-cols-3 gap-2">
             <input
+              id="settlement-quantita"
+              name="quantita_reale"
               type="number" step="0.01"
               value={form.quantita_reale}
               onChange={(e) => setForm({ ...form, quantita_reale: parseFloat(e.target.value || '0') })}
@@ -314,6 +320,8 @@ export function SettlementsPanel({
               placeholder="Quantità"
             />
             <input
+              id="settlement-prezzo"
+              name="prezzo_medio_reale"
               type="number" step="0.01"
               value={form.prezzo_medio_reale}
               onChange={(e) => setForm({ ...form, prezzo_medio_reale: parseFloat(e.target.value || '0') })}
@@ -321,6 +329,8 @@ export function SettlementsPanel({
               placeholder="Prezzo medio"
             />
             <input
+              id="settlement-fee"
+              name="fee_pct_reale"
               type="number" step="0.1"
               value={form.fee_pct_reale}
               onChange={(e) => setForm({ ...form, fee_pct_reale: parseFloat(e.target.value || '0') })}
@@ -329,12 +339,16 @@ export function SettlementsPanel({
             />
           </div>
           <input
+            id="settlement-unita"
+            name="unita"
             value={form.unita}
             onChange={(e) => setForm({ ...form, unita: e.target.value })}
             className="w-full px-2 py-1.5 rounded border text-xs"
             placeholder="Unità (TEE, MWh, ...)"
           />
           <textarea
+            id="settlement-note"
+            name="note_mensili"
             value={form.note_mensili}
             onChange={(e) => setForm({ ...form, note_mensili: e.target.value })}
             rows={2}
@@ -435,12 +449,16 @@ export function SettlementsPanel({
                     {incassoForm.open && incassoForm.settlementId === s.id && (
                       <div className="mb-3 p-2 border border-indigo-200 rounded bg-indigo-50/40 space-y-1.5 text-xs">
                         <input
+                          id="incasso-importo"
+                          name="importo"
                           type="number" step="0.01" placeholder="Importo €"
                           value={incassoForm.importo || ''}
                           onChange={e => setIncassoForm({...incassoForm, importo: parseFloat(e.target.value || '0')})}
                           className="w-full px-2 py-1 rounded border text-xs"
                         />
                         <input
+                          id="incasso-riferimento"
+                          name="riferimento"
                           type="text" placeholder="Riferimento (CRO / bonifico)"
                           value={incassoForm.riferimento}
                           onChange={e => setIncassoForm({...incassoForm, riferimento: e.target.value})}
