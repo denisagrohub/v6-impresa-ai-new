@@ -281,6 +281,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
           deals: dealsByRelation[c.id] || [],
         })),
       deals: dealsByRelation[id] || [],
+      dealsFlat: dealsFlat,
       emails: (emails || []).map((e: any) => ({
         id: e.id,
         subject: e.name,
