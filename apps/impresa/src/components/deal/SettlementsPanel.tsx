@@ -21,6 +21,18 @@ export type SettlementLine = {
   giorniRitardo: number;
   contestatoMotivo: string;
   notePagamento: string;
+  pagabile: boolean;
+  importoSbloccato: number;
+};
+
+export type Incasso = {
+  id: number;
+  data: string;
+  importo: number;
+  riferimento: string;
+  source: string;
+  matchedAuto: boolean;
+  note: string;
 };
 
 export type Settlement = {
@@ -41,6 +53,12 @@ export type Settlement = {
   noteMensili: string;
   lineCount: number;
   lines?: SettlementLine[];
+  // 28/09/2026: incasso upstream
+  incassoModalita: 'totale' | 'proporzionale';
+  incassoImporto: number;
+  incassoStato: 'attesa' | 'parziale' | 'totale';
+  incassoPercentuale: number;
+  incassi?: Incasso[];
 };
 
 const MESI = [
@@ -83,6 +101,18 @@ const PAGAMENTO_LABEL: Record<string, string> = {
   in_pagamento: 'In pagamento',
   pagato: 'Pagato',
   contestato: 'Contestato',
+};
+
+const INCASSO_STYLE: Record<string, string> = {
+  attesa: 'bg-red-50 text-red-700 border-red-300',
+  parziale: 'bg-amber-50 text-amber-800 border-amber-300',
+  totale: 'bg-emerald-50 text-emerald-700 border-emerald-300',
+};
+
+const INCASSO_LABEL: Record<string, string> = {
+  attesa: 'In attesa incasso',
+  parziale: 'Incasso parziale',
+  totale: 'Incassato',
 };
 
 export function SettlementsPanel({
@@ -143,6 +173,50 @@ export function SettlementsPanel({
       const d = await r.json();
       if (d.error) setMsg(`Errore: ${d.error}`);
       else { setMsg('✓ Consuntivo congelato + PDF generato'); onRefresh(); }
+    } catch (e: any) { setMsg(`Errore: ${e.message}`); }
+    finally { setBusy(null); }
+  };
+
+  const [incassoForm, setIncassoForm] = useState<{ open: boolean; settlementId: number | null; importo: number; riferimento: string; note: string }>({
+    open: false, settlementId: null, importo: 0, riferimento: '', note: '',
+  });
+
+  const handleRegistraIncasso = async () => {
+    if (!incassoForm.settlementId || incassoForm.importo <= 0) return;
+    setBusy('incasso');
+    setMsg(null);
+    try {
+      const r = await fetch(`/api/admin/settlements/${incassoForm.settlementId}/incasso`, {
+        method: 'POST',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          importo: incassoForm.importo,
+          riferimento: incassoForm.riferimento,
+          note: incassoForm.note,
+        }),
+      });
+      const d = await r.json();
+      if (d.error) setMsg(`Errore: ${d.error}`);
+      else {
+        setMsg(`✓ Incasso registrato`);
+        setIncassoForm({ open: false, settlementId: null, importo: 0, riferimento: '', note: '' });
+        onRefresh();
+      }
+    } catch (e: any) { setMsg(`Errore: ${e.message}`); }
+    finally { setBusy(null); }
+  };
+
+  const handleDeleteIncasso = async (incassoId: number) => {
+    if (!window.confirm('Eliminare questo movimento incasso?')) return;
+    setBusy(`del-incasso-${incassoId}`);
+    try {
+      const r = await fetch(`/api/admin/settlements/incassi/${incassoId}`, {
+        method: 'DELETE',
+        headers: authHeader,
+      });
+      const d = await r.json();
+      if (d.error) setMsg(`Errore: ${d.error}`);
+      else { setMsg('✓ Movimento eliminato'); onRefresh(); }
     } catch (e: any) { setMsg(`Errore: ${e.message}`); }
     finally { setBusy(null); }
   };
@@ -315,6 +389,91 @@ export function SettlementsPanel({
                   </div>
                 </div>
 
+                {isExp && (
+                  <div className="mt-3 pt-3 border-t border-current/20">
+                    {/* 28/09/2026: banner incasso upstream */}
+                    <div className={`mb-3 rounded-lg border p-2 flex items-center justify-between gap-2 ${INCASSO_STYLE[s.incassoStato] || INCASSO_STYLE.attesa}`}>
+                      <div className="text-xs">
+                        <div className="font-semibold">
+                          {INCASSO_LABEL[s.incassoStato] || s.incassoStato}
+                          {' · '}
+                          € {s.incassoImporto.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                          {' ('}
+                          {s.incassoPercentuale.toFixed(1)}%
+                          {')'}
+                        </div>
+                        <div className="text-[10px] opacity-70">
+                          Modalità: {s.incassoModalita === 'totale' ? 'Totale' : 'Proporzionale'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setIncassoForm({ open: true, settlementId: s.id, importo: 0, riferimento: '', note: '' })}
+                        className="px-2 py-1 rounded border border-current text-[10px] font-semibold hover:bg-white/50"
+                      >
+                        + Registra incasso
+                      </button>
+                    </div>
+
+                    {/* Form incasso inline */}
+                    {incassoForm.open && incassoForm.settlementId === s.id && (
+                      <div className="mb-3 p-2 border border-indigo-200 rounded bg-indigo-50/40 space-y-1.5 text-xs">
+                        <input
+                          type="number" step="0.01" placeholder="Importo €"
+                          value={incassoForm.importo || ''}
+                          onChange={e => setIncassoForm({...incassoForm, importo: parseFloat(e.target.value || '0')})}
+                          className="w-full px-2 py-1 rounded border text-xs"
+                        />
+                        <input
+                          type="text" placeholder="Riferimento (CRO / bonifico)"
+                          value={incassoForm.riferimento}
+                          onChange={e => setIncassoForm({...incassoForm, riferimento: e.target.value})}
+                          className="w-full px-2 py-1 rounded border text-xs"
+                        />
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => setIncassoForm({ open: false, settlementId: null, importo: 0, riferimento: '', note: '' })}
+                            className="px-2 py-0.5 rounded border border-gray-300 text-[10px]"
+                          >
+                            Annulla
+                          </button>
+                          <button
+                            onClick={handleRegistraIncasso}
+                            disabled={busy === 'incasso' || incassoForm.importo <= 0}
+                            className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] font-semibold disabled:opacity-40"
+                          >
+                            {busy === 'incasso' ? 'Salvo…' : 'Registra'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lista movimenti incasso */}
+                    {s.incassi && s.incassi.length > 0 && (
+                      <div className="mb-3 text-[10px]">
+                        <div className="font-semibold opacity-70 mb-1">Movimenti incasso ({s.incassi.length})</div>
+                        {s.incassi.map(i => (
+                          <div key={i.id} className="flex items-center justify-between gap-2 py-0.5 border-b border-current/10">
+                            <span>
+                              {new Date(i.data).toLocaleDateString('it-IT')}
+                              {' · '}
+                              € {i.importo.toLocaleString('it-IT', {minimumFractionDigits: 2})}
+                              {i.riferimento && ` · ${i.riferimento}`}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteIncasso(i.id)}
+                              disabled={busy === `del-incasso-${i.id}`}
+                              className="text-red-500 hover:text-red-700 disabled:opacity-40"
+                              title="Elimina"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {isExp && s.lines && (
                   <div className="mt-3 pt-3 border-t border-current/20 text-xs">
                     <div className="grid grid-cols-4 gap-2 font-semibold mb-2">
@@ -336,16 +495,24 @@ export function SettlementsPanel({
                             <div className="text-right font-mono">{eur(l.importoEffettivo)}</div>
                           </div>
                           <div className="mt-1 flex items-center justify-between gap-2">
-                            <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold ${pstyle}`}>
-                              {plabel}
-                              {isRitardo && <span className="ml-1 text-red-700">+{l.giorniRitardo}gg</span>}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold ${pstyle}`}>
+                                {plabel}
+                                {isRitardo && <span className="ml-1 text-red-700">+{l.giorniRitardo}gg</span>}
+                              </span>
+                              {!l.pagabile && (
+                                <span className="text-[10px] text-red-600 italic">
+                                  ⚠ Bloccato: attendere incasso cliente
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1">
                               {l.pagamentoStato === 'attesa_fattura' && (
                                 <button
                                   onClick={() => handlePagamento(l.id, 'fattura_ricevuta')}
-                                  disabled={busy === `pay-${l.id}`}
-                                  className="px-2 py-0.5 rounded border border-blue-400 text-[10px] font-semibold hover:bg-blue-50"
+                                  disabled={busy === `pay-${l.id}` || !l.pagabile}
+                                  title={!l.pagabile ? 'Attendi incasso dal cliente' : ''}
+                                  className="px-2 py-0.5 rounded border border-blue-400 text-[10px] font-semibold hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                   Fattura ricevuta
                                 </button>

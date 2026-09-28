@@ -158,6 +158,69 @@ class AdminDealsAPIController(ConsultantAPIController):
 
 
 
+
+    # ══════════════════════════════════════════════════════════════
+    # INCASSI DA CLIENTE (upstream)
+    # ══════════════════════════════════════════════════════════════
+
+    @http.route('/api/v1/admin/settlements/<int:settlement_id>/incasso',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def registra_incasso(self, settlement_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        S = request.env['erpv6.deal.settlement'].sudo()
+        s = S.browse(settlement_id)
+        if not s.exists():
+            return self._json_response({'error': 'Settlement non trovato'}, 404)
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            return self._json_response({'error': 'JSON non valido'}, 400)
+        importo = body.get('importo')
+        if not importo or float(importo) <= 0:
+            return self._json_response({'error': 'Importo obbligatorio > 0'}, 400)
+        try:
+            s.action_registra_incasso(
+                importo=float(importo),
+                riferimento=body.get('riferimento', ''),
+                note=body.get('note', ''),
+            )
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'settlement': self._settlement_to_dict(s),
+            })
+        except Exception as e:
+            _logger.exception('Errore incasso settlement %s', settlement_id)
+            return self._json_response({'error': str(e)}, 400)
+
+    @http.route('/api/v1/admin/settlements/incassi/<int:incasso_id>',
+                type='http', auth='none', methods=['DELETE'], csrf=False)
+    def delete_incasso(self, incasso_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        I = request.env['erpv6.deal.settlement.incasso'].sudo()
+        i = I.browse(incasso_id)
+        if not i.exists():
+            return self._json_response({'error': 'Movimento non trovato'}, 404)
+        settlement = i.settlement_id
+        try:
+            i.unlink()
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'settlement': self._settlement_to_dict(settlement),
+            })
+        except Exception as e:
+            _logger.exception('Errore delete incasso %s', incasso_id)
+            return self._json_response({'error': str(e)}, 400)
+
     # ══════════════════════════════════════════════════════════════
     # AZIONI PAGAMENTO — state machine
     # ══════════════════════════════════════════════════════════════
@@ -258,6 +321,20 @@ class AdminDealsAPIController(ConsultantAPIController):
             'transparencyUnlocked': s.transparency_unlocked,
             'noteMensili': s.note_mensili or '',
             'narrativeHtml': s.narrative_html or '',
+            # 28/09/2026: incasso upstream
+            'incassoModalita': s.incasso_modalita,
+            'incassoImporto': s.incasso_importo or 0,
+            'incassoStato': s.incasso_stato or 'attesa',
+            'incassoPercentuale': s.incasso_percentuale or 0,
+            'incassi': [{
+                'id': i.id,
+                'data': i.data.isoformat() if i.data else None,
+                'importo': i.importo,
+                'riferimento': i.riferimento or '',
+                'source': i.source,
+                'matchedAuto': i.matched_auto,
+                'note': i.note or '',
+            } for i in s.incasso_movimento_ids],
             'computedAt': s.computed_at.isoformat() if s.computed_at else None,
             'frozenAt': s.frozen_at.isoformat() if s.frozen_at else None,
             'frozenBy': s.frozen_by.name if s.frozen_by else None,
@@ -286,6 +363,8 @@ class AdminDealsAPIController(ConsultantAPIController):
                 'giorniRitardo': l.giorni_ritardo or 0,
                 'contestatoMotivo': l.contestato_motivo or '',
                 'notePagamento': l.note_pagamento or '',
+                'pagabile': l.pagabile,
+                'importoSbloccato': l.importo_sbloccato or 0,
             } for l in s.line_ids]
         return d
 
