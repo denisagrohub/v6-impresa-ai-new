@@ -3,6 +3,10 @@ import json
 from odoo import models, fields, api
 from odoo.exceptions import UserError
 
+import logging
+_logger = logging.getLogger(__name__)
+
+
 
 class Erpv6DealSchema(models.Model):
     _name = 'erpv6.deal.schema'
@@ -139,6 +143,27 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
                 and bool(d.current_prospetto_id)
                 and d.current_prospetto_id.state == 'frozen'
             )
+
+    def _normalize_shares(self):
+        """28/09/2026: normalizza le quote dei participant a somma 100.00%.
+        L'ultima linea prende il residuo (in ordine di id). Evita il drift
+        da arrotondamento (es. 3×30.67 + 8 = 100.01%)."""
+        self.ensure_one()
+        participants = self.participant_ids.sorted('id')
+        if not participants:
+            return
+        shares = [(p.share_pct or 0) * 100 for p in participants]
+        total = sum(shares)
+        if abs(total - 100.0) < 0.001:
+            return  # già perfetto
+        # L'ultima linea prende 100 - somma(altre)
+        last = participants[-1]
+        new_last = 100.0 - sum(shares[:-1])
+        last.write({'share_pct': new_last / 100.0})
+        _logger.info(
+            'Deal %s: quote normalizzate. Ultima (%s): %.4f%% → %.4f%%',
+            self.id, last.partner_id.name, shares[-1], new_last)
+        return
 
     def action_freeze(self):
         for d in self:
