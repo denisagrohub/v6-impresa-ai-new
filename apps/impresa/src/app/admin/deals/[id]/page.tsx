@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
+import DealNarrative from '@/components/deal/DealNarrative';
 import { Loader2, ArrowLeft, Snowflake, FileSignature, RefreshCw } from 'lucide-react';
 
 type Variable = {
@@ -14,6 +15,7 @@ type Variable = {
     valueBase: number;
     valueMax: number;
     valueText: string;
+    source: string;
     isCritical: boolean;
     locked: boolean;
     enabled: boolean;
@@ -261,6 +263,17 @@ export default function DealDetailPage() {
                     </div>
                 )}
 
+                <DealNarrative
+                    deal={{
+                        name: deal.name,
+                        revenueModel: deal.revenueModel,
+                        state: deal.state,
+                        variables: deal.variables,
+                        participantCount: deal.participants.length,
+                    }}
+                    prospetto={deal.prospetto ? { lines: deal.prospetto.lines } : null}
+                />
+
                 {/* Info deal */}
                 <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -308,24 +321,35 @@ export default function DealDetailPage() {
                             {deal.variables.map(v => {
                                 const isOptional = !v.isCritical;
                                 const isEditing = actionLoading === `var:${v.name}`;
+                                const sourceLabel: Record<string, { label: string; color: string }> = {
+                                    manual: { label: 'manuale', color: 'bg-gray-100 text-gray-600' },
+                                    contract: { label: 'contratto', color: 'bg-blue-100 text-blue-700' },
+                                    catcher: { label: 'progetto', color: 'bg-purple-100 text-purple-700' },
+                                    formula: { label: 'formula', color: 'bg-cyan-100 text-cyan-700' },
+                                    actual: { label: 'consuntivo', color: 'bg-green-100 text-green-700' },
+                                };
+                                const src = sourceLabel[v.source] || { label: v.source, color: 'bg-gray-100 text-gray-600' };
+                                const rowStyle = isOptional
+                                    ? (v.enabled
+                                        ? 'border-l-4 border-l-green-400 bg-green-50/20'
+                                        : 'border-l-4 border-l-gray-200 bg-gray-50/30 opacity-75')
+                                    : 'border-l-4 border-l-amber-300';
                                 return (
-                                    <div key={v.id} className="px-4 py-2.5 text-sm">
+                                    <div key={v.id} className={`px-4 py-2.5 text-sm ${rowStyle}`}>
                                         <div className="flex items-center justify-between mb-1">
                                             <span className="font-medium text-gray-800 flex items-center gap-2">
                                                 {v.label || v.name}
-                                                {v.isCritical && <span className="text-xs text-amber-600">critica</span>}
-                                                {!v.enabled && <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">OFF</span>}
+                                                {v.isCritical && (
+                                                    <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                                                        critica
+                                                    </span>
+                                                )}
                                             </span>
                                             <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${src.color}`}>
+                                                    {src.label}
+                                                </span>
                                                 <span className="text-xs text-gray-500">{v.unit}</span>
-                                                {isOptional && (
-                                                    <button
-                                                        onClick={() => updateVariable(v.name, { enabled: !v.enabled })}
-                                                        disabled={isEditing}
-                                                        className={`text-xs px-2 py-0.5 rounded ${v.enabled ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}>
-                                                        {isEditing ? '…' : (v.enabled ? 'ON' : 'OFF')}
-                                                    </button>
-                                                )}
                                             </div>
                                         </div>
                                         <div className="flex gap-4 text-xs text-gray-600 items-center">
@@ -340,19 +364,32 @@ export default function DealDetailPage() {
                                                             <input
                                                                 type="number"
                                                                 defaultValue={v.valueBase}
+                                                                placeholder="0"
                                                                 onBlur={(e) => {
                                                                     const newVal = parseFloat(e.target.value);
                                                                     if (!isNaN(newVal) && newVal !== v.valueBase) {
                                                                         updateVariable(v.name, { valueBase: newVal, enabled: true });
                                                                     }
                                                                 }}
-                                                                className="font-mono w-20 px-1 py-0.5 border border-gray-200 rounded text-xs"
+                                                                className="font-mono w-20 px-1 py-0.5 border border-gray-300 rounded text-xs focus:border-blue-500 focus:outline-none"
                                                             />
                                                         ) : (
                                                             <span className="font-mono">{v.valueBase.toLocaleString('it-IT')}</span>
                                                         )}
                                                     </span>
                                                     <span>MAX: <span className="font-mono">{v.valueMax.toLocaleString('it-IT')}</span></span>
+                                                    {isOptional && (
+                                                        <button
+                                                            onClick={() => updateVariable(v.name, { enabled: !v.enabled })}
+                                                            disabled={isEditing}
+                                                            className={`ml-auto text-[10px] uppercase font-semibold px-2 py-1 rounded transition-colors ${
+                                                                v.enabled
+                                                                    ? 'bg-green-500 text-white hover:bg-green-600'
+                                                                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                                                            } ${isEditing ? 'opacity-50' : ''}`}>
+                                                            {isEditing ? '…' : (v.enabled ? 'ON' : 'OFF')}
+                                                        </button>
+                                                    )}
                                                 </>
                                             )}
                                         </div>

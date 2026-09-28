@@ -82,7 +82,7 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
   };
 
   return (
-    <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+    <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 sticky top-0 h-screen">
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1a2744] to-[#0f3460] flex items-center justify-center text-white font-bold text-xs">
