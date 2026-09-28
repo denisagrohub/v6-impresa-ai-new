@@ -338,6 +338,35 @@ class AdminDealsAPIController(ConsultantAPIController):
             'totale': totale_pagato + totale_da_pagare,
         })
 
+    @http.route('/api/v1/admin/checklist/<int:checklist_id>/send-document',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def checklist_send_document(self, checklist_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        C = request.env['erpv6.deal.checklist'].sudo()
+        c = C.browse(checklist_id)
+        if not c.exists():
+            return self._json_response({'error': 'Step non trovato'}, 404)
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            body = {}
+        partner_id = body.get('partner_id')
+        try:
+            result = c.action_send_sign_document(partner_id=partner_id)
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                **result,
+                'step': self._checklist_to_dict(c),
+            })
+        except Exception as e:
+            _logger.exception('Errore send-document checklist %s', checklist_id)
+            return self._json_response({'error': str(e)}, 400)
+
     # ══════════════════════════════════════════════════════════════
     # CHECKLIST DEAL — wizard per fase
     # ══════════════════════════════════════════════════════════════

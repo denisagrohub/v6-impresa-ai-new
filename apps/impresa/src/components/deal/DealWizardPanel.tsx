@@ -216,8 +216,9 @@ function StepWizardModal({
     }
   };
 
+  const isSignStep = step.completionType === 'sign';
   const hint = {
-    sign: 'Invia il documento via Documenso dal pannello firme. Dopo la firma, lo step si completa automaticamente. Puoi anche segnarlo manualmente qui se la firma è avvenuta fuori sistema.',
+    sign: 'Clicca "Genera e invia documento" per generare il PDF e inviare la firma via Documenso. Lo step si completa automaticamente alla ricezione della firma.',
     upload: 'Allega il PDF firmato oppure segna lo step con una nota (upload file disponibile prossimamente).',
     check: 'Conferma di aver completato questa azione. Puoi aggiungere una nota.',
     system: 'Questo step è automatico. Verrà marcato done dal sistema quando l\'evento si verifica.',
@@ -286,21 +287,65 @@ function StepWizardModal({
           )}
         </div>
 
+        {isSignStep && signResult && (
+          <div className="px-5 py-3 bg-emerald-50 border-t border-emerald-200">
+            <div className="text-xs text-emerald-800 font-semibold mb-1">
+              ✓ Documento inviato in firma
+            </div>
+            <a
+              href={signResult.requestUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-emerald-700 underline break-all"
+            >
+              {signResult.requestUrl}
+            </a>
+            <div className="text-[10px] text-emerald-600 mt-1">
+              Il firmatario riceverà email con il link. Lo step si chiuderà automaticamente alla firma.
+            </div>
+          </div>
+        )}
+
         <div className="border-t border-gray-100 px-5 py-3 flex justify-end gap-2 bg-gray-50">
           <button
             onClick={onClose}
             className="px-3 py-1.5 rounded border border-gray-300 text-xs text-gray-700 hover:bg-white"
           >
-            Annulla
+            Chiudi
           </button>
-          <button
-            onClick={handleComplete}
-            disabled={busy}
-            className="px-4 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {busy && <Loader2 size={12} className="animate-spin" />}
-            {busy ? 'Salvataggio…' : 'Segna come completato'}
-          </button>
+
+          {isSignStep && !signResult && (
+            <button
+              onClick={handleSendDocument}
+              disabled={sendBusy}
+              className="px-4 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {sendBusy && <Loader2 size={12} className="animate-spin" />}
+              {sendBusy ? 'Genero e invio...' : 'Genera e invia documento'}
+            </button>
+          )}
+
+          {isSignStep && signResult && (
+            <button
+              onClick={handleComplete}
+              disabled={busy}
+              className="px-4 py-1.5 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {busy && <Loader2 size={12} className="animate-spin" />}
+              {busy ? 'Salvataggio…' : 'Segna manualmente completato'}
+            </button>
+          )}
+
+          {!isSignStep && (
+            <button
+              onClick={handleComplete}
+              disabled={busy}
+              className="px-4 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {busy && <Loader2 size={12} className="animate-spin" />}
+              {busy ? 'Salvataggio…' : 'Segna come completato'}
+            </button>
+          )}
         </div>
       </div>
     </div>
