@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import DealNarrative from '@/components/deal/DealNarrative';
+import { SignRequestsPanel, type SignRequest } from '@/components/deal/SignRequestsPanel';
 import { Loader2, ArrowLeft, Snowflake, FileSignature, RefreshCw } from 'lucide-react';
 
 type Variable = {
@@ -84,6 +85,7 @@ type Deal = {
     legs: Leg[];
     participants: Participant[];
     prospetto: Prospetto | null;
+    signRequests: SignRequest[];
 };
 
 const fmt = (n: number) =>
@@ -273,6 +275,17 @@ export default function DealDetailPage() {
                     }}
                     prospetto={deal.prospetto ? { lines: deal.prospetto.lines } : null}
                 />
+
+                {/* 28/09/2026: firme del prospetto (Documenso) */}
+                {deal.signRequests && deal.signRequests.length > 0 && (
+                    <section className="mb-4 rounded-xl border border-gray-200 bg-white p-5">
+                        <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
+                            <FileSignature size={16} className="text-indigo-600" />
+                            Firme del prospetto
+                        </h2>
+                        <SignRequestsPanel requests={deal.signRequests} />
+                    </section>
+                )}
 
                 {/* Info deal */}
                 <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">

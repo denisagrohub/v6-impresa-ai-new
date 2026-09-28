@@ -134,6 +134,26 @@ class AdminDealsAPIController(ConsultantAPIController):
                     } for line in p.line_ids],
                 }
 
+            # 28/09/2026: richieste di firma collegate al prospetto corrente
+            sign_reqs = []
+            if d.current_prospetto_id and d.current_prospetto_id.sign_request_ids:
+                for sr in d.current_prospetto_id.sign_request_ids:
+                    sign_reqs.append({
+                        'id': sr.id,
+                        'name': sr.name,
+                        'status': sr.status,
+                        'partnerId': sr.partner_id.id,
+                        'partnerName': sr.partner_id.name or '',
+                        'partnerEmail': sr.partner_id.email or '',
+                        'requestUrl': sr.request_url or '',
+                        'externalId': sr.external_id or '',
+                        'sentAt': sr.sent_at.isoformat() if sr.sent_at else None,
+                        'viewedAt': sr.viewed_at.isoformat() if sr.viewed_at else None,
+                        'signedAt': sr.signed_at.isoformat() if sr.signed_at else None,
+                        'contractDraftId': sr.contract_draft_id.id if sr.contract_draft_id else None,
+                    })
+            data['signRequests'] = sign_reqs
+
         return data
 
     # ------------------------------------------------------------------
