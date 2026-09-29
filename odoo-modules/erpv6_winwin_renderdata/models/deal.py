@@ -351,6 +351,42 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
             'totals': totals,
         }
 
+    def _generate_alias_if_missing(self):
+        """29/09/2026 (C5.2): genera email_alias sul nodo deal se mancante.
+        Alias del tipo `deal-<id>-<seller-slug>-<buyer-slug>` scritto su
+        relation_id.email_alias (il nodo del deal, non la radice).
+
+        Motivo (anti-aggiramento): il contratto con committente e venditore
+        obbliga le comunicazioni a passare per un canale ufficiale tracciato.
+        L'alias sul nodo deal crea quel canale: le email inviate a
+        <alias>@v6sviluppoimpresa.it vengono instradate dal fetchmail al
+        nodo deal (relation_id = deal.relation_id), non alla radice del
+        progetto. Il matching esiste gia' (aeosv6_dispatch._run_route_project_email).
+
+        Idempotente: se il nodo ha gia' un email_alias, non lo tocca.
+        Non solleva errore se collisione slug: in tal caso suffissa con
+        l'id deal, che e' gia' unico.
+        """
+        for d in self:
+            node = d.relation_id
+            if not node or node.email_alias:
+                continue
+
+            def _slug(s):
+                return (s or '').lower().strip().replace(' ', '-')[:20] or 'x'
+
+            seller = _slug(d.seller_id.placeholder_code if d.seller_id.is_placeholder
+                           else (d.seller_id.name if d.seller_id else 'seller'))
+            buyer = _slug(d.buyer_id.placeholder_code if d.buyer_id.is_placeholder
+                          else (d.buyer_id.name if d.buyer_id else 'buyer'))
+            base = f'deal-{d.id}-{seller}-{buyer}'
+
+            # Unicita': se esiste gia' un nodo con questo alias, suffissa
+            Relation = self.env['erpv6.tracking.relation'].sudo()
+            if Relation.search_count([('email_alias', '=', base)]) > 0:
+                base = f'deal-{d.id}'
+            node.sudo().write({'email_alias': base})
+
     def action_send_to_sign(self, filter_partner_ids=None, force=False):
         """Crea contract_draft Typst, genera PDF, invia a firma su Documenso.
 
@@ -359,6 +395,7 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
         force: se True, bypassa la guardia checklist (solo per test).
         """
         for d in self:
+            d._generate_alias_if_missing()
             if not force:
                 d._check_checklist_gates(target_state='signing')
         Draft = self.env['erpv6.contract.draft'].sudo()
