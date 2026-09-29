@@ -45,7 +45,7 @@ class AccountingAPIController(APIBaseController):
 
             result = {
                 'id': prediction.id,
-                'date': prediction.date.isoformat() if prediction.date else None,
+                'date': self._iso_utc(prediction.date) if prediction.date else None,
                 'fiscal_year': prediction.fiscal_year or '',
                 'revenue_ytd': prediction.revenue_ytd or 0.0,
                 'revenue_forecast': prediction.revenue_forecast or 0.0,
@@ -101,7 +101,7 @@ class AccountingAPIController(APIBaseController):
                     'priority': s.priority or 'medium',
                     'stock_quantity': s.stock_quantity or 0.0,
                     'deduction_rate': s.deduction_rate or 100.0,
-                    'deadline': s.deadline.isoformat() if s.deadline else None,
+                    'deadline': self._iso_utc(s.deadline) if s.deadline else None,
                 })
 
             self._log_api_call('/api/v1/accounting/suggestions', 'GET', user.id, 200, start_time)
@@ -148,7 +148,7 @@ class AccountingAPIController(APIBaseController):
                     'bandi_details': a.bandi_details or '',
                     'priority': a.priority or 'medium',
                     'status': a.status or 'planned',
-                    'suggested_purchase_date': a.suggested_purchase_date.isoformat() if a.suggested_purchase_date else None,
+                    'suggested_purchase_date': self._iso_utc(a.suggested_purchase_date) if a.suggested_purchase_date else None,
                 })
 
             self._log_api_call('/api/v1/accounting/assets', 'GET', user.id, 200, start_time)

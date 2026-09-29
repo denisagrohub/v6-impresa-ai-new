@@ -66,7 +66,7 @@ class PublicVerifyAPIController(APIBaseController):
             'document_name': sr.name,
             'document_kind': kind_label,
             'signer_name': abbrev,
-            'signed_at': sr.signed_at.isoformat() if sr.signed_at else None,
+            'signed_at': self._iso_utc(sr.signed_at) if sr.signed_at else None,
             'hash': hash_short,
             'provider': 'Documenso',
             'issuer': 'V6 Impresa S.r.l.',

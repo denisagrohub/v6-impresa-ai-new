@@ -113,9 +113,9 @@ class AdminDocumentsAPIController(APIBaseController):
                 'hasPdf': bool(d.pdf_file),
                 'pdfFilename': d.pdf_filename or None,
                 'pageCount': d.page_count or 0,
-                'createdAt': d.create_date.isoformat() if d.create_date else None,
-                'renderedAt': d.rendered_at.isoformat() if d.rendered_at else None,
-                'sentAt': d.sent_at.isoformat() if d.sent_at else None,
+                'createdAt': self._iso_utc(d.create_date) if d.create_date else None,
+                'renderedAt': self._iso_utc(d.rendered_at) if d.rendered_at else None,
+                'sentAt': self._iso_utc(d.sent_at) if d.sent_at else None,
             })
 
         self._log_api_call('/api/v1/admin/documents', 'GET', None, 200, start_time)

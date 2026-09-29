@@ -38,7 +38,7 @@ class AdminPartnersLifecycleAPIController(ConsultantAPIController):
             'lifecycleStage': p.lifecycle_stage or 'partner',
             'qualityScore': p.quality_score or 0,
             'degradedReason': p.degraded_reason or '',
-            'degradedAt': p.degraded_at.isoformat() if p.degraded_at else None,
+            'degradedAt': self._iso_utc(p.degraded_at) if p.degraded_at else None,
             'isPlaceholder': p.is_placeholder or False,
             'placeholderCode': p.placeholder_code or '',
         }

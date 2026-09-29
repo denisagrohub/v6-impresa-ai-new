@@ -135,7 +135,7 @@ class SignAPIController(APIBaseController):
             result = {
                 'request_id': sign_request.id,
                 'status': sign_request.status or 'draft',
-                'signed_at': sign_request.signed_at.isoformat() if sign_request.signed_at else None,
+                'signed_at': self._iso_utc(sign_request.signed_at) if sign_request.signed_at else None,
                 'signed_document_url': signed_document_url,
                 'signer_name': sign_request.partner_id.name if sign_request.partner_id else '',
             }

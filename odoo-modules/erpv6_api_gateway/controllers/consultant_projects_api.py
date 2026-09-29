@@ -69,7 +69,7 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
                 'consulente': lead.user_id.name if lead.user_id else '',
                 'consulente_id': lead.user_id.id if lead.user_id else None,
                 'ruoli_miei': role_labels(lead),
-                'create_date': order.create_date.isoformat() if order.create_date else None,
+                'create_date': self._iso_utc(order.create_date) if order.create_date else None,
             })
 
         # Lead gia' sourced dal consulente (o comunque suoi) ma senza
@@ -89,7 +89,7 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             'type': lead.type,
             'consulente': lead.user_id.name if lead.user_id else '',
             'ruoli_miei': role_labels(lead),
-            'create_date': lead.create_date.isoformat() if lead.create_date else None,
+            'create_date': self._iso_utc(lead.create_date) if lead.create_date else None,
         } for lead in leads_without_order]
 
         self._log_api_call('/api/v1/consultant/projects', 'GET', user.id, 200, start_time)
@@ -230,7 +230,7 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             'subject': e.name,
             'sender_email': e.sender_email or '',
             'recipient_user_id': e.recipient_user_id.id if e.recipient_user_id else None,
-            'create_date': e.create_date.isoformat() if e.create_date else None,
+            'create_date': self._iso_utc(e.create_date) if e.create_date else None,
         } for e in emails]
 
         # Mio compenso (se presente nello split)
@@ -412,7 +412,7 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             'is_read': bool(e.is_read),
             'is_archived': bool(e.is_archived),
             'has_attachments': bool(env['ir.attachment'].sudo().search_count([('res_model', '=', 'erpv6.winwin.email.log'), ('res_id', '=', e.id)])),
-                'create_date': e.create_date.isoformat() if e.create_date else None,
+                'create_date': self._iso_utc(e.create_date) if e.create_date else None,
             } for e in emails]
 
         # Call del target
@@ -423,7 +423,7 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             ], order='started_at desc', limit=10)
             calls_data = [{
                 'id': c.id,
-                'started_at': c.started_at.isoformat() if c.started_at else None,
+                'started_at': self._iso_utc(c.started_at) if c.started_at else None,
                 'duration_minutes': c.duration_minutes or 0,
                 'state': c.state,
             } for c in calls]

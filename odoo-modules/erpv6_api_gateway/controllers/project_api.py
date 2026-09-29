@@ -30,7 +30,7 @@ class ProjectAPIController(APIBaseController):
                     'stage': project.stage_id.name if project.stage_id else '',
                     'expected_revenue': project.expected_revenue or 0.0,
                     'probability': project.probability or 0,
-                    'create_date': project.create_date.isoformat() if project.create_date else None,
+                    'create_date': self._iso_utc(project.create_date) if project.create_date else None,
                 })
             
             self._log_api_call('/api/v1/projects', 'GET', user.id, 200, start_time)
@@ -69,12 +69,12 @@ class ProjectAPIController(APIBaseController):
                 'stage': project.stage_id.name if project.stage_id else '',
                 'expected_revenue': project.expected_revenue or 0.0,
                 'probability': project.probability or 0,
-                'create_date': project.create_date.isoformat() if project.create_date else None,
+                'create_date': self._iso_utc(project.create_date) if project.create_date else None,
                 'description': project.description or '',
                 'customer_email': project.contact_email or '',
                 'customer_phone': project.contact_name or '',
                 'user_id': project.user_id.name if project.user_id else '',
-                'date_deadline': project.date_deadline.isoformat() if project.date_deadline else None,
+                'date_deadline': self._iso_utc(project.date_deadline) if project.date_deadline else None,
                 'document_count': document_count,
             }
             

@@ -38,7 +38,7 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
             'motivation': v.motivation or '',
             'hash': v.hash,
             'blockchainAnchor': v.blockchain_anchor,
-            'createdAt': v.create_date.isoformat() if v.create_date else None,
+            'createdAt': self._iso_utc(v.create_date) if v.create_date else None,
             'createdBy': v.created_by.name if v.created_by else None,
             'supersededById': v.superseded_by_id.id if v.superseded_by_id else None,
             'signRequestIds': v.sign_request_ids.ids,

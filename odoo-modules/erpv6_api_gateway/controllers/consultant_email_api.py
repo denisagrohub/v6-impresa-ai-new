@@ -77,7 +77,7 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             'relation_name': l.relation_id.name if l.relation_id else None,
             'recipient_user_id': l.recipient_user_id.id if l.recipient_user_id else None,
             'recipient_user_name': l.recipient_user_id.name if l.recipient_user_id else None,
-            'create_date': l.create_date.isoformat() if l.create_date else None,
+            'create_date': self._iso_utc(l.create_date) if l.create_date else None,
         } for l in logs]
 
         self._log_api_call('/api/v1/consultant/emails', 'GET', user.id, 200, start_time)
@@ -282,7 +282,7 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             'relation_id': log.relation_id.id if log.relation_id else None,
             'relation_name': log.relation_id.name if log.relation_id else None,
             'recipient_user_name': log.recipient_user_id.name if log.recipient_user_id else None,
-            'create_date': log.create_date.isoformat() if log.create_date else None,
+            'create_date': self._iso_utc(log.create_date) if log.create_date else None,
             'body': body,
         })
 

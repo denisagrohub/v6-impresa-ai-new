@@ -19,12 +19,65 @@ except ImportError:
 
 class APIBaseController(http.Controller):
 
+    @staticmethod
+    def _iso_utc(dt):
+        """29/09/2026: ritorna stringa ISO 8601 con Z per datetime naive.
+
+        Uso esplicito nei controller quando si serializza un campo
+        direttamente (es. d.create_date.isoformat()) senza passare dal
+        default JSON. Gestisce None (ritorna None), date (no Z),
+        datetime naive (aggiunge Z), datetime aware (isoformat nativo).
+        """
+        if dt is None:
+            return None
+        from datetime import datetime as _dt, date as _date
+        if isinstance(dt, _dt):
+            if dt.tzinfo is None:
+                return dt.isoformat() + 'Z'
+            return dt.isoformat()
+        if isinstance(dt, _date):
+            return dt.isoformat()
+        # fallback: prova a chiamare isoformat nativo, altrimenti str
+        try:
+            return dt.isoformat()
+        except AttributeError:
+            return str(dt)
+
+    @staticmethod
+    def _json_default(obj):
+        """29/09/2026: serializza datetime in ISO 8601 con suffisso Z.
+
+        Motivo: le date Odoo escono naive (senza tzinfo) in UTC. Se le
+        serializziamo con .isoformat() senza Z, il browser le interpreta
+        come ora locale del client (bug classico -2h in Italia). Qui
+        aggiungiamo Z esplicito per i naive; per gli aware usiamo
+        isoformat() nativo (gia' include +HH:MM).
+
+        Cade nel default di json.dumps come fallback per tipi non
+        gestiti (Decimal, bytes, ecc): comportamento invariato.
+        """
+        from datetime import datetime as _dt, date as _date
+        if isinstance(obj, _dt):
+            if obj.tzinfo is None:
+                # naive: assume UTC (convenzione Odoo) -> marca con Z
+                return obj.isoformat() + 'Z'
+            # aware: isoformat nativo contiene gia' +HH:MM
+            return obj.isoformat()
+        if isinstance(obj, _date):
+            # date pura: nessuna info TZ, formato ISO YYYY-MM-DD
+            return obj.isoformat()
+        # fallback invariato: stesso comportamento di default=str
+        return str(obj)
+
     def _json_response(self, data, status=200, error=None):
-        body = {'success': status < 400, 'data': data, 'timestamp': datetime.utcnow().isoformat()}
+        # 29/09/2026: timestamp con Z (coerenza con le date dei record)
+        ts = datetime.utcnow().isoformat() + 'Z'
+        body = {'success': status < 400, 'data': data, 'timestamp': ts}
         if error:
             body['error'] = error
         return Response(
-            json.dumps(body, default=str), status=status, content_type='application/json',
+            json.dumps(body, default=self._json_default),
+            status=status, content_type='application/json',
             headers={
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',

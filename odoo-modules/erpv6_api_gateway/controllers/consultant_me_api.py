@@ -48,7 +48,7 @@ class ConsultantMeAPIController(ConsultantAPIController):
             'country': p.country_id.name if p.country_id else '',
             'email': p.email or '',
             'phone': p.phone or '',
-            'confirmed_at': p.fiscal_data_confirmed_at.isoformat() if p.fiscal_data_confirmed_at else None,
+            'confirmed_at': self._iso_utc(p.fiscal_data_confirmed_at) if p.fiscal_data_confirmed_at else None,
             'confirmed_ip': p.fiscal_data_confirmed_ip or None,
             # 27/09/2026: preferenza invio email
             'email_mode': getattr(p, 'x_v6_email_mode', 'personal') or 'personal',

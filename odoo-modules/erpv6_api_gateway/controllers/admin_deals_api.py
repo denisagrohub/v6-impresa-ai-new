@@ -68,14 +68,14 @@ class AdminDealsAPIController(ConsultantAPIController):
             'canFreeze': d.can_freeze,
             'canSign': d.can_sign,
             'missingCriticalCount': d.missing_critical_count,
-            'frozenAt': d.frozen_at.isoformat() if d.frozen_at else None,
+            'frozenAt': self._iso_utc(d.frozen_at) if d.frozen_at else None,
             'frozenBy': d.frozen_by.name if d.frozen_by else None,
             'currentProspettoId': d.current_prospetto_id.id if d.current_prospetto_id else None,
             'legCount': len(d.leg_ids),
             'participantCount': len(d.participant_ids),
             'variableCount': len(d.variable_ids),
             'notes': d.notes or '',
-            'createDate': d.create_date.isoformat() if d.create_date else None,
+            'createDate': self._iso_utc(d.create_date) if d.create_date else None,
         }
 
         if include_detail:
@@ -133,7 +133,7 @@ class AdminDealsAPIController(ConsultantAPIController):
                     'id': p.id,
                     'version': p.version,
                     'state': p.state,
-                    'computedAt': p.computed_at.isoformat() if p.computed_at else None,
+                    'computedAt': self._iso_utc(p.computed_at) if p.computed_at else None,
                     'lines': [{
                         'id': line.id,
                         'participantId': line.participant_id.id,
@@ -164,9 +164,9 @@ class AdminDealsAPIController(ConsultantAPIController):
                         'partnerEmail': sr.partner_id.email or '',
                         'requestUrl': sr.request_url or '',
                         'externalId': sr.external_id or '',
-                        'sentAt': sr.sent_at.isoformat() if sr.sent_at else None,
-                        'viewedAt': sr.viewed_at.isoformat() if sr.viewed_at else None,
-                        'signedAt': sr.signed_at.isoformat() if sr.signed_at else None,
+                        'sentAt': self._iso_utc(sr.sent_at) if sr.sent_at else None,
+                        'viewedAt': self._iso_utc(sr.viewed_at) if sr.viewed_at else None,
+                        'signedAt': self._iso_utc(sr.signed_at) if sr.signed_at else None,
                         'contractDraftId': sr.contract_draft_id.id if sr.contract_draft_id else None,
                     })
             data['signRequests'] = sign_reqs
@@ -186,7 +186,7 @@ class AdminDealsAPIController(ConsultantAPIController):
                 'isReady': ck.is_ready,
                 'isBlocking': ck.is_blocking,
                 'signRequestId': ck.sign_request_id.id if ck.sign_request_id else None,
-                'completedAt': ck.completed_at.isoformat() if ck.completed_at else None,
+                'completedAt': self._iso_utc(ck.completed_at) if ck.completed_at else None,
                 'completedBy': ck.completed_by.name if ck.completed_by else None,
                 'evidenceNote': ck.evidence_note or '',
                 'externalReference': ck.external_reference or '',
@@ -302,11 +302,11 @@ class AdminDealsAPIController(ConsultantAPIController):
             'line': {
                 'id': line.id,
                 'pagamentoStato': line.pagamento_stato,
-                'fatturaRicevutaIl': line.fattura_ricevuta_il.isoformat() if line.fattura_ricevuta_il else None,
-                'fatturaScadenza': line.fattura_scadenza.isoformat() if line.fattura_scadenza else None,
+                'fatturaRicevutaIl': self._iso_utc(line.fattura_ricevuta_il) if line.fattura_ricevuta_il else None,
+                'fatturaScadenza': self._iso_utc(line.fattura_scadenza) if line.fattura_scadenza else None,
                 'giorniRitardo': line.giorni_ritardo or 0,
                 'paid': line.pagato,
-                'paidAt': line.pagato_il.isoformat() if line.pagato_il else None,
+                'paidAt': self._iso_utc(line.pagato_il) if line.pagato_il else None,
             },
         })
 
@@ -389,7 +389,7 @@ class AdminDealsAPIController(ConsultantAPIController):
             'isReady': c.is_ready,
             'isBlocking': c.is_blocking,
             'signRequestId': c.sign_request_id.id if c.sign_request_id else None,
-            'completedAt': c.completed_at.isoformat() if c.completed_at else None,
+            'completedAt': self._iso_utc(c.completed_at) if c.completed_at else None,
             'completedBy': c.completed_by.name if c.completed_by else None,
             'evidenceNote': c.evidence_note or '',
             'externalReference': c.external_reference or '',
@@ -504,10 +504,10 @@ class AdminDealsAPIController(ConsultantAPIController):
             'requiresSecondApproval': l.requires_second_approval,
             'approvatoDa1': l.approvato_da_1.name if l.approvato_da_1 else None,
             'approvatoDa1Id': l.approvato_da_1.id if l.approvato_da_1 else None,
-            'approvatoIl1': l.approvato_il_1.isoformat() if l.approvato_il_1 else None,
+            'approvatoIl1': self._iso_utc(l.approvato_il_1) if l.approvato_il_1 else None,
             'approvatoDa2': l.approvato_da_2.name if l.approvato_da_2 else None,
             'approvatoDa2Id': l.approvato_da_2.id if l.approvato_da_2 else None,
-            'approvatoIl2': l.approvato_il_2.isoformat() if l.approvato_il_2 else None,
+            'approvatoIl2': self._iso_utc(l.approvato_il_2) if l.approvato_il_2 else None,
         }
 
     def _settlement_to_dict(self, s, include_lines=True):
@@ -536,18 +536,18 @@ class AdminDealsAPIController(ConsultantAPIController):
             'incassoPercentuale': s.incasso_percentuale or 0,
             'incassi': [{
                 'id': i.id,
-                'data': i.data.isoformat() if i.data else None,
+                'data': self._iso_utc(i.data) if i.data else None,
                 'importo': i.importo,
                 'riferimento': i.riferimento or '',
                 'source': i.source,
                 'matchedAuto': i.matched_auto,
                 'note': i.note or '',
             } for i in s.incasso_movimento_ids],
-            'computedAt': s.computed_at.isoformat() if s.computed_at else None,
-            'frozenAt': s.frozen_at.isoformat() if s.frozen_at else None,
+            'computedAt': self._iso_utc(s.computed_at) if s.computed_at else None,
+            'frozenAt': self._iso_utc(s.frozen_at) if s.frozen_at else None,
             'frozenBy': s.frozen_by.name if s.frozen_by else None,
-            'sentAt': s.sent_at.isoformat() if s.sent_at else None,
-            'signedAt': s.signed_at.isoformat() if s.signed_at else None,
+            'sentAt': self._iso_utc(s.sent_at) if s.sent_at else None,
+            'signedAt': self._iso_utc(s.signed_at) if s.signed_at else None,
             'pdfDocumentId': s.pdf_document_id.id if s.pdf_document_id else None,
             'lineCount': len(s.line_ids),
         }
@@ -561,13 +561,13 @@ class AdminDealsAPIController(ConsultantAPIController):
                 'importoEffettivo': l.importo_effettivo or 0,
                 'visibility': l.visibility,
                 'causaleFattura': l.causale_fattura or '',
-                'sentAt': l.sent_at.isoformat() if l.sent_at else None,
+                'sentAt': self._iso_utc(l.sent_at) if l.sent_at else None,
                 'paid': l.pagato,
-                'paidAt': l.pagato_il.isoformat() if l.pagato_il else None,
+                'paidAt': self._iso_utc(l.pagato_il) if l.pagato_il else None,
                 # 28/09/2026: pagamento state machine
                 'pagamentoStato': l.pagamento_stato,
-                'fatturaRicevutaIl': l.fattura_ricevuta_il.isoformat() if l.fattura_ricevuta_il else None,
-                'fatturaScadenza': l.fattura_scadenza.isoformat() if l.fattura_scadenza else None,
+                'fatturaRicevutaIl': self._iso_utc(l.fattura_ricevuta_il) if l.fattura_ricevuta_il else None,
+                'fatturaScadenza': self._iso_utc(l.fattura_scadenza) if l.fattura_scadenza else None,
                 'giorniRitardo': l.giorni_ritardo or 0,
                 'contestatoMotivo': l.contestato_motivo or '',
                 'notePagamento': l.note_pagamento or '',
@@ -577,10 +577,10 @@ class AdminDealsAPIController(ConsultantAPIController):
                 'requiresSecondApproval': l.requires_second_approval,
                 'approvatoDa1': l.approvato_da_1.name if l.approvato_da_1 else None,
                 'approvatoDa1Id': l.approvato_da_1.id if l.approvato_da_1 else None,
-                'approvatoIl1': l.approvato_il_1.isoformat() if l.approvato_il_1 else None,
+                'approvatoIl1': self._iso_utc(l.approvato_il_1) if l.approvato_il_1 else None,
                 'approvatoDa2': l.approvato_da_2.name if l.approvato_da_2 else None,
                 'approvatoDa2Id': l.approvato_da_2.id if l.approvato_da_2 else None,
-                'approvatoIl2': l.approvato_il_2.isoformat() if l.approvato_il_2 else None,
+                'approvatoIl2': self._iso_utc(l.approvato_il_2) if l.approvato_il_2 else None,
             } for l in s.line_ids]
         return d
 
@@ -1003,7 +1003,7 @@ class AdminDealsAPIController(ConsultantAPIController):
                 'ip_address': l.ip_address or '',
                 'user_agent': l.user_agent or '',
                 'response_time_ms': l.response_time_ms or 0,
-                'create_date': l.create_date.isoformat() if l.create_date else None,
+                'create_date': self._iso_utc(l.create_date) if l.create_date else None,
             } for l in logs],
         })
 

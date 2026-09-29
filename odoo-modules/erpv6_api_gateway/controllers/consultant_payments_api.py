@@ -81,7 +81,7 @@ class ConsultantPaymentsAPIController(ConsultantAPIController):
                 'mia_pct': mia_pct,
                 'mia_quota_teorica': round(base_valore * mia_pct / 100.0, 4),
                 'split_approvato': bool(root.revenue_split_approved),
-                'split_approvato_il': root.revenue_split_approved_at.isoformat() if root.revenue_split_approved_at else None,
+                'split_approvato_il': self._iso_utc(root.revenue_split_approved_at) if root.revenue_split_approved_at else None,
                 'split_hash': root.revenue_split_hash or '',
             })
 

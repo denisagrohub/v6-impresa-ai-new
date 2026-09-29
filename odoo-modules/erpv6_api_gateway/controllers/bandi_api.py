@@ -40,7 +40,7 @@ class BandiAPIController(APIBaseController):
                     'code': bando.code or '',
                     'ente': bando.ente or '',
                     'importo_max': bando.importo_max or 0.0,
-                    'scadenza_domanda': bando.scadenza_domanda.isoformat() if bando.scadenza_domanda else None,
+                    'scadenza_domanda': self._iso_utc(bando.scadenza_domanda) if bando.scadenza_domanda else None,
                     'tipo_agevolazione': bando.tipo_agevolazione or '',
                     'match_count': bando.match_count or 0,
                     'best_score': best_score,
@@ -92,7 +92,7 @@ class BandiAPIController(APIBaseController):
                     'importo_stimato': match.importo_stimato or 0.0,
                     'status': match.status or 'new',
                     'consultant_id': match.consultant_id.id if match.consultant_id else None,
-                    'deadline_interna': match.deadline_interna.isoformat() if match.deadline_interna else None,
+                    'deadline_interna': self._iso_utc(match.deadline_interna) if match.deadline_interna else None,
                 })
 
             self._log_api_call('/api/v1/bandi/match', 'GET', user.id, 200, start_time)
@@ -127,7 +127,7 @@ class BandiAPIController(APIBaseController):
                     'bando_id': app.bando_id.id if app.bando_id else None,
                     'bando_name': app.bando_id.name if app.bando_id else '',
                     'partner_id': app.partner_id.id if app.partner_id else None,
-                    'application_date': app.application_date.isoformat() if app.application_date else None,
+                    'application_date': self._iso_utc(app.application_date) if app.application_date else None,
                     'reference_number': app.reference_number or '',
                     'amount_requested': app.amount_requested or 0.0,
                     'status': app.status or 'draft',

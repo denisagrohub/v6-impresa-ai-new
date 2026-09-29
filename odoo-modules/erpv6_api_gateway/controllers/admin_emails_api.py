@@ -66,7 +66,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                     'recipient_user_id': r.recipient_user_id.id if r.recipient_user_id else None,
                     'is_read': bool(r.is_read),
                     'is_archived': bool(r.is_archived),
-                    'create_date': r.create_date.isoformat() if r.create_date else None,
+                    'create_date': self._iso_utc(r.create_date) if r.create_date else None,
                 })
 
         # project (ha recipient_relation_id, no is_read/is_archived)
@@ -88,7 +88,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                     'recipient_user_id': None,
                     'is_read': True,  # project log non ha is_read: default letto
                     'is_archived': False,
-                    'create_date': r.create_date.isoformat() if r.create_date else None,
+                    'create_date': self._iso_utc(r.create_date) if r.create_date else None,
                 })
 
         # Ordina per data DESC
@@ -322,7 +322,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                 'relation_name': r.relation_id.name if r.relation_id else None,
                 'is_read': bool(getattr(r, 'is_read', True)),
                 'is_archived': bool(getattr(r, 'is_archived', False)),
-                'create_date': r.create_date.isoformat() if r.create_date else None,
+                'create_date': self._iso_utc(r.create_date) if r.create_date else None,
                 'body_html': body_html,
                 'attachments': attachments,
             },

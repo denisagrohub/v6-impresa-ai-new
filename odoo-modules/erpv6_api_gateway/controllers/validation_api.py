@@ -60,7 +60,7 @@ class ValidationAPIController(APIBaseController):
                     'max_rounds': session.max_rounds or 5,
                     'current_round_number': session.current_round_number or 0,
                     'human_reviewer_id': session.human_reviewer_id.id if session.human_reviewer_id else None,
-                    'human_reviewed_at': session.human_reviewed_at.isoformat() if session.human_reviewed_at else None,
+                    'human_reviewed_at': self._iso_utc(session.human_reviewed_at) if session.human_reviewed_at else None,
                 })
 
             self._log_api_call('/api/v1/validation/sessions', 'GET', user.id, 200, start_time)
@@ -123,7 +123,7 @@ class ValidationAPIController(APIBaseController):
                 'max_rounds': session.max_rounds or 5,
                 'current_round_number': session.current_round_number or 0,
                 'human_reviewer_id': session.human_reviewer_id.id if session.human_reviewer_id else None,
-                'human_reviewed_at': session.human_reviewed_at.isoformat() if session.human_reviewed_at else None,
+                'human_reviewed_at': self._iso_utc(session.human_reviewed_at) if session.human_reviewed_at else None,
                 'human_notes': session.human_notes or '',
                 'rounds': rounds_data,
             }
@@ -244,7 +244,7 @@ class ValidationAPIController(APIBaseController):
             result = {
                 'id': session.id,
                 'status': session.status,
-                'human_reviewed_at': session.human_reviewed_at.isoformat() if session.human_reviewed_at else None,
+                'human_reviewed_at': self._iso_utc(session.human_reviewed_at) if session.human_reviewed_at else None,
             }
 
             self._log_api_call(f'/api/v1/validation/sessions/{session_id}/approve', 'POST', user.id, 200, start_time)

@@ -60,11 +60,11 @@ class ConsultantSplitAPIController(ConsultantAPIController):
             'base_valore': float(base.get('valore') or 0),
             'base_unita': base.get('unita') or '',
             'approved': bool(root.revenue_split_approved),
-            'accepted_at': root.revenue_split_accepted_at.isoformat() if root.revenue_split_accepted_at else None,
+            'accepted_at': self._iso_utc(root.revenue_split_accepted_at) if root.revenue_split_accepted_at else None,
             'accepted_by_name': root.revenue_split_accepted_by.name if root.revenue_split_accepted_by else None,
             'rejected_reason': root.revenue_split_rejected_reason or None,
-            'rejected_at': root.revenue_split_rejected_at.isoformat() if root.revenue_split_rejected_at else None,
-            'notified_at': root.revenue_split_notified_at.isoformat() if root.revenue_split_notified_at else None,
+            'rejected_at': self._iso_utc(root.revenue_split_rejected_at) if root.revenue_split_rejected_at else None,
+            'notified_at': self._iso_utc(root.revenue_split_notified_at) if root.revenue_split_notified_at else None,
             'has_fiscal_data': has_fiscal,
         })
 

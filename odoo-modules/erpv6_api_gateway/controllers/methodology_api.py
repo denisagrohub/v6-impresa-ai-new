@@ -76,7 +76,7 @@ class MethodologyAPIController(APIBaseController):
                     'notes': analysis.notes or '',
                     'items': items_data,
                     'items_count': len(items_data),
-                    'create_date': analysis.create_date.isoformat() if analysis.create_date else None,
+                    'create_date': self._iso_utc(analysis.create_date) if analysis.create_date else None,
                 })
 
             self._log_api_call('/api/v1/methodology/pareto', 'GET', user.id, 200, start_time)
@@ -127,7 +127,7 @@ class MethodologyAPIController(APIBaseController):
                 'priority_count': analysis.priority_count or 0,
                 'notes': analysis.notes or '',
                 'items': items_data,
-                'create_date': analysis.create_date.isoformat() if analysis.create_date else None,
+                'create_date': self._iso_utc(analysis.create_date) if analysis.create_date else None,
             }
 
             self._log_api_call(f'/api/v1/methodology/pareto/{pareto_id}', 'GET', user.id, 200, start_time)
@@ -245,7 +245,7 @@ class MethodologyAPIController(APIBaseController):
                     'prontezza_totale': matrix.prontezza_totale or 0,
                     'prontezza_level': matrix.prontezza_level or '',
                     'quadrante': matrix.quadrante or '',
-                    'assessment_date': matrix.assessment_date.isoformat() if matrix.assessment_date else None,
+                    'assessment_date': self._iso_utc(matrix.assessment_date) if matrix.assessment_date else None,
                 })
 
             self._log_api_call('/api/v1/methodology/kairos', 'GET', user.id, 200, start_time)
@@ -291,7 +291,7 @@ class MethodologyAPIController(APIBaseController):
                 'prontezza_totale': matrix.prontezza_totale or 0,
                 'prontezza_level': matrix.prontezza_level or '',
                 'quadrante': matrix.quadrante or '',
-                'assessment_date': matrix.assessment_date.isoformat() if matrix.assessment_date else None,
+                'assessment_date': self._iso_utc(matrix.assessment_date) if matrix.assessment_date else None,
                 'notes': matrix.notes or '',
             }
 

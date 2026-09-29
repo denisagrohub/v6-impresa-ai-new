@@ -66,7 +66,7 @@ class ConsultantRichiesteAPIController(ConsultantAPIController):
                 'state': r.state,
                 'responsabile': r.responsabile_id.name if r.responsabile_id else '',
                 'decisione_note': r.decisione_note or '',
-                'create_date': r.create_date.isoformat() if r.create_date else None,
+                'create_date': self._iso_utc(r.create_date) if r.create_date else None,
             } for r in richieste]
             self._log_api_call('/api/v1/consultant/richieste', 'GET', user.id, 200, start_time)
             return self._json_response({'can_decide': is_admin, 'richieste': result})

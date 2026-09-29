@@ -58,7 +58,7 @@ class LibraryAPIController(APIBaseController):
                     'origin': doc.origin or '',
                     'is_final_client_facing': doc.is_final_client_facing or False,
                     'blockchain_record': blockchain_record,
-                    'create_date': doc.create_date.isoformat() if doc.create_date else None,
+                    'create_date': self._iso_utc(doc.create_date) if doc.create_date else None,
                     'file_url': file_url,
                 })
             
