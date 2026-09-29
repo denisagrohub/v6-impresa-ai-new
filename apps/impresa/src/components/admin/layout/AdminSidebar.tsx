@@ -3,12 +3,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ADMIN_MENU_ITEMS, AdminMenuBadge } from "./menuItems";
+import { ADMIN_MENU_CATEGORIES, filterMenuForRoles, AdminMenuBadge } from "./menuItems";
 
 interface Props {
   badges?: AdminMenuBadge[];
   onLogout?: () => void;
-  user?: { name?: string; email?: string; token?: string } | null;
+  user?: { name?: string; email?: string; token?: string; role?: string; roles?: string[] } | null;
 }
 
 export default function AdminSidebar({ badges = [], onLogout, user: userProp }: Props) {
@@ -96,32 +96,47 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
       </div>
 
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {ADMIN_MENU_ITEMS.map((item, i) => {
-          const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname?.startsWith(item.href));
-          const badge = getBadge(item.href);
-          return (
-            <Link
-              key={i}
-              href={item.href}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-[#1a2744] text-white shadow-lg shadow-blue-900/20"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              <item.icon size={14} /> {item.label}
-              {badge && (
-                <span
-                  className={`ml-auto min-w-[18px] h-4 px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${
-                    badge.color || "bg-red-500"
-                  }`}
-                >
-                  {badge.count}
-                </span>
+        {(() => {
+          const userRoles: string[] = (user?.roles as string[] | undefined)
+            || (user?.role ? [user.role as string] : []);
+          const categories = filterMenuForRoles(userRoles);
+          return categories.map((cat, ci) => (
+            <div key={ci}>
+              {cat.label && (
+                <div className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
+                  {cat.label}
+                </div>
               )}
-            </Link>
-          );
-        })}
+              {cat.items.map((item, i) => {
+                const isActive = pathname === item.href
+                  || (item.href !== '/admin/dashboard' && pathname?.startsWith(item.href));
+                const badge = getBadge(item.href);
+                return (
+                  <Link
+                    key={`${ci}-${i}`}
+                    href={item.href}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                      isActive
+                        ? "bg-[#1a2744] text-white shadow-lg shadow-blue-900/20"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    <item.icon size={14} /> {item.label}
+                    {badge && (
+                      <span
+                        className={`ml-auto min-w-[18px] h-4 px-1 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${
+                          badge.color || "bg-red-500"
+                        }`}
+                      >
+                        {badge.count}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ));
+        })()}
       </nav>
 
       <div className="p-3 border-t border-gray-100">

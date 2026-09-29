@@ -29,10 +29,13 @@ export default function MagicLinkPage() {
                 // admin che testa il link) - bug trovato oggi.
 
                 // salva nuova sessione
+                // 29/09/2026: multi-ruolo
+                const roles: string[] = data.user.roles || [data.user.role];
                 const sessionData = JSON.stringify({
                     id: data.user.id,
                     login: data.user.login,
                     role: data.user.role,
+                    roles,
                     name: data.user.name,
                     email: data.user.email,
                     emailSlug: data.user.email_slug || null,

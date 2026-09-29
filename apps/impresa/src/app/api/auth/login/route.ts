@@ -47,7 +47,8 @@ export async function POST(request: NextRequest) {
                 email_slug: user.email_slug || null,
                 partnerId: user.partner_id,
                 consultantId: user.consultant_id, // erpv6.consulting.consultant.id, null se non ancora collegato
-                role: user.role, // 'admin' | 'consultant' | 'client', deciso da Odoo sui gruppi reali
+                role: user.role, // backward compat: primo ruolo (già dal gateway)
+                roles: user.roles || [user.role], // 29/09/2026: multi-ruolo
             },
         });
     } catch (error: any) {

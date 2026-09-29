@@ -36,8 +36,12 @@ export default function UnifiedLoginPage() {
             }
 
             const { user, token } = result;
+            // 29/09/2026: multi-ruolo. `roles` = array completo dal gateway
+            // Odoo. `role` resta per backward compat (= primo ruolo).
+            const roles: string[] = user.roles || [user.role];
             const sessionData = JSON.stringify({
                 role: user.role,
+                roles,
                 name: user.name,
                 email: user.email,
                 // 21/09/2026: emailSlug = local-part alias @v6impresa.it
@@ -54,9 +58,14 @@ export default function UnifiedLoginPage() {
                 token, // JWT emesso da Odoo (erpv6.api.key/_generate_jwt) - usato per le chiamate autenticate al gateway
             });
 
+            // 29/09/2026: redirect multi-ruolo. Priorità:
+            // admin → admin dashboard; chief_* → admin dashboard
+            // (hanno permessi admin parziali); consultant → consultant.
             let redirectUrl = "/dashboard";
-            if (user.role === "admin") redirectUrl = "/admin/dashboard";
-            else if (user.role === "consultant") redirectUrl = "/consultant/dashboard";
+            const CHIEF_PREFIXES = ['chief_projects', 'chief_accounting', 'chief_bandi', 'chief_marketing', 'chief_kb'];
+            if (roles.includes('admin')) redirectUrl = "/admin/dashboard";
+            else if (CHIEF_PREFIXES.some(c => roles.includes(c))) redirectUrl = "/admin/dashboard";
+            else if (roles.includes('consultant')) redirectUrl = "/consultant/dashboard";
 
             localStorage.setItem("pi_session", sessionData);
 
