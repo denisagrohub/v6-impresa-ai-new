@@ -1008,6 +1008,61 @@ class AdminDealsAPIController(ConsultantAPIController):
         })
 
     # ------------------------------------------------------------------
+    # POST /api/v1/admin/checklist/<id>/preview-document — C6a
+    # Genera PDF dello step in anteprima (filigrana), senza inviare.
+    # Ritorna pdf_base64 + draft_id (per cleanup).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/checklist/<int:checklist_id>/preview-document',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def checklist_preview_document(self, checklist_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        C = request.env['erpv6.deal.checklist'].sudo()
+        c = C.browse(checklist_id)
+        if not c.exists():
+            return self._json_response({'error': 'Step non trovato'}, 404)
+        try:
+            result = c.action_preview_document()
+            request.env.cr.commit()
+            return self._json_response({'success': True, **result})
+        except Exception as e:
+            _logger.exception('Errore preview checklist %s', checklist_id)
+            return self._json_response({'error': str(e)}, 400)
+
+    # ------------------------------------------------------------------
+    # DELETE /api/v1/admin/contract-drafts/<id> — C6a cleanup anteprima
+    # Cancella il draft + il documento Typst associato (orphan cleanup).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/contract-drafts/<int:draft_id>',
+                type='http', auth='none', methods=['DELETE'], csrf=False)
+    def delete_contract_draft(self, draft_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        Draft = request.env['erpv6.contract.draft'].sudo()
+        d = Draft.browse(draft_id)
+        if not d.exists():
+            return self._json_response({'success': True, 'already_gone': True})
+        try:
+            doc = d.document_id
+            d.unlink()
+            if doc:
+                try:
+                    doc.unlink()
+                except Exception:
+                    pass  # doc orfano non blocca
+            request.env.cr.commit()
+            return self._json_response({'success': True})
+        except Exception as e:
+            _logger.exception('Errore delete draft %s', draft_id)
+            return self._json_response({'error': str(e)}, 400)
+
+    # ------------------------------------------------------------------
     # POST /api/v1/admin/settlements/lines/<id>/approva-seconda
     # 2ª firma del bonifico (doppia firma sopra soglia).
     # ------------------------------------------------------------------

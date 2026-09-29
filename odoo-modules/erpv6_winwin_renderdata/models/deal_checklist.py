@@ -106,6 +106,76 @@ class Erpv6DealChecklist(models.Model):
             rec.deal_id.message_post(body=f"✓ Step: {rec.label}" + (f" — {note}" if note else ""))
         return True
 
+    def action_preview_document(self):
+        """Genera il PDF dello step in modalità 'preview' (filigrana ANTEPRIMA)
+        SENZA inviarlo in firma. Ritorna {draft_id, pdf_base64, filename}.
+
+        Serve al bottone 'Anteprima' dell'UI: l'admin vede il documento
+        compilato prima di decidere se inviarlo. Il draft viene marchiato
+        come '__ANTEPRIMA__' nel nome per essere riconoscibile dal cleanup
+        (cron notturno cancella draft __ANTEPRIMA__ più vecchi di 2 ore).
+
+        29/09/2026 (C6a): primo rilascio."""
+        self.ensure_one()
+        if not self.template_document_code:
+            raise UserError("Nessun template documento configurato per questo step.")
+
+        Template = self.env['erpv6.typst.template'].sudo()
+        tpl = Template.search(
+            [('code', '=', self.template_document_code)], limit=1)
+        if not tpl:
+            raise UserError(
+                f"Template '{self.template_document_code}' non trovato.")
+
+        deal = self.deal_id
+        # Prende il primo firmatario con email (stessa logica dell'invio)
+        partner = self.env['res.partner']
+        for p in deal.participant_ids:
+            if p.partner_id and p.partner_id.email:
+                partner = p.partner_id
+                break
+
+        seller = deal.seller_id
+        buyer = deal.buyer_id
+        extra = {
+            'deal_name': deal.name or '',
+            'deal_id': deal.id,
+            'deal_schema_code': deal.schema_code or '',
+            'seller_name': (seller.placeholder_code if seller and seller.is_placeholder
+                            else (seller.name if seller else '')),
+            'buyer_name': (buyer.placeholder_code if buyer and buyer.is_placeholder
+                           else (buyer.name if buyer else '')),
+            'prospetto_version': (deal.current_prospetto_id.version
+                                  if deal.current_prospetto_id else 1),
+            'step_code': self.code,
+            'step_label': self.label,
+        }
+
+        Draft = self.env['erpv6.contract.draft'].sudo()
+        draft = Draft.create({
+            'name': f'__ANTEPRIMA__ {deal.name} — {self.label}',
+            'template_id': tpl.id,
+            'project_id': deal.relation_id.id if deal.relation_id else False,
+            'counterparty_id': partner.id if partner else False,
+            'extra_data': extra,
+            'pdf_mode': 'preview',
+        })
+        draft.action_generate_pdf()
+
+        if not draft.document_id or not draft.document_id.pdf_file:
+            raise UserError("Generazione anteprima PDF fallita.")
+
+        pdf_b64 = draft.document_id.pdf_file
+        if isinstance(pdf_b64, bytes):
+            pdf_b64 = pdf_b64.decode('ascii')
+
+        return {
+            'draft_id': draft.id,
+            'document_id': draft.document_id.id,
+            'pdf_base64': pdf_b64,
+            'filename': draft.document_id.pdf_filename or 'anteprima.pdf',
+        }
+
     def action_send_sign_document(self, partner_id=None):
         """Genera il PDF del documento dello step e invia firma al partner.
         Riusa erpv6.contract.draft (pattern esistente)."""
