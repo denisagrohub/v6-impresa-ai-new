@@ -202,12 +202,28 @@ class HealthController(APIBaseController):
         # solo dai gruppi reali dell'utente. Nessun gruppo "cliente"
         # dedicato esiste ancora: chi non e' ne' Responsabile/Admin ne'
         # Consulente ricade su 'client' (portal/altro utente interno).
+        # 29/09/2026: multi-ruolo. Calcolo array roles dai gruppi reali.
+        # Backward compat: role = roles[0] per JWT e session esistenti.
+        roles = []
         if user.has_group('base.group_system') or user.has_group('sales_team.group_sale_manager'):
-            role = 'admin'
-        elif user.has_group('erpv6_core.group_consulente'):
-            role = 'consultant'
-        else:
-            role = 'client'
+            roles.append('admin')
+        if user.has_group('erpv6_core.group_chief_projects'):
+            roles.append('chief_projects')
+        if user.has_group('erpv6_core.group_chief_accounting'):
+            roles.append('chief_accounting')
+        if user.has_group('erpv6_core.group_chief_bandi'):
+            roles.append('chief_bandi')
+        if user.has_group('erpv6_core.group_chief_marketing'):
+            roles.append('chief_marketing')
+        if user.has_group('erpv6_core.group_chief_kb'):
+            roles.append('chief_kb')
+        if user.has_group('erpv6_core.group_consulente'):
+            roles.append('consultant')
+        if not roles:
+            roles.append('client')
+
+        # Backward compat: role = primo ruolo (per JWT + session esistenti)
+        role = roles[0]
 
         token = self._generate_jwt(user, role)
         # consultant_id (erpv6.consulting.consultant, non res.users) serve
@@ -228,6 +244,7 @@ class HealthController(APIBaseController):
                 'email_slug': email_slug,
                 'partner_id': user.partner_id.id,
                 'consultant_id': consultant.id if consultant else None,
-                'role': role,
+                'role': role,      # backward compat (singolo)
+                'roles': roles,    # 29/09/2026: multi-ruolo
             },
         })

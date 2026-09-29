@@ -12,6 +12,35 @@
              esistono), non qui: questo modulo resta la base condivisa,
              il gruppo e' definito qui perche' e' un concetto trasversale
              riusabile da qualunque modulo futuro. -->
+        <!-- 29/09/2026: 5 gruppi chief (manager verticali).
+             Multi-ruolo: un utente può avere più chief_* + consultant.
+             Mappati in Next.js su permissions.ts (UserRole). -->
+        <record id="group_chief_projects" model="res.groups">
+            <field name="name">Chief Projects V6</field>
+            <field name="comment">Gestione completa progetti, deal, firme, contratti. Approva deal e pagamenti sotto soglia.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+        <record id="group_chief_accounting" model="res.groups">
+            <field name="name">Chief Accounting V6</field>
+            <field name="comment">Contabilità, fatture, commissioni, pagamenti partner e consulenti.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+        <record id="group_chief_bandi" model="res.groups">
+            <field name="name">Chief Bandi V6</field>
+            <field name="comment">Bandi, candidature, match bando-cliente.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+        <record id="group_chief_marketing" model="res.groups">
+            <field name="name">Chief Marketing V6</field>
+            <field name="comment">Blog, marketing plans, brand, contenuti.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+        <record id="group_chief_kb" model="res.groups">
+            <field name="name">Chief Knowledge Base V6</field>
+            <field name="comment">Knowledge base, libreria, methodology engines.</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
         <record id="group_consulente" model="res.groups">
             <field name="name">Consulente V6 Impresa</field>
             <field name="comment">Segue la parte commerciale e di delivery verso i propri clienti (crm.lead/produzioni dove e' il venditore assegnato, campo user_id) - vede solo la propria cartella clienti, non quella degli altri consulenti.</field>
