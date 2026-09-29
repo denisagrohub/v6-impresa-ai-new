@@ -15,7 +15,16 @@ export type SettlementLine = {
   paid: boolean;
   paidAt: string | null;
   // 28/09/2026: pagamento
-  pagamentoStato: 'attesa_fattura' | 'fattura_ricevuta' | 'in_pagamento' | 'pagato' | 'contestato';
+  // 29/09/2026 (C5.1d): +attesa_seconda_firma per doppia firma sopra soglia
+  pagamentoStato: 'attesa_fattura' | 'fattura_ricevuta' | 'attesa_seconda_firma' | 'in_pagamento' | 'pagato' | 'contestato';
+  // 29/09/2026 (C5.1d): doppia firma
+  requiresSecondApproval?: boolean;
+  approvatoDa1?: string | null;
+  approvatoDa1Id?: number | null;
+  approvatoIl1?: string | null;
+  approvatoDa2?: string | null;
+  approvatoDa2Id?: number | null;
+  approvatoIl2?: string | null;
   fatturaRicevutaIl: string | null;
   fatturaScadenza: string | null;
   giorniRitardo: number;
@@ -90,6 +99,7 @@ const STATE_LABEL: Record<string, string> = {
 const PAGAMENTO_STYLE: Record<string, string> = {
   attesa_fattura: 'bg-gray-100 text-gray-700 border-gray-300',
   fattura_ricevuta: 'bg-blue-50 text-blue-700 border-blue-300',
+  attesa_seconda_firma: 'bg-orange-50 text-orange-800 border-orange-300',
   in_pagamento: 'bg-amber-50 text-amber-800 border-amber-300',
   pagato: 'bg-emerald-50 text-emerald-700 border-emerald-300',
   contestato: 'bg-red-50 text-red-700 border-red-300',
@@ -98,6 +108,7 @@ const PAGAMENTO_STYLE: Record<string, string> = {
 const PAGAMENTO_LABEL: Record<string, string> = {
   attesa_fattura: 'Attesa fattura',
   fattura_ricevuta: 'Fattura ricevuta',
+  attesa_seconda_firma: 'Attesa 2ª firma',
   in_pagamento: 'In pagamento',
   pagato: 'Pagato',
   contestato: 'Contestato',
@@ -181,6 +192,22 @@ export function SettlementsPanel({
   const [incassoForm, setIncassoForm] = useState<{ open: boolean; settlementId: number | null; importo: number; riferimento: string; note: string }>({
     open: false, settlementId: null, importo: 0, riferimento: '', note: '',
   });
+
+  // 29/09/2026 (C5.1d): 2ª firma del bonifico (doppia firma sopra soglia).
+  const handleApprovaSeconda = async (lineId: number) => {
+    setBusy(`approva:${lineId}`);
+    setMsg(null);
+    try {
+      const r = await fetch(`/api/admin/settlements/lines/${lineId}/approva-seconda`, {
+        method: 'POST',
+        headers: authHeader,
+      });
+      const d = await r.json();
+      if (d.error) setMsg(`Errore: ${d.error}`);
+      else { setMsg(`✓ 2ª firma registrata`); onRefresh(); }
+    } catch (e: any) { setMsg(`Errore: ${e.message}`); }
+    finally { setBusy(null); }
+  };
 
   const handleRegistraIncasso = async () => {
     if (!incassoForm.settlementId || incassoForm.importo <= 0) return;
@@ -572,6 +599,23 @@ export function SettlementsPanel({
                                     Contesta
                                   </button>
                                 </>
+                              )}
+                              {l.pagamentoStato === 'attesa_seconda_firma' && (
+                                <div className="flex items-center gap-2">
+                                  {l.approvatoDa1 && (
+                                    <span className="text-[10px] text-gray-500">
+                                      1ª firma: {l.approvatoDa1}
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={() => handleApprovaSeconda(l.id)}
+                                    disabled={busy === `approva:${l.id}`}
+                                    className="px-2.5 py-1 rounded bg-orange-600 text-white text-[11px] font-semibold hover:bg-orange-700 disabled:opacity-50"
+                                    title="Approva come 2ª firma (solo approvers, diversi dal 1°)"
+                                  >
+                                    {busy === `approva:${l.id}` ? '…' : 'Approva (2ª firma)'}
+                                  </button>
+                                </div>
                               )}
                               {l.pagamentoStato === 'in_pagamento' && (
                                 <button
