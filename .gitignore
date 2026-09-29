@@ -107,3 +107,6 @@ odoo-addons-backup-*
 # File temporanei di edit
 *.primarimozione
 *.tmp.tsx
+
+# Backup locali (Refactor C)
+*.bak.*
