@@ -73,14 +73,18 @@ export async function requireAuth(): Promise<Session> {
 
 export async function requireAdmin(): Promise<Session> {
     const s = await requireAuth();
-    if (s.role !== 'admin' && s.role !== 'chief') {
-        throw new ForbiddenError('Solo admin');
+    // 29/09/2026: admin O chief_* (multi-ruolo). Include backward-compat
+    // per 'chief' legacy (mappato a chief_projects in permissions.ts).
+    if (!['admin', 'chief_projects', 'chief_accounting', 'chief_bandi',
+          'chief_marketing', 'chief_kb'].includes(s.role as string)) {
+        throw new ForbiddenError('Solo admin o chief');
     }
     return s;
 }
 
 export function isAdmin(s: Session): boolean {
-    return s.role === 'admin' || s.role === 'chief';
+    return ['admin', 'chief_projects', 'chief_accounting', 'chief_bandi',
+            'chief_marketing', 'chief_kb'].includes(s.role as string);
 }
 
 export function isConsultant(s: Session): boolean {

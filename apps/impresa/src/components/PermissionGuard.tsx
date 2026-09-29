@@ -121,7 +121,7 @@ export function usePermissions() {
         isAnyRole,
         // Shortcut comuni
         isAdmin: userRole === 'admin',
-        isChief: userRole === 'chief',
+        isChief: (['chief_projects', 'chief_accounting', 'chief_bandi', 'chief_marketing', 'chief_kb'] as string[]).includes(userRole as string),
         isConsultant: userRole === 'consultant',
         isReferral: userRole === 'referral',
         isClient: userRole === 'client',
