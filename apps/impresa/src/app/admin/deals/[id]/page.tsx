@@ -148,11 +148,14 @@ export default function DealDetailPage() {
         setActionLoading(action);
         setActionMessage(null);
 
+        // 29/09/2026 (Refactor C): Rigenera chiama /recompute (non /freeze).
+        // Su deal congelati il bottone e' disabilitato in UI; il gateway
+        // risponde 400 con errore esplicito se chiamato comunque.
         const endpoint = action === 'freeze'
             ? `/api/admin/deals/${dealId}/freeze`
             : action === 'send-to-sign'
                 ? `/api/admin/deals/${dealId}/send-to-sign`
-                : `/api/admin/deals/${dealId}/freeze`; // recompute = refreeze per ora
+                : `/api/admin/deals/${dealId}/recompute`;
 
         fetch(endpoint, {
             method: 'POST',
@@ -250,6 +253,7 @@ export default function DealDetailPage() {
                 <DealHeaderActions
                     canFreeze={deal.canFreeze}
                     canSign={deal.canSign}
+                    canRecompute={!['frozen', 'signing', 'active', 'closed', 'cancelled'].includes(deal.state)}
                     actionLoading={actionLoading}
                     onAction={runAction}
                 />

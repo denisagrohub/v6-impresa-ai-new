@@ -881,6 +881,41 @@ class AdminDealsAPIController(ConsultantAPIController):
         })
 
     # ------------------------------------------------------------------
+    # POST /api/v1/admin/deals/<id>/recompute — rigenera il prospetto
+    # Disponibile solo in forecasting/negotiating. Su deal congelati o
+    # firmati risponde 400 con messaggio esplicito (deal.action_recompute).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/deals/<int:deal_id>/recompute', type='http',
+                auth='none', methods=['POST'], csrf=False)
+    def admin_deal_recompute(self, deal_id, **kw):
+        start_time = time.time()
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        Deal = request.env['erpv6.deal'].sudo()
+        d = Deal.browse(deal_id)
+        if not d.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+
+        try:
+            d.action_recompute()
+            request.env.cr.commit()
+        except Exception as e:
+            _logger.exception('Errore recompute deal %s', deal_id)
+            return self._json_response({'error': str(e)}, 400)
+
+        self._log_api_call(
+            '/api/v1/admin/deals/%s/recompute' % deal_id, 'POST',
+            user.id, 200, start_time)
+        return self._json_response({
+            'success': True,
+            'deal': self._deal_to_dict(d, include_detail=True),
+        })
+
+    # ------------------------------------------------------------------
     # POST /api/v1/admin/deals/<id>/send-to-sign — invia in firma
     # ------------------------------------------------------------------
     @http.route('/api/v1/admin/deals/<int:deal_id>/send-to-sign', type='http',

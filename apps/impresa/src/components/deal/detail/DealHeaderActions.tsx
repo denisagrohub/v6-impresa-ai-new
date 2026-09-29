@@ -16,11 +16,15 @@ export type DealAction = 'freeze' | 'send-to-sign' | 'recompute';
 type Props = {
   canFreeze: boolean;
   canSign: boolean;
+  /** Rigenera e' disponibile solo se il deal non e' frozen/signing/active/closed. */
+  canRecompute: boolean;
   actionLoading: string | null;
   onAction: (action: DealAction) => void;
 };
 
-export function DealHeaderActions({ canFreeze, canSign, actionLoading, onAction }: Props) {
+export function DealHeaderActions({
+  canFreeze, canSign, canRecompute, actionLoading, onAction,
+}: Props) {
   const busy = actionLoading !== null;
 
   return (
@@ -36,8 +40,13 @@ export function DealHeaderActions({ canFreeze, canSign, actionLoading, onAction 
         {/* Rigenera = ri-esegue il calcolo (refreeze per ora) */}
         <button
           onClick={() => onAction('recompute')}
-          disabled={busy}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-1.5 disabled:opacity-50"
+          disabled={!canRecompute || busy}
+          title={canRecompute
+            ? 'Rigenera il prospetto'
+            : 'Disponibile solo su deal in previsione o trattativa (non congelati/firmati)'}
+          className={`px-3 py-1.5 text-sm border border-gray-300 rounded flex items-center gap-1.5 ${
+            canRecompute && !busy ? 'hover:bg-gray-50' : 'opacity-40 cursor-not-allowed'
+          }`}
         >
           <RefreshCw className={`w-3.5 h-3.5 ${actionLoading === 'recompute' ? 'animate-spin' : ''}`} />
           {actionLoading === 'recompute' ? 'Rigenero…' : 'Rigenera'}
