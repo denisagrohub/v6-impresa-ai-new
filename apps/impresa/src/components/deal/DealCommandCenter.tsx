@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, FileSignature, TrendingUp } from 'lucide-react';
 
-export type DealCollegato = {
+export type DealCommandCenterData = {
   id: number;
   name: string;
   state: string;
@@ -43,7 +43,7 @@ export function DealCommandCenter({
   deal,
   childProjectId,
 }: {
-  deal: DealCollegato;
+  deal: DealCommandCenterData;
   childProjectId: number;
 }) {
   const st = STATE_STYLE[deal.state] || STATE_STYLE.forecasting;

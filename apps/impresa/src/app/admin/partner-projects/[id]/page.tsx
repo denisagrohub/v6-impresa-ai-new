@@ -40,12 +40,12 @@ import RelationScoutingPanel, { type RelationScoutingData } from "@/components/a
 import CallEndPanel from "@/components/admin/CallEndPanel";
 import PersonCard from "@/components/admin/PersonCard";
 import { LifecycleBadge } from "@/components/admin/LifecycleBadge";
-import { DealCard } from "@/components/deals/DealCard";
+import { DealCard, type DealCollegato } from "@/components/deals/DealCard";
 import { ChildProjectsList } from "@/components/projects/ChildProjectsList";
 import { DealsKanban, type KanbanDeal } from "@/components/deal/DealsKanban";
 import { KpiDealRow, type KpiDeal } from "@/components/deal/KpiDealRow";
 import { SplitSquadraCard, type SplitLine } from "@/components/deal/SplitSquadraCard";
-import { DealCommandCenter, type DealCollegato as DealCollegatoCC } from "@/components/deal/DealCommandCenter";
+import { DealCommandCenter, type DealCommandCenterData } from "@/components/deal/DealCommandCenter";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
@@ -57,13 +57,6 @@ interface ChildProject {
     state: string;
     partnerName: string | null;
     deals: DealCollegato[];
-}
-
-interface DealCollegato {
-    id: number;
-    name: string;
-    state: string;
-    revenueModel: string;
 }
 
 interface Partner {
@@ -156,7 +149,7 @@ export default function PartnerProjectDetailPage() {
     const [dealsFlat, setDealsFlat] = useState<KanbanDeal[]>([]);
     const [kpiDeal, setKpiDeal] = useState<KpiDeal | null>(null);
     const [splitSquadra, setSplitSquadra] = useState<SplitLine[]>([]);
-    const [dealCollegato, setDealCollegato] = useState<DealCollegatoCC | null>(null);
+    const [dealCollegato, setDealCollegato] = useState<DealCommandCenterData | null>(null);
     const [breadcrumbItems, setBreadcrumbItems] = useState<BreadcrumbItem[]>([]);
     // Progetti figli con child_kind='progetto' (deal operativi)
     const [childProjects, setChildProjects] = useState<ChildProject[]>([]);
