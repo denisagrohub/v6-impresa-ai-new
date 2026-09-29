@@ -7,7 +7,9 @@ import DealNarrative from '@/components/deal/DealNarrative';
 import { SignRequestsPanel, type SignRequest } from '@/components/deal/SignRequestsPanel';
 import { DealWizardPanel, type ChecklistStep } from '@/components/deal/DealWizardPanel';
 import { SettlementsPanel, type Settlement } from '@/components/deal/SettlementsPanel';
-import { Loader2, ArrowLeft, Snowflake, FileSignature, RefreshCw } from 'lucide-react';
+import { Loader2, ArrowLeft, FileSignature } from 'lucide-react';
+import { getAuthToken } from '@/components/deal/auth';
+import { DealHeaderActions, type DealAction } from '@/components/deal/detail/DealHeaderActions';
 
 type Variable = {
     id: number;
@@ -119,9 +121,7 @@ export default function DealDetailPage() {
 
     const fetchDeal = () => {
         try {
-            const raw = localStorage.getItem('pi_session');
-            const session = raw ? JSON.parse(raw) : null;
-            const token = session?.token;
+            const token = getAuthToken();
             if (!token) { setError('Sessione mancante.'); setLoading(false); return; }
             fetch(`/api/admin/deals/${dealId}`, { headers: { Authorization: `JWT ${token}` } })
                 .then(r => r.json())
@@ -148,9 +148,7 @@ export default function DealDetailPage() {
     };
 
     const runAction = (action: 'freeze' | 'send-to-sign' | 'recompute') => {
-        const raw = localStorage.getItem('pi_session');
-        const session = raw ? JSON.parse(raw) : null;
-        const token = session?.token;
+        const token = getAuthToken();
         if (!token) return;
 
         setActionLoading(action);
@@ -185,9 +183,7 @@ export default function DealDetailPage() {
     };
 
     const updateVariable = (name: string, payload: { enabled?: boolean; valueBase?: number }) => {
-        const raw = localStorage.getItem('pi_session');
-        const session = raw ? JSON.parse(raw) : null;
-        const token = session?.token;
+        const token = getAuthToken();
         if (!token) return;
 
         setActionLoading(`var:${name}`);
@@ -253,46 +249,16 @@ export default function DealDetailPage() {
                     progressDone={deal.progressDone || 0}
                     progressTotal={deal.progressTotal || 0}
                     nextStepId={deal.nextStepId || null}
-                    authToken={
-                        (() => {
-                            try {
-                                const raw = localStorage.getItem('pi_session');
-                                const s = raw ? JSON.parse(raw) : null;
-                                return s?.token || '';
-                            } catch { return ''; }
-                        })()
-                    }
+                    authToken={getAuthToken() || ''}
                     onRefresh={fetchDeal}
                 />
 
-                <div className="mb-4 flex items-center justify-between">
-                    <a href="/admin/deals" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                        <ArrowLeft className="w-4 h-4" /> Torna alla lista
-                    </a>
-                    <div className="flex gap-2 items-center">
-                        <button
-                            onClick={() => runAction('recompute')}
-                            disabled={actionLoading !== null}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-1.5 disabled:opacity-50">
-                            <RefreshCw className={`w-3.5 h-3.5 ${actionLoading === 'recompute' ? 'animate-spin' : ''}`} />
-                            {actionLoading === 'recompute' ? 'Rigenero…' : 'Rigenera'}
-                        </button>
-                        <button
-                            onClick={() => runAction('freeze')}
-                            disabled={!deal.canFreeze || actionLoading !== null}
-                            className={`px-3 py-1.5 text-sm rounded flex items-center gap-1.5 ${deal.canFreeze && !actionLoading ? 'bg-cyan-600 text-white hover:bg-cyan-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                            <Snowflake className="w-3.5 h-3.5" />
-                            {actionLoading === 'freeze' ? 'Congelo…' : 'Congela'}
-                        </button>
-                        <button
-                            onClick={() => runAction('send-to-sign')}
-                            disabled={!deal.canSign || actionLoading !== null}
-                            className={`px-3 py-1.5 text-sm rounded flex items-center gap-1.5 ${deal.canSign && !actionLoading ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                            <FileSignature className="w-3.5 h-3.5" />
-                            {actionLoading === 'send-to-sign' ? 'Invio…' : 'Invia in firma'}
-                        </button>
-                    </div>
-                </div>
+                <DealHeaderActions
+                    canFreeze={deal.canFreeze}
+                    canSign={deal.canSign}
+                    actionLoading={actionLoading}
+                    onAction={runAction}
+                />
 
                 {actionMessage && (
                     <div className={`mb-4 p-3 rounded-md text-sm ${
@@ -331,15 +297,7 @@ export default function DealDetailPage() {
                     dealId={deal.id}
                     settlements={deal.settlements || []}
                     onRefresh={fetchDeal}
-                    authToken={
-                        (() => {
-                            try {
-                                const raw = localStorage.getItem('pi_session');
-                                const s = raw ? JSON.parse(raw) : null;
-                                return s?.token || '';
-                            } catch { return ''; }
-                        })()
-                    }
+                    authToken={getAuthToken() || ''}
                 />
 
                 {/* Info deal */}
