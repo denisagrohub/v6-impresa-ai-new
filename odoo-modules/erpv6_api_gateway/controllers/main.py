@@ -119,7 +119,7 @@ class APIBaseController(http.Controller):
         except Exception:
             return None
 
-    def _generate_jwt(self, user, role=None):
+    def _generate_jwt(self, user, role=None, roles=None):
         if not HAS_JWT:
             return None
         secret = request.env['ir.config_parameter'].sudo().get_param('api.jwt_secret')
@@ -127,20 +127,18 @@ class APIBaseController(http.Controller):
             import secrets
             secret = secrets.token_urlsafe(32)
             request.env['ir.config_parameter'].sudo().set_param('api.jwt_secret', secret)
-        # role incluso nel payload firmato (10/09/2026, Denis: "mi fai
-        # accedere alla dashboard senza mettere nemmeno un login") - prima
-        # il ruolo viaggiava SOLO nel cookie pi_session lato client (JSON
-        # leggibile/modificabile), mai verificato dal server: il
-        # middleware Next.js controllava solo che un cookie esistesse, non
-        # che fosse valido ne' che il ruolo dichiarato corrispondesse a
-        # quello reale. Firmandolo qui, il middleware puo' fidarsi del
-        # ruolo letto dal JWT invece che di un valore che chiunque puo'
-        # riscrivere da devtools.
+        # role incluso nel payload firmato (10/09/2026) - firma JWT
+        # verificata dal middleware Next.js, non piu' dal JSON del cookie.
+        #
+        # 29/09/2026 (multi-ruolo): `roles` = array completo. Il middleware
+        # deve sapere TUTTI i ruoli (es. chief_projects + consultant), non
+        # solo il primo. `role` resta per backward compat (= roles[0]).
         payload = {'user_id': user.id, 'exp': datetime.utcnow() + timedelta(hours=24)}
         if role:
             payload['role'] = role
-        # 21/09/2026: includo email_slug cosi' il frontend sa l'indirizzo
-        # reale del consulente (es. christian.girardi) senza inventarlo.
+        if roles:
+            payload['roles'] = roles
+        # 21/09/2026: email_slug
         if 'email_slug' in user._fields:
             payload['email_slug'] = user.email_slug or None
         return jwt.encode(payload, secret, algorithm='HS256')
@@ -225,7 +223,7 @@ class HealthController(APIBaseController):
         # Backward compat: role = primo ruolo (per JWT + session esistenti)
         role = roles[0]
 
-        token = self._generate_jwt(user, role)
+        token = self._generate_jwt(user, role, roles)
         # consultant_id (erpv6.consulting.consultant, non res.users) serve
         # subito al frontend per il link pubblico di prenotazione
         # (/booking/<consultant_id>) - evita un secondo giro su

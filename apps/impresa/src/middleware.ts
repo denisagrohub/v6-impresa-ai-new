@@ -16,7 +16,7 @@ import { jwtVerify } from 'jose';
 // se /admin/* e /consultant/* sono permessi.
 const JWT_SECRET = process.env.JWT_SECRET ? new TextEncoder().encode(process.env.JWT_SECRET) : null;
 
-async function getVerifiedSession(request: NextRequest): Promise<{ userId: number; role: string } | null> {
+async function getVerifiedSession(request: NextRequest): Promise<{ userId: number; role: string; roles: string[] } | null> {
   if (!JWT_SECRET) return null;
 
   let rawToken = request.cookies.get('token')?.value;
@@ -49,10 +49,28 @@ async function getVerifiedSession(request: NextRequest): Promise<{ userId: numbe
   try {
     const { payload } = await jwtVerify(rawToken, JWT_SECRET);
     if (!payload.role || typeof payload.user_id !== 'number') return null;
-    return { userId: payload.user_id as number, role: payload.role as string };
+    // 29/09/2026: multi-ruolo. JWT può contenere `roles[]` (array).
+    // Fallback su [role] per token emessi prima di questo fix.
+    const roles: string[] = Array.isArray(payload.roles)
+      ? (payload.roles as string[])
+      : [payload.role as string];
+    return { userId: payload.user_id as number, role: payload.role as string, roles };
   } catch {
     return null;
   }
+}
+
+// 29/09/2026: ruoli "admin-equivalenti" per l'accesso a /admin/*.
+// admin = accesso totale; chief_* = accesso con menu filtrato
+// (le voci specifiche sono già protette da requiredRoles in menuItems.ts).
+const ADMIN_EQUIVALENT_ROLES = [
+  'admin',
+  'chief_projects', 'chief_accounting', 'chief_bandi',
+  'chief_marketing', 'chief_kb',
+];
+
+function isAdminEquivalent(session: { role: string; roles: string[] }): boolean {
+  return session.roles.some(r => ADMIN_EQUIVALENT_ROLES.includes(r));
 }
 
 const PUBLIC_PATHS = [
@@ -192,16 +210,20 @@ export async function middleware(request: NextRequest) {
   // Il ruolo qui viene dal JWT verificato sopra, mai dal JSON del cookie:
   // un utente autenticato ma con ruolo 'client'/'consultant' non deve
   // poter entrare in /admin/* solo perche' ha una sessione valida.
-  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && session.role !== 'admin') {
+  // 29/09/2026: /admin/* ora accessibile a admin O chief_* (il menu
+  // filtra già le voci visibili, il gate di area è a livello di ruolo).
+  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !isAdminEquivalent(session)) {
     return unauthorized();
   }
-  if ((pathname === '/consultant' || pathname.startsWith('/consultant/')) && session.role !== 'admin' && session.role !== 'consultant') {
+  if ((pathname === '/consultant' || pathname.startsWith('/consultant/'))
+      && !isAdminEquivalent(session) && !session.roles.includes('consultant')) {
     return unauthorized();
   }
-  if ((pathname === '/api/admin' || pathname.startsWith('/api/admin/')) && session.role !== 'admin') {
+  if ((pathname === '/api/admin' || pathname.startsWith('/api/admin/')) && !isAdminEquivalent(session)) {
     return unauthorized();
   }
-  if ((pathname === '/api/consultant' || pathname.startsWith('/api/consultant/')) && session.role !== 'admin' && session.role !== 'consultant') {
+  if ((pathname === '/api/consultant' || pathname.startsWith('/api/consultant/'))
+      && !isAdminEquivalent(session) && !session.roles.includes('consultant')) {
     return unauthorized();
   }
 
