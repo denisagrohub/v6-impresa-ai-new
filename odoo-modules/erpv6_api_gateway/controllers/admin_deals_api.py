@@ -1011,9 +1011,14 @@ class AdminDealsAPIController(ConsultantAPIController):
         approvers_raw = P.get_param('erpv6_deal.payment_approvers', '') or ''
         approver_ids = [int(x) for x in approvers_raw.split(',') if x.strip().isdigit()]
         Users = request.env['res.users'].sudo().browse(approver_ids).exists()
+        # 29/09/2026 (C5.3b): giorni scadenza fattura + validità report token
+        due_days = P.get_param('erpv6_deal.payment_due_days', '0')
+        report_days = P.get_param('erpv6_deal.report_token_validity_days', '0')
         return self._json_response({
             'success': True,
             'threshold': float(threshold or 0),
+            'due_days': int(due_days) if due_days and due_days.isdigit() else 0,
+            'report_token_validity_days': int(report_days) if report_days and report_days.isdigit() else 0,
             'approvers': [{
                 'id': u.id,
                 'name': u.name,
@@ -1044,6 +1049,12 @@ class AdminDealsAPIController(ConsultantAPIController):
             P.set_param('erpv6_deal.payment_dual_threshold', str(float(threshold)))
             P.set_param('erpv6_deal.payment_approvers',
                         ','.join(str(int(x)) for x in approvers))
+            # 29/09/2026 (C5.3b): i 2 parametri giorni sono opzionali
+            if 'due_days' in body:
+                P.set_param('erpv6_deal.payment_due_days', str(int(body['due_days'])))
+            if 'report_token_validity_days' in body:
+                P.set_param('erpv6_deal.report_token_validity_days',
+                            str(int(body['report_token_validity_days'])))
             request.env.cr.commit()
         except Exception as e:
             _logger.exception('Errore set deal-payments settings')

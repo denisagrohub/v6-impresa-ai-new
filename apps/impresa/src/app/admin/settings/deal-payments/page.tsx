@@ -18,6 +18,10 @@ export default function DealPaymentsSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ type: 'idle'|'success'|'error'; msg: string }>({ type: 'idle', msg: '' });
   const [threshold, setThreshold] = useState<number>(10000);
+  // 29/09/2026 (C5.3c): giorni scadenza fattura + validità report token.
+  // 0 = immediato.
+  const [dueDays, setDueDays] = useState<number>(0);
+  const [reportTokenDays, setReportTokenDays] = useState<number>(0);
   const [approvers, setApprovers] = useState<Approver[]>([]);
 
   const [searchQ, setSearchQ] = useState('');
@@ -36,6 +40,8 @@ export default function DealPaymentsSettingsPage() {
         const d = await r.json();
         if (!d.success) { setStatus({ type: 'error', msg: d.error || 'Errore' }); return; }
         setThreshold(Number(d.threshold) || 0);
+        setDueDays(Number(d.due_days) || 0);
+        setReportTokenDays(Number(d.report_token_validity_days) || 0);
         setApprovers(d.approvers || []);
       } catch (e: any) {
         setStatus({ type: 'error', msg: e.message });
@@ -76,7 +82,12 @@ export default function DealPaymentsSettingsPage() {
       const r = await fetch('/api/admin/settings/deal-payments', {
         method: 'PUT',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ threshold, approvers: approvers.map(a => a.id) }),
+        body: JSON.stringify({
+          threshold,
+          due_days: dueDays,
+          report_token_validity_days: reportTokenDays,
+          approvers: approvers.map(a => a.id),
+        }),
       });
       const d = await r.json();
       if (!d.success) {
@@ -130,6 +141,40 @@ export default function DealPaymentsSettingsPage() {
           onChange={e => setThreshold(Number(e.target.value) || 0)}
           className="w-48 px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:border-blue-500 focus:outline-none"
         />
+      </section>
+
+      <section className="bg-white border border-gray-200 rounded-lg p-5 mb-4">
+        <h2 className="text-sm font-semibold mb-3">Tempistiche</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1">Giorni scadenza fattura</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Decorrono dalla ricezione della fattura. <strong>0 = immediato</strong>.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={dueDays}
+              onChange={e => setDueDays(Number(e.target.value) || 0)}
+              className="w-32 px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1">Giorni validità report token</label>
+            <p className="text-xs text-gray-500 mb-2">
+              Durata link pubblico report Win-Win. <strong>0 = immediato</strong>.
+            </p>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={reportTokenDays}
+              onChange={e => setReportTokenDays(Number(e.target.value) || 0)}
+              className="w-32 px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        </div>
       </section>
 
       <section className="bg-white border border-gray-200 rounded-lg p-5 mb-4">

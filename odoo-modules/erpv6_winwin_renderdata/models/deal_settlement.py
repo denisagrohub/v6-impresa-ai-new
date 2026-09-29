@@ -729,7 +729,15 @@ class Erpv6DealSettlementLine(models.Model):
                 'fattura_ricevuta_il': fields.Datetime.now(),
             }
             if not rec.fattura_scadenza:
-                vals['fattura_scadenza'] = (fields.Date.today() + timedelta(days=30))
+                # 29/09/2026 (C5.3): giorni da ir.config_parameter (default 30).
+                # Modificabile da /admin/settings/deal-payments.
+                # 29/09/2026 (C5.3): default 0 = scadenza immediata.
+                try:
+                    days = int(self.env['ir.config_parameter'].sudo().get_param(
+                        'erpv6_deal.payment_due_days', '0'))
+                except (ValueError, TypeError):
+                    days = 0
+                vals['fattura_scadenza'] = fields.Date.today() + timedelta(days=days)
             rec.write(vals)
             if rec.settlement_id:
                 rec.settlement_id.message_post(

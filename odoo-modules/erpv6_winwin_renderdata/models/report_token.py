@@ -40,7 +40,7 @@ class Erpv6WinwinReportToken(models.Model):
     )
     scadenza = fields.Datetime(
         required=True,
-        default=lambda self: fields.Datetime.now() + timedelta(days=30),
+        default=lambda self: self._default_scadenza_days(),
     )
     stato = fields.Selection([
         ('in_elaborazione', 'In Elaborazione'),
@@ -71,6 +71,19 @@ class Erpv6WinwinReportToken(models.Model):
     # False, non solo un flag ignorato lato frontend.
     sale_order_id = fields.Many2one('sale.order', string='Ordine (pagamento report)', copy=False)
     is_paid = fields.Boolean(compute='_compute_is_paid', string='Pagato')
+
+    @api.model
+    def _default_scadenza_days(self):
+        """29/09/2026 (C5.3): scadenza report token in giorni da settings.
+        Config: ir.config_parameter erpv6_deal.report_token_validity_days
+        (default 30). 0 = scadenza immediata."""
+        # 29/09/2026 (C5.3): default 0 = scadenza immediata.
+        try:
+            days = int(self.env['ir.config_parameter'].sudo().get_param(
+                'erpv6_deal.report_token_validity_days', '0'))
+        except (ValueError, TypeError):
+            days = 0
+        return fields.Datetime.now() + timedelta(days=days)
 
     @api.depends('sale_order_id.state')
     def _compute_is_paid(self):
