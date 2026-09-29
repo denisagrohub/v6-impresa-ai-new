@@ -84,6 +84,8 @@ type Deal = {
     sellerName: string;
     sellerIsPlaceholder: boolean;
     sellerPlaceholderCode: string;
+    // 29/09/2026 (C5.2): alias email del nodo deal (anti-aggiramento)
+    relationEmailAlias?: string | null;
     buyerName: string;
     buyerIsPlaceholder: boolean;
     buyerPlaceholderCode: string;
@@ -303,6 +305,7 @@ export default function DealDetailPage() {
                     sellerIsPlaceholder={deal.sellerIsPlaceholder}
                     sellerPlaceholderCode={deal.sellerPlaceholderCode}
                     sellerName={deal.sellerName}
+                    relationEmailAlias={deal.relationEmailAlias}
                     buyerIsPlaceholder={deal.buyerIsPlaceholder}
                     buyerPlaceholderCode={deal.buyerPlaceholderCode}
                     buyerName={deal.buyerName}

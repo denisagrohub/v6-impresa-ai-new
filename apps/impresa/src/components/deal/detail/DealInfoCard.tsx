@@ -10,6 +10,8 @@ type Props = {
   sellerIsPlaceholder: boolean;
   sellerPlaceholderCode: string;
   sellerName: string;
+  // 29/09/2026 (C5.2): alias email anti-aggiramento del nodo deal
+  relationEmailAlias?: string | null;
   buyerIsPlaceholder: boolean;
   buyerPlaceholderCode: string;
   buyerName: string;
@@ -23,6 +25,7 @@ export function DealInfoCard({
   sellerIsPlaceholder, sellerPlaceholderCode, sellerName,
   buyerIsPlaceholder, buyerPlaceholderCode, buyerName,
   frozenAt, legsCount, participantsCount, notes,
+  relationEmailAlias,
 }: Props) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
@@ -54,6 +57,18 @@ export function DealInfoCard({
           <div className="font-medium">{legsCount} / {participantsCount}</div>
         </div>
       </div>
+      {relationEmailAlias && (
+        <div className="mt-3 pt-3 border-t border-gray-100 text-xs">
+          <span className="text-gray-500 uppercase tracking-wide">Comunicazioni ufficiali</span>
+          <div className="mt-0.5 font-mono text-[#0f172a]">
+            {relationEmailAlias}@v6sviluppoimpresa.it
+          </div>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            Alias tracciato del deal. Le email su questo indirizzo vengono
+            registrate sul deal (log immutabile).
+          </p>
+        </div>
+      )}
       {notes && (
         <div className="mt-3 pt-3 border-t border-gray-100 text-sm text-gray-600">
           {notes}

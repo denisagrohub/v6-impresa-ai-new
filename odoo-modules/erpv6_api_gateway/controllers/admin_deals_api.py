@@ -52,6 +52,8 @@ class AdminDealsAPIController(ConsultantAPIController):
             'schemaVersion': d.schema_version,
             'relationId': d.relation_id.id if d.relation_id else None,
             'relationName': d.relation_id.name if d.relation_id else None,
+            # 29/09/2026 (C5.2): alias email anti-aggiramento sul nodo deal
+            'relationEmailAlias': d.relation_id.email_alias if d.relation_id else None,
             'relationBreadcrumb': self._build_relation_breadcrumb(d.relation_id) if d.relation_id else [],
             'parentDealId': d.parent_deal_id.id if d.parent_deal_id else None,
             'parentDealName': d.parent_deal_id.name if d.parent_deal_id else None,
