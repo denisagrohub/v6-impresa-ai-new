@@ -49,6 +49,8 @@ import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
 import { PartnerProjectHeader, type PartnerProjectHeaderHandlers } from "@/components/admin/partner-projects/detail/PartnerProjectHeader";
 import { PartnerProjectStatusBar, type ViewMode } from "@/components/admin/partner-projects/detail/PartnerProjectStatusBar";
 import { PartnerProjectTabs, type PartnerProjectTab } from "@/components/admin/partner-projects/detail/PartnerProjectTabs";
+import { OperativaMain } from "@/components/admin/partner-projects/detail/OperativaMain";
+import { analyzeSentEmailContent } from "@/lib/partner-projects/email-analysis";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -392,14 +394,6 @@ export default function PartnerProjectDetailPage() {
        rileva se abbiamo CHIESTO qualcosa (firma / documenti / riscontro)
        per mostrare badge di "attesa". Costa zero (nessuna AI necessaria)
        ed è deterministico: base perfetta per il tracking lean dei pending. */
-    function analyzeSentEmailContent(subject: string, bodyText: string) {
-        const fullText = `subject{subject}subject{bodyText}`.toLowerCase();
-        const needsSignature = /(rimandare firmat|restituire firmat|inviare copia firmat|inviare il contratto firmat|ti chiedo di firmare|attesa di firma|inviare modulo firmato)/i.test(fullText);
-        const needsDocuments = /(gentilmente inviar|potresti inviar|restiamo in attesa d|attendiamo i seguent|inviaci|mancanti|ci servirebb|documentazione|visura|carta d'identit|codice fiscale)/i.test(fullText);
-        const needsReply = /(fammi sapere|facci sapere|in attesa di tua|in attesa di un vostro|fammi avere un riscontro|confermac)/i.test(fullText);
-        return { needsSignature, needsDocuments, needsReply };
-    }
-
     /* ═════════════════════ EMAIL: LETTURA ═════════════════════ */
 
     // Accordion: apre/chiude un'email e carica il body solo al primo open (lazy + cache)
@@ -856,224 +850,34 @@ export default function PartnerProjectDetailPage() {
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] flex-1 overflow-hidden">
 
                 {/* ═══ COLONNA SINISTRA: contenuto contestuale alla vista ═══ */}
-                <main className="flex flex-col min-w-0 bg-white overflow-y-auto p-6 border-r border-[#e2e8f0]">
-
-                    {/* HEADER CONTESTUALE (se contesto != progetto) */}
-                    {operativeContext && operativeContext.type !== 'project' && (
-                        <div className="mb-5 rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white p-4">
-                            <div className="flex items-start gap-3">
-                                <div className="flex-1">
-                                    <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 mb-1">
-                                        Contesto
-                                    </div>
-                                    <h2 className="text-lg font-bold text-[#0f172a]">
-                                        {operativeContext.label}
-                                    </h2>
-                                    <p className="text-xs text-gray-500 mt-0.5">
-                                        {operativeContext.type === 'person'
-                                            ? "Persona · parte del progetto"
-                                            : "Target · in pipeline"}
-                                    </p>
-                                    {operativeContext.type === 'target' && (() => {
-                                        const t: any = targets.find((x: any) => x.id === operativeContext.id);
-                                        if (!t?.contattoName) return null;
-                                        return (
-                                            <p className="text-xs text-sky-700 mt-1 flex items-center gap-1">
-                                                <span className="font-semibold">Referente:</span>
-                                                {t.contattoName}
-                                            </p>
-                                        );
-                                    })()}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    {operativeContext.partnerId && (
-                                        <button
-                                            onClick={() => {
-                                                setLiveCallPartnerId(operativeContext.partnerId!);
-                                                setLiveCallPartnerName(operativeContext.label);
-                                                setLiveCallOpen(true);
-                                            }}
-                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-red-600 text-white text-[11px] font-semibold hover:bg-red-700"
-                                        >
-                                            <Phone size={11} /> Call
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => {
-                                            // 19/09/2026: pre-popola destinatario col nodo corrente
-                                            if (operativeContext && 'id' in operativeContext && operativeContext.id) {
-                                                setSelectedPartnerIds([operativeContext.id]);
-                                            }
-                                            setIsEmailModalOpen(true);
-                                        }}
-                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-[#0f172a] text-white text-[11px] font-semibold hover:bg-[#1e293b]"
-                                    >
-                                        <Send size={11} /> Email
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {viewMode === 'workbench' ? (
-                        /* WORKBENCH: flusso email + azioni operative (call, presentazione) */
-                        <section className="space-y-6">
-                            <WorkAreaPanel projectId={Number(id)} />
-
-                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                <h2 className="text-[11px] font-bold tracking-wider text-gray-400 uppercase flex items-center gap-1.5">
-                                    <FileText size={13} /> Comunicazioni & Flusso Email
-                                </h2>
-                                <button
-                                    onClick={() => setIsEmailModalOpen(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#0f172a] text-white text-xs font-medium hover:bg-[#1e293b] transition-colors cursor-pointer"
-                                >
-                                    <Send size={12} />
-                                    Scrivi Email
-                                </button>
-                            </div>
-
-                            {/* Flusso email: accordion con badge "in attesa di..." per le USCITE */}
-                            {filteredEmails.length === 0 ? (
-                                <p className="text-xs text-gray-400 italic">Nessuna email {operativeContext && 'id' in operativeContext ? 'per questo contesto' : 'registrata'}.</p>
-                            ) : (
-                                <div className="space-y-1">
-                                    {filteredEmails.map((e) => {
-                                        const isOut = e.direction === 'inviata';
-                                        // 14/09/2026: email arrivata DOPO l'ultima vista -> evidenza ambra
-                                        const isNew = !seenAt || (!!e.date && e.date > seenAt);
-                                        const bodyText = emailBodies[e.id] || '';
-                                        // Analisi solo sulle inviate: ci dice COSA abbiamo chiesto
-                                        const sentAnalysis = isOut ? analyzeSentEmailContent(e.subject, bodyText) : null;
-
-                                        return (
-                                            <div key={e.id} className={`border-b border-gray-50 last:border-0 py-2 rounded ${isNew ? 'bg-amber-50 border border-amber-200' : ''}`}>
-                                                <button
-                                                    onClick={() => toggleEmail(e.id)}
-                                                    className="w-full flex items-start justify-between text-left hover:bg-[#f8fafc] p-1.5 rounded transition-colors"
-                                                >
-                                                    <div>
-                                                        <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className={`text-[10px] font-semibold ${isOut ? 'text-blue-600' : 'text-emerald-600'}`}>
-                                                                {isOut ? '📤 OUT' : '📥 IN'}
-                                                            </span>
-                                                            <span className="text-xs font-medium text-[#0f172a]">{e.subject}</span>
-                                                            {isNew && <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold text-white">🆕 NUOVA</span>}
-
-                                                            {/* Badge di tracking: firma / documenti / riscontro richiesti */}
-                                                            {isOut && sentAnalysis && <div className="flex items-center gap-1.5 ml-1">
-                                                                {sentAnalysis.needsSignature && (
-                                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                                                                        ✍️ In Attesa di Firma
-                                                                    </span>
-                                                                )}
-                                                                {sentAnalysis.needsDocuments && (
-                                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-300">
-                                                                        📄 In Attesa Documenti
-                                                                    </span>
-                                                                )}
-                                                                {sentAnalysis.needsReply && !sentAnalysis.needsSignature && !sentAnalysis.needsDocuments && (
-                                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700 border border-gray-300">
-                                                                        ⏳ In Attesa Riscontro
-                                                                    </span>
-                                                                )}
-                                                            </div>}
-                                                            <div className="text-[11px] text-gray-400 mt-0.5">
-                                                                {isOut ? "a: " + e.recipientEmails : "da: " + e.senderEmail} · {e.date ? new Date(e.date).toLocaleString('it-IT') : ''}
-                                                            </div>
-                                                    </div>
-                                                    </div>
-                                                    {openEmailId === e.id ? <ChevronUp size={14} className="text-gray-400 shrink-0" /> : <ChevronDown size={14} className="text-gray-400 shrink-0" />}
-                                                </button>
-
-                                                {/* Corpo email espanso: banner azione + HTML sanitizzato */}
-                                                {openEmailId === e.id && (
-                                                    <div className="mt-2 pl-6 pr-2 pb-2 space-y-2">
-                                                        {isOut && sentAnalysis && (sentAnalysis.needsSignature || sentAnalysis.needsDocuments) && (
-                                                            <div className="p-2.5 rounded-md bg-amber-50/90 border border-amber-200/80 text-xs text-amber-900">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-base">📌</span>
-                                                                    <span>
-                                                                        <strong>Azione Richiesta Inviata:</strong> In questa email hai richiesto
-                                                                        {sentAnalysis.needsSignature && sentAnalysis.needsDocuments
-                                                                            ? ' la firma e l’invio di documenti.'
-                                                                            : sentAnalysis.needsSignature
-                                                                                ? ' la firma del documento.'
-                                                                                : ' l’invio di documenti.'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {loadingBodyId === e.id ? (
-                                                            <Loader2 size={14} className="animate-spin text-gray-400" />
-                                                        ) : emailBodies[e.id] ? (
-                                                            <div
-                                                                className="prose prose-xs max-w-none text-gray-600 text-[12px] bg-[#f8fafc] p-3 rounded"
-                                                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(emailBodies[e.id] as string) }}
-                                                            />
-                                                        ) : (
-                                                            <p className="text-xs text-gray-400">Nessun contenuto disponibile.</p>
-                                                        )}
-
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </section>
-                    ) : (
-                        /* LAVAGNA STRATEGICA: brief/debrief + board note del progetto */
-                        <section className="h-full flex flex-col">
-                            <div className="border-b border-gray-100 pb-3 mb-4 flex items-center justify-between">
-                                <h2 className="text-[11px] font-bold tracking-wider text-gray-400 uppercase">
-                                    Lavagna Strategica Progetto
-                                </h2>
-                                <div className="flex items-center gap-2">
-                                    {/* Brief = prima dell'azione, Debrief = dopo: ciclo PDCA/Deming */}
-                                    <button
-                                        onClick={() => { setBriefType('brief'); setIsBriefModalOpen(true); }}
-                                        className="flex items-center gap-1.5 px-3 py-1 rounded border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
-                                    >
-                                        📋 Compila Brief
-                                    </button>
-                                    <button
-                                        onClick={() => { setBriefType('debrief'); setIsBriefModalOpen(true); }}
-                                        className="flex items-center gap-1.5 px-3 py-1 rounded border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
-                                    >
-                                        🔍 Compila Debrief
-                                    </button>
-                                </div>
-                            </div>
-
-                            {project && (
-                                <NotesBoard resModel="erpv6.tracking.relation" resId={project.id} onSendEmail={handleNoteSendEmail} />
-                            )}
-                        </section>
-                    )}
-                    {/* Progetti operativi (padre) — vista lista */}
-                    {childProjects.length > 0 && (
-                        <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-                            <h2 className="text-base font-semibold mb-3">Progetti operativi</h2>
-                            <ChildProjectsList projects={childProjects} />
-                        </section>
-                    )}
-
-                    {/* Deal collegato (figlio) */}
-                    {deals.length > 0 && (
-                        <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-                            <h2 className="text-base font-semibold mb-3">Deal collegato</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {deals.map((d) => (
-                                    <DealCard key={d.id} deal={d} />
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                </main>
+                <OperativaMain
+                    projectId={Number(id)}
+                    project={project}
+                    emails={filteredEmails}
+                    childProjects={childProjects}
+                    deals={deals}
+                    seenAt={seenAt}
+                    operativeContext={operativeContext}
+                    viewMode={viewMode}
+                    targets={targets}
+                    emailState={{
+                        openId: openEmailId,
+                        bodies: emailBodies,
+                        loadingId: loadingBodyId,
+                    }}
+                    callbacks={{
+                        onToggleEmail: toggleEmail,
+                        onOpenEmailComposer: () => setIsEmailModalOpen(true),
+                        onStartLiveCall: (pid: number, pname: string) => {
+                            setLiveCallPartnerId(pid);
+                            setLiveCallPartnerName(pname);
+                            setLiveCallOpen(true);
+                        },
+                        onOpenBrief: () => { setBriefType('brief'); setIsBriefModalOpen(true); },
+                        onOpenDebrief: () => { setBriefType('debrief'); setIsBriefModalOpen(true); },
+                        onSendNote: handleNoteSendEmail,
+                    }}
+                />
 
                 {/* ═══ COLONNA DESTRA: sidebar con intelligence, parti, documenti, attività ═══ */}
                 <aside className="bg-[#f8fafc] flex flex-col h-full overflow-y-auto p-5 space-y-6">
