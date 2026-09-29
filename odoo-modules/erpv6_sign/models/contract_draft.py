@@ -174,6 +174,31 @@ class Erpv6ContractDraft(models.Model):
                 'controparte_rappresentante': p.name or '',
             })
 
+        # 3.bis Da DEAL collegato al progetto (se esiste).
+        # 29/09/2026 (C5.2c): se project_id è il nodo di un deal V6 (es.
+        # nodo 38 per deal 3), esponi deal_email = <alias>@v6sviluppoimpresa.it.
+        # La clausola anti-aggiramento del CONTRATTO-INTRO-001 lo usa
+        # per identificare il canale ufficiale del deal specifico.
+        if self.project_id:
+            # 3.bis.1: progetto_email (fallback Art. 9.1) dal nodo radice
+            # della gerarchia project_id.parent_id oppure dal project_id stesso.
+            root = self.project_id
+            while root.parent_id:
+                root = root.parent_id
+            if root.email_alias:
+                data['progetto_email'] = f"{root.email_alias}@v6sviluppoimpresa.it"
+
+            # 3.bis.2: deal_email dal deal collegato al project_id
+            deal = self.env['erpv6.deal'].sudo().search([
+                ('relation_id', '=', self.project_id.id),
+            ], limit=1)
+            if deal and deal.relation_id and deal.relation_id.email_alias:
+                data['deal_email'] = (
+                    f"{deal.relation_id.email_alias}@v6sviluppoimpresa.it"
+                )
+                data['deal_id'] = deal.id
+                data['deal_name'] = deal.name or ''
+
         # 4. EXTRA_DATA (utente sovrascrive tutto)
         if self.extra_data and isinstance(self.extra_data, dict):
             data.update(self.extra_data)
