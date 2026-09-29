@@ -197,7 +197,55 @@ function StepWizardModal({
   const [busy, setBusy] = useState(false);
   const [sendBusy, setSendBusy] = useState(false);
   const [signResult, setSignResult] = useState<{ requestUrl: string } | null>(null);
+
+  // 29/09/2026 (C6b): anteprima PDF prima dell'invio firma.
+  // Il PDF viene generato on-demand in modalità preview (filigrana),
+  // mostrato in modale iframe, e il draft viene cancellato alla chiusura.
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<{ draftId: number; pdfBase64: string; filename: string } | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // 29/09/2026 (C6b): anteprima PDF dello step. Genera draft preview,
+  // apre modale iframe. Cleanup avviene alla chiusura modale.
+  const handlePreview = async () => {
+    setPreviewBusy(true);
+    setPreviewError(null);
+    try {
+      const r = await fetch(`/api/admin/checklist/${step.id}/preview-document`, {
+        method: 'POST',
+        headers: { Authorization: `JWT ${authToken}` },
+      });
+      const d = await r.json();
+      if (!d.success) {
+        setPreviewError(d.error || 'Errore generazione anteprima');
+      } else {
+        setPreviewData({
+          draftId: d.draft_id,
+          pdfBase64: d.pdf_base64,
+          filename: d.filename || 'anteprima.pdf',
+        });
+        setPreviewOpen(true);
+      }
+    } catch (e: any) {
+      setPreviewError(e.message);
+    } finally { setPreviewBusy(false); }
+  };
+
+  const handleClosePreview = async () => {
+    const draftId = previewData?.draftId;
+    setPreviewOpen(false);
+    setPreviewData(null);
+    if (!draftId) return;
+    // Cleanup: cancella draft + documento. Best-effort.
+    try {
+      await fetch(`/api/admin/contract-drafts/${draftId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `JWT ${authToken}` },
+      });
+    } catch { /* best-effort */ }
+  };
 
   const handleSendDocument = async () => {
     setSendBusy(true);
@@ -327,6 +375,12 @@ function StepWizardModal({
           </div>
         )}
 
+        {previewError && (
+          <div className="mx-5 mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            Anteprima: {previewError}
+          </div>
+        )}
+
         <div className="border-t border-gray-100 px-5 py-3 flex justify-end gap-2 bg-gray-50">
           <button
             onClick={onClose}
@@ -336,14 +390,25 @@ function StepWizardModal({
           </button>
 
           {isSignStep && !signResult && (
-            <button
-              onClick={handleSendDocument}
-              disabled={sendBusy}
-              className="px-4 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {sendBusy && <Loader2 size={12} className="animate-spin" />}
-              {sendBusy ? 'Genero e invio...' : 'Genera e invia documento'}
-            </button>
+            <>
+              <button
+                onClick={handlePreview}
+                disabled={previewBusy || sendBusy}
+                className="px-3 py-1.5 rounded border border-indigo-300 text-indigo-700 text-xs font-semibold hover:bg-indigo-50 disabled:opacity-50 flex items-center gap-1.5"
+                title="Mostra il PDF compilato prima di inviarlo in firma"
+              >
+                {previewBusy && <Loader2 size={12} className="animate-spin" />}
+                {previewBusy ? 'Genero…' : '👁 Anteprima'}
+              </button>
+              <button
+                onClick={handleSendDocument}
+                disabled={sendBusy}
+                className="px-4 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {sendBusy && <Loader2 size={12} className="animate-spin" />}
+                {sendBusy ? 'Genero e invio...' : 'Genera e invia documento'}
+              </button>
+            </>
           )}
 
           {isSignStep && signResult && (
@@ -369,6 +434,59 @@ function StepWizardModal({
           )}
         </div>
       </div>
+
+      {/* C6b: modale anteprima PDF (overlay) */}
+      {previewOpen && previewData && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4"
+          onClick={handleClosePreview}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">Anteprima — {previewData.filename}</span>
+                <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                  filigrana
+                </span>
+              </div>
+              <button
+                onClick={handleClosePreview}
+                className="p-1 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100"
+                title="Chiudi (elimina anteprima)"
+              >
+                ✕
+              </button>
+            </div>
+            <iframe
+              src={`data:application/pdf;base64,${previewData.pdfBase64}`}
+              className="flex-1 w-full border-0"
+              title="Anteprima PDF"
+            />
+            <div className="px-4 py-2 border-t border-gray-200 flex justify-end gap-2 bg-gray-50">
+              <button
+                onClick={handleClosePreview}
+                className="px-3 py-1.5 rounded border border-gray-300 text-xs text-gray-700 hover:bg-white"
+              >
+                Chiudi anteprima
+              </button>
+              <button
+                onClick={async () => {
+                  await handleClosePreview();
+                  handleSendDocument();
+                }}
+                disabled={sendBusy}
+                className="px-4 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {sendBusy && <Loader2 size={12} className="animate-spin" />}
+                Conferma e invia in firma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
