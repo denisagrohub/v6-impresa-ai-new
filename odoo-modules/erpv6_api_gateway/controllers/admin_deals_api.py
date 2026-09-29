@@ -1020,7 +1020,12 @@ class AdminDealsAPIController(ConsultantAPIController):
         user, err = self._require_admin()
         if err:
             return err
-        C = request.env['erpv6.deal.checklist'].sudo()
+        # 29/09/2026 (C6a fix): in API auth='none', request.env.uid puo'
+        # essere None e request.env.user = recordset vuoto. with_user(user.id)
+        # forza un singleton valido PRIMA di sudo(), altrimenti message_post()
+        # in contract_draft.action_generate_pdf() esplode con
+        # 'Expected singleton: res.users()' (chiama self.env.user._is_public()).
+        C = request.env['erpv6.deal.checklist'].with_user(user.id).sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
@@ -1044,7 +1049,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         user, err = self._require_admin()
         if err:
             return err
-        Draft = request.env['erpv6.contract.draft'].sudo()
+        Draft = request.env['erpv6.contract.draft'].with_user(user.id).sudo()
         d = Draft.browse(draft_id)
         if not d.exists():
             return self._json_response({'success': True, 'already_gone': True})
