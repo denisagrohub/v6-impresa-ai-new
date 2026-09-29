@@ -39,3 +39,8 @@ from . import public_project_api
 from . import public_verify_api
 from . import magic_link_api
 from . import public_transparency_api
+
+# 29/09/2026: controller bandi (route /api/v1/bandi/*). Era presente come
+# file ma mai importato in __init__.py -> Odoo non registrava le route,
+# il gateway rispondeva 404 HTML (fallback website). Fix: import esplicito.
+from . import bandi_api

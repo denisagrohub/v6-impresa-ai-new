@@ -16,6 +16,23 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
   const [user, setUser] = useState<any>(userProp || null);
   const [badges2, setBadges2] = useState<AdminMenuBadge[]>(badges);
 
+  // 29/09/2026: categorie collassabili (persistite in localStorage).
+  // Default: tutte aperte. Voci top-level (label=null) non collassabili.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('admin_menu_collapsed');
+      if (raw) setCollapsed(JSON.parse(raw));
+    } catch {}
+  }, []);
+  const toggleCollapsed = (label: string) => {
+    setCollapsed(prev => {
+      const next = { ...prev, [label]: !prev[label] };
+      try { localStorage.setItem('admin_menu_collapsed', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
   // 27/09/2026: autonomia — se non passato dall'esterno, leggi user da
   // localStorage + fetcha badge dinamici (unread email) da solo.
   useEffect(() => {
@@ -103,11 +120,18 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
           return categories.map((cat, ci) => (
             <div key={ci}>
               {cat.label && (
-                <div className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
-                  {cat.label}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleCollapsed(cat.label!)}
+                  className="w-full flex items-center justify-between px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold hover:text-gray-600 transition-colors cursor-pointer"
+                >
+                  <span>{cat.label}</span>
+                  <span className="text-gray-300 text-[8px]">
+                    {collapsed[cat.label] ? '▶' : '▼'}
+                  </span>
+                </button>
               )}
-              {cat.items.map((item, i) => {
+              {!collapsed[cat.label || ''] && cat.items.map((item, i) => {
                 const isActive = pathname === item.href
                   || (item.href !== '/admin/dashboard' && pathname?.startsWith(item.href));
                 const badge = getBadge(item.href);
