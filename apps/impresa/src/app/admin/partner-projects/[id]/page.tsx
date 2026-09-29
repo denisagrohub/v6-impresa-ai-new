@@ -47,6 +47,8 @@ import { KpiDealRow, type KpiDeal } from "@/components/deal/KpiDealRow";
 import { SplitSquadraCard, type SplitLine } from "@/components/deal/SplitSquadraCard";
 import { DealCommandCenter, type DealCommandCenterData } from "@/components/deal/DealCommandCenter";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
+import { PartnerProjectHeader, type PartnerProjectHeaderHandlers } from "@/components/admin/partner-projects/detail/PartnerProjectHeader";
+import { PartnerProjectStatusBar, type ViewMode } from "@/components/admin/partner-projects/detail/PartnerProjectStatusBar";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -733,153 +735,48 @@ export default function PartnerProjectDetailPage() {
 
             {/* ───── HEADER: titolo, alias email, contatori live, switch vista ───── */}
             <header className="bg-white border-b border-[#e2e8f0] px-5 py-2.5 shrink-0 z-20">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                        <Link href={project?.parent_id ? `/admin/partner-projects/${project.parent_id}` : "/admin/partner-projects"}
-                            className="text-gray-400 hover:text-gray-800 transition-colors"
-                            title={project?.parent_id ? "Torna al progetto padre" : "Torna ai progetti"}>
-                            <ArrowLeft size={16} />
-                        </Link>
-                        <h1 className="text-[15px] font-bold text-[#0f172a] tracking-tight flex items-center gap-2">
-                            <span>PROGETTO: {project?.name}</span>
-                            {project?.emailAlias && (
-                                <span className="text-[11px] font-normal text-gray-400">({project.emailAlias})</span>
-                            )}
-                        </h1>
-                    </div>
+                <PartnerProjectHeader
+                    projectId={project?.id ?? 0}
+                    projectName={project?.name ?? ''}
+                    projectParentId={project?.parent_id ?? null}
+                    projectEmailAlias={project?.emailAlias ?? null}
+                    projectCharter={project?.charter ?? null}
+                    handlers={{
+                        onOpenPlaybook: () => window.open(`/consultant/partner-projects/${project?.id}/playbook`, '_blank'),
+                        onOpenPitchPublic: () => {
+                            if (!project?.emailAlias) return;
+                            const slug = (project.emailAlias as string).split('@')[0];
+                            window.open(`/p/${slug}`, '_blank');
+                        },
+                        onSendPitch: () => {
+                            if (!project?.emailAlias) return;
+                            const slug = (project.emailAlias as string).split('@')[0];
+                            const url = `${window.location.origin}/p/${slug}`;
+                            setSubject(`Scopri il progetto ${project.name} — V6 Impresa`);
+                            setMessage(`Ciao,\n\nTi segnalo il progetto "${project.name}" su cui stiamo lavorando.\n\nSe ti rivedi o conosci aziende del settore interessate, puoi candidarti qui:\n${url}\n\nA presto,\nV6 Impresa`);
+                            setIsEmailModalOpen(true);
+                        },
+                        onNewVideoCall: () => setIsCreateCallModalOpen(true),
+                        onLiveCall: () => setLiveCallOpen(true),
+                        onBriefPrecall: () => { setBriefType('brief'); setIsBriefModalOpen(true); },
+                        onScoutingCompany: () => setShowAddPart(true),
+                        onScoutingRelation: () => setIsRelationScoutingOpen(true),
+                        onPresentation: () => setIsPresentationMode(true),
+                        onNewSubproject: () => setShowAcqModal(true),
+                        onOpenSettings: () => setIsSettingsOpen(true),
+                        onCharterChanged: (c) => setProject((p: any) => p ? { ...p, charter: c } : p),
+                    }}
+                />
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => window.open(`/consultant/partner-projects/${project?.id}/playbook`, '_blank')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50"
-                            title="Apri playbook consulente (stampa/PDF)"
-                        >
-                            📖 Playbook
-                        </button>
-                        {project?.emailAlias && (
-                            <button
-                                onClick={() => {
-                                    const slug = (project.emailAlias as string).split('@')[0];
-                                    window.open(`/p/${slug}`, '_blank');
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100"
-                                title="Apri pitch pubblico"
-                            >
-                                🌐 Pitch pubblico
-                            </button>
-                        )}
-                        {project?.emailAlias && (
-                            <button
-                                onClick={() => {
-                                    const slug = (project.emailAlias as string).split('@')[0];
-                                    const url = `${window.location.origin}/p/${slug}`;
-                                    setSubject(`Scopri il progetto ${project.name} — V6 Impresa`);
-                                    setMessage(`Ciao,\n\nTi segnalo il progetto "${project.name}" su cui stiamo lavorando.\n\nSe ti rivedi o conosci aziende del settore interessate, puoi candidarti qui:\n${url}\n\nA presto,\nV6 Impresa`);
-                                    setIsEmailModalOpen(true);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100"
-                                title="Precompila email con link al pitch"
-                            >
-                                ✉️ Invia pitch
-                            </button>
-                        )}
-                        <CharterEditor
-                            projectId={project?.id ?? 0}
-                            charter={project?.charter ?? null}
-                            onChanged={(c) => setProject(p => p ? { ...p, charter: c } : p)}
-                        />
-
-                        {/* 📞 Nuova Call ▾ — pre/in/post in un unico punto */}
-                        <Dropdown
-                            label="📞 Nuova Call"
-                            variant="primary"
-                            items={[
-                                { label: "🎥 Video + Live Note", hint: "Apre Discuss + drawer note", onClick: () => setIsCreateCallModalOpen(true) },
-                                { label: "📝 Solo Live Note", hint: "Call già iniziata (telefono)", onClick: () => setLiveCallOpen(true) },
-                                { label: "📋 Prepara Brief", hint: "Pre-call, prima di chiamare", onClick: () => { setBriefType('brief'); setIsBriefModalOpen(true); } },
-                            ]}
-                        />
-
-                        {/* 🔍 Scouting ▾ */}
-                        <Dropdown
-                            label="🔍 Scouting"
-                            items={[
-                                { label: "🏢 Scouting Azienda", hint: "Per una parte del progetto", onClick: () => setShowAddPart(true) },
-                                { label: "🎯 Scouting Relazione", hint: "Profilo target del progetto", onClick: () => setIsRelationScoutingOpen(true) },
-                            ]}
-                        />
-
-                        {/* 🎤 Presenta */}
-                        <button
-                            onClick={() => setIsPresentationMode(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
-                            title="Modalità Presentazione"
-                        >
-                            <Monitor size={13} />
-                            Presenta
-                        </button>
-
-                        {/* + Crea sotto-progetto — solo su progetto radice */}
-                        {!project?.parent_id && (
-                            <Dropdown
-                                label="+ Nuovo"
-                                items={[
-                                    { label: "📁 Crea sotto-progetto", onClick: () => setShowAcqModal(true) },
-                                ]}
-                            />
-                        )}
-
-                        <button
-                            onClick={() => setIsSettingsOpen(true)}
-                            className="p-1.5 text-gray-400 hover:text-[#1a7fa8] rounded transition-colors cursor-pointer"
-                            title="Impostazioni Circuito"
-                        >
-                            <Settings size={16} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Barra di stato: KPI a colpo d'occhio (parti / email / atti) */}
-                <div className="flex items-center justify-between text-[11.5px] border-t border-[#f1f5f9] pt-2">
-                    <div className="flex items-center gap-4 text-gray-500 font-medium">
-                        <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Attivo
-                        </span>
-                        <span className="flex items-center gap-1">👥 {partners.length} parti</span>
-                        <span className="flex items-center gap-1">✉ {emails.length} email</span>
-                        <span className="flex items-center gap-1">📎 {documents.length} atti</span>
-                    </div>
-
-                    {/* 19/09/2026: torna alla Copertina */}
-                    {isKanbanBoard && (
-                        <button
-                            onClick={() => { setViewTab('copertina'); setOperativeContext(null); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-[11px] font-semibold border border-indigo-100 hover:bg-indigo-100 cursor-pointer transition-colors"
-                            title="Torna alla copertina"
-                        >
-                            ← Copertina
-                        </button>
-                    )}
-
-                    {/* Toggle vista: Workbench (operativo) / Lavagna (strategica) */}
-                    <div className="flex bg-[#f1f5f9] p-0.5 rounded text-[11px] font-medium">
-                        <button
-                            onClick={() => setViewMode('workbench')}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded cursor-pointer transition-all ${viewMode === 'workbench' ? 'bg-white text-[#0f172a] shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
-                        >
-                            <Table size={12} />
-
-                            <span>WORKBENCH</span>
-                        </button>
-                        <button
-                            onClick={() => setViewMode('lavagna')}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded cursor-pointer transition-all ${viewMode === 'lavagna' ? 'bg-white text-[#0f172a] shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
-                        >
-                            <LayoutGrid size={12} />
-                            <span>LAVAGNA STRATEGICA</span>
-                        </button>
-                    </div>
-                </div>
+                <PartnerProjectStatusBar
+                    partnersCount={partners.length}
+                    emailsCount={emails.length}
+                    documentsCount={documents.length}
+                    isKanbanBoard={isKanbanBoard}
+                    viewMode={viewMode as ViewMode}
+                    onBackToCover={() => { setViewTab('copertina'); setOperativeContext(null); }}
+                    onChangeViewMode={(m) => setViewMode(m)}
+                />
             </header>
 
             {/* ───── BARRA CONTESTO (sticky) ───── */}
