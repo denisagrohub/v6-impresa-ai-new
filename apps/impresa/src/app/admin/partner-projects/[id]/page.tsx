@@ -44,7 +44,6 @@ import { DealCard, type DealCollegato } from "@/components/deals/DealCard";
 import { ChildProjectsList } from "@/components/projects/ChildProjectsList";
 import { DealsKanban, type KanbanDeal } from "@/components/deal/DealsKanban";
 import { KpiDealRow, type KpiDeal } from "@/components/deal/KpiDealRow";
-import { SplitSquadraCard, type SplitLine } from "@/components/deal/SplitSquadraCard";
 import { DealCommandCenter, type DealCommandCenterData } from "@/components/deal/DealCommandCenter";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
 import { PartnerProjectHeader, type PartnerProjectHeaderHandlers } from "@/components/admin/partner-projects/detail/PartnerProjectHeader";
@@ -151,7 +150,6 @@ export default function PartnerProjectDetailPage() {
     const [deals, setDeals] = useState<DealCollegato[]>([]);
     const [dealsFlat, setDealsFlat] = useState<KanbanDeal[]>([]);
     const [kpiDeal, setKpiDeal] = useState<KpiDeal | null>(null);
-    const [splitSquadra, setSplitSquadra] = useState<SplitLine[]>([]);
     const [dealCollegato, setDealCollegato] = useState<DealCommandCenterData | null>(null);
     const [breadcrumbItems, setBreadcrumbItems] = useState<BreadcrumbItem[]>([]);
     // Progetti figli con child_kind='progetto' (deal operativi)
@@ -338,7 +336,6 @@ export default function PartnerProjectDetailPage() {
             setDeals(data.deals || []);
             setDealsFlat(data.dealsFlat || []);
             setKpiDeal(data.kpiDeal || null);
-            setSplitSquadra(data.splitSquadra || []);
             setDealCollegato(data.dealCollegato || null);
             setBreadcrumbItems(data.breadcrumb || []);
             setChildProjects(data.childProjects || []);
@@ -827,8 +824,8 @@ export default function PartnerProjectDetailPage() {
                     {childProjects.length > 0 && (
                         <section className="space-y-4">
                             {kpiDeal && <KpiDealRow kpi={kpiDeal} />}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <div className="lg:col-span-2">
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
                                     <DealsKanban
                                         deals={dealsFlat}
                                         parentProjectId={Number(id)}
@@ -847,11 +844,6 @@ export default function PartnerProjectDetailPage() {
                                             }
                                         }}
                                     />
-                                </div>
-                                <div>
-                                    {splitSquadra.length > 0 && (
-                                        <SplitSquadraCard lines={splitSquadra} />
-                                    )}
                                 </div>
                             </div>
                         </section>
