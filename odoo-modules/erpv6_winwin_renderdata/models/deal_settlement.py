@@ -618,6 +618,7 @@ class Erpv6DealSettlementLine(models.Model):
     pagamento_stato = fields.Selection([
         ('attesa_fattura', 'Attesa fattura'),
         ('fattura_ricevuta', 'Fattura ricevuta'),
+        ('attesa_seconda_firma', 'Attesa 2ª firma'),
         ('in_pagamento', 'In pagamento'),
         ('pagato', 'Pagato'),
         ('contestato', 'Contestato'),
@@ -634,6 +635,17 @@ class Erpv6DealSettlementLine(models.Model):
     contestato_motivo = fields.Text(
         string='Motivo contestazione', tracking=True)
     note_pagamento = fields.Text(string='Note pagamento')
+
+    # 29/09/2026 (C5.1): doppia firma bonifici.
+    # Sopra soglia (ir.config_parameter erpv6_deal.payment_dual_threshold)
+    # il pagamento richiede 2 firme di admin diversi della lista approvers.
+    approvato_da_1 = fields.Many2one('res.users', string='1° approvatore', tracking=True)
+    approvato_il_1 = fields.Datetime(string='1° OK il', tracking=True)
+    approvato_da_2 = fields.Many2one('res.users', string='2° approvatore', tracking=True)
+    approvato_il_2 = fields.Datetime(string='2° OK il', tracking=True)
+    requires_second_approval = fields.Boolean(
+        compute='_compute_requires_second_approval', store=False,
+        help='True se importo > soglia configurata e lista approvers non vuota.')
 
     pdf_document_id = fields.Many2one('erpv6.typst.document')
     sent_at = fields.Datetime()
@@ -673,6 +685,27 @@ class Erpv6DealSettlementLine(models.Model):
                 rec.importo_sbloccato = (rec.importo_effettivo or 0.0) * pct
                 rec.pagabile = rec.importo_sbloccato > 0
 
+    def _get_dual_threshold(self):
+        """Soglia oltre la quale serve doppia firma (ir.config_parameter)."""
+        return float(self.env['ir.config_parameter'].sudo().get_param(
+            'erpv6_deal.payment_dual_threshold', '10000'))
+
+    def _get_approver_ids(self):
+        """Lista user IDs autorizzati alla 2ª firma (CSV in config_parameter)."""
+        raw = self.env['ir.config_parameter'].sudo().get_param(
+            'erpv6_deal.payment_approvers', '') or ''
+        return [int(x) for x in raw.split(',') if x.strip().isdigit()]
+
+    @api.depends('importo_effettivo')
+    def _compute_requires_second_approval(self):
+        for rec in self:
+            threshold = rec._get_dual_threshold()
+            approvers = rec._get_approver_ids()
+            rec.requires_second_approval = (
+                bool(approvers)
+                and (rec.importo_effettivo or 0) > threshold
+            )
+
     def _compute_giorni_ritardo(self):
         today = fields.Date.today()
         for rec in self:
@@ -708,16 +741,53 @@ class Erpv6DealSettlementLine(models.Model):
             if rec.pagamento_stato != 'fattura_ricevuta':
                 continue
             # 29/09/2026 (Refactor C): guardia hard. Il bonifico non parte
-            # se l'incasso dal cliente non e' totale. La UI nasconde il
-            # bottone, qui blindiamo il backend contro chiamate API/RPC.
+            # se l'incasso dal cliente non e' totale.
             if not rec.pagabile:
                 raise UserError(
                     'Incasso dal cliente non ancora totale. '
                     'Impossibile autorizzare il bonifico.')
-            rec.pagamento_stato = 'in_pagamento'
+            # 29/09/2026 (C5.1): doppia firma. Sopra soglia con approvers
+            # configurati, il bonifico va in attesa_seconda_firma e
+            # registra la 1ª firma. Altrimenti passa dritto in_pagamento.
+            if rec.requires_second_approval:
+                rec.write({
+                    'pagamento_stato': 'attesa_seconda_firma',
+                    'approvato_da_1': self.env.user.id,
+                    'approvato_il_1': fields.Datetime.now(),
+                })
+                if rec.settlement_id:
+                    rec.settlement_id.message_post(
+                        body=f"1ª firma autorizzata da {self.env.user.name} per "
+                             f"{rec.participant_id.partner_id.name} — "
+                             f"attesa 2ª firma (importo sopra soglia).")
+            else:
+                rec.pagamento_stato = 'in_pagamento'
+                if rec.settlement_id:
+                    rec.settlement_id.message_post(
+                        body=f"Bonifico autorizzato per {rec.participant_id.partner_id.name}")
+        return True
+
+    def action_approva_seconda(self):
+        """2ª firma del bonifico. Solo per utenti in lista approvers e
+        diversi dal 1° approvatore. Porta lo stato a in_pagamento."""
+        approvers = self._get_approver_ids()
+        for rec in self:
+            if rec.pagamento_stato != 'attesa_seconda_firma':
+                raise UserError('Il bonifico non e\' in attesa di 2ª firma.')
+            if approvers and self.env.user.id not in approvers:
+                raise UserError('Non sei nella lista approvers per la 2ª firma.')
+            if rec.approvato_da_1 and rec.approvato_da_1.id == self.env.user.id:
+                raise UserError(
+                    'La 2ª firma deve essere di un utente diverso dal 1° approvatore.')
+            rec.write({
+                'pagamento_stato': 'in_pagamento',
+                'approvato_da_2': self.env.user.id,
+                'approvato_il_2': fields.Datetime.now(),
+            })
             if rec.settlement_id:
                 rec.settlement_id.message_post(
-                    body=f"Bonifico autorizzato per {rec.participant_id.partner_id.name}")
+                    body=f"2ª firma autorizzata da {self.env.user.name} per "
+                         f"{rec.participant_id.partner_id.name} — bonifico in pagamento.")
         return True
 
     def action_segna_pagato(self):
@@ -725,12 +795,17 @@ class Erpv6DealSettlementLine(models.Model):
             if rec.pagamento_stato == 'pagato':
                 continue
             # 29/09/2026 (Refactor C): guardia hard. Non si segna come
-            # pagato se l'incasso dal cliente non e' totale. Difesa in
-            # profondita' contro chiamate API/RPC dirette.
+            # pagato se l'incasso dal cliente non e' totale.
             if not rec.pagabile:
                 raise UserError(
                     'Incasso dal cliente non ancora totale. '
                     'Impossibile segnare come pagato.')
+            # 29/09/2026 (C5.1): guardia doppia firma. Se il bonifico
+            # richiede 2ª firma ma non e' stata data, rifiuta.
+            if rec.requires_second_approval and not rec.approvato_da_2:
+                raise UserError(
+                    'Bonifico sopra soglia: richiesta 2ª firma mancante. '
+                    'Usa action_approva_seconda() con un secondo admin.')
             rec.write({
                 'pagamento_stato': 'pagato',
                 'pagato': True,

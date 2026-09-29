@@ -491,6 +491,23 @@ class AdminDealsAPIController(ConsultantAPIController):
     # SETTLEMENT MENSLIE — consuntivi deal V6
     # ══════════════════════════════════════════════════════════════
 
+    def _settlement_line_to_dict(self, l):
+        """Serializza una riga di settlement (subset per approvazioni)."""
+        return {
+            'id': l.id,
+            'participantId': l.participant_id.id,
+            'partnerName': l.participant_id.partner_id.name,
+            'importoEffettivo': l.importo_effettivo or 0,
+            'pagamentoStato': l.pagamento_stato,
+            'requiresSecondApproval': l.requires_second_approval,
+            'approvatoDa1': l.approvato_da_1.name if l.approvato_da_1 else None,
+            'approvatoDa1Id': l.approvato_da_1.id if l.approvato_da_1 else None,
+            'approvatoIl1': l.approvato_il_1.isoformat() if l.approvato_il_1 else None,
+            'approvatoDa2': l.approvato_da_2.name if l.approvato_da_2 else None,
+            'approvatoDa2Id': l.approvato_da_2.id if l.approvato_da_2 else None,
+            'approvatoIl2': l.approvato_il_2.isoformat() if l.approvato_il_2 else None,
+        }
+
     def _settlement_to_dict(self, s, include_lines=True):
         d = {
             'id': s.id,
@@ -554,6 +571,14 @@ class AdminDealsAPIController(ConsultantAPIController):
                 'notePagamento': l.note_pagamento or '',
                 'pagabile': l.pagabile,
                 'importoSbloccato': l.importo_sbloccato or 0,
+                # 29/09/2026 (C5.1): doppia firma bonifici
+                'requiresSecondApproval': l.requires_second_approval,
+                'approvatoDa1': l.approvato_da_1.name if l.approvato_da_1 else None,
+                'approvatoDa1Id': l.approvato_da_1.id if l.approvato_da_1 else None,
+                'approvatoIl1': l.approvato_il_1.isoformat() if l.approvato_il_1 else None,
+                'approvatoDa2': l.approvato_da_2.name if l.approvato_da_2 else None,
+                'approvatoDa2Id': l.approvato_da_2.id if l.approvato_da_2 else None,
+                'approvatoIl2': l.approvato_il_2.isoformat() if l.approvato_il_2 else None,
             } for l in s.line_ids]
         return d
 
@@ -914,6 +939,114 @@ class AdminDealsAPIController(ConsultantAPIController):
             'success': True,
             'deal': self._deal_to_dict(d, include_detail=True),
         })
+
+    # ------------------------------------------------------------------
+    # GET /api/v1/admin/users/search?q=... — autocomplete utenti admin
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/users/search', type='http',
+                auth='none', methods=['GET'], csrf=False)
+    def search_users(self, q='', **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        q = (q or '').strip()
+        domain = [('share', '=', False)]  # solo utenti interni, no portal
+        if q:
+            domain = ['&'] + domain + ['|', ('name', 'ilike', q), ('email', 'ilike', q)]
+        users = request.env['res.users'].sudo().search(domain, limit=20, order='name')
+        return self._json_response({
+            'success': True,
+            'users': [{
+                'id': u.id,
+                'name': u.name,
+                'email': u.email or '',
+            } for u in users],
+        })
+
+    # ------------------------------------------------------------------
+    # POST /api/v1/admin/settlements/lines/<id>/approva-seconda
+    # 2ª firma del bonifico (doppia firma sopra soglia).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/settlements/lines/<int:line_id>/approva-seconda',
+                type='http', auth='none', methods=['POST'], csrf=False)
+    def approve_second_signature(self, line_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        L = request.env['erpv6.deal.settlement.line'].sudo()
+        line = L.browse(line_id)
+        if not line.exists():
+            return self._json_response({'error': 'Linea non trovata'}, 404)
+        try:
+            line.action_approva_seconda()
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'line': self._settlement_line_to_dict(line),
+            })
+        except Exception as e:
+            _logger.exception('Errore approva-seconda line %s', line_id)
+            return self._json_response({'error': str(e)}, 400)
+
+    # ------------------------------------------------------------------
+    # GET/PUT /api/v1/admin/settings/deal-payments
+    # Configurazione doppia firma: soglia + lista approvers.
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/settings/deal-payments', type='http',
+                auth='none', methods=['GET'], csrf=False)
+    def get_deal_payments_settings(self, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        P = request.env['ir.config_parameter'].sudo()
+        threshold = P.get_param('erpv6_deal.payment_dual_threshold', '10000')
+        approvers_raw = P.get_param('erpv6_deal.payment_approvers', '') or ''
+        approver_ids = [int(x) for x in approvers_raw.split(',') if x.strip().isdigit()]
+        Users = request.env['res.users'].sudo().browse(approver_ids).exists()
+        return self._json_response({
+            'success': True,
+            'threshold': float(threshold or 0),
+            'approvers': [{
+                'id': u.id,
+                'name': u.name,
+                'email': u.email or '',
+            } for u in Users],
+        })
+
+    @http.route('/api/v1/admin/settings/deal-payments', type='http',
+                auth='none', methods=['PUT', 'POST'], csrf=False)
+    def set_deal_payments_settings(self, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            return self._json_response({'error': 'JSON non valido'}, 400)
+        threshold = body.get('threshold')
+        approvers = body.get('approvers')  # lista di int
+        if threshold is None or not isinstance(threshold, (int, float)):
+            return self._json_response({'error': 'threshold (numero) obbligatorio'}, 400)
+        if approvers is None or not isinstance(approvers, list):
+            return self._json_response({'error': 'approvers (lista) obbligatoria'}, 400)
+        try:
+            P = request.env['ir.config_parameter'].sudo()
+            P.set_param('erpv6_deal.payment_dual_threshold', str(float(threshold)))
+            P.set_param('erpv6_deal.payment_approvers',
+                        ','.join(str(int(x)) for x in approvers))
+            request.env.cr.commit()
+        except Exception as e:
+            _logger.exception('Errore set deal-payments settings')
+            return self._json_response({'error': str(e)}, 400)
+        return self._json_response({'success': True})
 
     # ------------------------------------------------------------------
     # POST /api/v1/admin/deals/<id>/send-to-sign — invia in firma
