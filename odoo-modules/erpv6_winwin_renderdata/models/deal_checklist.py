@@ -176,6 +176,35 @@ class Erpv6DealChecklist(models.Model):
             'filename': draft.document_id.pdf_filename or 'anteprima.pdf',
         }
 
+    @api.model
+    def cron_cleanup_anteprima_drafts(self):
+        """29/09/2026 (C6a): cancella draft __ANTEPRIMA__ piu' vecchi di 2h.
+        Il cleanup principale avviene alla chiusura della modale (DELETE),
+        questo cron e' la rete di sicurezza per il caso 'browser chiuso
+        senza click su Chiudi' o errori a meta' flusso.
+
+        Frequenza consigliata: ogni ora."""
+        from datetime import timedelta
+        threshold = fields.Datetime.now() - timedelta(hours=2)
+        Draft = self.env['erpv6.contract.draft'].sudo()
+        orphans = Draft.search([
+            ('name', 'like', '__ANTEPRIMA__%'),
+            ('create_date', '<', threshold),
+        ])
+        count = 0
+        for d in orphans:
+            doc = d.document_id
+            try:
+                d.unlink()
+                if doc:
+                    try: doc.unlink()
+                    except Exception: pass
+                count += 1
+            except Exception:
+                _logger.exception('Cleanup draft anteprima id=%s fallito', d.id)
+        _logger.info('C6a cron: cancellati %s draft anteprima orfani', count)
+        return count
+
     def action_send_sign_document(self, partner_id=None):
         """Genera il PDF del documento dello step e invia firma al partner.
         Riusa erpv6.contract.draft (pattern esistente)."""
