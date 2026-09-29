@@ -49,6 +49,7 @@ import { DealCommandCenter, type DealCommandCenterData } from "@/components/deal
 import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
 import { PartnerProjectHeader, type PartnerProjectHeaderHandlers } from "@/components/admin/partner-projects/detail/PartnerProjectHeader";
 import { PartnerProjectStatusBar, type ViewMode } from "@/components/admin/partner-projects/detail/PartnerProjectStatusBar";
+import { PartnerProjectTabs, type PartnerProjectTab } from "@/components/admin/partner-projects/detail/PartnerProjectTabs";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
 
@@ -348,11 +349,10 @@ export default function PartnerProjectDetailPage() {
 
             // 28/09/2026: detection kanban target SOLO se il nodo è pipeline pura
             // (no padre con deal, no figlio deal). Priorità a DASH-4/DASH-3.
-            const hasChildProjects = (data.childProjects || []).length > 0;
-            const hasDealCollegato = !!data.dealCollegato;
-            if (data.project?.hasPipelineBoard === true
-                && !hasChildProjects
-                && !hasDealCollegato) {
+            // 29/09/2026 (C3): isKanbanBoard = metadato "questo progetto
+            // ha una pipeline target". Non e' piu' un gate: la scelta
+            // Copertina vs Operativa e' gestita dal TabBar (viewTab).
+            if (data.project?.hasPipelineBoard === true) {
                 setIsKanbanBoard(true);
             }
             setEmails((data.emails || []).map((e: any) => ({
@@ -682,54 +682,6 @@ export default function PartnerProjectDetailPage() {
 
     // 3. Layout: header compatto + griglia [contenuto 1fr | sidebar 380px]
     // Vista KANBAN: sotto-progetto con pipeline (es. Acquisizione Aziende)
-    // 19/09/2026 (Denis): se il progetto ha pipeline target -> vista COPERTINA
-    // di default. La Copertina è cliccabile e porta all'Operativa contestuale.
-    if (isKanbanBoard && project && viewTab === 'copertina') {
-        return (
-            <>
-                <CopertinaPage
-                    projectId={project.id}
-                    projectName={project.name}
-                    projectParentId={project.parent_id ?? null}
-                    onBack={() => {
-                        if (project.parent_id) window.location.href = `/admin/partner-projects/${project.parent_id}`;
-                        else window.location.href = "/admin/partner-projects";
-                    }}
-                    onOpenOperativa={(ctx) => {
-                        setOperativeContext(ctx);
-                        setViewTab('operativa');
-                    }}
-                    onOpenDetail={(person) => setDetailPerson(person)}
-                    onOpenCharter={() => setShowCharterInCopertina(true)}
-                    onOpenSettings={() => setIsSettingsOpen(true)}
-                    baseCompenso={(project.charter as any)?.baseCompenso || null}
-                />
-                {showCharterInCopertina && (
-                    <CharterEditor
-                        projectId={project.id}
-                        charter={project.charter ?? null}
-                        onChanged={(c) => setProject((p) => p ? { ...p, charter: c } : p)}
-                        forceOpen={true}
-                        hideButton={true}
-                        onClose={() => setShowCharterInCopertina(false)}
-                    />
-                )}
-                {detailPerson && (
-                    <PersonCard
-                        person={detailPerson}
-                        onClose={() => setDetailPerson(null)}
-                        onOpenTarget={(tid, tname) => {
-                            setOperativeContext({ type: 'target', id: tid, label: tname });
-                            setViewTab('operativa');
-                            setDetailPerson(null);
-                        }}
-                        onOpenOperativa={() => setDetailPerson(null)}
-                    />
-                )}
-            </>
-        );
-    }
-
     return (
         <div className="flex flex-col h-screen w-full bg-[#f8fafc] text-[#2b3440] font-sans text-[13px] overflow-hidden">
 
@@ -779,6 +731,38 @@ export default function PartnerProjectDetailPage() {
                 />
             </header>
 
+            {/* Tab Copertina/Operativa (C3). */}
+            <PartnerProjectTabs
+                value={viewTab as PartnerProjectTab}
+                onChange={(v) => {
+                    setViewTab(v);
+                    if (v === 'copertina') setOperativeContext(null);
+                }}
+            />
+
+            {viewTab === 'copertina' && project && (
+                <div className="flex-1 overflow-auto bg-[#f8fafc]">
+                    <CopertinaPage
+                        projectId={project.id}
+                        projectName={project.name}
+                        projectParentId={project.parent_id ?? null}
+                        onBack={() => {
+                            if (project.parent_id) window.location.href = `/admin/partner-projects/${project.parent_id}`;
+                            else window.location.href = "/admin/partner-projects";
+                        }}
+                        onOpenOperativa={(ctx) => {
+                            setOperativeContext(ctx);
+                            setViewTab('operativa');
+                        }}
+                        onOpenDetail={(person) => setDetailPerson(person)}
+                        onOpenCharter={() => setShowCharterInCopertina(true)}
+                        onOpenSettings={() => setIsSettingsOpen(true)}
+                        baseCompenso={(project.charter as any)?.baseCompenso || null}
+                    />
+                </div>
+            )}
+
+            {viewTab === 'operativa' && <>
             {/* ───── BARRA CONTESTO (sticky) ───── */}
             <div className="bg-white border-b border-[#e2e8f0] px-5 py-2 flex items-center gap-3 shrink-0">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Stai operando su</span>
@@ -1935,6 +1919,7 @@ export default function PartnerProjectDetailPage() {
                 />
             )}
 
+            </>}
         </div>
     );
 }
