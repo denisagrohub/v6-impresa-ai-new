@@ -53,6 +53,7 @@ import { OperativaMain } from "@/components/admin/partner-projects/detail/Operat
 import { OperativaAside } from "@/components/admin/partner-projects/detail/OperativaAside";
 import { ModalsEmail } from "@/components/admin/partner-projects/detail/ModalsEmail";
 import { ModalsCall } from "@/components/admin/partner-projects/detail/ModalsCall";
+import { ModalsSystem } from "@/components/admin/partner-projects/detail/ModalsSystem";
 import { analyzeSentEmailContent } from "@/lib/partner-projects/email-analysis";
 
 /* ───────────────────────── TYPE DEFINITIONS ───────────────────────── */
@@ -935,224 +936,6 @@ export default function PartnerProjectDetailPage() {
             {/* MODAL NUOVA CALL: oggetto + inviti → crea mail.channel su Odoo → popup */}
 
             {/* MODAL IMPOSTAZIONI: read-only del circuito (progetto, alias, contatori) */}
-            {isSettingsOpen && (
-                <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4" onClick={() => setIsSettingsOpen(false)}>
-                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="text-sm font-bold text-[#0f172a]">Impostazioni Circuito</h3>
-                        <div className="space-y-2 text-xs text-gray-600">
-                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                <span>Progetto</span>
-                                <span className="font-semibold text-[#0f172a]">{project?.name}</span>
-                            </div>
-                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                <span>Alias Email</span>
-                                <span className="font-mono text-[11px] text-[#1a7fa8]">{project?.emailAlias || 'N/D'}</span>
-                            </div>
-                            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                <span>Parti collegate</span>
-                                <span className="font-semibold">{partners.length}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span>Documenti</span>
-                                <span className="font-semibold">{documents.length}</span>
-                            </div>
-                        </div>
-                        {/* 19/09/2026: editor KPI targets (non charter, non versionato) */}
-                        <div className="border-t border-gray-100 pt-3">
-                            <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">
-                                🎯 Target di rendimento
-                            </h4>
-                            <div className="grid grid-cols-2 gap-2 mb-2">
-                                <div>
-                                    <label className="mb-0.5 block text-[10px] font-medium text-gray-600">Target attivi</label>
-                                    <input type="number" min={0}
-                                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                                        value={kpiTargetsEdit.targetAttivi}
-                                        onChange={e => setKpiTargetsEdit({ ...kpiTargetsEdit, targetAttivi: parseInt(e.target.value || '0', 10) })} />
-                                </div>
-                                <div>
-                                    <label className="mb-0.5 block text-[10px] font-medium text-gray-600">Partner / anno</label>
-                                    <input type="number" min={0}
-                                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                                        value={kpiTargetsEdit.partnerAnno}
-                                        onChange={e => setKpiTargetsEdit({ ...kpiTargetsEdit, partnerAnno: parseInt(e.target.value || '0', 10) })} />
-                                </div>
-                                <div>
-                                    <label className="mb-0.5 block text-[10px] font-medium text-gray-600">Call / mese</label>
-                                    <input type="number" min={0}
-                                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                                        value={kpiTargetsEdit.callMese}
-                                        onChange={e => setKpiTargetsEdit({ ...kpiTargetsEdit, callMese: parseInt(e.target.value || '0', 10) })} />
-                                </div>
-                                <div>
-                                    <label className="mb-0.5 block text-[10px] font-medium text-gray-600">Email / mese</label>
-                                    <input type="number" min={0}
-                                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                                        value={kpiTargetsEdit.emailMese}
-                                        onChange={e => setKpiTargetsEdit({ ...kpiTargetsEdit, emailMese: parseInt(e.target.value || '0', 10) })} />
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={async () => {
-                                        if (!project?.id) return;
-                                        setKpiTargetsBusy(true); setKpiTargetsMsg(null);
-                                        try {
-                                            const r = await fetch(`/api/admin/partner-projects/${project.id}/kpi-targets`, {
-                                                method: 'PATCH',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify(kpiTargetsEdit),
-                                            });
-                                            const d = await r.json();
-                                            setKpiTargetsMsg(d.success ? '✓ Salvato' : (d.error || 'Errore'));
-                                        } catch (e: any) { setKpiTargetsMsg(e.message); }
-                                        finally { setKpiTargetsBusy(false); }
-                                    }}
-                                    disabled={kpiTargetsBusy}
-                                    className="flex-1 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40"
-                                >
-                                    {kpiTargetsBusy ? 'Salvo…' : 'Salva target KPI'}
-                                </button>
-                                {kpiTargetsMsg && <span className={`text-[10px] ${kpiTargetsMsg.startsWith('✓') ? 'text-emerald-600' : 'text-red-600'}`}>{kpiTargetsMsg}</span>}
-                            </div>
-                            <p className="mt-1 text-[10px] text-gray-400">Separati dal charter, non versionati. Alimentano il cruscotto Copertina.</p>
-                        </div>
-
-                        <button onClick={() => setIsSettingsOpen(false)} className="w-full py-1.5 rounded bg-[#0f172a] text-white text-xs font-medium hover:bg-[#1e293b] cursor-pointer">
-                            Chiudi
-                        </button>
-                    </div>
-                </div>
-            )}
-            {isRichPartOpen && (
-                <RichPartModal
-                    projectId={Number(id)}
-                    onClose={() => setIsRichPartOpen(false)}
-                    onAdded={load}
-                />
-            )}
-            {showAcqModal && (
-                
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
-                        <h3 className="mb-3 text-sm font-bold">Crea sotto-progetto</h3>
-
-                        <label className="block text-xs font-semibold text-gray-600">Tipo di sotto-progetto</label>
-                        <select value={acqKind} onChange={(e) => setAcqKind(e.target.value)}
-                            className="mb-3 w-full rounded border px-2 py-1.5 text-sm">
-                            <option value="sotto_progetto">Sotto-progetto (generico)</option>
-                            <option value="pipeline">Pipeline operativa</option>
-                        </select>
-
-                        <label className="block text-xs font-semibold text-gray-600">Pipeline di default</label>
-                        <select value={acqPipeline} onChange={(e) => setAcqPipeline(e.target.value)}
-                            className="mb-3 w-full rounded border px-2 py-1.5 text-sm">
-                            <option value="acquisition">Acquisizione Aziende (scouting → contatto → risultato)</option>
-                            <option value="">Nessuna (personalizzata)</option>
-                        </select>
-
-                        <label className="block text-xs font-semibold text-gray-600">Nome sotto-progetto</label>
-                        <input value={acqName} onChange={(e) => setAcqName(e.target.value)}
-                            placeholder="Acquisizione Aziende" className="mb-3 w-full rounded border px-2 py-1.5 text-sm" />
-                        <label className="block text-xs font-semibold text-gray-600">Alias email (opzionale)</label>
-                        <div className="mb-4 flex items-center gap-1">
-                            <input value={acqAlias} onChange={(e) => setAcqAlias(e.target.value)}
-                                placeholder={String(project!.id) + '-acq'} className="w-full rounded border px-2 py-1.5 text-sm" />
-                            <span className="text-xs text-gray-500">@v6sviluppoimpresa.it</span>
-                        </div>
-                        {acqError && <p className="mb-2 text-xs text-red-600">{acqError}</p>}
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setShowAcqModal(false)} className="rounded px-3 py-1.5 text-xs text-gray-600">Annulla</button>
-                            <button onClick={async () => {
-                                setAcqError(null); setAcqBusy(true);
-                                try {
-                                    const res = await fetch(`/api/admin/partner-projects/${project!.id}/start-acquisition`, {
-                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            name: acqName,
-                                            emailAlias: acqAlias,
-                                            kind: acqKind,
-                                            pipelineTemplate: acqPipeline || null,
-                                        }),
-                                    });
-                                    const j = await res.json();
-                                    if (!res.ok) throw new Error(j.error || 'Errore');
-                                    setShowAcqModal(false);
-                                    load(); // ricarica per vedere il figlio nell'albero
-                                } catch (e: any) { setAcqError(e.message); }
-                                finally { setAcqBusy(false); }
-                            }} disabled={acqBusy || !acqName.trim()}
-                                className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
-                                {acqBusy ? 'Creazione…' : 'Crea'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {isRelationScoutingOpen && project && (
-                <RelationScoutingPanel
-                    relationId={project.id}
-                    relationName={project.name}
-                    scouting={project.relationScouting ?? null}
-                    onClose={() => setIsRelationScoutingOpen(false)}
-                    onSaved={(s) => setProject((p) => p ? { ...p, relationScouting: s } : p)}
-                />
-            )}
-
-            {liveCallOpen && liveCallPartnerId && (
-                <LiveCallDrawer
-                    partnerId={liveCallPartnerId}
-                    partnerName={liveCallPartnerName}
-                    relationId={project?.id}
-                    scouting={partnerScouting[liveCallPartnerId] ?? null}
-                    onClose={() => { setLiveCallOpen(false); setLiveCallPartnerId(null); }}
-                    onScoutingUpdated={(s) => setPartnerScouting(prev => ({ ...prev, [liveCallPartnerId!]: s }))}
-                    onEnd={(info) => {
-                        const pid = liveCallPartnerId;
-                        setLiveCallOpen(false);
-                        setLiveCallPartnerId(null);
-                        setLastCallEnd({ callId: info.callId, durationSeconds: info.durationSeconds, partnerId: pid });
-                    }}
-                />
-            )}
-
-            {detailPerson && (
-                <PersonCard
-                    person={detailPerson}
-                    onClose={() => setDetailPerson(null)}
-                    onOpenTarget={(tid, tname) => {
-                        setOperativeContext({ type: 'target', id: tid, label: tname });
-                        setDetailPerson(null);
-                    }}
-                    onOpenOperativa={() => {
-                        // apre l'operativa contestuale già selezionata
-                        setDetailPerson(null);
-                    }}
-                />
-            )}
-
-            {lastCallEnd && (
-                <CallEndPanel
-                    callId={lastCallEnd.callId}
-                    durationSeconds={lastCallEnd.durationSeconds}
-                    partnerId={lastCallEnd.partnerId}
-                    onDegrade={() => load()}
-                    onClose={() => setLastCallEnd(null)}
-                    onOpenDebrief={(prefill) => {
-                        setBriefType('debrief');
-                        setBriefData(prefill);
-                        setIsBriefModalOpen(true);
-                        setLastCallEnd(null);
-                    }}
-                    onOpenEmail={(prefill) => {
-                        setSubject(prefill.subject);
-                        setMessage(prefill.body);
-                        setIsEmailModalOpen(true);
-                        setLastCallEnd(null);
-                    }}
-                />
-            )}
 
             <ModalsEmail
                 state={{
@@ -1223,6 +1006,33 @@ export default function PartnerProjectDetailPage() {
                     setIsPresentationMode,
                     setActiveOverlayPanel,
                     setCallNoteText,
+                }}
+            />
+
+            <ModalsSystem
+                state={{
+                    isSettingsOpen,
+                    isRichPartOpen,
+                    showAcqModal,
+                    acqName, acqAlias, acqError, acqBusy, acqKind, acqPipeline,
+                    isRelationScoutingOpen,
+                    liveCallOpen, liveCallPartnerId, liveCallPartnerName,
+                    detailPerson, lastCallEnd,
+                    kpiTargetsEdit, kpiTargetsBusy, kpiTargetsMsg,
+                    partners, emails, documents, project,
+                }}
+                data={{}}
+                callbacks={{
+                    setIsSettingsOpen, setIsRichPartOpen, setShowAcqModal,
+                    setAcqName, setAcqAlias, setAcqError, setAcqBusy, setAcqKind, setAcqPipeline,
+                    setIsRelationScoutingOpen,
+                    setLiveCallOpen, setLiveCallPartnerId, setLiveCallPartnerName,
+                    setDetailPerson, setLastCallEnd,
+                    setKpiTargetsEdit, setKpiTargetsBusy, setKpiTargetsMsg,
+                    setPartnerScouting,
+                    setIsEmailModalOpen, setSubject, setMessage,
+                    setIsBriefModalOpen, setBriefType, setBriefData,
+                    setProject, setOperativeContext, load,
                 }}
             />
 
