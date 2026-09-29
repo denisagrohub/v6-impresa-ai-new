@@ -7,7 +7,7 @@ import DealNarrative from '@/components/deal/DealNarrative';
 import { SignRequestsPanel, type SignRequest } from '@/components/deal/SignRequestsPanel';
 import { DealWizardPanel, type ChecklistStep } from '@/components/deal/DealWizardPanel';
 import { SettlementsPanel, type Settlement } from '@/components/deal/SettlementsPanel';
-import { Loader2, ArrowLeft, FileSignature } from 'lucide-react';
+import { Loader2, ArrowLeft, FileSignature, Shield } from 'lucide-react';
 import { getAuthToken } from '@/components/deal/auth';
 import { DealHeaderActions, type DealAction } from '@/components/deal/detail/DealHeaderActions';
 import { DealInfoCard } from '@/components/deal/detail/DealInfoCard';
@@ -15,6 +15,7 @@ import { DealVariablesPanel } from '@/components/deal/detail/DealVariablesPanel'
 import { DealProspettoPanel } from '@/components/deal/detail/DealProspettoPanel';
 import { DealLegsTable } from '@/components/deal/detail/DealLegsTable';
 import { DealParticipantsTable } from '@/components/deal/detail/DealParticipantsTable';
+import { DealAccessLog } from '@/components/deal/detail/DealAccessLog';
 import { STATE_LABELS as stateLabel } from '@/components/deal/detail/constants';
 
 type Variable = {
@@ -110,6 +111,8 @@ export default function DealDetailPage() {
     const params = useParams();
     const dealId = params?.id;
     const [deal, setDeal] = useState<Deal | null>(null);
+  // C5.4: tab Audit (accessi al deal)
+  const [showAudit, setShowAudit] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -259,6 +262,28 @@ export default function DealDetailPage() {
                     actionLoading={actionLoading}
                     onAction={runAction}
                 />
+
+                {/* C5.4: audit accessi deal */}
+                <div className="mb-4 flex justify-end">
+                    <button
+                        onClick={() => setShowAudit(!showAudit)}
+                        className={`px-3 py-1.5 text-sm rounded border flex items-center gap-1.5 transition-colors ${
+                            showAudit
+                                ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                : 'border-gray-300 hover:bg-gray-50'
+                        }`}
+                        title="Mostra chi ha aperto/modificato questo deal (audit GDPR)"
+                    >
+                        <Shield className="w-3.5 h-3.5" />
+                        {showAudit ? 'Nascondi audit' : 'Audit accessi'}
+                    </button>
+                </div>
+
+                {showAudit && (
+                    <div className="mb-4">
+                        <DealAccessLog dealId={deal.id} />
+                    </div>
+                )}
 
                 {actionMessage && (
                     <div className={`mb-4 p-3 rounded-md text-sm ${

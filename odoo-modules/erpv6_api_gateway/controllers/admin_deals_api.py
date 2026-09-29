@@ -968,6 +968,46 @@ class AdminDealsAPIController(ConsultantAPIController):
         })
 
     # ------------------------------------------------------------------
+    # GET /api/v1/admin/deals/<id>/access-log — chi ha visto il deal
+    # Filtra erpv6.api.log per le chiamate relative a questo deal.
+    # C5.4: audit di accesso (GDPR, contenziosi). Ultimi 100 eventi.
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/deals/<int:deal_id>/access-log', type='http',
+                auth='none', methods=['GET'], csrf=False)
+    def deal_access_log(self, deal_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+        Deal = request.env['erpv6.deal'].sudo()
+        if not Deal.browse(deal_id).exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+        Log = request.env['erpv6.api.log'].sudo()
+        # Endpoint del deal: '/api/v1/admin/deals/<id>' o varianti (variable,
+        # freeze, checklist, settlements, send-to-sign). Filtro LIKE esatto
+        # con prefisso per non pescare deal_id fratelli (es. 30, 300).
+        prefix = f'/api/v1/admin/deals/{deal_id}'
+        domain = ['|', ('endpoint', '=', prefix),
+                       ('endpoint', '=like', prefix + '/%')]
+        logs = Log.search(domain, limit=100, order='create_date desc')
+        return self._json_response({
+            'success': True,
+            'logs': [{
+                'id': l.id,
+                'endpoint': l.endpoint,
+                'method': l.method,
+                'status_code': l.status_code,
+                'user_id': l.user_id.id if l.user_id else None,
+                'user_name': l.user_id.name if l.user_id else '(anon)',
+                'ip_address': l.ip_address or '',
+                'user_agent': l.user_agent or '',
+                'response_time_ms': l.response_time_ms or 0,
+                'create_date': l.create_date.isoformat() if l.create_date else None,
+            } for l in logs],
+        })
+
+    # ------------------------------------------------------------------
     # POST /api/v1/admin/settlements/lines/<id>/approva-seconda
     # 2ª firma del bonifico (doppia firma sopra soglia).
     # ------------------------------------------------------------------
