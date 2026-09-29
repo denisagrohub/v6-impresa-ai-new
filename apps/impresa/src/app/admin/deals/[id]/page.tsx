@@ -10,6 +10,11 @@ import { SettlementsPanel, type Settlement } from '@/components/deal/Settlements
 import { Loader2, ArrowLeft, FileSignature } from 'lucide-react';
 import { getAuthToken } from '@/components/deal/auth';
 import { DealHeaderActions, type DealAction } from '@/components/deal/detail/DealHeaderActions';
+import { DealInfoCard } from '@/components/deal/detail/DealInfoCard';
+import { DealVariablesPanel } from '@/components/deal/detail/DealVariablesPanel';
+import { DealProspettoPanel } from '@/components/deal/detail/DealProspettoPanel';
+import { DealLegsTable } from '@/components/deal/detail/DealLegsTable';
+import { DealParticipantsTable } from '@/components/deal/detail/DealParticipantsTable';
 
 type Variable = {
     id: number;
@@ -98,16 +103,9 @@ type Deal = {
     nextStepCode: string | null;
 };
 
-const fmt = (n: number) =>
-    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-
 const stateLabel: Record<string, string> = {
     forecasting: 'Previsione', negotiating: 'In trattativa', frozen: 'Congelato',
     signing: 'In firma', active: 'Attivo', closed: 'Chiuso', cancelled: 'Annullato',
-};
-
-const roleLabel: Record<string, string> = {
-    v6_entity: 'V6 entità', consultant: 'Consulente', referral: 'Referral', other: 'Altro',
 };
 
 export default function DealDetailPage() {
@@ -300,235 +298,34 @@ export default function DealDetailPage() {
                     authToken={getAuthToken() || ''}
                 />
 
-                {/* Info deal */}
-                <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                            <div className="text-xs text-gray-500 uppercase">Venditore</div>
-                            <div className="font-medium">
-                                {deal.sellerIsPlaceholder
-                                    ? `${deal.sellerPlaceholderCode} (placeholder)`
-                                    : deal.sellerName}
-                            </div>
-                        </div>
-                        <div>
-                            <div className="text-xs text-gray-500 uppercase">Compratore</div>
-                            <div className="font-medium">
-                                {deal.buyerIsPlaceholder
-                                    ? `${deal.buyerPlaceholderCode} (placeholder)`
-                                    : deal.buyerName}
-                            </div>
-                        </div>
-                        <div>
-                            <div className="text-xs text-gray-500 uppercase">Congelato</div>
-                            <div className="font-medium">{deal.frozenAt ? new Date(deal.frozenAt).toLocaleString('it-IT') : '—'}</div>
-                        </div>
-                        <div>
-                            <div className="text-xs text-gray-500 uppercase">Leg / Partecipanti</div>
-                            <div className="font-medium">{deal.legs.length} / {deal.participants.length}</div>
-                        </div>
-                    </div>
-                    {deal.notes && (
-                        <div className="mt-3 pt-3 border-t border-gray-100 text-sm text-gray-600">
-                            {deal.notes}
-                        </div>
-                    )}
-                </div>
+                {/* Info deal (C1.b) */}
+                <DealInfoCard
+                    sellerIsPlaceholder={deal.sellerIsPlaceholder}
+                    sellerPlaceholderCode={deal.sellerPlaceholderCode}
+                    sellerName={deal.sellerName}
+                    buyerIsPlaceholder={deal.buyerIsPlaceholder}
+                    buyerPlaceholderCode={deal.buyerPlaceholderCode}
+                    buyerName={deal.buyerName}
+                    frozenAt={deal.frozenAt}
+                    legsCount={deal.legs.length}
+                    participantsCount={deal.participants.length}
+                    notes={deal.notes}
+                />
 
-                {/* Split screen: variabili | prospetto */}
+                {/* Split screen variabili | prospetto (C1.b) */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-
-                    {/* Variabili */}
-                    <div className="bg-white border border-gray-200 rounded-lg">
-                        <div className="px-4 py-3 border-b border-gray-200 font-semibold text-sm">
-                            Variabili ({deal.variables.length})
-                        </div>
-                        <div className="divide-y divide-gray-100">
-                            {deal.variables.map(v => {
-                                const isOptional = !v.isCritical;
-                                const isEditing = actionLoading === `var:${v.name}`;
-                                const sourceLabel: Record<string, { label: string; color: string }> = {
-                                    manual: { label: 'manuale', color: 'bg-gray-100 text-gray-600' },
-                                    contract: { label: 'contratto', color: 'bg-blue-100 text-blue-700' },
-                                    catcher: { label: 'progetto', color: 'bg-purple-100 text-purple-700' },
-                                    formula: { label: 'formula', color: 'bg-cyan-100 text-cyan-700' },
-                                    actual: { label: 'consuntivo', color: 'bg-green-100 text-green-700' },
-                                };
-                                const src = sourceLabel[v.source] || { label: v.source, color: 'bg-gray-100 text-gray-600' };
-                                const rowStyle = isOptional
-                                    ? (v.enabled
-                                        ? 'border-l-4 border-l-green-400 bg-green-50/20'
-                                        : 'border-l-4 border-l-gray-200 bg-gray-50/30 opacity-75')
-                                    : 'border-l-4 border-l-amber-300';
-                                return (
-                                    <div key={v.id} className={`px-4 py-2.5 text-sm ${rowStyle}`}>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="font-medium text-gray-800 flex items-center gap-2">
-                                                {v.label || v.name}
-                                                {v.isCritical && (
-                                                    <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-                                                        critica
-                                                    </span>
-                                                )}
-                                            </span>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${src.color}`}>
-                                                    {src.label}
-                                                </span>
-                                                <span className="text-xs text-gray-500">{v.unit}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-4 text-xs text-gray-600 items-center">
-                                            {v.valueText ? (
-                                                <span className="font-mono">{v.valueText}</span>
-                                            ) : (
-                                                <>
-                                                    <span>MIN: <span className="font-mono">{v.valueMin.toLocaleString('it-IT')}</span></span>
-                                                    <span className="flex items-center gap-1">
-                                                        BASE:
-                                                        {isOptional ? (
-                                                            <input
-                                                                type="number"
-                                                                defaultValue={v.valueBase}
-                                                                placeholder="0"
-                                                                onBlur={(e) => {
-                                                                    const newVal = parseFloat(e.target.value);
-                                                                    if (!isNaN(newVal) && newVal !== v.valueBase) {
-                                                                        updateVariable(v.name, { valueBase: newVal, enabled: true });
-                                                                    }
-                                                                }}
-                                                                className="font-mono w-20 px-1 py-0.5 border border-gray-300 rounded text-xs focus:border-blue-500 focus:outline-none"
-                                                            />
-                                                        ) : (
-                                                            <span className="font-mono">{v.valueBase.toLocaleString('it-IT')}</span>
-                                                        )}
-                                                    </span>
-                                                    <span>MAX: <span className="font-mono">{v.valueMax.toLocaleString('it-IT')}</span></span>
-                                                    {isOptional && (
-                                                        <button
-                                                            onClick={() => updateVariable(v.name, { enabled: !v.enabled })}
-                                                            disabled={isEditing}
-                                                            className={`ml-auto text-[10px] uppercase font-semibold px-2 py-1 rounded transition-colors ${
-                                                                v.enabled
-                                                                    ? 'bg-green-500 text-white hover:bg-green-600'
-                                                                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
-                                                            } ${isEditing ? 'opacity-50' : ''}`}>
-                                                            {isEditing ? '…' : (v.enabled ? 'ON' : 'OFF')}
-                                                        </button>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Prospetto */}
-                    <div className="bg-white border border-gray-200 rounded-lg">
-                        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                            <span className="font-semibold text-sm">
-                                Prospetto {deal.prospetto ? `v${deal.prospetto.version}` : '—'}
-                            </span>
-                            {deal.prospetto && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700">
-                                    {deal.prospetto.state}
-                                </span>
-                            )}
-                        </div>
-                        {!deal.prospetto ? (
-                            <div className="p-4 text-sm text-gray-500">Nessun prospetto generato.</div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-xs">
-                                    <thead className="bg-gray-50 text-gray-600 uppercase">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left">Partecipante</th>
-                                            <th className="px-3 py-2 text-right">MIN/mese</th>
-                                            <th className="px-3 py-2 text-right">BASE/mese</th>
-                                            <th className="px-3 py-2 text-right">MAX/mese</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {deal.prospetto.lines.map(line => (
-                                            <tr key={line.id} className="border-t border-gray-100">
-                                                <td className="px-3 py-2">
-                                                    <div className="font-medium">{line.partnerName}</div>
-                                                    <div className="text-gray-500">{roleLabel[line.role] || line.role}</div>
-                                                </td>
-                                                <td className="px-3 py-2 text-right font-mono">{fmt(line.monthlyMin)}</td>
-                                                <td className="px-3 py-2 text-right font-mono">{fmt(line.monthlyBase)}</td>
-                                                <td className="px-3 py-2 text-right font-mono">{fmt(line.monthlyMax)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
+                    <DealVariablesPanel
+                        variables={deal.variables}
+                        actionLoading={actionLoading}
+                        onUpdate={updateVariable}
+                    />
+                    <DealProspettoPanel prospetto={deal.prospetto} />
                 </div>
 
-                {/* Leg e partecipanti */}
+                {/* Leg e partecipanti (C1.b) */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-                    <div className="bg-white border border-gray-200 rounded-lg">
-                        <div className="px-4 py-3 border-b border-gray-200 font-semibold text-sm">
-                            Leg / Venditori ({deal.legs.length})
-                        </div>
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-xs text-gray-600 uppercase">
-                                <tr>
-                                    <th className="px-4 py-2 text-left">Venditore</th>
-                                    <th className="px-4 py-2 text-right">Q.tà</th>
-                                    <th className="px-4 py-2 text-right">Prezzo acq.</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {deal.legs.map(l => (
-                                    <tr key={l.id} className="border-t border-gray-100">
-                                        <td className="px-4 py-2">
-                                            {l.sellerIsPlaceholder
-                                                ? <span className="font-mono text-gray-500">{l.sellerPlaceholderCode}</span>
-                                                : l.sellerName}
-                                        </td>
-                                        <td className="px-4 py-2 text-right font-mono">{l.quantita.toLocaleString('it-IT')}</td>
-                                        <td className="px-4 py-2 text-right font-mono">{l.prezzoAcquisto || '—'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="bg-white border border-gray-200 rounded-lg">
-                        <div className="px-4 py-3 border-b border-gray-200 font-semibold text-sm">
-                            Partecipanti ({deal.participants.length})
-                        </div>
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-xs text-gray-600 uppercase">
-                                <tr>
-                                    <th className="px-4 py-2 text-left">Nome</th>
-                                    <th className="px-4 py-2 text-left">Ruolo</th>
-                                    <th className="px-4 py-2 text-left">Tier</th>
-                                    <th className="px-4 py-2 text-right">Quota</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {deal.participants.map(p => (
-                                    <tr key={p.id} className="border-t border-gray-100">
-                                        <td className="px-4 py-2">{p.partnerName}</td>
-                                        <td className="px-4 py-2 text-gray-600">{roleLabel[p.role] || p.role}</td>
-                                        <td className="px-4 py-2 text-gray-500">{p.tier || '—'}</td>
-                                        <td className="px-4 py-2 text-right font-mono">
-                                            {p.role === 'referral'
-                                                ? 'fisso'
-                                                : `${(p.sharePct * 100).toFixed(2)}%`}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <DealLegsTable legs={deal.legs} />
+                    <DealParticipantsTable participants={deal.participants} />
                 </div>
             </div>
         </AdminLayout>
