@@ -707,6 +707,13 @@ class Erpv6DealSettlementLine(models.Model):
         for rec in self:
             if rec.pagamento_stato != 'fattura_ricevuta':
                 continue
+            # 29/09/2026 (Refactor C): guardia hard. Il bonifico non parte
+            # se l'incasso dal cliente non e' totale. La UI nasconde il
+            # bottone, qui blindiamo il backend contro chiamate API/RPC.
+            if not rec.pagabile:
+                raise UserError(
+                    'Incasso dal cliente non ancora totale. '
+                    'Impossibile autorizzare il bonifico.')
             rec.pagamento_stato = 'in_pagamento'
             if rec.settlement_id:
                 rec.settlement_id.message_post(
@@ -717,6 +724,13 @@ class Erpv6DealSettlementLine(models.Model):
         for rec in self:
             if rec.pagamento_stato == 'pagato':
                 continue
+            # 29/09/2026 (Refactor C): guardia hard. Non si segna come
+            # pagato se l'incasso dal cliente non e' totale. Difesa in
+            # profondita' contro chiamate API/RPC dirette.
+            if not rec.pagabile:
+                raise UserError(
+                    'Incasso dal cliente non ancora totale. '
+                    'Impossibile segnare come pagato.')
             rec.write({
                 'pagamento_stato': 'pagato',
                 'pagato': True,
