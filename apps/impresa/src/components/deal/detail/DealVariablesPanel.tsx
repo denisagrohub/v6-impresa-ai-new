@@ -7,6 +7,8 @@
 // - source badge: manuale/contratto/progetto/formula/consuntivo
 // ═══════════════════════════════════════════════════════════════════
 
+import { SOURCE_LABELS as SOURCE_LABEL } from './constants';
+
 type Variable = {
   id: number;
   name: string;
@@ -26,14 +28,6 @@ type Props = {
   variables: Variable[];
   actionLoading: string | null;
   onUpdate: (name: string, payload: { enabled?: boolean; valueBase?: number }) => void;
-};
-
-const SOURCE_LABEL: Record<string, { label: string; color: string }> = {
-  manual:   { label: 'manuale',    color: 'bg-gray-100 text-gray-600' },
-  contract: { label: 'contratto',  color: 'bg-blue-100 text-blue-700' },
-  catcher:  { label: 'progetto',   color: 'bg-purple-100 text-purple-700' },
-  formula:  { label: 'formula',    color: 'bg-cyan-100 text-cyan-700' },
-  actual:   { label: 'consuntivo', color: 'bg-green-100 text-green-700' },
 };
 
 export function DealVariablesPanel({ variables, actionLoading, onUpdate }: Props) {

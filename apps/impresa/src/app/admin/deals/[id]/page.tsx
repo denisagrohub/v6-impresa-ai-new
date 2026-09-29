@@ -15,6 +15,7 @@ import { DealVariablesPanel } from '@/components/deal/detail/DealVariablesPanel'
 import { DealProspettoPanel } from '@/components/deal/detail/DealProspettoPanel';
 import { DealLegsTable } from '@/components/deal/detail/DealLegsTable';
 import { DealParticipantsTable } from '@/components/deal/detail/DealParticipantsTable';
+import { STATE_LABELS as stateLabel } from '@/components/deal/detail/constants';
 
 type Variable = {
     id: number;
@@ -101,11 +102,6 @@ type Deal = {
     progressTotal: number;
     nextStepId: number | null;
     nextStepCode: string | null;
-};
-
-const stateLabel: Record<string, string> = {
-    forecasting: 'Previsione', negotiating: 'In trattativa', frozen: 'Congelato',
-    signing: 'In firma', active: 'Attivo', closed: 'Chiuso', cancelled: 'Annullato',
 };
 
 export default function DealDetailPage() {

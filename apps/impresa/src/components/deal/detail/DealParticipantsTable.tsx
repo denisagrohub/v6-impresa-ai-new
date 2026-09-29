@@ -7,6 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { roleLabel } from './format';
+import { REFERRAL_ROLE } from './constants';
 
 type Participant = {
   id: number;
@@ -42,7 +43,7 @@ export function DealParticipantsTable({ participants }: Props) {
               <td className="px-4 py-2 text-gray-600">{roleLabel[p.role] || p.role}</td>
               <td className="px-4 py-2 text-gray-500">{p.tier || '—'}</td>
               <td className="px-4 py-2 text-right font-mono">
-                {p.role === 'referral'
+                {p.role === REFERRAL_ROLE
                   ? 'fisso'
                   : `${(p.sharePct * 100).toFixed(2)}%`}
               </td>

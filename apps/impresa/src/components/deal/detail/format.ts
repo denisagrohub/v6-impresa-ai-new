@@ -5,17 +5,15 @@
 // ═══════════════════════════════════════════════════════════════════
 
 /** Formatta un numero come valuta EUR senza decimali (stile IT). */
+import { LOCALE, CURRENCY, CURRENCY_DIGITS, ROLE_LABELS } from './constants';
+
+/** Formatta un numero come valuta (config in ./constants). */
 export const fmtEur = (n: number): string =>
-  new Intl.NumberFormat('it-IT', {
+  new Intl.NumberFormat(LOCALE, {
     style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
+    currency: CURRENCY,
+    maximumFractionDigits: CURRENCY_DIGITS,
   }).format(n);
 
-/** Label leggibile dei ruoli partecipante deal. */
-export const roleLabel: Record<string, string> = {
-  v6_entity: 'V6 entità',
-  consultant: 'Consulente',
-  referral: 'Referral',
-  other: 'Altro',
-};
+/** Rialias per compatibilita' coi consumer esistenti. */
+export const roleLabel = ROLE_LABELS;
