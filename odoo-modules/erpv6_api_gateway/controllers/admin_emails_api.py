@@ -35,7 +35,8 @@ class AdminEmailsAPIController(ConsultantAPIController):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return None, error_response
-        if not user.has_group('base.group_system'):
+        # 29/09/2026: admin O chief_* (multi-ruolo). Vedi _is_admin_or_chief.
+        if not self._is_admin_or_chief(user):
             return None, self._json_response({'error': 'Riservato agli amministratori'}, 403)
         return user, None
 

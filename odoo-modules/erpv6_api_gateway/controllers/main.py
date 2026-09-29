@@ -143,6 +143,27 @@ class APIBaseController(http.Controller):
             payload['email_slug'] = user.email_slug or None
         return jwt.encode(payload, secret, algorithm='HS256')
 
+    def _is_admin_or_chief(self, user):
+        """29/09/2026 (multi-ruolo): True se admin O qualsiasi chief_*.
+
+        I controller admin (email, deals, contracts, partners, splits)
+        usano questo helper come gate, in alternativa al solo
+        base.group_system. Chief_* sono manager verticali che devono
+        poter usare le stesse API (le voci UI sono già protette per
+        ruolo lato frontend). Vedi permissions.ts (UserRole).
+        """
+        if not user:
+            return False
+        return (
+            user.has_group('base.group_system')
+            or user.has_group('sales_team.group_sale_manager')
+            or user.has_group('erpv6_core.group_chief_projects')
+            or user.has_group('erpv6_core.group_chief_accounting')
+            or user.has_group('erpv6_core.group_chief_bandi')
+            or user.has_group('erpv6_core.group_chief_marketing')
+            or user.has_group('erpv6_core.group_chief_kb')
+        )
+
     def _log_api_call(self, endpoint, method, user_id, status_code, start_time):
         try:
             request.env['erpv6.api.log'].sudo().create({
