@@ -1,4 +1,20 @@
+// ═══════════════════════════════════════════════════════════════════
+// DealNarrative — paragrafo "Cosa raccontano questi numeri" del deal.
+// Mostra in linguaggio naturale: model, fee, split consulenti, scenari.
+//
+// NOTA sui nomi variabile ('quantita_mese', 'fee_v6_pct', 'prezzo_tee',
+// 'v6_entity_pct', 'reserve_pct'): sono ID di campo erpv6.deal.variable
+// in Odoo, NON magic string. Non spostare in constants.
+//
+// Storicamente inline in deals/[id]/page.tsx. Refactor C step C1.c
+// (29/09/2026): usa fmtEur e MODEL_LABELS da ./detail/, LOCALE da
+// ./detail/constants. Zero cambio UX.
+// ═══════════════════════════════════════════════════════════════════
+
 'use client';
+
+import { fmtEur } from './detail/format';
+import { MODEL_LABELS, LOCALE } from './detail/constants';
 
 type ProspettoLine = {
     partnerName: string;
@@ -29,9 +45,6 @@ type Props = {
     prospetto: { lines: ProspettoLine[] } | null;
 };
 
-const fmt = (n: number) =>
-    new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-
 export default function DealNarrative({ deal, prospetto }: Props) {
     if (!prospetto || !prospetto.lines.length) {
         return (
@@ -55,12 +68,6 @@ export default function DealNarrative({ deal, prospetto }: Props) {
     const totalMin = prospetto.lines.reduce((s, l) => s + l.monthlyMin, 0);
     const totalMax = prospetto.lines.reduce((s, l) => s + l.monthlyMax, 0);
 
-    const modelLabel: Record<string, string> = {
-        fee: `modello fee ${feePct}% sul transato`,
-        spread: 'modello spread (vendita − acquisto)',
-        mixed: 'modello mixed (spread + fee)',
-    };
-
     const feeV6Base = quantita * prezzoBase * (feePct / 100);
     const v6EntityBase = (v6pct?.enabled ? (feeV6Base * (v6pct.valueBase / 100)) : 0);
     const reserveBase = (rpct?.enabled ? (feeV6Base * (rpct.valueBase / 100)) : 0);
@@ -76,17 +83,17 @@ export default function DealNarrative({ deal, prospetto }: Props) {
                     </div>
 
                     <p className="text-gray-700 mb-2">
-                        Il deal <strong>{deal.name}</strong> usa {modelLabel[deal.revenueModel] || deal.revenueModel}.
-                        Su <strong>{quantita.toLocaleString('it-IT')} TEE/mese</strong> a prezzo base{' '}
-                        <strong>{fmt(prezzoBase)}/TEE</strong>, la fee V6 è di{' '}
-                        <strong>{fmt(feeV6Base)}/mese</strong> (scenario base).
+                        Il deal <strong>{deal.name}</strong> usa {(MODEL_LABELS[deal.revenueModel] || deal.revenueModel).replace('{fee}', String(feePct))}.
+                        Su <strong>{quantita.toLocaleString(LOCALE)} TEE/mese</strong> a prezzo base{' '}
+                        <strong>{fmtEur(prezzoBase)}/TEE</strong>, la fee V6 è di{' '}
+                        <strong>{fmtEur(feeV6Base)}/mese</strong> (scenario base).
                     </p>
 
                     {(v6EntityBase > 0 || reserveBase > 0) && (
                         <p className="text-gray-700 mb-2">
-                            {v6EntityBase > 0 && <>V6 entità trattiene <strong>{fmt(v6EntityBase)}</strong> ({v6pct?.valueBase}%). </>}
-                            {reserveBase > 0 && <>La riserva accumula <strong>{fmt(reserveBase)}</strong> ({rpct?.valueBase}%). </>}
-                            Resta un pool consulenti di <strong>{fmt(poolBase)}/mese</strong>.
+                            {v6EntityBase > 0 && <>V6 entità trattiene <strong>{fmtEur(v6EntityBase)}</strong> ({v6pct?.valueBase}%). </>}
+                            {reserveBase > 0 && <>La riserva accumula <strong>{fmtEur(reserveBase)}</strong> ({rpct?.valueBase}%). </>}
+                            Resta un pool consulenti di <strong>{fmtEur(poolBase)}/mese</strong>.
                         </p>
                     )}
 
@@ -97,25 +104,25 @@ export default function DealNarrative({ deal, prospetto }: Props) {
                     <ul className="ml-4 mb-2 space-y-0.5">
                         {consultants.map((l, i) => (
                             <li key={i} className="text-gray-700">
-                                • <strong>{l.partnerName}</strong>: {fmt(l.monthlyBase)}/mese
-                                <span className="text-gray-500 text-xs"> ({fmt(l.monthlyBase * 12)}/anno)</span>
+                                • <strong>{l.partnerName}</strong>: {fmtEur(l.monthlyBase)}/mese
+                                <span className="text-gray-500 text-xs"> ({fmtEur(l.monthlyBase * 12)}/anno)</span>
                             </li>
                         ))}
                         {referrals.map((l, i) => (
                             <li key={`r${i}`} className="text-gray-700">
-                                • <strong>{l.partnerName}</strong> (referral): {fmt(l.monthlyBase)}/mese
+                                • <strong>{l.partnerName}</strong> (referral): {fmtEur(l.monthlyBase)}/mese
                             </li>
                         ))}
                     </ul>
 
                     <p className="text-gray-700 mb-2">
                         <strong>Scenari</strong>: nel pessimistico (MIN) il totale scende a{' '}
-                        <strong>{fmt(totalMin)}/mese</strong>. Nell'ottimistico (MAX) sale a{' '}
-                        <strong>{fmt(totalMax)}/mese</strong>. Delta: <strong>{fmt(totalMax - totalMin)}/mese</strong>.
+                        <strong>{fmtEur(totalMin)}/mese</strong>. Nell'ottimistico (MAX) sale a{' '}
+                        <strong>{fmtEur(totalMax)}/mese</strong>. Delta: <strong>{fmtEur(totalMax - totalMin)}/mese</strong>.
                     </p>
 
                     <p className="text-gray-600 text-xs italic">
-                        Su 12 mesi base il totale è {fmt(totalBase * 12)}. Su 24 mesi {fmt(totalBase * 24)}.
+                        Su 12 mesi base il totale è {fmtEur(totalBase * 12)}. Su 24 mesi {fmtEur(totalBase * 24)}.
                         I numeri sono vincolanti dal freeze del prospetto.
                     </p>
                 </div>

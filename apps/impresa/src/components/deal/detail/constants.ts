@@ -39,6 +39,17 @@ export const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   actual:   { label: 'consuntivo', color: 'bg-green-100 text-green-700' },
 };
 
+/**
+ * Label descrittive dei revenue model del deal (fee/spread/mixed).
+ * Nota: fee_pct arriva dal deal, quindi la label e' template-based.
+ * Chi la consuma fa `${MODEL_LABELS[m].replace('{fee}', feePct)}`.
+ */
+export const MODEL_LABELS: Record<string, string> = {
+  fee: 'modello fee {fee}% sul transato',
+  spread: 'modello spread (vendita − acquisto)',
+  mixed: 'modello mixed (spread + fee)',
+};
+
 /** Ruolo speciale: quota mostrata come 'fisso' e non come % (backend). */
 export const REFERRAL_ROLE = 'referral';
 
