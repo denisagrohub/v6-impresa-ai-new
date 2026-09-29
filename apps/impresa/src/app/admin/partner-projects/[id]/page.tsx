@@ -1,3 +1,25 @@
+// ═══════════════════════════════════════════════════════════════════
+// Partner Project Detail — orchestratore del progetto di mediazione.
+//
+// Refactor C (29/09/2026): il monolite originale (2043 righe) è stato
+// spezzato in componenti in components/admin/partner-projects/detail/:
+//
+//   - PartnerProjectHeader        top bar (azioni, alias, charter)
+//   - PartnerProjectStatusBar     KPI rapidi + toggle workbench/lavagna
+//   - PartnerProjectTabs          tab Copertina / Operativa (C3)
+//   - OperativaMain               colonna sinistra (workbench + lavagna)
+//   - OperativaAside              colonna destra (intelligence, parti, doc)
+//   - ModalsEmail                 composer + sorgente + libreria
+//   - ModalsCall                  create call + brief + presentazione
+//   - ModalsSystem                settings, acq, persona, live call, coda
+//
+// Questo file orchestra: fetch dei dati, stato condiviso tra componenti,
+// routing dei tab, mount condizionale. Nessuna logica di presentazione.
+//
+// Dipendenze: dati da /api/admin/partner-projects/[id], stato in
+// useState, azioni passate come props raggruppate.
+// ═══════════════════════════════════════════════════════════════════
+
 "use client";
 /* ═══════════════════════════════════════════════════════════════════════════
    PAGINA: Dettaglio Progetto Partner — Workbench / Lavagna Strategica
