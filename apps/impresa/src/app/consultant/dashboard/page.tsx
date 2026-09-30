@@ -899,7 +899,7 @@ export default function ConsultantDashboard() {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     {overviewAlerts.map((a: any, i: number) => {
                                         const handleClick = () => {
                                             if (a.href.startsWith('/consultant/dashboard')) setActiveTab('progetti');
@@ -909,13 +909,30 @@ export default function ConsultantDashboard() {
                                             <button
                                                 key={i}
                                                 onClick={handleClick}
-                                                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl border border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300 hover:shadow-sm transition-all text-left group"
+                                                className="w-full flex items-start gap-5 px-5 py-4 rounded-2xl border border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300 hover:shadow-md transition-all text-left group"
                                             >
-                                                <span className="w-9 h-9 rounded-full bg-amber-500 text-white text-sm font-bold flex items-center justify-center shrink-0">
-                                                    {a.count}
-                                                </span>
-                                                <span className="flex-1 text-sm font-medium text-amber-900">{a.label}</span>
-                                                <ArrowRight size={16} className="text-amber-500 group-hover:translate-x-1 transition-transform" />
+                                                <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0 text-2xl">
+                                                    {a.icon || '⚠️'}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-baseline gap-2 mb-0.5">
+                                                        <span className="text-2xl font-bold text-amber-900 leading-none">
+                                                            {a.count}
+                                                        </span>
+                                                        <span className="text-base font-semibold text-[#1a2744]">
+                                                            {a.action || a.label}
+                                                        </span>
+                                                    </div>
+                                                    {a.hint && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            {a.hint}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <ArrowRight
+                                                    size={20}
+                                                    className="text-amber-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all shrink-0 mt-4"
+                                                />
                                             </button>
                                         );
                                     })}
