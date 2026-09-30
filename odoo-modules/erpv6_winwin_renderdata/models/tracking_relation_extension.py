@@ -60,6 +60,21 @@ class Erpv6TrackingRelation(models.Model):
                 lambda v: v.state in ('bozza', 'in_firma'))
             r.active_split_version_id = active[:1] if active else False
 
+    # 30/09/2026 — Catalogo playbook consultant (opt-in).
+    # Se True, il progetto appare nel catalogo /consultant/playbook e i
+    # consultant possono richiedere accesso. L'approvazione (admin o
+    # chief_projects) aggiunge lo user a access_user_ids e (opzionale)
+    # crea un nodo parte figlio.
+    x_v6_catalog_visible = fields.Boolean(
+        string='Visibile nel catalogo consultant',
+        default=False,
+        help='Se True, il progetto è pubblicato nel catalogo playbook '
+             'consultant e accetta richieste di accesso.')
+    x_v6_catalog_published_at = fields.Datetime(
+        string='Pubblicato nel catalogo il',
+        readonly=True,
+        help="Timestamp dell'ultima attivazione di x_v6_catalog_visible.")
+
     x_v6_pitch_enabled = fields.Boolean(
         string='Pitch pubblico attivo', default=False,
         help="Se True, /p/<email_alias> è accessibile senza login.")
