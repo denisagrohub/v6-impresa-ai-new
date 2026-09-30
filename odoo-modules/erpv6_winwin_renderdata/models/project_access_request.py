@@ -12,7 +12,10 @@
 """
 
 from odoo import api, fields, models
+import logging
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class ProjectAccessRequest(models.Model):
@@ -119,6 +122,31 @@ class ProjectAccessRequest(models.Model):
                 f"Approvato da {self.env.user.name}."
             ))
 
+            # 30/09/2026: email notifica al consultant.
+            try:
+                from odoo.addons.erpv6_referral.models.system_mail_helper import send_system_mail
+                consultant_email = (user.email or user.login or '').strip()
+                if consultant_email:
+                    body = (
+                        f"<p>Ciao {user.name or ''},</p>"
+                        f"<p>la tua richiesta di accesso al progetto "
+                        f"<strong>{rel.name}</strong> è stata <strong>approvata</strong>.</p>"
+                        f"<p>Puoi aprire il playbook del progetto dalla tua area consulente:</p>"
+                        f"<p><a href='https://erp.v6sviluppoimpresa.it/consultant/partner-projects/{rel.id}/playbook' "
+                        f"style='display:inline-block;padding:8px 16px;background:#0f172a;color:#fff;"
+                        f"text-decoration:none;border-radius:6px'>Apri playbook</a></p>"
+                        f"<p style='color:#888;font-size:12px'>Approvato da {self.env.user.name}.</p>"
+                        f"<p>Buon lavoro,<br/>V6 Impresa</p>"
+                    )
+                    send_system_mail(
+                        self.env, consultant_email,
+                        f"Accesso approvato — {rel.name}",
+                        body,
+                        model='erpv6.tracking.relation', res_id=rel.id,
+                    )
+            except Exception:
+                _logger.exception('Email notifica approvazione fallita per request %s', rec.id)
+
     def action_reject(self, reason=None):
         """Rifiuta la richiesta con motivazione opzionale."""
         for rec in self:
@@ -134,6 +162,31 @@ class ProjectAccessRequest(models.Model):
                 f"❌ Richiesta accesso rifiutata per <b>{rec.user_id.name}</b>. "
                 f"Motivo: {reason or '—'}"
             ))
+
+            # 30/09/2026: email notifica al consultant.
+            try:
+                from odoo.addons.erpv6_referral.models.system_mail_helper import send_system_mail
+                consultant_email = (rec.user_id.email or rec.user_id.login or '').strip()
+                if consultant_email:
+                    reason_html = (f"<p><strong>Motivo:</strong> {reason}</p>"
+                                   if reason else "")
+                    body = (
+                        f"<p>Ciao {rec.user_id.name or ''},</p>"
+                        f"<p>la tua richiesta di accesso al progetto "
+                        f"<strong>{rec.relation_id.name}</strong> non è stata accolta.</p>"
+                        f"{reason_html}"
+                        f"<p style='color:#888;font-size:12px'>Puoi sempre sfogliare il catalogo "
+                        f"e fare richiesta per altri progetti.</p>"
+                        f"<p>Buon lavoro,<br/>V6 Impresa</p>"
+                    )
+                    send_system_mail(
+                        self.env, consultant_email,
+                        f"Richiesta accesso non accolta — {rec.relation_id.name}",
+                        body,
+                        model='erpv6.tracking.relation', res_id=rec.relation_id.id,
+                    )
+            except Exception:
+                _logger.exception('Email notifica rifiuto fallita per request %s', rec.id)
 
     def action_cancel(self):
         """Annulla (solo dal richiedente, prima della decisione)."""
