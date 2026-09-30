@@ -758,7 +758,7 @@ export default function ConsultantDashboard() {
                             {activeTab === 'profilo' && 'Profilo fiscale'}
                         </h1>
                         <p className="text-gray-500 mt-1">
-                            {user?.email}
+                            {user?.emailSlug ? `${user.emailSlug}@v6impresa.it` : user?.email}
                         </p>
                     </header>
                 )}
