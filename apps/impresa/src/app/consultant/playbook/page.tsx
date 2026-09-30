@@ -75,6 +75,18 @@ export default function PlaybookCatalogPage() {
   const [catalog, setCatalog] = useState<CatalogProject[]>([]);
   const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
 
+  // 30/09/2026: progetti già visti dall'utente (localStorage). Badge
+  // NOVITÀ per progetti approvati ma mai aperti.
+  const [seenProjects, setSeenProjects] = useState<number[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('seenProjects');
+      const seen: number[] = raw ? JSON.parse(raw) : [];
+      setSeenProjects(seen);
+    } catch {}
+  }, []);
+
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [requestProject, setRequestProject] = useState<CatalogProject | null>(null);
   const [requestMessage, setRequestMessage] = useState('');
@@ -97,14 +109,11 @@ export default function PlaybookCatalogPage() {
         fetch('/api/consultant/projects/my-requests', { headers: authHeaders() }).then(r => r.json()).catch(() => ({})),
       ]);
 
-      const my = myRes.data || myRes;
-      if (my.success) setMyProjects(my.projects || []);
-
-      const cat = catRes.data || catRes;
-      if (cat.success) setCatalog(cat.projects || []);
-
-      const reqs = reqRes.data || reqRes;
-      if (reqs.success) setMyRequests(reqs.requests || []);
+      // 30/09/2026: le risposte hanno `success` a livello TOP e `projects`
+      // /`requests` dentro `data`. Non mischiare.
+      if (myRes.success) setMyProjects(myRes.data?.projects || myRes.projects || []);
+      if (catRes.success) setCatalog(catRes.data?.projects || catRes.projects || []);
+      if (reqRes.success) setMyRequests(reqRes.data?.requests || reqRes.requests || []);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -202,11 +211,20 @@ export default function PlaybookCatalogPage() {
                   </div>
                 ) : (
                   <div className="grid gap-3">
-                    {myProjects.map(p => (
-                      <div key={p.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                    {myProjects.map(p => {
+                      const isNew = !seenProjects.includes(p.id);
+                      return (
+                      <div key={p.id} className={`bg-white border rounded-lg p-5 hover:shadow-sm transition-shadow ${isNew ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-gray-200'}`}>
                         <div className="flex items-start justify-between gap-4 mb-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-[#1a2744] truncate">{p.name}</h3>
+                            <h3 className="text-lg font-bold text-[#1a2744] truncate flex items-center gap-2">
+                              {p.name}
+                              {isNew && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider">
+                                  ✨ Novità
+                                </span>
+                              )}
+                            </h3>
                             <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
                                 {p.state || 'attivo'}
@@ -238,7 +256,7 @@ export default function PlaybookCatalogPage() {
                           </Link>
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
                 )}
               </section>

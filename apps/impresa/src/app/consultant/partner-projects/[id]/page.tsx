@@ -17,6 +17,21 @@ export default function PartnerProjectDetail() {
     const id = params?.id as string;
 
     const [user, setUser] = useState<any>(null);
+
+    // 30/09/2026: registra progetto come visto (per badge NOVITÀ playbook).
+    useEffect(() => {
+        if (!id) return;
+        try {
+            const raw = localStorage.getItem('seenProjects');
+            const seen: number[] = raw ? JSON.parse(raw) : [];
+            const pid = parseInt(String(id), 10);
+            if (!isNaN(pid) && !seen.includes(pid)) {
+                seen.push(pid);
+                localStorage.setItem('seenProjects', JSON.stringify(seen));
+            }
+        } catch {}
+    }, [id]);
+
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
     const [mySplit, setMySplit] = useState<any>(null);
