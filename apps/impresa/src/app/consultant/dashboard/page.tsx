@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply, ReplyAll, Forward, Send,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
-, Trash2, Plus, Archive, ArchiveRestore, PenTool, Download, FileCheck2 } from "lucide-react";
+, Trash2, Plus, Archive, ArchiveRestore, PenTool, Download, FileCheck2, BookOpen } from "lucide-react";
 import EmailAttachmentsInput from "@/components/EmailAttachmentsInput";
 import type { AttachedFile } from "@/components/EmailAttachmentsInput";
 import EmailRecipientInput from "@/components/EmailRecipientInput";
@@ -596,6 +596,24 @@ export default function ConsultantDashboard() {
                         </div>
                     </div>
                 </div>
+
+                {/* 30/09/2026 — Extralusso + lean: link distintivo al
+                    catalogo playbook. Separato visivamente dal resto
+                    del menu (gradient) perché è un'azione esplorativa
+                    ("cosa posso fare"), non operativa ("il mio lavoro
+                    quotidiano"). Non tocca il monolite menuItems. */}
+                <Link
+                    href="/consultant/playbook"
+                    className="mx-4 mt-3 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold
+                               bg-gradient-to-r from-indigo-500 to-purple-600 text-white
+                               shadow-lg shadow-indigo-900/20
+                               hover:from-indigo-600 hover:to-purple-700 hover:shadow-indigo-900/30
+                               transition-all"
+                >
+                    <BookOpen size={18} />
+                    <span className="flex-1 text-left">Playbook progetti</span>
+                    <span className="text-[10px] opacity-80 uppercase tracking-wider">Esplora</span>
+                </Link>
 
                 <nav className="flex-1 p-4 space-y-1">
                     {menuItems.map((item) => (
