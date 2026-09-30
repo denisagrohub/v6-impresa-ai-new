@@ -944,6 +944,194 @@ class AdminDealsAPIController(ConsultantAPIController):
         })
 
     # ------------------------------------------------------------------
+    # GET /api/v1/admin/users — lista utenti per gestione ruoli
+    # Solo admin. Esclude utenti tecnici (V6impresaAPI, portal).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/users', type='http',
+                auth='none', methods=['GET'], csrf=False)
+    def list_admin_users(self, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        # Solo utenti interni non tecnici
+        users = request.env['res.users'].sudo().search([
+            ('share', '=', False),
+            ('active', '=', True),
+        ], order='name')
+
+        # Mappa xmlid gruppo -> chiave ruolo (frontend)
+        GROUP_MAP = [
+            ('base.group_system', 'admin'),
+            ('erpv6_core.group_chief_projects', 'chief_projects'),
+            ('erpv6_core.group_chief_accounting', 'chief_accounting'),
+            ('erpv6_core.group_chief_bandi', 'chief_bandi'),
+            ('erpv6_core.group_chief_marketing', 'chief_marketing'),
+            ('erpv6_core.group_chief_kb', 'chief_kb'),
+            ('erpv6_core.group_consulente', 'consultant'),
+        ]
+
+        result = []
+        for u in users:
+            group_ids = set(u.groups_id.ids)
+            roles = []
+            for xmlid, key in GROUP_MAP:
+                grp = request.env.ref(xmlid, raise_if_not_found=False)
+                if grp and grp.id in group_ids:
+                    roles.append(key)
+            if not roles:
+                roles = ['client']  # fallback
+
+            result.append({
+                'id': u.id,
+                'name': u.name,
+                'email': u.email or u.login,
+                'login': u.login,
+                'active': u.active,
+                'roles': roles,
+            })
+
+        return self._json_response({'success': True, 'users': result})
+
+    # ------------------------------------------------------------------
+    # GET/PUT /api/v1/admin/users/<id>/roles — leggi/scrivi ruoli utente
+    # Solo admin. Il ruolo 'admin' è hardcoded al solo Denis (id=2).
+    # ------------------------------------------------------------------
+    @http.route('/api/v1/admin/users/<int:user_id>/roles', type='http',
+                auth='none', methods=['GET'], csrf=False)
+    def get_user_roles(self, user_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        user, err = self._require_admin()
+        if err:
+            return err
+
+        u = request.env['res.users'].sudo().browse(user_id)
+        if not u.exists():
+            return self._json_response({'error': 'Utente non trovato'}, 404)
+
+        GROUP_MAP = [
+            ('base.group_system', 'admin'),
+            ('erpv6_core.group_chief_projects', 'chief_projects'),
+            ('erpv6_core.group_chief_accounting', 'chief_accounting'),
+            ('erpv6_core.group_chief_bandi', 'chief_bandi'),
+            ('erpv6_core.group_chief_marketing', 'chief_marketing'),
+            ('erpv6_core.group_chief_kb', 'chief_kb'),
+            ('erpv6_core.group_consulente', 'consultant'),
+        ]
+
+        group_ids = set(u.groups_id.ids)
+        roles = []
+        for xmlid, key in GROUP_MAP:
+            grp = request.env.ref(xmlid, raise_if_not_found=False)
+            if grp and grp.id in group_ids:
+                roles.append(key)
+
+        # Email_slug per UI
+        email_slug = getattr(u, 'email_slug', None)
+
+        return self._json_response({
+            'success': True,
+            'user': {
+                'id': u.id,
+                'name': u.name,
+                'email': u.email or u.login,
+                'login': u.login,
+                'active': u.active,
+                'emailSlug': email_slug,
+                'roles': roles,
+                # Flag: questo utente è l'admin hardcoded?
+                'isHardcodedAdmin': u.id == 2,
+            },
+        })
+
+    @http.route('/api/v1/admin/users/<int:user_id>/roles', type='http',
+                auth='none', methods=['PUT', 'POST'], csrf=False)
+    def set_user_roles(self, user_id, **kw):
+        if not request.db:
+            return self._json_response({})
+        admin_user, err = self._require_admin()
+        if err:
+            return err
+
+        # 30/09/2026: solo l'admin hardcoded (id=2) può modificare i ruoli.
+        # Un chief_* può VEDERE la lista utenti ma NON modificare.
+        if admin_user.id != 2 and not admin_user.has_group('base.group_system'):
+            return self._json_response(
+                {'error': "Solo l'amministratore puo' modificare i ruoli."}, 403)
+
+        u = request.env['res.users'].sudo().browse(user_id)
+        if not u.exists():
+            return self._json_response({'error': 'Utente non trovato'}, 404)
+
+        # 30/09/2026: il ruolo 'admin' è hardcoded solo per id=2.
+        # Non è modificabile da UI.
+        if u.id == 2:
+            return self._json_response(
+                {'error': 'Il ruolo admin è hardcoded e non modificabile.'}, 403)
+
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            return self._json_response({'error': 'JSON non valido'}, 400)
+
+        new_roles = body.get('roles')
+        if not isinstance(new_roles, list):
+            return self._json_response({'error': 'Campo roles (lista) obbligatorio'}, 400)
+
+        # Mappatura ruolo -> xmlid gruppo
+        GROUP_MAP = {
+            'chief_projects': 'erpv6_core.group_chief_projects',
+            'chief_accounting': 'erpv6_core.group_chief_accounting',
+            'chief_bandi': 'erpv6_core.group_chief_bandi',
+            'chief_marketing': 'erpv6_core.group_chief_marketing',
+            'chief_kb': 'erpv6_core.group_chief_kb',
+            'consultant': 'erpv6_core.group_consulente',
+        }
+
+        # Gruppi gestiti (add/remove)
+        managed_xmlids = list(GROUP_MAP.values())
+
+        try:
+            # Rimuovi tutti i gruppi gestiti
+            remove_cmds = []
+            for xmlid in managed_xmlids:
+                grp = request.env.ref(xmlid, raise_if_not_found=False)
+                if grp:
+                    remove_cmds.append((3, grp.id))
+
+            # Aggiungi i nuovi
+            add_cmds = []
+            for role in new_roles:
+                xmlid = GROUP_MAP.get(role)
+                if not xmlid:
+                    continue
+                grp = request.env.ref(xmlid, raise_if_not_found=False)
+                if grp:
+                    add_cmds.append((4, grp.id))
+
+            u.write({'groups_id': remove_cmds + add_cmds})
+            request.env.cr.commit()
+
+            # Log nel chatter dell'utente? O in un log dedicato.
+            # Per ora solo log server-side.
+            _logger.info(
+                'User %s roles updated by admin %s: %s',
+                u.id, admin_user.id, new_roles,
+            )
+        except Exception as e:
+            _logger.exception('Errore update roles user %s', user_id)
+            return self._json_response({'error': str(e)}, 400)
+
+        return self._json_response({
+            'success': True,
+            'user_id': u.id,
+            'roles': new_roles,
+        })
+
+    # ------------------------------------------------------------------
     # GET /api/v1/admin/users/search?q=... — autocomplete utenti admin
     # ------------------------------------------------------------------
     @http.route('/api/v1/admin/users/search', type='http',

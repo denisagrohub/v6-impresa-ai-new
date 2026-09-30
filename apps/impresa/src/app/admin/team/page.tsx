@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Plus, Ticket, ChevronDown, ChevronUp, Copy, Pencil } from "lucide-react";
+import { Loader2, ArrowLeft, Plus, Ticket, ChevronDown, ChevronUp, Copy, Pencil, Users, Settings } from "lucide-react";
 
 interface Consultant {
     id: number;
@@ -145,7 +145,8 @@ export default function TeamPage() {
                         <ArrowLeft size={20} className="text-gray-600" />
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-bold text-[#1a2744]">Team</h1>
+                        <div className="mb-4"><Link href="/admin/team/users" className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-white border border-gray-200 text-sm hover:bg-gray-50"><Users size={14} /> Utenti e ruoli</Link></div>
+      <h1 className="text-3xl font-bold text-[#1a2744]">Team</h1>
                         <p className="text-gray-500">Consulenti, referral e slot di prenotazione</p>
                     </div>
                 </div>
