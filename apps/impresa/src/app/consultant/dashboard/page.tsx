@@ -803,22 +803,72 @@ export default function ConsultantDashboard() {
                     </>
                 )}
 
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold text-[#1a2744]">
-                        {activeTab === 'panoramica' && `Ciao ${user?.name?.split(' ')[0] || ''} 👋`}
-                        {activeTab === 'progetti' && 'I Miei Progetti Assegnati'}
-                        {activeTab === 'partner' && 'Progetti Partner'}
-                        {activeTab === 'email' && 'Le Mie Email'}
-                        {activeTab === 'pagamenti' && 'I Miei Compensi'}
-                        {activeTab === 'firme' && 'Le Mie Firme'}
-                        {activeTab === 'richieste' && 'Richieste & Segnalazioni'}
-                        {activeTab === 'calendario' && 'Calendario e Rischi'}
-                        {activeTab === 'profilo' && 'Profilo fiscale'}
-                    </h1>
-                    <p className="text-gray-500 mt-1">
-                        {user?.email}
-                    </p>
-                </header>
+                {/* ═══════════════════════════════════════════════════════
+                    HEADER — in Panoramica è ricco (gradient + saluto +
+                    data + frase-ponte); negli altri tab è semplice.
+                    ═══════════════════════════════════════════════════════ */}
+                {activeTab === 'panoramica' ? (
+                    (() => {
+                        const firstName = (user?.name || '').split(' ')[0] || 'consulente';
+                        const personalEmail = user?.emailSlug
+                            ? `${user.emailSlug}@v6impresa.it`
+                            : (user?.email || '');
+                        const todayLabel = new Date().toLocaleDateString('it-IT', {
+                            weekday: 'long', day: 'numeric', month: 'long'
+                        });
+                        const taskCount = overviewAlerts.reduce((s: number, a: any) => s + (a.count || 0), 0);
+
+                        return (
+                            <div className="rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 p-8 mb-8 text-white shadow-lg shadow-purple-500/20">
+                                <div className="flex items-start justify-between gap-4 mb-6">
+                                    <div className="min-w-0">
+                                        <h1 className="text-3xl font-bold tracking-tight">
+                                            Ciao {firstName} 👋
+                                        </h1>
+                                        <p className="text-white/80 text-sm mt-1 font-mono truncate">
+                                            {personalEmail}
+                                        </p>
+                                    </div>
+                                    <div className="text-right text-sm text-white/85 capitalize shrink-0">
+                                        {todayLabel}
+                                    </div>
+                                </div>
+
+                                {taskCount > 0 ? (
+                                    <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/15 backdrop-blur-sm border border-white/25">
+                                        <span className="text-xl">🎯</span>
+                                        <span className="text-sm font-medium">
+                                            Hai <strong>{taskCount}</strong> {taskCount === 1 ? 'cosa' : 'cose'} da fare oggi. Iniziamo?
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/15 backdrop-blur-sm border border-white/25">
+                                        <span className="text-xl">✨</span>
+                                        <span className="text-sm font-medium">
+                                            Tutto sotto controllo. Nessuna azione in attesa.
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()
+                ) : (
+                    <header className="mb-8">
+                        <h1 className="text-3xl font-bold text-[#1a2744]">
+                            {activeTab === 'progetti' && 'I Miei Progetti Assegnati'}
+                            {activeTab === 'partner' && 'Progetti Partner'}
+                            {activeTab === 'email' && 'Le Mie Email'}
+                            {activeTab === 'pagamenti' && 'I Miei Compensi'}
+                            {activeTab === 'firme' && 'Le Mie Firme'}
+                            {activeTab === 'richieste' && 'Richieste & Segnalazioni'}
+                            {activeTab === 'calendario' && 'Calendario e Rischi'}
+                            {activeTab === 'profilo' && 'Profilo fiscale'}
+                        </h1>
+                        <p className="text-gray-500 mt-1">
+                            {user?.email}
+                        </p>
+                    </header>
+                )}
 
                 {/* TAB: PROGETTI - collegato per davvero a erpv6.production.order/
                     crm.lead (25/08/2026, compito "dashboard consulente"):
