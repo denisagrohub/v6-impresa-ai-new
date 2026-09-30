@@ -16,4 +16,6 @@ from . import deal
 from . import deal_engine
 from . import deal_settlement
 from . import deal_checklist
+from . import deal_snapshot
+from . import deal_event
 from . import project_access_request

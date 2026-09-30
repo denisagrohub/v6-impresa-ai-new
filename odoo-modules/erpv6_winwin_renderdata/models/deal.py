@@ -121,6 +121,113 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
 
     checklist_ids = fields.One2many(
         'erpv6.deal.checklist', 'deal_id', string='Checklist deal')
+
+    # 30/09/2026 (F1 S1/S2): timeline e snapshot versionati
+    event_ids = fields.One2many(
+        'erpv6.deal.event', 'deal_id', string='Timeline eventi')
+    event_count = fields.Integer(
+        string='N. eventi', compute='_compute_event_count', store=True)
+    last_event_date = fields.Datetime(
+        string='Ultimo evento', compute='_compute_event_count', store=True)
+
+    snapshot_ids = fields.One2many(
+        'erpv6.deal.snapshot', 'deal_id', string='Snapshot')
+    current_snapshot_id = fields.Many2one(
+        'erpv6.deal.snapshot', string='Snapshot corrente',
+        compute='_compute_current_snapshot', store=False)
+
+    @api.depends('event_ids.event_date')
+    def _compute_event_count(self):
+        for rec in self:
+            events = rec.event_ids.sorted('event_date', reverse=True)
+            rec.event_count = len(events)
+            rec.last_event_date = events[0].event_date if events else False
+
+    def _compute_current_snapshot(self):
+        for rec in self:
+            snap = rec.snapshot_ids.filtered(lambda s: s.is_current)[:1]
+            rec.current_snapshot_id = snap
+
+    def _create_snapshot(self, trigger_event=None, trigger_type='auto_write', note=None):
+        """Crea uno snapshot versionato del deal.
+
+        30/09/2026 (F1 S2): chiamato automaticamente quando cambiano campi
+        tracciati, o manualmente dopo un evento con changes_applied.
+        """
+        self.ensure_one()
+        # Marca snapshot precedente come non corrente
+        self.snapshot_ids.filtered(lambda s: s.is_current).write({'is_current': False})
+
+        # Calcola versione
+        last = self.snapshot_ids.sorted('version', reverse=True)[:1]
+        new_version = (last.version + 1) if last else 1
+
+        # Fotografia valori
+        values = self._snapshot_values()
+
+        # Diff vs precedente
+        diff = {}
+        if last:
+            for k, v in values.items():
+                prev_v = (last.values or {}).get(k)
+                if prev_v != v:
+                    diff[k] = {'from': prev_v, 'to': v}
+
+        # Crea
+        snap = self.env['erpv6.deal.snapshot'].sudo().create({
+            'deal_id': self.id,
+            'version': new_version,
+            'trigger_event_id': trigger_event.id if trigger_event else False,
+            'trigger_type': trigger_type,
+            'values': values,
+            'is_current': True,
+            'diff_from_prev': diff if diff else None,
+            'note': note,
+        })
+        return snap
+
+    def _snapshot_values(self):
+        """Fotografia valori correnti del deal. Additivo: se un campo
+        non esiste, viene saltato."""
+        self.ensure_one()
+        values = {
+            'state': self.state,
+            'name': self.name,
+            'schema_code': getattr(self, 'schema_code', None),
+            'volume': getattr(self, 'volume', None),
+            'fee_v6': getattr(self, 'fee_v6', None),
+            'fee_totale': getattr(self, 'fee_totale', None),
+            'prezzo_cessione': getattr(self, 'prezzo_cessione', None),
+            'revenue_model': self.revenue_model if hasattr(self, 'revenue_model') else None,
+            'seller_id': self.seller_id.id if self.seller_id else None,
+            'seller_name': self.seller_id.name if self.seller_id else None,
+            'buyer_id': self.buyer_id.id if self.buyer_id else None,
+            'buyer_name': self.buyer_id.name if self.buyer_id else None,
+        }
+        # Aggiungi progress checklist
+        if hasattr(self, 'progress_done') and hasattr(self, 'progress_total'):
+            values['checklist_progress'] = f"{self.progress_done}/{self.progress_total}"
+        return {k: v for k, v in values.items() if v is not None}
+
+    def write(self, vals):
+        """Override: se cambiano campi tracciati, crea snapshot automatico."""
+        # Skip se contesto lo richiede (chiamata interna da action_apply_changes)
+        skip = self.env.context.get('_skip_snapshot', False)
+
+        result = super().write(vals)
+
+        if not skip:
+            TRACKED = ['state', 'volume', 'fee_v6', 'fee_totale', 'prezzo_cessione',
+                       'seller_id', 'buyer_id', 'revenue_model']
+            if any(k in vals for k in TRACKED):
+                for rec in self:
+                    try:
+                        rec._create_snapshot(trigger_type='auto_write')
+                    except Exception as e:
+                        _logger.warning('Snapshot auto fallito su deal %s: %s', rec.id, e)
+
+        return result
+
     next_step_id = fields.Many2one(
         'erpv6.deal.checklist', string='Prossimo step',
         compute='_compute_checklist_progress')
