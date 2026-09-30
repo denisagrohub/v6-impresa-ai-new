@@ -28,6 +28,22 @@ class Erpv6DealSchema(models.Model):
     locked = fields.Boolean(default=False)
     description = fields.Text()
 
+    # 30/09/2026 (F2 B1): regole di applicabilità per selezione automatica.
+    # Formato:
+    #   {
+    #     "verticals": ["TEE", "Fotovoltaico"],
+    #     "revenue_models": ["tee_rolling", "fee"],
+    #     "relation_types": ["root", "child"],
+    #     "min_volume": 0,
+    #     "max_volume": null,
+    #     "notes": "Per progetti TEE rolling 12-24 mesi"
+    #   }
+    # Vuoto = schema generico, sempre candidato.
+    applicability_rules = fields.Json(
+        string='Regole applicabilità',
+        help='Criteri per la selezione automatica dello schema al momento '
+             'della creazione di un padre/deal. Vuoto = schema generico.')
+
     _sql_constraints = [
         ('code_version_uniq', 'unique(code, version)',
          'Combinazione codice+versione già esistente'),
@@ -383,6 +399,10 @@ Per riceverlo, segui le istruzioni riportate in calce.''',
                 'blocks_deal_state': s.blocks_deal_state,
                 'requires_codes': s.requires_codes,
                 'template_document_code': s.template_document_code,
+                # 30/09/2026 (F2 B2): copia i ruoli firmatari + provider
+                'signer_roles': s.signer_roles,
+                'signature_provider': s.signature_provider,
+                'signature_level': s.signature_level,
             })
             created += 1
         _logger.info('Deal %s: checklist creata (%s step)', self.id, created)

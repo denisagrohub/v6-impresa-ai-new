@@ -40,6 +40,23 @@ class Erpv6DealSchemaStep(models.Model):
     template_document_code = fields.Char()
     auto_generate = fields.Boolean(default=True)
 
+    # 30/09/2026 (F2 B2): CHI firma + CON QUALE provider
+    signer_roles = fields.Char(
+        string='Ruoli firmatari',
+        help='CSV di ruoli: v6_admin, buyer, seller, consultant, associate, '
+             'all_participants, counterparty, hera_comm, esco_partner. '
+             'Vuoto = nessuna firma prevista.')
+    signature_provider = fields.Selection([
+        ('auto', 'Auto (policy)'),
+        ('documenso', 'Documenso'),
+        ('certyneo', 'Certyneo'),
+    ], string='Provider firma', default='auto')
+    signature_level = fields.Selection([
+        ('SES', 'SES — Semplice'),
+        ('AES', 'AES — Avanzata'),
+        ('QES', 'QES — Qualificata eIDAS'),
+    ], string='Livello firma', default='AES')
+
     _sql_constraints = [
         ('unique_code_per_schema', 'UNIQUE(schema_id, code)',
          'Esiste già uno step con questo codice nello schema.'),
@@ -62,6 +79,19 @@ class Erpv6DealChecklist(models.Model):
     requires_codes = fields.Char()
     template_document_code = fields.Char()
     status = fields.Selection(STEP_STATUS, default='pending', required=True, tracking=True, index=True)
+
+    # 30/09/2026 (F2 B2): copiati dallo schema.step al momento della generazione
+    signer_roles = fields.Char(string='Ruoli firmatari')
+    signature_provider = fields.Selection([
+        ('auto', 'Auto (policy)'),
+        ('documenso', 'Documenso'),
+        ('certyneo', 'Certyneo'),
+    ], string='Provider firma', default='auto')
+    signature_level = fields.Selection([
+        ('SES', 'SES — Semplice'),
+        ('AES', 'AES — Avanzata'),
+        ('QES', 'QES — Qualificata eIDAS'),
+    ], string='Livello firma', default='AES')
 
     sign_request_id = fields.Many2one('erpv6.sign.request', string='Richiesta firma', ondelete='set null')
     attachment_id = fields.Many2one('ir.attachment', string='Documento firmato', ondelete='set null')
