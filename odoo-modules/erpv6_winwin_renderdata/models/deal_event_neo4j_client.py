@@ -62,7 +62,8 @@ class Erpv6DealEventNeo4jClient(models.AbstractModel):
         Ritorna True se sincronizzato, False se skip (driver assente o
         Neo4j non configurato).
         """
-        self.ensure_one()
+        # NB: non self.ensure_one() — questo è un AbstractModel senza record,
+        # e' un contenitore di metodi, non un'istanza dati.
         driver = self._get_driver()
         if not driver:
             return False
