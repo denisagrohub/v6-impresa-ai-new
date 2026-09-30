@@ -27,7 +27,14 @@ _logger = logging.getLogger(__name__)
 class ConsultantAPIController(APIBaseController):
 
     def _is_responsabile_o_admin(self, user):
-        return user.has_group('base.group_system') or user.has_group('sales_team.group_sale_manager')
+        # 30/09/2026 (fix): include chief_projects — prima un Chief Projects
+        # V6 non era riconosciuto come 'responsabile' e non vedeva il checkbox
+        # 'Vedi tutti' né poteva decidere le richieste.
+        return (
+            user.has_group('base.group_system')
+            or user.has_group('sales_team.group_sale_manager')
+            or user.has_group('erpv6_core.group_chief_projects')
+        )
 
     def _not_installed(self, path, start_time):
         self._log_api_call(path, 'GET', None, 501, start_time)
