@@ -85,6 +85,16 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             return True
         return False
 
+    def _get_consultant_record(self, email_id, kind):
+        """30/09/2026: risolve email_id → record (winwin o project).
+        Stesso pattern di admin_emails_api._get_record.
+        """
+        model = 'erpv6.winwin.email.log' if kind == 'winwin' else 'erpv6.project.email.log'
+        if model not in request.env:
+            return None
+        r = request.env[model].sudo().browse(email_id)
+        return r if r.exists() else None
+
     @http.route('/api/v1/consultant/emails', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_consultant_emails(self, **kwargs):  # pylint: disable=unused-argument
         if request.httprequest.method == 'OPTIONS':
@@ -243,14 +253,15 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err: return err
         env = request.env
-        Log = env['erpv6.winwin.email.log'].sudo()
-        log = Log.browse(email_id)
-        if not log.exists():
+        kind = request.httprequest.args.get('kind', 'winwin')
+        log = self._get_consultant_record(email_id, kind)
+        if not log:
             return self._json_response({'error': 'Email non trovata'}, 404)
         if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso'}, 403)
+        model_name = 'erpv6.winwin.email.log' if kind == 'winwin' else 'erpv6.project.email.log'
         atts = env['ir.attachment'].sudo().search([
-            ('res_model', '=', 'erpv6.winwin.email.log'), ('res_id', '=', log.id),
+            ('res_model', '=', model_name), ('res_id', '=', log.id),
         ])
         return self._json_response({'attachments': [{
             'id': a.id, 'name': a.name, 'mimetype': a.mimetype,
@@ -267,13 +278,18 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             return error_response
 
         env = request.env
-        Log = env['erpv6.winwin.email.log'].sudo()
-        log = Log.browse(email_id)
-        if not log.exists():
+        kind = request.httprequest.args.get('kind', 'winwin')
+        log = self._get_consultant_record(email_id, kind)
+        if not log:
             return self._json_response({'error': 'Email non trovata'}, 404)
 
         if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
+
+        if 'is_read' not in log._fields:
+            # project.email.log non ha is_read: no-op silenzioso (era già
+            # "letto" dal punto di vista dell'utente).
+            return self._json_response({'success': True, 'noop': True})
 
         if not log.is_read:
             log.write({'is_read': True})
@@ -287,12 +303,14 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err: return err
         env = request.env
-        Log = env['erpv6.winwin.email.log'].sudo()
-        log = Log.browse(email_id)
-        if not log.exists():
+        kind = request.httprequest.args.get('kind', 'winwin')
+        log = self._get_consultant_record(email_id, kind)
+        if not log:
             return self._json_response({'error': 'Email non trovata'}, 404)
         if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso'}, 403)
+        if 'is_archived' not in log._fields:
+            return self._json_response({'error': 'Archiviazione non supportata per questa fonte'}, 400)
         log.write({'is_archived': True})
         return self._json_response({'success': True})
 
@@ -304,12 +322,14 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err: return err
         env = request.env
-        Log = env['erpv6.winwin.email.log'].sudo()
-        log = Log.browse(email_id)
-        if not log.exists():
+        kind = request.httprequest.args.get('kind', 'winwin')
+        log = self._get_consultant_record(email_id, kind)
+        if not log:
             return self._json_response({'error': 'Email non trovata'}, 404)
         if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso'}, 403)
+        if 'is_archived' not in log._fields:
+            return self._json_response({'error': 'Archiviazione non supportata per questa fonte'}, 400)
         log.write({'is_archived': False})
         return self._json_response({'success': True})
 
@@ -323,18 +343,19 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             return error_response
 
         env = request.env
-        Log = env['erpv6.winwin.email.log'].sudo()
-        log = Log.browse(email_id)
-        if not log.exists():
+        kind = request.httprequest.args.get('kind', 'winwin')
+        log = self._get_consultant_record(email_id, kind)
+        if not log:
             return self._json_response({'error': 'Email non trovata'}, 404)
 
         if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
 
         # Rimuovi anche i mail.message collegati (thread)
+        model_name = 'erpv6.winwin.email.log' if kind == 'winwin' else 'erpv6.project.email.log'
         try:
             env['mail.message'].sudo().search([
-                ('model', '=', 'erpv6.winwin.email.log'),
+                ('model', '=', model_name),
                 ('res_id', '=', log.id),
             ]).unlink()
         except Exception:
@@ -357,9 +378,9 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         if 'erpv6.winwin.email.log' not in env:
             return self._json_response({'error': 'erpv6_winwin_renderdata non installato'}, 501)
 
-        Log = env['erpv6.winwin.email.log'].sudo()
-        log = Log.browse(email_id)
-        if not log.exists():
+        kind = request.httprequest.args.get('kind', 'winwin')
+        log = self._get_consultant_record(email_id, kind)
+        if not log:
             return self._json_response({'error': 'Email non trovata'}, 404)
 
         is_admin = self._is_responsabile_o_admin(user)
@@ -368,11 +389,13 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
 
+        model_name = 'erpv6.winwin.email.log' if kind == 'winwin' else 'erpv6.project.email.log'
+
         # Body: cerca il mail.message comment (esclude le notification di sistema
         # tipo 'created' che finivano per essere mostrate come corpo email).
         Message = env['mail.message'].sudo()
         msg = Message.search([
-            ('model', '=', 'erpv6.winwin.email.log'),
+            ('model', '=', model_name),
             ('res_id', '=', log.id),
             ('message_type', '=', 'comment'),
         ], order='id desc', limit=1)
@@ -382,15 +405,19 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             body = msg.body or ''
 
         self._log_api_call('/api/v1/consultant/emails/detail', 'GET', user.id, 200, start_time)
+        # 30/09/2026: recipient_user_id esiste solo su winwin.email.log.
+        # Su project.email.log usa getattr (None).
+        rui = getattr(log, 'recipient_user_id', None)
         return self._json_response({
             'id': log.id,
+            'kind': kind,
             'subject': log.name or '(senza oggetto)',
             'sender_email': log.sender_email or '',
             'recipient_emails': log.recipient_emails or '',
             'cc_emails': log.cc_emails or '',
             'relation_id': log.relation_id.id if log.relation_id else None,
             'relation_name': log.relation_id.name if log.relation_id else None,
-            'recipient_user_name': log.recipient_user_id.name if log.recipient_user_id else None,
+            'recipient_user_name': rui.name if rui else None,
             'create_date': self._iso_utc(log.create_date) if log.create_date else None,
             'body': body,
         })
@@ -414,7 +441,8 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         if 'erpv6.winwin.email.log' not in env:
             return self._json_response({'error': 'Modulo non installato'}, 501)
 
-        log = env['erpv6.winwin.email.log'].sudo().browse(email_id)
+        kind = request.httprequest.args.get('kind', 'winwin')
+        log = self._get_consultant_record(email_id, kind)
         if not log.exists():
             return self._json_response({'error': 'Email non trovata'}, 404)
 
