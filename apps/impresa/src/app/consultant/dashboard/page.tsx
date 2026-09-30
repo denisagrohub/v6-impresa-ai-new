@@ -2,8 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-    LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply, ReplyAll, Forward, Send,
+import { Search, LayoutDashboard, Clock, Euro, AlertTriangle, LogOut, Mail, RefreshCw, Handshake, Building2, Reply, ReplyAll, Forward, Send,
     FolderOpen, Users, AlertCircle, Calendar, Video,
     CheckCircle2, TrendingUp, FileText, PlusCircle, Eye, Check, X, Loader2
 , Trash2, Plus, Archive, ArchiveRestore, PenTool, ArrowRight, Download, FileCheck2, BookOpen } from "lucide-react";
@@ -28,6 +27,10 @@ export default function ConsultantDashboard() {
     // 30/09/2026: overview KPI dashboard (endpoint aggregatore).
     const [overviewKpi, setOverviewKpi] = useState<any>(null);
     const [overviewAlerts, setOverviewAlerts] = useState<any[]>([]);
+
+    // 30/09/2026 (E4): filtri ricerca per tab contestuali.
+    const [projectSearch, setProjectSearch] = useState('');
+    const [partnerSearch, setPartnerSearch] = useState('');
     // 23/09/2026: profilo fiscale (form)
     const [fiscalData, setFiscalData] = useState<any>(null);
     const [fiscalForm, setFiscalForm] = useState<any>({ vat:'', codice_fiscale:'', street:'', street2:'', city:'', zip:'', email_mode: 'personal' });
@@ -949,23 +952,52 @@ export default function ConsultantDashboard() {
 
                 {activeTab === "progetti" && (
                     <div className="space-y-6">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <Link
-                                href="/consultant/nuovo-lead"
-                                className="inline-flex items-center gap-2 bg-orange-500 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-orange-600 transition-colors"
-                            >
-                                <PlusCircle size={18} /> Nuovo cliente (intervista)
-                            </Link>
+                        {/* E4: barra contestuale (counters + search + CTA) */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-4 text-sm">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span className="font-bold text-[#1a2744]">{projectsData?.orders?.length ?? 0}</span>
+                                    <span className="text-gray-500">in lavorazione</span>
+                                </span>
+                                <span className="text-gray-200">|</span>
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                                    <span className="font-bold text-[#1a2744]">{projectsData?.leads_senza_produzione?.length ?? 0}</span>
+                                    <span className="text-gray-500">da qualificare</span>
+                                </span>
+                            </div>
+
+                            <div className="flex-1"></div>
+
+                            <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Cerca nome o cliente…"
+                                    value={projectSearch}
+                                    onChange={(e) => setProjectSearch(e.target.value)}
+                                    className="pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm w-56 focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+
                             {isAdmin && (
-                                <label className="inline-flex items-center gap-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+                                <label className="inline-flex items-center gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                                     <input
                                         type="checkbox"
                                         checked={showAllConsultants}
                                         onChange={(e) => setShowAllConsultants(e.target.checked)}
                                     />
-                                    <Eye size={16} /> Vedi tutti i consulenti (Admin)
+                                    <Eye size={14} /> Tutti
                                 </label>
                             )}
+
+                            <Link
+                                href="/consultant/nuovo-lead"
+                                className="inline-flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl font-medium hover:bg-orange-600 transition-colors text-sm"
+                            >
+                                <PlusCircle size={16} /> Nuovo cliente
+                            </Link>
                         </div>
 
                         {projectsLoading && (
@@ -988,7 +1020,14 @@ export default function ConsultantDashboard() {
 
                         {projectsData && projectsData.orders.length > 0 && (
                             <div className="grid md:grid-cols-2 gap-6">
-                                {projectsData.orders.map((proj: any) => (
+                                {projectsData.orders
+                                    .filter((proj: any) => {
+                                        if (!projectSearch.trim()) return true;
+                                        const q = projectSearch.toLowerCase();
+                                        return (proj.name || '').toLowerCase().includes(q)
+                                            || (proj.client || '').toLowerCase().includes(q);
+                                    })
+                                    .map((proj: any) => (
                                     <div key={proj.id} className="bg-white rounded-2xl border border-gray-100 p-6 hover:shadow-lg transition-all">
                                         <div className="flex justify-between items-start mb-4 gap-2">
                                             <div className="flex flex-wrap gap-1.5">
@@ -1030,7 +1069,14 @@ export default function ConsultantDashboard() {
                                     Lead senza produzione avviata (intervista non ancora completata)
                                 </h3>
                                 <div className="grid md:grid-cols-2 gap-4">
-                                    {projectsData.leads_senza_produzione.map((lead: any) => (
+                                    {projectsData.leads_senza_produzione
+                                        .filter((lead: any) => {
+                                            if (!projectSearch.trim()) return true;
+                                            const q = projectSearch.toLowerCase();
+                                            return (lead.name || '').toLowerCase().includes(q)
+                                                || (lead.client || '').toLowerCase().includes(q);
+                                        })
+                                        .map((lead: any) => (
                                         <div key={lead.id} className="bg-white rounded-xl border border-dashed border-gray-300 p-4">
                                             <div className="flex items-center justify-between">
                                                 <span className="font-medium text-[#1a2744]">{lead.name}</span>
@@ -1048,14 +1094,41 @@ export default function ConsultantDashboard() {
                 {/* TAB: PROGETTI PARTNER (21/09/2026) */}
                 {activeTab === "partner" && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <p className="text-sm text-gray-500">
-                                Progetti partner (TEE, AV, ecc.) dove sei coinvolto come consulente.
-                            </p>
+                        {/* E4: barra contestuale (counters + search + aggiorna) */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-4 text-sm">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                    <span className="font-bold text-[#1a2744]">{partnerProjects?.projects?.length ?? 0}</span>
+                                    <span className="text-gray-500">progetti</span>
+                                </span>
+                                <span className="text-gray-200">|</span>
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span className="font-bold text-[#1a2744]">
+                                        {(partnerProjects?.projects || []).filter((p: any) => p.state === 'attivo').length}
+                                    </span>
+                                    <span className="text-gray-500">attivi</span>
+                                </span>
+                            </div>
+
+                            <div className="flex-1"></div>
+
+                            <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Cerca progetto…"
+                                    value={partnerSearch}
+                                    onChange={(e) => setPartnerSearch(e.target.value)}
+                                    className="pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm w-56 focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+
                             <button
                                 onClick={loadPartnerProjects}
                                 disabled={partnerProjectsLoading}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300 disabled:opacity-50"
                             >
                                 {partnerProjectsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                                 Aggiorna
@@ -1074,7 +1147,12 @@ export default function ConsultantDashboard() {
                             </div>
                         )}
 
-                        {partnerProjects && partnerProjects.projects?.map((p: any) => (
+                        {partnerProjects && partnerProjects.projects
+                            ?.filter((p: any) => {
+                                if (!partnerSearch.trim()) return true;
+                                return (p.name || '').toLowerCase().includes(partnerSearch.toLowerCase());
+                            })
+                            .map((p: any) => (
                             <Link
                                 key={p.id}
                                 href={`/consultant/partner-projects/${p.id}`}
