@@ -67,6 +67,24 @@ class ConsultantEmailAPIController(ConsultantAPIController):
                 ids.update(siblings.ids)
         return sorted(ids)
 
+    def _can_access_email(self, user, log):
+        """30/09/2026: True se user puo' accedere a questa email
+        (record di erpv6.winwin.email.log o erpv6.project.email.log).
+
+        Regole:
+        - Admin/responsabile: sempre
+        - Destinatario diretto (recipient_user_id = user): sempre
+        - relation_id cade nel perimetro (nodo proprio + parent + sibling): si
+        """
+        if self._is_responsabile_o_admin(user):
+            return True
+        if hasattr(log, 'recipient_user_id') and log.recipient_user_id and log.recipient_user_id.id == user.id:
+            return True
+        visible_ids = self._get_visible_relation_ids(user) or []
+        if hasattr(log, 'relation_id') and log.relation_id and log.relation_id.id in visible_ids:
+            return True
+        return False
+
     @http.route('/api/v1/consultant/emails', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_consultant_emails(self, **kwargs):  # pylint: disable=unused-argument
         if request.httprequest.method == 'OPTIONS':
@@ -229,7 +247,7 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         log = Log.browse(email_id)
         if not log.exists():
             return self._json_response({'error': 'Email non trovata'}, 404)
-        if not self._is_responsabile_o_admin(user) and log.recipient_user_id.id != user.id:
+        if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso'}, 403)
         atts = env['ir.attachment'].sudo().search([
             ('res_model', '=', 'erpv6.winwin.email.log'), ('res_id', '=', log.id),
@@ -254,8 +272,7 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         if not log.exists():
             return self._json_response({'error': 'Email non trovata'}, 404)
 
-        is_admin = self._is_responsabile_o_admin(user)
-        if not is_admin and log.recipient_user_id.id != user.id:
+        if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
 
         if not log.is_read:
@@ -274,7 +291,7 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         log = Log.browse(email_id)
         if not log.exists():
             return self._json_response({'error': 'Email non trovata'}, 404)
-        if not self._is_responsabile_o_admin(user) and log.recipient_user_id.id != user.id:
+        if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso'}, 403)
         log.write({'is_archived': True})
         return self._json_response({'success': True})
@@ -291,7 +308,7 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         log = Log.browse(email_id)
         if not log.exists():
             return self._json_response({'error': 'Email non trovata'}, 404)
-        if not self._is_responsabile_o_admin(user) and log.recipient_user_id.id != user.id:
+        if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso'}, 403)
         log.write({'is_archived': False})
         return self._json_response({'success': True})
@@ -311,10 +328,8 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         if not log.exists():
             return self._json_response({'error': 'Email non trovata'}, 404)
 
-        is_admin = self._is_responsabile_o_admin(user)
-        if not is_admin:
-            if log.recipient_user_id.id != user.id:
-                return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
+        if not self._can_access_email(user, log):
+            return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
 
         # Rimuovi anche i mail.message collegati (thread)
         try:
@@ -348,18 +363,10 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             return self._json_response({'error': 'Email non trovata'}, 404)
 
         is_admin = self._is_responsabile_o_admin(user)
-        # Accesso: admin vede tutto. Consulente vede se e' destinatario
-        # oppure se e' nel progetto (relation_id e lui ha accesso).
-        if not is_admin:
-            is_recipient = log.recipient_user_id.id == user.id
-            in_project = False
-            if log.relation_id:
-                in_project = (
-                    log.relation_id.owner_user_id.id == user.id
-                    or user.id in log.relation_id.access_user_ids.ids
-                )
-            if not (is_recipient or in_project):
-                return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
+        # 30/09/2026: check accesso coerente con _can_access_email
+        # (stesso pattern di attachments/mark-read/archive).
+        if not self._can_access_email(user, log):
+            return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
 
         # Body: cerca il mail.message comment (esclude le notification di sistema
         # tipo 'created' che finivano per essere mostrate come corpo email).
@@ -411,16 +418,9 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         if not log.exists():
             return self._json_response({'error': 'Email non trovata'}, 404)
 
-        # Check accesso
-        is_admin = self._is_responsabile_o_admin(user)
-        if not is_admin:
-            is_recipient = log.recipient_user_id.id == user.id
-            in_project = False
-            if log.relation_id:
-                in_project = (log.relation_id.owner_user_id.id == user.id
-                              or user.id in log.relation_id.access_user_ids.ids)
-            if not (is_recipient or in_project):
-                return self._json_response({'error': 'Non hai accesso'}, 403)
+        # 30/09/2026: check accesso coerente con _can_access_email
+        if not self._can_access_email(user, log):
+            return self._json_response({'error': 'Non hai accesso'}, 403)
 
         # From: la casella su cui e' arrivata (slug@ o slug+progetto@).
         # Il recipient puo' contenere prefissi tecnici (v6impresa-it-*) dai
