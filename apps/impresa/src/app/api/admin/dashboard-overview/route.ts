@@ -32,8 +32,10 @@ export async function GET(request: NextRequest) {
     signRes,
     accessRes,
     candRes,
-    paymentsRes,
+    partnersPayRes,
     projectsRes,
+    commissionsRes,
+    paymentsRes,
   ] = await Promise.all([
     tryFetch(`${origin}/api/admin/deals`, auth),
     tryFetch(`${origin}/api/admin/sign-requests?limit=1`, auth),
@@ -41,6 +43,8 @@ export async function GET(request: NextRequest) {
     tryFetch(`${origin}/api/admin/candidacies?state=nuova`, auth),
     tryFetch(`${origin}/api/admin/partners-payments`, auth),
     tryFetch(`${origin}/api/admin/partner-projects`, auth),
+    tryFetch(`${origin}/api/admin/commissions`, auth),
+    tryFetch(`${origin}/api/admin/payments`, auth),
   ]);
 
   // Deals KPI
@@ -69,9 +73,17 @@ export async function GET(request: NextRequest) {
   const candList = candRes?.candidacies || candRes?.data?.candidacies || [];
   const candNew = candList.filter((c: any) => c.state === 'nuova').length;
 
-  // Pagamenti scaduti (fatture con giorni_ritardo > 0)
-  const payments = paymentsRes?.payments || paymentsRes?.data?.payments || [];
-  const paymentsOverdue = payments.filter((p: any) => (p.giorniRitardo || 0) > 0).length;
+  // Pagamenti partner scaduti (fatture con giorni_ritardo > 0)
+  const partnersPay = partnersPayRes?.payments || partnersPayRes?.data?.payments || [];
+  const paymentsOverdue = partnersPay.filter((p: any) => (p.giorniRitardo || 0) > 0).length;
+
+  // Contabilità: commissioni + tranche consulenza da incassare
+  const commissions = commissionsRes?.commissions || commissionsRes?.data?.commissions || [];
+  const commissionsTotal = commissions.reduce((s: number, c: any) => s + (c.commissione || 0), 0);
+  const tranches = paymentsRes?.tranches || paymentsRes?.data?.tranches || [];
+  const tranchesDaIncassare = tranches.filter((t: any) => t.stato === 'da_incassare');
+  const tranchesPendingCount = tranchesDaIncassare.length;
+  const tranchesPendingAmount = tranchesDaIncassare.reduce((s: number, t: any) => s + (t.importo || 0), 0);
 
   // Progetti Partner (root tracking_relation padre)
   const projects = projectsRes?.projects || projectsRes?.data?.projects || [];
@@ -96,12 +108,18 @@ export async function GET(request: NextRequest) {
       accessRequestsPending: {
         count: accessReqCount,
       },
+      accounting: {
+        commissionsTotal: Math.round(commissionsTotal * 100) / 100,
+        tranchesPendingCount: tranchesPendingCount,
+        tranchesPendingAmount: Math.round(tranchesPendingAmount * 100) / 100,
+      },
     },
     alerts: [
       accessReqCount > 0 && { type: 'access_requests', count: accessReqCount, label: 'Richieste accesso playbook in attesa', href: '/admin/access-requests' },
       signKpi.pending > 0 && { type: 'sign_pending', count: signKpi.pending, label: 'Firme in attesa di essere completate', href: '/admin/firme' },
       paymentsOverdue > 0 && { type: 'payments_overdue', count: paymentsOverdue, label: 'Pagamenti scaduti', href: '/admin/payments' },
       candNew > 0 && { type: 'candidacies_new', count: candNew, label: 'Nuove candidature partnership', href: '/admin/candidature' },
+      tranchesPendingCount > 0 && { type: 'tranches_pending', count: tranchesPendingCount, label: 'Tranche consulenza da incassare', href: '/admin/payments' },
     ].filter(Boolean),
   });
 }

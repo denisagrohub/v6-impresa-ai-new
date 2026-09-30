@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   FolderKanban, Briefcase, FileSignature, Send, AlertTriangle,
-  ArrowRight, Loader2, RefreshCw, Euro, Users,
+  ArrowRight, Loader2, RefreshCw, Euro, Users, Landmark,
 } from 'lucide-react';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { OdooStatus } from '@/components/admin/OdooStatus';
@@ -28,6 +28,11 @@ type Kpi = {
   partnerProjects: { count: number; candidaciesNew: number };
   signRequestsPending: { count: number; sent: number; viewed: number };
   accessRequestsPending: { count: number };
+  accounting: {
+    commissionsTotal: number;
+    tranchesPendingCount: number;
+    tranchesPendingAmount: number;
+  };
 };
 
 type Alert = {
@@ -119,7 +124,7 @@ export default function AdminDashboard() {
             KPI STRIP — 4 card cliccabili
             ══════════════════════════════════════════════════════════ */}
         {kpi && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
 
             {/* Deal attivi */}
             {(isAdmin || roles.includes('chief_projects') || roles.includes('consultant')) && (
@@ -220,6 +225,34 @@ export default function AdminDashboard() {
                 )}
               </Link>
             )}
+
+            {/* Contabilità (commissioni + tranche pending) */}
+            {(isAdmin || roles.includes('chief_accounting')) && (
+              <Link
+                href="/admin/accounting"
+                className={`group bg-white rounded-2xl border transition-all p-5 ${
+                  kpi.accounting.tranchesPendingCount > 0
+                    ? 'border-cyan-300 ring-1 ring-cyan-100 hover:shadow-md'
+                    : 'border-gray-100 hover:border-cyan-200 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center">
+                    <Landmark size={20} className="text-cyan-600" />
+                  </div>
+                  <ArrowRight size={14} className="text-gray-300 group-hover:text-cyan-500 transition-colors" />
+                </div>
+                <div className="text-3xl font-bold text-[#1a2744] leading-none mb-1">
+                  {fmtEur(kpi.accounting.commissionsTotal)}
+                </div>
+                <div className="text-xs text-gray-500">Commissioni consulenti</div>
+                {kpi.accounting.tranchesPendingCount > 0 && (
+                  <div className="text-[11px] text-cyan-700 font-semibold mt-1">
+                    {kpi.accounting.tranchesPendingCount} tranche da incassare
+                  </div>
+                )}
+              </Link>
+            )}
           </div>
         )}
 
@@ -266,7 +299,7 @@ export default function AdminDashboard() {
           <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">
             Azioni rapide
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <Link href="/admin/deals" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-indigo-300 hover:shadow-sm text-sm font-medium text-gray-700">
               <Briefcase size={16} className="text-indigo-600" /> Nuovo Deal
             </Link>
@@ -278,6 +311,9 @@ export default function AdminDashboard() {
             </Link>
             <Link href="/admin/payments" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-emerald-300 hover:shadow-sm text-sm font-medium text-gray-700">
               <Euro size={16} className="text-emerald-600" /> Pagamenti
+            </Link>
+            <Link href="/admin/accounting" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-cyan-300 hover:shadow-sm text-sm font-medium text-gray-700">
+              <Landmark size={16} className="text-cyan-600" /> Commissioni
             </Link>
           </div>
         </section>
