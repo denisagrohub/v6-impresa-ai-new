@@ -7,7 +7,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const authHeader = request.headers.get('authorization');
     if (!authHeader) return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
     try {
-        const result = await callOdooAPI(`/api/v1/consultant/emails/${params.id}/reply-data`, {
+        const qs = request.nextUrl.search || '';
+        const result = await callOdooAPI(`/api/v1/consultant/emails/${params.id}/reply-data${qs}`, {
             method: 'GET', headers: { Authorization: authHeader },
         });
         return NextResponse.json(result.data);
