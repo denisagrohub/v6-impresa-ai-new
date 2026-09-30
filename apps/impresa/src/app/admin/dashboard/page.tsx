@@ -1,130 +1,91 @@
-"use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+// ═══════════════════════════════════════════════════════════════════
+// /admin/dashboard — dashboard admin con KPI adattivi per ruolo.
+//
+// 30/09/2026 (Refactor dashboard): sostituisce la vecchia dashboard
+// business-plan-centrica. Nuova struttura:
+// - 4 KPI cliccabili in alto (Deal, Progetti Partner, Firme, Richieste)
+// - Alert operativi (solo se > 0): accesso, firme, pagamenti, candidature
+// - 2 colonne: pipeline deal + attività recenti
+//
+// Filtro per ruolo: admin vede tutto; chief_projects vede deal+firme;
+// chief_bandi vede candidature. Zero duplicazione: tutte le azioni
+// vivono nelle pagine dedicate.
+// ═══════════════════════════════════════════════════════════════════
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
-  LayoutDashboard, FolderKanban, CheckCircle2, Mail, Users,
-  Settings, LogOut, TrendingUp, Clock, FileText, Building2,
-  Briefcase, Landmark, Palette, Target, Server, Calculator,
-  AlertTriangle, Brain, Shield, Key, Plus, Package, UserCog, Phone, PenTool, FileSignature
-} from "lucide-react";
-import AdminLayout from "@/components/admin/layout/AdminLayout";
-import { OdooStatus } from "@/components/admin/OdooStatus";
+  FolderKanban, Briefcase, FileSignature, Send, AlertTriangle,
+  ArrowRight, Loader2, RefreshCw, Euro, Users,
+} from 'lucide-react';
+import AdminLayout from '@/components/admin/layout/AdminLayout';
+import { OdooStatus } from '@/components/admin/OdooStatus';
+
+type Kpi = {
+  dealsActive: { count: number; feeMonthlyBase: number };
+  partnerProjects: { count: number; candidaciesNew: number };
+  signRequestsPending: { count: number; sent: number; viewed: number };
+  accessRequestsPending: { count: number };
+};
+
+type Alert = {
+  type: string;
+  count: number;
+  label: string;
+  href: string;
+};
+
+const fmtEur = (n: number) =>
+  new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [dataError, setDataError] = useState<string | null>(null);
-  const [stats, setStats] = useState({
-    projects: 0,
-    partnershipProjects: 0,
-    kbRequests: 0,
-    certifiedDocs: 0,
-    consultants: 0,
-    clients: 0,
-    modulesActive: 0,
-    auditLogCount: 0,
-  });
-  const [newCounts, setNewCounts] = useState({
-    projects: 0,
-    partnershipProjects: 0,
-    kbRequests: 0,
-    certifiedDocs: 0,
-  });
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [candidacies, setCandidacies] = useState<any[]>([]);
-  const [candidacyActionId, setCandidacyActionId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
-  const [unreadEmailCount, setUnreadEmailCount] = useState(0);
+  const [kpi, setKpi] = useState<Kpi | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
 
-  useEffect(() => {
-    const session = localStorage.getItem("pi_session");
-    if (!session) {
-      window.location.href = "/login";
-      return;
-    }
-    setUser(JSON.parse(session));
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const authHeaders = (): Record<string, string> => {
     try {
-      const res = await fetch('/api/admin/dashboard-stats');
-      const data = await res.json();
+      const raw = localStorage.getItem('pi_session');
+      const s = raw ? JSON.parse(raw) : null;
+      return s?.token ? { Authorization: `JWT ${s.token}` } : {};
+    } catch { return {}; }
+  };
 
-      if (!data.success) {
-        setDataError(data.error || 'Odoo non raggiungibile');
-        return;
-      }
-
-      setStats(data.stats);
-      setNewCounts(data.newCounts || { projects: 0, partnershipProjects: 0, kbRequests: 0, certifiedDocs: 0 });
-      setRecentActivities(data.recentActivities || []);
-      setCandidacies(data.candidacies || []);
-    } catch (error: any) {
-      console.error('Errore caricamento dashboard:', error);
-      setDataError(error.message || 'Errore di rete');
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/admin/dashboard-overview', { headers: authHeaders() });
+      const d = await r.json();
+      if (!r.ok || !d.success) { setError(d.error || 'Errore'); return; }
+      setKpi(d.kpi);
+      setAlerts(d.alerts || []);
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadUnreadEmail = async () => {
-    try {
-      const session = localStorage.getItem("pi_session");
-      if (!session) return;
-      const u = JSON.parse(session);
-      if (!u?.token) return;
-      const res = await fetch('/api/consultant/emails/unread-count', {
-        headers: { Authorization: `JWT ${u.token}` },
-      });
-      const d = await res.json();
-      setUnreadEmailCount(d.unread || 0);
-    } catch { /* best effort */ }
-  };
-
   useEffect(() => {
-    if (!user?.token) return;
-    loadUnreadEmail();
-    const t = setInterval(loadUnreadEmail, 60000);
-    return () => clearInterval(t);
-  }, [user]);
+    const raw = localStorage.getItem('pi_session');
+    if (!raw) { router.push('/login'); return; }
+    setUser(JSON.parse(raw));
+    loadData();
+  }, [router]);
 
-  const handleCreateProjectFromCandidacy = async (candidacyId: number) => {
-    setCandidacyActionId(candidacyId);
-    try {
-      const res = await fetch(`/api/admin/candidacies/${candidacyId}/create-project`, { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        router.push(`/admin/partner-projects/${data.projectId}`);
-      } else {
-        alert(data.error || 'Creazione fallita');
-      }
-    } finally {
-      setCandidacyActionId(null);
-    }
-  };
-
-  const handleDeleteCandidacy = async (candidacyId: number) => {
-    if (!confirm('Eliminare questa candidatura? Non si può annullare.')) return;
-    setCandidacyActionId(candidacyId);
-    try {
-      const res = await fetch(`/api/admin/candidacies/${candidacyId}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        setCandidacies((prev) => prev.filter((c) => c.id !== candidacyId));
-      } else {
-        alert(data.error || 'Eliminazione fallita');
-      }
-    } finally {
-      setCandidacyActionId(null);
-    }
-  };
+  const roles: string[] = user?.roles || (user?.role ? [user.role] : []);
+  const isAdmin = roles.includes('admin');
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <Loader2 size={32} className="animate-spin text-blue-600" />
       </div>
     );
   }
@@ -132,148 +93,196 @@ export default function AdminDashboard() {
   return (
     <AdminLayout
       title="Dashboard"
-      subtitle="Panoramica del sistema V6"
+      subtitle="Panoramica operativa V6"
       user={user}
-      badges={[{ href: '/admin/mia-email', count: unreadEmailCount, color: 'bg-red-500' }]}
     >
-        <div className="p-8 max-w-7xl mx-auto">
-          <div className="mb-6">
-            <OdooStatus />
+      <div className="p-8 max-w-7xl mx-auto">
+
+        {/* Odoo status + refresh */}
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex-1"><OdooStatus /></div>
+          <button
+            onClick={loadData}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <RefreshCw size={14} /> Aggiorna
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
           </div>
+        )}
 
-          {dataError && (
-            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              Dati non aggiornati: {dataError}
-            </div>
-          )}
+        {/* ══════════════════════════════════════════════════════════
+            KPI STRIP — 4 card cliccabili
+            ══════════════════════════════════════════════════════════ */}
+        {kpi && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Link href="/admin/projects" className={`block bg-white rounded-2xl border p-6 hover:shadow-md transition-shadow ${newCounts.projects > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center"><FolderKanban size={24} className="text-blue-600" /></div>
-                {newCounts.projects > 0 && <span className="text-xs font-bold text-red-600">{newCounts.projects} da decidere</span>}
-              </div>
-              <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.projects}</div>
-              <div className="text-sm text-gray-500">Progetti Totali</div>
-            </Link>
-            <a href="#candidature-partnership" className={`block bg-white rounded-2xl border p-6 hover:shadow-md transition-shadow ${newCounts.partnershipProjects > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center"><Users size={24} className="text-orange-600" /></div>
-                {newCounts.partnershipProjects > 0 && <span className="text-xs font-bold text-red-600">{newCounts.partnershipProjects} nuove</span>}
-              </div>
-              <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.partnershipProjects}</div>
-              <div className="text-sm text-gray-500">Partnership Projects</div>
-            </a>
-            <Link href="/admin/kb" className={`block bg-white rounded-2xl border p-6 hover:shadow-md transition-shadow ${newCounts.kbRequests > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center"><Brain size={24} className="text-purple-600" /></div>
-                {newCounts.kbRequests > 0 && <span className="text-xs font-bold text-red-600">{newCounts.kbRequests} in attesa</span>}
-              </div>
-              <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.kbRequests}</div>
-              <div className="text-sm text-gray-500">Richieste KB</div>
-            </Link>
-            <Link href="/admin/library" className={`block bg-white rounded-2xl border p-6 hover:shadow-md transition-shadow ${newCounts.certifiedDocs > 0 ? 'blink-alert-border' : 'border-gray-100'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center"><Shield size={24} className="text-green-600" /></div>
-                {newCounts.certifiedDocs > 0 && <span className="text-xs font-bold text-red-600">{newCounts.certifiedDocs} nuovi</span>}
-              </div>
-              <div className="text-3xl font-bold text-[#1a2744] mb-1">{stats.certifiedDocs}</div>
-              <div className="text-sm text-gray-500">Documenti Certificati</div>
-            </Link>
-          </div>
-
-          <style jsx global>{`
-            @keyframes blink-alert-border {
-              0%, 100% { border-color: rgb(239 68 68); box-shadow: 0 0 0 1px rgb(239 68 68 / 0.3); }
-              50% { border-color: rgb(254 202 202); box-shadow: 0 0 0 1px transparent; }
-            }
-            .blink-alert-border {
-              border-width: 2px;
-              animation: blink-alert-border 1.2s ease-in-out infinite;
-            }
-          `}</style>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <h2 className="text-lg font-bold text-[#1a2744] mb-4">🔐 Stato Sistema</h2>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <span className="text-sm font-medium text-blue-700">🔵 Moduli V6 attivi</span>
-                  <span className="text-xs text-blue-600">{stats.modulesActive}</span>
+            {/* Deal attivi */}
+            {(isAdmin || roles.includes('chief_projects') || roles.includes('consultant')) && (
+              <Link
+                href="/admin/deals"
+                className="group bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all p-5"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                    <Briefcase size={20} className="text-indigo-600" />
+                  </div>
+                  <ArrowRight size={14} className="text-gray-300 group-hover:text-indigo-500 transition-colors" />
                 </div>
-                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                  <span className="text-sm font-medium text-yellow-700">🟡 Audit log (eventi produzione)</span>
-                  <span className="text-xs text-yellow-600">{stats.auditLogCount.toLocaleString('it-IT')} operazioni</span>
+                <div className="text-3xl font-bold text-[#1a2744] leading-none mb-1">
+                  {kpi.dealsActive.count}
                 </div>
-                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                  <span className="text-sm font-medium text-purple-700">👤 Consulenti</span>
-                  <span className="text-xs text-purple-600">{stats.consultants}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                  <span className="text-sm font-medium text-green-700">🟢 Clienti collegati</span>
-                  <span className="text-xs text-green-600">{stats.clients}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <h2 className="text-lg font-bold text-[#1a2744] mb-4">📌 Attività Recenti</h2>
-              <div className="space-y-3">
-                {recentActivities.length === 0 && (
-                  <div className="text-sm text-gray-400">Nessuna attività registrata.</div>
+                <div className="text-xs text-gray-500">Deal attivi</div>
+                {kpi.dealsActive.feeMonthlyBase > 0 && (
+                  <div className="text-[11px] text-emerald-700 font-semibold mt-1">
+                    {fmtEur(kpi.dealsActive.feeMonthlyBase)}/mese
+                  </div>
                 )}
-                {recentActivities.map((act, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="text-lg">{act.icon}</div>
-                    <div className="flex-1">
-                      <span className="text-sm">{act.title}</span>
-                      <div className="text-xs text-gray-400">{act.time ? new Date(act.time).toLocaleString('it-IT') : ''}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+              </Link>
+            )}
 
-          <div id="candidature-partnership" className="bg-white rounded-2xl border border-gray-100 p-6 scroll-mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-[#1a2744]">🤝 Candidature Partnership</h2>
-              <span className="text-xs text-gray-400">{candidacies.length} totali</span>
-            </div>
-            {candidacies.length === 0 ? (
-              <div className="text-sm text-gray-400">Nessuna candidatura ricevuta finora.</div>
-            ) : (
-              <div className="space-y-2">
-                {candidacies.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <div className="text-sm font-medium text-[#1a2744]">{c.company_name || c.name}</div>
-                      <div className="text-xs text-gray-500">{c.email}{c.phone ? ` · ${c.phone}` : ''}</div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">{c.state}</span>
-                      <span className="text-xs text-gray-400">{c.create_date ? new Date(c.create_date).toLocaleDateString('it-IT') : ''}</span>
-                      <button
-                        onClick={() => handleCreateProjectFromCandidacy(c.id)}
-                        disabled={candidacyActionId === c.id}
-                        className="text-xs px-2 py-1 rounded-lg bg-[#1a2744] text-white font-medium hover:bg-[#0f3460] disabled:opacity-50"
-                      >
-                        Crea Progetto Partner
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCandidacy(c.id)}
-                        disabled={candidacyActionId === c.id}
-                        className="text-xs px-2 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        Elimina
-                      </button>
-                    </div>
+            {/* Progetti Partner */}
+            {(isAdmin || roles.includes('chief_projects') || roles.includes('chief_bandi')) && (
+              <Link
+                href="/admin/partner-projects"
+                className="group bg-white rounded-2xl border border-gray-100 hover:border-orange-200 hover:shadow-md transition-all p-5"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                    <FolderKanban size={20} className="text-orange-600" />
                   </div>
-                ))}
-              </div>
+                  <ArrowRight size={14} className="text-gray-300 group-hover:text-orange-500 transition-colors" />
+                </div>
+                <div className="text-3xl font-bold text-[#1a2744] leading-none mb-1">
+                  {kpi.partnerProjects.count}
+                </div>
+                <div className="text-xs text-gray-500">Progetti Partner</div>
+                {kpi.partnerProjects.candidaciesNew > 0 && (
+                  <div className="text-[11px] text-red-600 font-semibold mt-1">
+                    {kpi.partnerProjects.candidaciesNew} candidature nuove
+                  </div>
+                )}
+              </Link>
+            )}
+
+            {/* Firme pending */}
+            {(isAdmin || roles.includes('chief_projects')) && (
+              <Link
+                href="/admin/firme"
+                className="group bg-white rounded-2xl border border-gray-100 hover:border-amber-200 hover:shadow-md transition-all p-5"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                    <FileSignature size={20} className="text-amber-600" />
+                  </div>
+                  <ArrowRight size={14} className="text-gray-300 group-hover:text-amber-500 transition-colors" />
+                </div>
+                <div className="text-3xl font-bold text-[#1a2744] leading-none mb-1">
+                  {kpi.signRequestsPending.count}
+                </div>
+                <div className="text-xs text-gray-500">Firme in attesa</div>
+                {kpi.signRequestsPending.count > 0 && (
+                  <div className="text-[11px] text-gray-500 mt-1">
+                    {kpi.signRequestsPending.sent} inviate · {kpi.signRequestsPending.viewed} viste
+                  </div>
+                )}
+              </Link>
+            )}
+
+            {/* Richieste accesso */}
+            {(isAdmin || roles.includes('chief_projects')) && (
+              <Link
+                href="/admin/access-requests"
+                className={`group bg-white rounded-2xl border transition-all p-5 ${
+                  kpi.accessRequestsPending.count > 0
+                    ? 'border-emerald-300 ring-1 ring-emerald-100 hover:shadow-md'
+                    : 'border-gray-100 hover:border-emerald-200 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                    <Send size={20} className="text-emerald-600" />
+                  </div>
+                  <ArrowRight size={14} className="text-gray-300 group-hover:text-emerald-500 transition-colors" />
+                </div>
+                <div className="text-3xl font-bold text-[#1a2744] leading-none mb-1">
+                  {kpi.accessRequestsPending.count}
+                </div>
+                <div className="text-xs text-gray-500">Richieste accesso</div>
+                {kpi.accessRequestsPending.count > 0 && (
+                  <div className="text-[11px] text-emerald-700 font-semibold mt-1">
+                    Da approvare
+                  </div>
+                )}
+              </Link>
             )}
           </div>
-        </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            ALERT OPERATIVI — solo se ce ne sono
+            ══════════════════════════════════════════════════════════ */}
+        {alerts.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3 flex items-center gap-1.5">
+              <AlertTriangle size={12} /> Attenzione richiesta
+            </h2>
+            <div className="space-y-2">
+              {alerts.map((a, i) => (
+                <Link
+                  key={i}
+                  href={a.href}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors group"
+                >
+                  <span className="w-7 h-7 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                    {a.count}
+                  </span>
+                  <span className="flex-1 text-sm font-medium text-amber-900">{a.label}</span>
+                  <ArrowRight size={14} className="text-amber-600 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            Nessun alert → messaggio positivo
+            ══════════════════════════════════════════════════════════ */}
+        {alerts.length === 0 && kpi && (
+          <div className="mb-8 p-4 rounded-xl border border-emerald-100 bg-emerald-50/50 text-sm text-emerald-800 flex items-center gap-2">
+            <span className="text-lg">✨</span>
+            Tutto sotto controllo — nessuna azione in attesa.
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            Azioni rapide
+            ══════════════════════════════════════════════════════════ */}
+        <section className="mb-8">
+          <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">
+            Azioni rapide
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Link href="/admin/deals" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-indigo-300 hover:shadow-sm text-sm font-medium text-gray-700">
+              <Briefcase size={16} className="text-indigo-600" /> Nuovo Deal
+            </Link>
+            <Link href="/admin/partner-projects" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm text-sm font-medium text-gray-700">
+              <FolderKanban size={16} className="text-orange-600" /> Progetti Partner
+            </Link>
+            <Link href="/admin/team/users" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-purple-300 hover:shadow-sm text-sm font-medium text-gray-700">
+              <Users size={16} className="text-purple-600" /> Utenti e ruoli
+            </Link>
+            <Link href="/admin/payments" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-emerald-300 hover:shadow-sm text-sm font-medium text-gray-700">
+              <Euro size={16} className="text-emerald-600" /> Pagamenti
+            </Link>
+          </div>
+        </section>
+
+      </div>
     </AdminLayout>
   );
 }
