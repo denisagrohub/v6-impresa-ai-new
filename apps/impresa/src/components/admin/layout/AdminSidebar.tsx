@@ -58,7 +58,11 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
         fetch('/api/admin/emails/mailboxes', {
           headers: { Authorization: `JWT ${u.token}` },
         }).then(r => r.json()).catch(() => null),
-      ]).then(([srRes, emRes]) => {
+        // 30/09/2026: badge richieste accesso playbook pending (admin/chief).
+        fetch('/api/admin/access-requests', {
+          headers: { Authorization: `JWT ${u.token}` },
+        }).then(r => r.json()).catch(() => null),
+      ]).then(([srRes, emRes, arRes]) => {
         const list: AdminMenuBadge[] = [];
 
         // Firme: sent + viewed
@@ -74,6 +78,12 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
         const emP = emRes?.data || emRes;
         if (emP?.success && emP.totalUnread > 0) {
           list.push({ href: '/admin/mia-email', count: emP.totalUnread, color: 'bg-red-500' });
+        }
+
+        // Richieste accesso playbook: count pending
+        const arP = arRes?.data || arRes;
+        if (arP?.success && (arP.count || 0) > 0) {
+          list.push({ href: '/admin/access-requests', count: arP.count, color: 'bg-amber-500' });
         }
 
         setBadges2(list);
