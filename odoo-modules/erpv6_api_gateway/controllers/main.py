@@ -146,23 +146,33 @@ class APIBaseController(http.Controller):
     def _is_admin_or_chief(self, user):
         """29/09/2026 (multi-ruolo): True se admin O qualsiasi chief_*.
 
-        I controller admin (email, deals, contracts, partners, splits)
-        usano questo helper come gate, in alternativa al solo
-        base.group_system. Chief_* sono manager verticali che devono
-        poter usare le stesse API (le voci UI sono già protette per
-        ruolo lato frontend). Vedi permissions.ts (UserRole).
+        Bypassa has_group() e confronta direttamente user.groups_id:
+        in Odoo 18 has_group() su un recordset .sudo() dentro una
+        request API può ritornare falsi negativi (bug riscontrato su
+        Christian chief_projects: shell True, gateway False).
         """
         if not user:
             return False
-        return (
-            user.has_group('base.group_system')
-            or user.has_group('sales_team.group_sale_manager')
-            or user.has_group('erpv6_core.group_chief_projects')
-            or user.has_group('erpv6_core.group_chief_accounting')
-            or user.has_group('erpv6_core.group_chief_bandi')
-            or user.has_group('erpv6_core.group_chief_marketing')
-            or user.has_group('erpv6_core.group_chief_kb')
-        )
+        user_group_ids = user.groups_id.ids
+        target_xmlids = [
+            'base.group_system',
+            'sales_team.group_sale_manager',
+            'erpv6_core.group_chief_projects',
+            'erpv6_core.group_chief_accounting',
+            'erpv6_core.group_chief_bandi',
+            'erpv6_core.group_chief_marketing',
+            'erpv6_core.group_chief_kb',
+        ]
+        print(f"DEBUG_IOC user={user.id} groups={user_group_ids}", flush=True)
+        for xmlid in target_xmlids:
+            grp = request.env.ref(xmlid, raise_if_not_found=False)
+            in_list = grp and grp.id in user_group_ids
+            print(f"DEBUG_IOC check {xmlid}: grp={grp.id if grp else None} in={in_list}", flush=True)
+            if in_list:
+                print(f"DEBUG_IOC MATCH {xmlid}", flush=True)
+                return True
+        print(f"DEBUG_IOC NO MATCH", flush=True)
+        return False
 
     def _log_api_call(self, endpoint, method, user_id, status_code, start_time):
         try:
