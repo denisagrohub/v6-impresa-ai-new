@@ -31,6 +31,7 @@ export default function ConsultantDashboard() {
     // 30/09/2026 (E4): filtri ricerca per tab contestuali.
     const [projectSearch, setProjectSearch] = useState('');
     const [partnerSearch, setPartnerSearch] = useState('');
+    const [paymentSearch, setPaymentSearch] = useState('');
     // 23/09/2026: profilo fiscale (form)
     const [fiscalData, setFiscalData] = useState<any>(null);
     const [fiscalForm, setFiscalForm] = useState<any>({ vat:'', codice_fiscale:'', street:'', street2:'', city:'', zip:'', email_mode: 'personal' });
@@ -1358,6 +1359,36 @@ export default function ConsultantDashboard() {
                 {/* TAB: PAGAMENTI (21/09/2026) */}
                 {activeTab === "firme" && (
                     <div className="space-y-6">
+                        {/* E4.3: barra contestuale Firme */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-4 text-sm">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    <span className="font-bold text-[#1a2744]">
+                                        {signRequests.filter((s: any) => ['draft', 'sent', 'viewed'].includes(s.status)).length}
+                                    </span>
+                                    <span className="text-gray-500">da firmare</span>
+                                </span>
+                                <span className="text-gray-200">|</span>
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span className="font-bold text-[#1a2744]">
+                                        {signRequests.filter((s: any) => s.status === 'signed').length}
+                                    </span>
+                                    <span className="text-gray-500">firmate</span>
+                                </span>
+                            </div>
+                            <div className="flex-1"></div>
+                            <button
+                                onClick={loadSignRequests}
+                                disabled={signLoading}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300 disabled:opacity-50"
+                            >
+                                {signLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                Aggiorna
+                            </button>
+                        </div>
+
                         {/* Da firmare */}
                         <div className="bg-white rounded-2xl border border-gray-100 p-6">
                             <div className="flex items-center justify-between mb-4">
@@ -1447,14 +1478,41 @@ export default function ConsultantDashboard() {
 
                 {activeTab === "pagamenti" && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <p className="text-sm text-gray-500">
-                                Compensi calcolati dallo Split V6 dei progetti dove sei beneficiario.
-                            </p>
+                        {/* E4.4: barra contestuale Pagamenti */}
+                        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-4 text-sm">
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                    <span className="font-bold text-[#1a2744]">{paymentsData?.payments?.length ?? 0}</span>
+                                    <span className="text-gray-500">progetti</span>
+                                </span>
+                                <span className="text-gray-200">|</span>
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span className="font-bold text-[#1a2744]">
+                                        {(paymentsData?.payments || []).filter((p: any) => p.split_approvato).length}
+                                    </span>
+                                    <span className="text-gray-500">approvati</span>
+                                </span>
+                            </div>
+
+                            <div className="flex-1"></div>
+
+                            <div className="relative">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Cerca progetto…"
+                                    value={paymentSearch}
+                                    onChange={(e) => setPaymentSearch(e.target.value)}
+                                    className="pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm w-56 focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+
                             <button
                                 onClick={loadPayments}
                                 disabled={paymentsLoading}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300 disabled:opacity-50"
                             >
                                 {paymentsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                                 Aggiorna
@@ -1473,7 +1531,12 @@ export default function ConsultantDashboard() {
                             </div>
                         )}
 
-                        {paymentsData && paymentsData.payments?.map((p: any) => (
+                        {paymentsData && paymentsData.payments
+                            ?.filter((p: any) => {
+                                if (!paymentSearch.trim()) return true;
+                                return (p.project_name || '').toLowerCase().includes(paymentSearch.toLowerCase());
+                            })
+                            .map((p: any) => (
                             <div key={p.project_id} className="bg-white rounded-2xl border border-gray-100 p-5">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
@@ -1552,11 +1615,48 @@ export default function ConsultantDashboard() {
                         )}
 
                         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                                <h3 className="font-bold text-lg">
-                                    {richiesteData?.can_decide ? 'Tutte le richieste (Responsabile/Admin)' : 'Le mie richieste'}
-                                </h3>
-                                {richiesteLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+                                <div className="flex items-center gap-4">
+                                    <h3 className="font-bold text-lg">
+                                        {richiesteData?.can_decide ? 'Tutte le richieste' : 'Le mie richieste'}
+                                    </h3>
+                                    {richiesteData?.richieste && richiesteData.richieste.length > 0 && (
+                                        <div className="flex items-center gap-3 text-xs">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                                                <span className="font-bold text-[#1a2744]">
+                                                    {richiesteData.richieste.filter((r: any) => r.state === 'in_attesa').length}
+                                                </span>
+                                                <span className="text-gray-500">in attesa</span>
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                <span className="font-bold text-[#1a2744]">
+                                                    {richiesteData.richieste.filter((r: any) => r.state === 'approvata').length}
+                                                </span>
+                                                <span className="text-gray-500">approvate</span>
+                                            </span>
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                                                <span className="font-bold text-[#1a2744]">
+                                                    {richiesteData.richieste.filter((r: any) => r.state === 'rifiutata').length}
+                                                </span>
+                                                <span className="text-gray-500">rifiutate</span>
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {richiesteLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
+                                    <button
+                                        onClick={loadRichieste}
+                                        disabled={richiesteLoading}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-700 hover:border-blue-300 disabled:opacity-50"
+                                    >
+                                        {richiesteLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                                        Aggiorna
+                                    </button>
+                                </div>
                             </div>
                             {richiesteData && richiesteData.richieste.length === 0 && (
                                 <div className="p-6 text-center text-gray-500 text-sm">Nessuna richiesta trovata.</div>
