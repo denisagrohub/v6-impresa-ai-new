@@ -32,6 +32,10 @@ export default function ConsultantDashboard() {
     const [projectSearch, setProjectSearch] = useState('');
     const [partnerSearch, setPartnerSearch] = useState('');
     const [paymentSearch, setPaymentSearch] = useState('');
+
+    // 30/09/2026 (Step B): checklist deal raggruppate per deal.
+    const [dealChecklists, setDealChecklists] = useState<any[]>([]);
+    const [dealChecklistsLoading, setDealChecklistsLoading] = useState(false);
     // 23/09/2026: profilo fiscale (form)
     const [fiscalData, setFiscalData] = useState<any>(null);
     const [fiscalForm, setFiscalForm] = useState<any>({ vat:'', codice_fiscale:'', street:'', street2:'', city:'', zip:'', email_mode: 'personal' });
@@ -575,6 +579,24 @@ export default function ConsultantDashboard() {
             setSignRequests([]);
         } finally {
             setSignLoading(false);
+        }
+        loadDealChecklists();
+    };
+
+    // 30/09/2026 (Step B): carica checklist deal (vista per deal).
+    const loadDealChecklists = async () => {
+        if (!user?.token) return;
+        setDealChecklistsLoading(true);
+        try {
+            const res = await fetch('/api/consultant/deal-checklists', {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            const data = await res.json();
+            setDealChecklists(data.deals || []);
+        } catch {
+            setDealChecklists([]);
+        } finally {
+            setDealChecklistsLoading(false);
         }
     };
 
@@ -1359,120 +1381,151 @@ export default function ConsultantDashboard() {
                 {/* TAB: PAGAMENTI (21/09/2026) */}
                 {activeTab === "firme" && (
                     <div className="space-y-6">
-                        {/* E4.3: barra contestuale Firme */}
+                        {/* E4.3 + Step B: barra contestuale Firme con contatori deal */}
                         <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-wrap items-center gap-3">
                             <div className="flex items-center gap-4 text-sm">
                                 <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                    <span className="font-bold text-[#1a2744]">{dealChecklists.length}</span>
+                                    <span className="text-gray-500">deal</span>
+                                </span>
+                                <span className="text-gray-200">|</span>
+                                <span className="flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                                     <span className="font-bold text-[#1a2744]">
-                                        {signRequests.filter((s: any) => ['draft', 'sent', 'viewed'].includes(s.status)).length}
+                                        {dealChecklists.reduce((sum: number, d: any) =>
+                                            sum + d.steps.filter((s: any) => s.status === 'pending' || s.status === 'in_progress').length, 0)}
                                     </span>
-                                    <span className="text-gray-500">da firmare</span>
+                                    <span className="text-gray-500">step aperti</span>
                                 </span>
                                 <span className="text-gray-200">|</span>
                                 <span className="flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                                     <span className="font-bold text-[#1a2744]">
-                                        {signRequests.filter((s: any) => s.status === 'signed').length}
+                                        {dealChecklists.reduce((sum: number, d: any) =>
+                                            sum + d.steps.filter((s: any) => s.status === 'done').length, 0)}
                                     </span>
-                                    <span className="text-gray-500">firmate</span>
+                                    <span className="text-gray-500">completati</span>
                                 </span>
                             </div>
                             <div className="flex-1"></div>
                             <button
                                 onClick={loadSignRequests}
-                                disabled={signLoading}
+                                disabled={signLoading || dealChecklistsLoading}
                                 className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-300 disabled:opacity-50"
                             >
-                                {signLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                {(signLoading || dealChecklistsLoading) ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                                 Aggiorna
                             </button>
                         </div>
 
-                        {/* Da firmare */}
-                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-bold text-[#1a2744] flex items-center gap-2">
-                                    <PenTool size={18} className="text-amber-500" />
-                                    Da firmare
-                                </h2>
-                                {signLoading && <span className="text-xs text-gray-400">Caricamento…</span>}
+                        {/* Stato vuoto */}
+                        {dealChecklists.length === 0 && !dealChecklistsLoading && (
+                            <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
+                                <FileCheck2 size={36} className="mx-auto text-gray-300 mb-3" />
+                                <p className="text-sm font-medium text-gray-600">Nessuna checklist attiva sui tuoi deal.</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    I documenti che dovrai firmare appariranno qui, organizzati per deal.
+                                </p>
                             </div>
-                            {(() => {
-                                const pending = signRequests.filter((s) => ['draft', 'sent', 'viewed'].includes(s.status));
-                                if (!signLoading && pending.length === 0) {
-                                    return <p className="text-sm text-gray-500">Nessuna firma in attesa. 🎉</p>;
-                                }
-                                return (
-                                    <div className="space-y-2">
-                                        {pending.map((s) => (
-                                            <div key={s.id} className="flex items-center justify-between gap-3 bg-gray-50 rounded-xl p-3">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-sm font-semibold text-[#1a2744] truncate" title={s.name}>{s.name}</div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">
-                                                        {s.projectName && <span>{s.projectName}</span>}
-                                                        {s.status === 'draft' && <span className="ml-2 text-yellow-700 font-medium">In attesa dati fiscali</span>}
-                                                    </div>
-                                                    {s.notes && s.status === 'draft' && (
-                                                        <div className="text-[10px] text-yellow-700 mt-0.5">{s.notes}</div>
-                                                    )}
-                                                </div>
-                                                {s.status === 'draft' ? (
-                                                    <button
-                                                        onClick={() => setActiveTab('profilo')}
-                                                        className="px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-800 text-xs font-semibold hover:bg-yellow-200"
-                                                    >
-                                                        Compila profilo
-                                                    </button>
-                                                ) : s.requestUrl ? (
-                                                    <a href={s.requestUrl} target="_blank" rel="noopener noreferrer"
-                                                        className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 flex items-center gap-1">
-                                                        <PenTool size={12} /> Firma
-                                                    </a>
-                                                ) : null}
-                                            </div>
-                                        ))}
-                                    </div>
-                                );
-                            })()}
-                        </div>
+                        )}
 
-                        {/* Firmate */}
-                        <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                            <h2 className="text-lg font-bold text-[#1a2744] mb-4 flex items-center gap-2">
-                                <FileCheck2 size={18} className="text-emerald-500" />
-                                Firmate
-                            </h2>
-                            {(() => {
-                                const signed = signRequests.filter((s) => s.status === 'signed');
-                                if (!signLoading && signed.length === 0) {
-                                    return <p className="text-sm text-gray-500">Nessun documento firmato finora.</p>;
-                                }
-                                return (
-                                    <div className="space-y-2">
-                                        {signed.map((s) => (
-                                            <div key={s.id} className="flex items-center justify-between gap-3 bg-emerald-50/50 rounded-xl p-3 border border-emerald-100">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-sm font-semibold text-[#1a2744] truncate" title={s.name}>{s.name}</div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">
-                                                        {s.projectName && <span>{s.projectName} · </span>}
-                                                        Firmato il {s.signedAt ? new Date(s.signedAt).toLocaleDateString('it-IT') : '—'}
-                                                    </div>
-                                                </div>
-                                                {s.hasSignedDocument ? (
-                                                    <a href={`/api/consultant/sign-requests/${s.id}/download`}
-                                                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1">
-                                                        <Download size={12} /> PDF
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-[10px] text-gray-400">PDF in elaborazione</span>
+                        {/* Vista per deal */}
+                        {dealChecklists.map((deal: any) => {
+                            const pct = deal.progress?.pct || 0;
+                            return (
+                                <div key={deal.dealId} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                                    <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-transparent border-b border-gray-100">
+                                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <Building2 size={18} className="text-blue-600 shrink-0" />
+                                                <h3 className="font-bold text-[#1a2744] truncate">{deal.dealName}</h3>
+                                                {deal.dealSchema && (
+                                                    <span className="text-xs text-gray-400 hidden md:inline">{deal.dealSchema}</span>
                                                 )}
                                             </div>
-                                        ))}
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-xs text-gray-500">
+                                                    <span className="font-bold text-[#1a2744]">{deal.progress.done}</span>/{deal.progress.total} completati
+                                                </div>
+                                                <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all"
+                                                        style={{ width: `${pct}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className="text-xs font-bold text-emerald-600">{pct}%</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                );
-                            })()}
-                        </div>
+
+                                    <div className="p-4 space-y-1.5">
+                                        {deal.steps.map((step: any) => {
+                                            const isDone = step.status === 'done';
+                                            const isReady = step.isReady && !isDone;
+                                            const isLocked = !isReady && !isDone;
+                                            const sr = step.signRequest;
+                                            const canSign = isReady && sr && sr.requestUrl
+                                                && (sr.status === 'sent' || sr.status === 'viewed' || sr.status === 'draft');
+
+                                            return (
+                                                <div
+                                                    key={step.id}
+                                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                                                        isDone ? 'bg-emerald-50/50' :
+                                                        isReady ? 'bg-amber-50 border border-amber-200' :
+                                                        'bg-gray-50/50'
+                                                    }`}
+                                                >
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                                                        isDone ? 'bg-emerald-500 text-white' :
+                                                        isReady ? 'bg-amber-500 text-white' :
+                                                        'bg-gray-200 text-gray-400'
+                                                    }`}>
+                                                        {isDone ? '✓' : isReady ? '!' : '🔒'}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={`text-sm font-semibold ${isDone ? 'text-gray-500' : 'text-[#1a2744]'}`}>
+                                                            {step.label}
+                                                        </div>
+                                                        {isLocked && step.requiresCodes && (
+                                                            <div className="text-[11px] text-gray-400 mt-0.5">
+                                                                Si sblocca dopo: {step.requiresCodes.replace(/_/g, ' ')}
+                                                            </div>
+                                                        )}
+                                                        {isDone && sr?.signedAt && (
+                                                            <div className="text-[11px] text-emerald-600 mt-0.5">
+                                                                Firmato il {new Date(sr.signedAt).toLocaleDateString('it-IT')}
+                                                            </div>
+                                                        )}
+                                                        {isReady && sr && (sr.status === 'sent' || sr.status === 'viewed') && (
+                                                            <div className="text-[11px] text-amber-700 mt-0.5 font-medium">
+                                                                In attesa della tua firma
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {canSign && (
+                                                        <a
+                                                            href={sr.requestUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 shrink-0"
+                                                        >
+                                                            <PenTool size={12} /> Firma
+                                                        </a>
+                                                    )}
+                                                    {isDone && (
+                                                        <span className="text-[10px] text-emerald-600 font-medium shrink-0 uppercase tracking-wider">
+                                                            Completato
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
