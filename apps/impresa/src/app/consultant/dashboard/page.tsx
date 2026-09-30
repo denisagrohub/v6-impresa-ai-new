@@ -11,6 +11,7 @@ import type { AttachedFile } from "@/components/EmailAttachmentsInput";
 import EmailRecipientInput from "@/components/EmailRecipientInput";
 import { CalendarWithHeinrich } from "@/components/calendar/CalendarWithHeinrich";
 import { ConsultantBookingLinks } from "@/components/booking/ConsultantBookingLinks";
+import { DealTimeline } from '@/components/deal/DealTimeline';
 
 export default function ConsultantDashboard() {
     const router = useRouter();
@@ -1526,6 +1527,24 @@ export default function ConsultantDashboard() {
                                 </div>
                             );
                         })}
+
+                        {/* 30/09/2026 (F1 S5): timeline dei deal visibili */}
+                        {dealChecklists.length > 0 && (
+                            <section className="mt-6 space-y-4">
+                                <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold flex items-center gap-1.5">
+                                    📖 Storia recente
+                                </h2>
+                                {dealChecklists.map((deal: any) => (
+                                    <DealTimeline
+                                        key={`timeline-${deal.dealId}`}
+                                        dealId={deal.dealId}
+                                        mode="consultant"
+                                        authToken={user?.token || ''}
+                                    />
+                                ))}
+                            </section>
+                        )}
+
                     </div>
                 )}
 
