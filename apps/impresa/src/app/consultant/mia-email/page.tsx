@@ -15,6 +15,7 @@ import {
   Search, RefreshCw, Inbox, Send, Archive, Mail, ChevronLeft, Circle,
   Paperclip, Reply, ReplyAll, Forward, Loader2, PenTool, ArrowLeft,
 } from 'lucide-react';
+import { ConsultantPageHeader } from '@/components/consultant/ConsultantPageHeader';
 
 type Email = {
   id: number;
@@ -208,13 +209,24 @@ export default function ConsultantMiaEmailPage() {
   const unreadTotal = allEmails.filter(e => e.direction === 'ricevuta' && !e.is_read).length;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col">
+      {/* 30/09/2026: header sticky con ritorno ben visibile. La pagina
+          è dedicata (no sidebar dashboard), quindi serve un'ancora
+          chiara per tornare al lavoro quotidiano. */}
+      <ConsultantPageHeader
+        title="La mia email"
+        subtitle={<>{user?.name}{user?.emailSlug && <> · <span className="font-mono">{user.emailSlug}@v6impresa.it</span></>}</>}
+        rightSlot={unreadTotal > 0 ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">
+            <Mail size={12} /> {unreadTotal} non lette
+          </span>
+        ) : undefined}
+      />
+
+      <div className="flex-1 flex overflow-hidden">
       {/* SIDEBAR sinistra: caselle (stile Gmail) */}
       <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
         <div className="p-3 border-b border-gray-100 flex items-center gap-2">
-          <Link href="/consultant/dashboard" className="p-1 rounded hover:bg-gray-100" title="Torna alla dashboard">
-            <ArrowLeft size={14} className="text-gray-600" />
-          </Link>
           <h2 className="text-xs font-bold text-[#1a2744] uppercase tracking-wider flex-1">Caselle</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
@@ -413,6 +425,7 @@ export default function ConsultantMiaEmailPage() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

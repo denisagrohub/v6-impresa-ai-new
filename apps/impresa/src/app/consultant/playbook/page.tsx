@@ -1,11 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════
-// /consultant/playbook — catalogo progetti + richieste accesso.
+// /consultant/playbook — i miei progetti + catalogo progetti + richieste.
 //
-// Step Blocco 3 (30/09/2026): flusso opt-in consultant.
-// - Vede progetti pubblicati (x_v6_catalog_visible=True) dove non è già dentro
-// - Può aprire il playbook (se il progetto lo espone)
-// - Può richiedere accesso con motivazione
-// - Vede lo stato delle sue richieste (pending/approved/rejected)
+// Blocco 3+5 (30/09/2026): flusso opt-in consultant + playbook diretti.
+// - Sezione "I miei progetti": progetti dove il consultant è parte,
+//   con link al playbook + link pubblico da condividere con aziende.
+// - Sezione "Catalogo progetti": progetti pubblicati dove NON è parte,
+//   con bottone "Richiedi accesso".
+// - Sezione "Le mie richieste": stato delle richieste inviate.
 // ═══════════════════════════════════════════════════════════════════
 'use client';
 
@@ -13,8 +14,20 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Loader2, BookOpen, Send, Clock, CheckCircle2, XCircle, Building2, User, FileText,
+  Loader2, BookOpen, Send, Clock, CheckCircle2, XCircle, User,
+  FileText, ExternalLink, Copy, Link2, Briefcase,
 } from 'lucide-react';
+import { ConsultantPageHeader } from '@/components/consultant/ConsultantPageHeader';
+
+type MyProject = {
+  id: number;
+  name: string;
+  state: string;
+  email_alias: string | null;
+  owner_name: string | null;
+  has_split: boolean;
+  split_approvato: boolean;
+};
 
 type CatalogProject = {
   id: number;
@@ -58,6 +71,7 @@ export default function PlaybookCatalogPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myProjects, setMyProjects] = useState<MyProject[]>([]);
   const [catalog, setCatalog] = useState<CatalogProject[]>([]);
   const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
 
@@ -77,12 +91,20 @@ export default function PlaybookCatalogPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [catRes, reqRes] = await Promise.all([
-        fetch('/api/consultant/projects/catalog', { headers: authHeaders() }).then(r => r.json()),
-        fetch('/api/consultant/projects/my-requests', { headers: authHeaders() }).then(r => r.json()),
+      const [myRes, catRes, reqRes] = await Promise.all([
+        fetch('/api/consultant/partner-projects', { headers: authHeaders() }).then(r => r.json()).catch(() => ({})),
+        fetch('/api/consultant/projects/catalog', { headers: authHeaders() }).then(r => r.json()).catch(() => ({})),
+        fetch('/api/consultant/projects/my-requests', { headers: authHeaders() }).then(r => r.json()).catch(() => ({})),
       ]);
-      if (catRes.success) setCatalog(catRes.projects || []);
-      if (reqRes.success) setMyRequests(reqRes.requests || []);
+
+      const my = myRes.data || myRes;
+      if (my.success) setMyProjects(my.projects || []);
+
+      const cat = catRes.data || catRes;
+      if (cat.success) setCatalog(cat.projects || []);
+
+      const reqs = reqRes.data || reqRes;
+      if (reqs.success) setMyRequests(reqs.requests || []);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -125,157 +147,236 @@ export default function PlaybookCatalogPage() {
     }
   };
 
+  const copyPublicLink = async (slug: string) => {
+    try {
+      const url = `${window.location.origin}/p/${slug}`;
+      await navigator.clipboard.writeText(url);
+      alert('Link pubblico copiato negli appunti:\n' + url);
+    } catch (e: any) {
+      alert('Impossibile copiare: ' + e.message);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col">
+      <ConsultantPageHeader
+        title="Catalogo progetti"
+        subtitle="I tuoi progetti, il catalogo V6 e le tue richieste di accesso."
+        rightSlot={
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
+            <BookOpen size={12} /> {catalog.length} disponibili
+          </span>
+        }
+      />
 
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-[#1a2744] flex items-center gap-2">
-            <BookOpen size={28} /> Catalogo progetti
-          </h1>
-          <p className="text-gray-500 mt-1">
-            Sfoglia i progetti pubblicati V6 e richiedi accesso per partecipare.
-          </p>
-        </header>
+      <div className="flex-1 overflow-auto p-8">
+        <div className="max-w-5xl mx-auto">
 
-        {error && (
-          <div className="mb-6 p-3 rounded border border-red-200 bg-red-50 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="mb-6 p-3 rounded border border-red-200 bg-red-50 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
-        {loading ? (
-          <div className="flex items-center gap-2 text-gray-500">
-            <Loader2 className="w-4 h-4 animate-spin" /> Caricamento catalogo…
-          </div>
-        ) : (
-          <>
-            {/* CATALOGO */}
-            <section className="mb-10">
-              <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">
-                Progetti disponibili ({catalog.length})
-              </h2>
+          {loading ? (
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
+            </div>
+          ) : (
+            <>
+              {/* ═══════════════════════════════════════════════════
+                  SEZIONE 1 — I MIEI PROGETTI (dove sono parte)
+                  ═══════════════════════════════════════════════════ */}
+              <section className="mb-10">
+                <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3 flex items-center gap-1.5">
+                  <Briefcase size={12} /> I miei progetti ({myProjects.length})
+                </h2>
 
-              {catalog.length === 0 ? (
-                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                  <BookOpen size={32} className="text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">
-                    Nessun progetto disponibile al momento.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  {catalog.map(p => (
-                    <div key={p.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-[#1a2744] truncate">{p.pitchTitle}</h3>
-                          {p.pitchTitle !== p.name && (
-                            <div className="text-xs text-gray-400 mt-0.5">{p.name}</div>
-                          )}
+                {myProjects.length === 0 ? (
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+                    <Briefcase size={28} className="text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">
+                      Non sei ancora parte di nessun progetto.
+                      Sfoglia il catalogo qui sotto per partecipare.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {myProjects.map(p => (
+                      <div key={p.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-[#1a2744] truncate">{p.name}</h3>
+                            <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                                {p.state || 'attivo'}
+                              </span>
+                              {p.owner_name && (
+                                <span className="flex items-center gap-1">
+                                  <User size={11} /> {p.owner_name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {p.funzioneProgetto && (
-                            <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">
-                              {p.funzioneProgetto.replace('_', ' ')}
-                            </span>
-                          )}
-                          {p.ownerName && (
-                            <span className="text-xs text-gray-500 flex items-center gap-1">
-                              <User size={12} /> {p.ownerName}
-                            </span>
-                          )}
-                        </div>
-                      </div>
 
-                      {p.pitchSummary && (
-                        <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-                          {p.pitchSummary}
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs text-gray-400">
-                          Pubblicato: {fmtDate(p.publishedAt)}
-                        </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                          {p.email_alias && (
+                            <button
+                              onClick={() => copyPublicLink(p.email_alias!)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100"
+                              title={`Copia link pubblico: /p/${p.email_alias}`}
+                            >
+                              <Link2 size={12} /> Copia link pubblico
+                            </button>
+                          )}
                           <Link
                             href={`/consultant/partner-projects/${p.id}/playbook`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-gray-300 text-xs text-gray-700 font-semibold hover:bg-gray-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0f172a] text-white text-xs font-semibold hover:bg-[#1e293b]"
                           >
                             <FileText size={12} /> Apri playbook
                           </Link>
-                          {p.pendingRequestId ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-amber-50 border border-amber-300 text-xs text-amber-800 font-semibold">
-                              <Clock size={12} /> In attesa
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => handleOpenRequest(p)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0f172a] text-white text-xs font-semibold hover:bg-[#1e293b]"
-                            >
-                              <Send size={12} /> Richiedi accesso
-                            </button>
-                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* MIE RICHIESTE */}
-            {myRequests.length > 0 && (
-              <section>
-                <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">
-                  Le mie richieste ({myRequests.length})
-                </h2>
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                        <th className="px-4 py-2.5">Progetto</th>
-                        <th className="px-4 py-2.5">Stato</th>
-                        <th className="px-4 py-2.5">Data</th>
-                        <th className="px-4 py-2.5">Note</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {myRequests.map(r => {
-                        const meta = STATE_META[r.state] || STATE_META.pending;
-                        return (
-                          <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="px-4 py-2.5 text-sm font-medium text-[#0f172a]">
-                              {r.relationName}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <span className={`inline-flex items-center gap-1 text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${meta.color}`}>
-                                <meta.Icon size={10} /> {meta.label}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 text-xs text-gray-500">
-                              {fmtDate(r.createDate)}
-                            </td>
-                            <td className="px-4 py-2.5 text-xs text-gray-600">
-                              {r.state === 'rejected' && r.rejectedReason && (
-                                <span className="text-red-600">Motivo: {r.rejectedReason}</span>
-                              )}
-                              {r.state === 'approved' && r.approvedBy && (
-                                <span>Approvata da {r.approvedBy}</span>
-                              )}
-                              {r.state === 'pending' && 'In attesa di approvazione'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </div>
+                )}
               </section>
-            )}
-          </>
-        )}
+
+              {/* ═══════════════════════════════════════════════════
+                  SEZIONE 2 — CATALOGO (dove NON sono parte)
+                  ═══════════════════════════════════════════════════ */}
+              <section className="mb-10">
+                <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">
+                  Catalogo disponibili ({catalog.length})
+                </h2>
+
+                {catalog.length === 0 ? (
+                  <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                    <BookOpen size={32} className="text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">
+                      Nessun progetto disponibile al momento.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {catalog.map(p => (
+                      <div key={p.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-sm transition-shadow">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-[#1a2744] truncate">{p.pitchTitle}</h3>
+                            {p.pitchTitle !== p.name && (
+                              <div className="text-xs text-gray-400 mt-0.5">{p.name}</div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {p.funzioneProgetto && (
+                              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                                {p.funzioneProgetto.replace('_', ' ')}
+                              </span>
+                            )}
+                            {p.ownerName && (
+                              <span className="text-xs text-gray-500 flex items-center gap-1">
+                                <User size={12} /> {p.ownerName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {p.pitchSummary && (
+                          <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                            {p.pitchSummary}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs text-gray-400">
+                            Pubblicato: {fmtDate(p.publishedAt)}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {p.emailAlias && (
+                              <Link
+                                href={`/p/${p.emailAlias}`}
+                                target="_blank"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-gray-300 text-xs text-gray-700 font-semibold hover:bg-gray-50"
+                              >
+                                <ExternalLink size={12} /> Vedi pitch pubblico
+                              </Link>
+                            )}
+                            {p.pendingRequestId ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-amber-50 border border-amber-300 text-xs text-amber-800 font-semibold">
+                                <Clock size={12} /> In attesa
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenRequest(p)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0f172a] text-white text-xs font-semibold hover:bg-[#1e293b]"
+                              >
+                                <Send size={12} /> Richiedi accesso
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* ═══════════════════════════════════════════════════
+                  SEZIONE 3 — LE MIE RICHIESTE
+                  ═══════════════════════════════════════════════════ */}
+              {myRequests.length > 0 && (
+                <section>
+                  <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">
+                    Le mie richieste ({myRequests.length})
+                  </h2>
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                          <th className="px-4 py-2.5">Progetto</th>
+                          <th className="px-4 py-2.5">Stato</th>
+                          <th className="px-4 py-2.5">Data</th>
+                          <th className="px-4 py-2.5">Note</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myRequests.map(r => {
+                          const meta = STATE_META[r.state] || STATE_META.pending;
+                          return (
+                            <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                              <td className="px-4 py-2.5 text-sm font-medium text-[#0f172a]">
+                                {r.relationName}
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <span className={`inline-flex items-center gap-1 text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${meta.color}`}>
+                                  <meta.Icon size={10} /> {meta.label}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-xs text-gray-500">
+                                {fmtDate(r.createDate)}
+                              </td>
+                              <td className="px-4 py-2.5 text-xs text-gray-600">
+                                {r.state === 'rejected' && r.rejectedReason && (
+                                  <span className="text-red-600">Motivo: {r.rejectedReason}</span>
+                                )}
+                                {r.state === 'approved' && r.approvedBy && (
+                                  <span>Approvata da {r.approvedBy}</span>
+                                )}
+                                {r.state === 'pending' && 'In attesa di approvazione'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* MODALE RICHIESTA ACCESSO */}
