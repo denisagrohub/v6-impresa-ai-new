@@ -30,6 +30,43 @@ from .consultant_api import ConsultantAPIController
 
 class ConsultantEmailAPIController(ConsultantAPIController):
 
+    def _get_visible_relation_ids(self, user):
+        """30/09/2026 (modello B): ritorna la lista di relation_id le cui
+        email sono visibili al consulente.
+
+        Regola: il consulente vede il progetto padre (dove è parte) +
+        tutti i nodi figli di quel padre (sibling + eventuali deal).
+        Questo copre il caso TEE: Martina (parte del padre 5) vede le
+        email di 5, 6, 10, 15, 23, 29, 30, 38.
+
+        Admin/responsabile: vede tutto (ritorna None per segnalare
+        "no filter").
+        """
+        if self._is_responsabile_o_admin(user):
+            return None  # no filter
+
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        partner_id = user.partner_id.id
+        if not partner_id:
+            return []
+
+        # Nodi dove l'utente è "parte" (partner_id match)
+        my_nodes = Relation.search([('partner_id', '=', partner_id)])
+        if not my_nodes:
+            return []
+
+        # Per ogni nodo: aggiungi se stesso + parent + figli del parent
+        ids = set()
+        for node in my_nodes:
+            ids.add(node.id)
+            if node.parent_id:
+                parent = node.parent_id
+                ids.add(parent.id)
+                # Aggiungi tutti i figli del parent (sibling)
+                siblings = Relation.search([('parent_id', '=', parent.id)])
+                ids.update(siblings.ids)
+        return sorted(ids)
+
     @http.route('/api/v1/consultant/emails', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_consultant_emails(self, **kwargs):  # pylint: disable=unused-argument
         if request.httprequest.method == 'OPTIONS':
@@ -47,38 +84,103 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         is_admin = self._is_responsabile_o_admin(user)
         show_all = is_admin and kwargs.get('all') in ('1', 'true', 'True')
 
-        domain = [] if show_all else [('recipient_user_id', '=', user.id)]
-        # 22/09/2026: escludi archiviate (o mostra solo archiviate con ?archived=1)
-        if kwargs.get('archived') in ('1','true','True'):
-            domain.append(('is_archived', '=', True))
-        else:
-            domain.append(('is_archived', '=', False))
-        # opzionale filtro per progetto
-        relation_id = kwargs.get('relation_id')
-        if relation_id:
+        visible_ids = self._get_visible_relation_ids(user)
+        if visible_ids is not None and not visible_ids:
+            # consulente senza progetti: 0 email
+            self._log_api_call('/api/v1/consultant/emails', 'GET', user.id, 200, start_time)
+            return self._json_response({
+                'is_admin': is_admin,
+                'showing_all': False,
+                'count': 0,
+                'emails': [],
+            })
+
+        # 30/09/2026 (modello B): costruisci domain per ENTRAMBE le fonti.
+        # Fonte 1: erpv6.winwin.email.log (ha is_read/is_archived, recipient_user_id)
+        # Fonte 2: erpv6.project.email.log (no is_read, no is_archived)
+        archived_filter = kwargs.get('archived') in ('1', 'true', 'True')
+        relation_filter = None
+        if kwargs.get('relation_id'):
             try:
-                domain.append(('relation_id', '=', int(relation_id)))
+                relation_filter = int(kwargs['relation_id'])
             except (ValueError, TypeError):
                 pass
 
-        limit = min(int(kwargs.get('limit') or 50), 200)
-        Log = env['erpv6.winwin.email.log'].sudo()
-        logs = Log.search(domain, order='create_date desc', limit=limit)
+        # --- Fonte 1: winwin ---
+        winwin_domain = []
+        if show_all:
+            pass  # admin: nessun filtro
+        else:
+            # OR: recipient_user_id = user OR relation_id in visible_ids
+            winwin_domain = [
+                '|',
+                ('recipient_user_id', '=', user.id),
+                ('relation_id', 'in', visible_ids or []),
+            ]
+        winwin_domain.append(('is_archived', '=', archived_filter))
+        if relation_filter:
+            winwin_domain.append(('relation_id', '=', relation_filter))
 
-        emails = [{
-            'id': l.id,
-            'subject': l.name or '(senza oggetto)',
-            'sender_email': l.sender_email or '',
-            'recipient_emails': l.recipient_emails or '',
-            'cc_emails': l.cc_emails or '',
-            'match_status': l.match_status,
-            'matched_alias': l.matched_alias or '',
-            'relation_id': l.relation_id.id if l.relation_id else None,
-            'relation_name': l.relation_id.name if l.relation_id else None,
-            'recipient_user_id': l.recipient_user_id.id if l.recipient_user_id else None,
-            'recipient_user_name': l.recipient_user_id.name if l.recipient_user_id else None,
-            'create_date': self._iso_utc(l.create_date) if l.create_date else None,
-        } for l in logs]
+        Log = env['erpv6.winwin.email.log'].sudo()
+        winwin_logs = Log.search(winwin_domain, order='create_date desc', limit=200)
+
+        # --- Fonte 2: project ---
+        project_domain = []
+        if show_all:
+            pass
+        else:
+            project_domain = [('relation_id', 'in', visible_ids or [])]
+        if relation_filter:
+            project_domain.append(('relation_id', '=', relation_filter))
+
+        PLog = env['erpv6.project.email.log'].sudo()
+        project_logs = PLog.search(project_domain, order='create_date desc', limit=200)
+
+        # Unifica
+        all_logs = []
+        for l in winwin_logs:
+            all_logs.append({
+                'id': l.id,
+                'kind': 'winwin',
+                'subject': l.name or '(senza oggetto)',
+                'sender_email': l.sender_email or '',
+                'recipient_emails': l.recipient_emails or '',
+                'cc_emails': l.cc_emails or '',
+                'match_status': l.match_status,
+                'matched_alias': l.matched_alias or '',
+                'direction': l.direction or 'ricevuta',
+                'relation_id': l.relation_id.id if l.relation_id else None,
+                'relation_name': l.relation_id.name if l.relation_id else None,
+                'recipient_user_id': l.recipient_user_id.id if l.recipient_user_id else None,
+                'recipient_user_name': l.recipient_user_id.name if l.recipient_user_id else None,
+                'create_date': self._iso_utc(l.create_date) if l.create_date else None,
+                'is_read': bool(l.is_read),
+                'is_archived': bool(l.is_archived),
+            })
+        for l in project_logs:
+            all_logs.append({
+                'id': l.id,
+                'kind': 'project',
+                'subject': l.name or '(senza oggetto)',
+                'sender_email': l.sender_email or '',
+                'recipient_emails': l.recipient_emails or '',
+                'cc_emails': l.cc_emails or '',
+                'match_status': l.match_status,
+                'matched_alias': l.matched_alias or '',
+                'direction': l.direction or 'ricevuta',
+                'relation_id': l.relation_id.id if l.relation_id else None,
+                'relation_name': l.relation_id.name if l.relation_id else None,
+                'recipient_user_id': None,
+                'recipient_user_name': None,
+                'create_date': self._iso_utc(l.create_date) if l.create_date else None,
+                'is_read': False,  # project log non ha is_read
+                'is_archived': False,
+            })
+
+        # Ordina per data (decrescente) + tronca al limit
+        all_logs.sort(key=lambda x: x.get('create_date') or '', reverse=True)
+        limit = min(int(kwargs.get('limit') or 50), 200)
+        emails = all_logs[:limit]
 
         self._log_api_call('/api/v1/consultant/emails', 'GET', user.id, 200, start_time)
         return self._json_response({
