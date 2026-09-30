@@ -1542,16 +1542,26 @@ export default function ConsultantDashboard() {
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-bold text-[#1a2744]">{p.project_name}</h3>
                                         <p className="text-sm text-gray-500 mt-1">
-                                            Base: <span className="font-medium">{p.base_valore}</span>{' '}
-                                            {p.base_tipo === 'fisso_unita' ? `EUR/${p.base_unita || 'unità'}` : '% sul valore'}
+                                            Base: <span className="font-medium">
+                                                {typeof p.base_valore === 'number'
+                                                    ? p.base_valore.toLocaleString('it-IT')
+                                                    : p.base_valore}
+                                            </span>{' '}
+                                            {p.base_tipo === 'fisso_unita' ? `EUR / ${p.base_unita || 'unità'}` : '% sul valore'}
                                             <span className="mx-2 text-gray-300">·</span>
-                                            Mia quota: <span className="font-medium">{p.mia_pct}%</span>
+                                            Mia quota: <span className="font-medium">
+                                                {typeof p.mia_pct === 'number'
+                                                    ? p.mia_pct.toLocaleString('it-IT')
+                                                    : p.mia_pct}%
+                                            </span>
                                         </p>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-2xl font-bold text-blue-600 whitespace-nowrap">
-                                            {p.mia_quota_teorica}
-                                            {p.base_tipo === 'fisso_unita' ? ` EUR/${p.base_unita || 'u'}` : ' %'}
+                                            {typeof p.mia_quota_teorica === 'number'
+                                                ? p.mia_quota_teorica.toLocaleString('it-IT', { maximumFractionDigits: 2 })
+                                                : String(p.mia_quota_teorica).replace('.', ',')}
+                                            {p.base_tipo === 'fisso_unita' ? ` € / ${p.base_unita || 'u'}` : ' %'}
                                         </div>
                                         <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${
                                             p.split_approvato ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
@@ -1620,31 +1630,29 @@ export default function ConsultantDashboard() {
                                     <h3 className="font-bold text-lg">
                                         {richiesteData?.can_decide ? 'Tutte le richieste' : 'Le mie richieste'}
                                     </h3>
-                                    {richiesteData?.richieste && richiesteData.richieste.length > 0 && (
-                                        <div className="flex items-center gap-3 text-xs">
-                                            <span className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full bg-orange-400"></span>
-                                                <span className="font-bold text-[#1a2744]">
-                                                    {richiesteData.richieste.filter((r: any) => r.state === 'in_attesa').length}
-                                                </span>
-                                                <span className="text-gray-500">in attesa</span>
+                                    <div className="flex items-center gap-3 text-xs">
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                                            <span className="font-bold text-[#1a2744]">
+                                                {(richiesteData?.richieste || []).filter((r: any) => r.state === 'in_attesa').length}
                                             </span>
-                                            <span className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                                <span className="font-bold text-[#1a2744]">
-                                                    {richiesteData.richieste.filter((r: any) => r.state === 'approvata').length}
-                                                </span>
-                                                <span className="text-gray-500">approvate</span>
+                                            <span className="text-gray-500">in attesa</span>
+                                        </span>
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                            <span className="font-bold text-[#1a2744]">
+                                                {(richiesteData?.richieste || []).filter((r: any) => r.state === 'approvata').length}
                                             </span>
-                                            <span className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                                                <span className="font-bold text-[#1a2744]">
-                                                    {richiesteData.richieste.filter((r: any) => r.state === 'rifiutata').length}
-                                                </span>
-                                                <span className="text-gray-500">rifiutate</span>
+                                            <span className="text-gray-500">approvate</span>
+                                        </span>
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                                            <span className="font-bold text-[#1a2744]">
+                                                {(richiesteData?.richieste || []).filter((r: any) => r.state === 'rifiutata').length}
                                             </span>
-                                        </div>
-                                    )}
+                                            <span className="text-gray-500">rifiutate</span>
+                                        </span>
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {richiesteLoading && <Loader2 size={16} className="animate-spin text-gray-400" />}
