@@ -85,6 +85,20 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             return True
         return False
 
+    def _hide_personal_alias(self, alias, current_user):
+        """30/09/2026 (fix privacy): True se l'alias è una casella
+        personale di un ALTRO utente (diverso dal viewer). Serve a
+        nascondere le email tipo 'denis.deste' a un consulente.
+        Alias di progetto ('progetto-tee', ecc.) → False (mostra).
+        """
+        if not alias or '@' in alias:
+            return False
+        User = request.env['res.users'].sudo()
+        u = User.search([('email_slug', '=', alias)], limit=1)
+        if not u:
+            return False  # non è uno slug utente: è un progetto
+        return u.id != current_user.id
+
     def _get_consultant_record(self, email_id, kind):
         """30/09/2026: risolve email_id → record (winwin o project).
         Stesso pattern di admin_emails_api._get_record.
@@ -204,6 +218,15 @@ class ConsultantEmailAPIController(ConsultantAPIController):
                 'is_read': False,  # project log non ha is_read
                 'is_archived': False,
             })
+
+        # 30/09/2026 (privacy): escludi email con matched_alias che è
+        # slug personale di altro utente (es. Denis vede 'denis.deste',
+        # Martina non deve). Alias di progetto passano.
+        if not show_all:
+            all_logs = [
+                l for l in all_logs
+                if not self._hide_personal_alias(l.get('matched_alias') or '', user)
+            ]
 
         # Ordina per data (decrescente) + tronca al limit
         all_logs.sort(key=lambda x: x.get('create_date') or '', reverse=True)
