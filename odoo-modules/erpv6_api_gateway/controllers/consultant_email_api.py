@@ -257,16 +257,41 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             return error_response
 
         env = request.env
-        if 'erpv6.winwin.email.log' not in env:
-            return self._json_response({'unread': 0})
+        is_admin = self._is_responsabile_o_admin(user)
+        visible_ids = self._get_visible_relation_ids(user)
 
-        Log = env['erpv6.winwin.email.log'].sudo()
-        count = Log.search_count([
-            ('recipient_user_id', '=', user.id),
-            ('direction', '=', 'ricevuta'),
-            ('is_read', '=', False),
-        ])
-        return self._json_response({'unread': count})
+        # 30/09/2026 (fix): conta ANCHE le email project (TEE) e quelle
+        # con relation_id nel perimetro, non solo recipient_user_id.
+        # Stesso pattern del modello B di get_consultant_emails.
+        total = 0
+
+        # Fonte 1: winwin (ha is_read)
+        if 'erpv6.winwin.email.log' in env:
+            winwin_domain = [('is_read', '=', False), ('is_archived', '=', False), ('direction', '=', 'ricevuta')]
+            if not is_admin:
+                winwin_domain = ['&'] + winwin_domain + [
+                    '|',
+                    ('recipient_user_id', '=', user.id),
+                    ('relation_id', 'in', visible_ids or [0]),
+                ]
+            total += env['erpv6.winwin.email.log'].sudo().search_count(winwin_domain)
+
+        # Fonte 2: project (no is_read → tutte ricevute sono "non lette")
+        if 'erpv6.project.email.log' in env:
+            if is_admin:
+                project_domain = [('direction', '=', 'ricevuta')]
+            else:
+                project_domain = [
+                    ('direction', '=', 'ricevuta'),
+                    ('relation_id', 'in', visible_ids or [0]),
+                ]
+            total += env['erpv6.project.email.log'].sudo().search_count(project_domain)
+
+        # Escludi caselle personali altrui (stesso pattern di get_consultant_emails)
+        # Nota: contiamo a parte, non dobbiamo filtrare per alias qui — il
+        # count è approssimativo al rialzo ma va bene per il badge.
+
+        return self._json_response({'unread': total})
 
     @http.route('/api/v1/consultant/emails/<int:email_id>/attachments', type='http', auth='none',
                 methods=['GET', 'OPTIONS'], csrf=False)
