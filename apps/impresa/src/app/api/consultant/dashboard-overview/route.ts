@@ -81,9 +81,11 @@ export async function GET(request: NextRequest) {
       unreadEmails: { count: unreadEmails },
     },
     alerts: [
+      leads.length > 0 && { type: 'leads_to_qualify', count: leads.length, label: 'Lead da qualificare (intervista non completata)', href: '/consultant/dashboard' },
       accessPending > 0 && { type: 'access_pending', count: accessPending, label: 'Richieste accesso playbook in attesa', href: '/consultant/playbook' },
       signPending > 0 && { type: 'sign_pending', count: signPending, label: 'Firme in attesa di essere completate', href: '/consultant/dashboard' },
       richiesteOpen > 0 && { type: 'richieste_open', count: richiesteOpen, label: 'Richieste aperte da gestire', href: '/consultant/dashboard' },
+      unreadEmails > 0 && { type: 'unread_emails', count: unreadEmails, label: 'Email non lette', href: '/consultant/mia-email' },
     ].filter(Boolean),
   });
 }

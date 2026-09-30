@@ -17,7 +17,7 @@ export default function ConsultantDashboard() {
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState("progetti");
+    const [activeTab, setActiveTab] = useState("panoramica");
     const [data, setData] = useState<any>(null);
     const [myRequests, setMyRequests] = useState<any>(null);    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());    const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
     // 21/09/2026: email assegnate + pagamenti (compensi) del consulente
@@ -595,6 +595,7 @@ export default function ConsultantDashboard() {
 
 
     const menuItems = [
+        { id: "panoramica", label: "Panoramica", icon: LayoutDashboard },
         { id: "email", label: "Email", icon: Mail },
         { id: "progetti", label: "Progetti Consulenza", icon: FolderOpen },
         { id: "partner", label: "Progetti Partner", icon: Handshake },
@@ -691,7 +692,7 @@ export default function ConsultantDashboard() {
                     alert operativi. Nascosta in tab email (che è pagina
                     dedicata) per non duplicare.
                     ═══════════════════════════════════════════════════════ */}
-                {activeTab !== 'email' && overviewKpi && (
+                {activeTab === 'panoramica' && overviewKpi && (
                     <>
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
                             {/* Progetti */}
@@ -804,6 +805,7 @@ export default function ConsultantDashboard() {
 
                 <header className="mb-8">
                     <h1 className="text-3xl font-bold text-[#1a2744]">
+                        {activeTab === 'panoramica' && `Ciao ${user?.name?.split(' ')[0] || ''} 👋`}
                         {activeTab === 'progetti' && 'I Miei Progetti Assegnati'}
                         {activeTab === 'partner' && 'Progetti Partner'}
                         {activeTab === 'email' && 'Le Mie Email'}
@@ -824,6 +826,77 @@ export default function ConsultantDashboard() {
                     hardcoded). "Vedi tutti i consulenti" e' l'azione in piu'
                     riservata a Responsabile/Admin (compito 3) - il filtro sui
                     dati resta comunque garantito lato Odoo. */}
+                {/* ═══════════════════════════════════════════════════
+                    TAB: PANORAMICA — cosa fare oggi
+                    ═══════════════════════════════════════════════════ */}
+                {activeTab === "panoramica" && (
+                    <div className="space-y-6">
+
+                        {/* Azioni di oggi */}
+                        <section>
+                            <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3 flex items-center gap-1.5">
+                                <AlertTriangle size={12} /> Cosa fare oggi
+                            </h2>
+
+                            {overviewAlerts.length === 0 ? (
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-8 text-center">
+                                    <div className="text-3xl mb-2">✨</div>
+                                    <p className="text-sm font-medium text-emerald-800">
+                                        Tutto sotto controllo — niente da fare adesso.
+                                    </p>
+                                    <p className="text-xs text-emerald-600 mt-1">
+                                        Usa il menu a sinistra per sfogliare progetti, email, firme.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {overviewAlerts.map((a: any, i: number) => {
+                                        const handleClick = () => {
+                                            if (a.href.startsWith('/consultant/dashboard')) setActiveTab('progetti');
+                                            else router.push(a.href);
+                                        };
+                                        return (
+                                            <button
+                                                key={i}
+                                                onClick={handleClick}
+                                                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl border border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300 hover:shadow-sm transition-all text-left group"
+                                            >
+                                                <span className="w-9 h-9 rounded-full bg-amber-500 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                                                    {a.count}
+                                                </span>
+                                                <span className="flex-1 text-sm font-medium text-amber-900">{a.label}</span>
+                                                <ArrowRight size={16} className="text-amber-500 group-hover:translate-x-1 transition-transform" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </section>
+
+                        {/* Azioni rapide */}
+                        <section>
+                            <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">
+                                Azioni rapide
+                            </h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <Link href="/consultant/nuovo-lead" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm text-sm font-medium text-gray-700 transition-all">
+                                    <PlusCircle size={16} className="text-orange-500" /> Nuovo cliente
+                                </Link>
+                                <button onClick={() => setActiveTab('progetti')} className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm text-sm font-medium text-gray-700 transition-all text-left">
+                                    <FolderOpen size={16} className="text-blue-600" /> I miei progetti
+                                </button>
+                                <Link href="/consultant/playbook" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-indigo-300 hover:shadow-sm text-sm font-medium text-gray-700 transition-all">
+                                    <BookOpen size={16} className="text-indigo-600" /> Playbook
+                                </Link>
+                                <button onClick={() => router.push('/consultant/mia-email')} className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-red-300 hover:shadow-sm text-sm font-medium text-gray-700 transition-all text-left">
+                                    <Mail size={16} className="text-red-500" /> La mia email
+                                </button>
+                            </div>
+                        </section>
+
+                    </div>
+                )}
+
                 {activeTab === "progetti" && (
                     <div className="space-y-6">
                         <div className="flex flex-wrap items-center justify-between gap-3">
