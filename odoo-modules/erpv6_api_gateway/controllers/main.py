@@ -232,21 +232,28 @@ class HealthController(APIBaseController):
         # dedicato esiste ancora: chi non e' ne' Responsabile/Admin ne'
         # Consulente ricade su 'client' (portal/altro utente interno).
         # 29/09/2026: multi-ruolo. Calcolo array roles dai gruppi reali.
+        # 30/09/2026: bypass has_group() (in Odoo 18 su .sudo() in API
+        # context dà falsi negativi). Confronto diretto groups_id.ids.
         # Backward compat: role = roles[0] per JWT e session esistenti.
+        user_group_ids = set(user.groups_id.ids)
+        def _has(xmlid):
+            g = request.env.ref(xmlid, raise_if_not_found=False)
+            return g and g.id in user_group_ids
+
         roles = []
-        if user.has_group('base.group_system') or user.has_group('sales_team.group_sale_manager'):
+        if _has('base.group_system') or _has('sales_team.group_sale_manager'):
             roles.append('admin')
-        if user.has_group('erpv6_core.group_chief_projects'):
+        if _has('erpv6_core.group_chief_projects'):
             roles.append('chief_projects')
-        if user.has_group('erpv6_core.group_chief_accounting'):
+        if _has('erpv6_core.group_chief_accounting'):
             roles.append('chief_accounting')
-        if user.has_group('erpv6_core.group_chief_bandi'):
+        if _has('erpv6_core.group_chief_bandi'):
             roles.append('chief_bandi')
-        if user.has_group('erpv6_core.group_chief_marketing'):
+        if _has('erpv6_core.group_chief_marketing'):
             roles.append('chief_marketing')
-        if user.has_group('erpv6_core.group_chief_kb'):
+        if _has('erpv6_core.group_chief_kb'):
             roles.append('chief_kb')
-        if user.has_group('erpv6_core.group_consulente'):
+        if _has('erpv6_core.group_consulente'):
             roles.append('consultant')
         if not roles:
             roles.append('client')

@@ -200,6 +200,19 @@ class AdminEmailsAPIController(ConsultantAPIController):
 
         mailboxes = self._all_aliases(logs, current_user=user)
 
+        # 30/09/2026: aggiungi la casella personale del viewer anche se
+        # vuota. L'utente la deve vedere come punto di partenza, anche
+        # prima che arrivi la prima email sul suo slug.
+        user_slug = getattr(user, 'email_slug', None)
+        if user_slug and user_slug not in [m['alias'] for m in mailboxes]:
+            mailboxes.insert(0, {
+                'alias': user_slug,
+                'label': user_slug,
+                'total': 0,
+                'unread': 0,
+                'lastDate': None,
+            })
+
         # Aggiungi "Tutte" come casella speciale
         total_unread = sum(m['unread'] for m in mailboxes)
         total = len(logs)
