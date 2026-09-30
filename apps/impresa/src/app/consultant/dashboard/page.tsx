@@ -692,116 +692,6 @@ export default function ConsultantDashboard() {
                     alert operativi. Nascosta in tab email (che è pagina
                     dedicata) per non duplicare.
                     ═══════════════════════════════════════════════════════ */}
-                {activeTab === 'panoramica' && overviewKpi && (
-                    <>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-                            {/* Progetti */}
-                            <button
-                                onClick={() => setActiveTab('progetti')}
-                                className="group bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all p-4 text-left"
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <FolderOpen size={16} className="text-blue-600" />
-                                    <ArrowRight size={12} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
-                                </div>
-                                <div className="text-2xl font-bold text-[#1a2744] leading-none">
-                                    {overviewKpi.projects.count}
-                                </div>
-                                <div className="text-[11px] text-gray-500 mt-1">Progetti</div>
-                            </button>
-
-                            {/* Partner */}
-                            <button
-                                onClick={() => setActiveTab('partner')}
-                                className="group bg-white rounded-xl border border-gray-100 hover:border-orange-200 hover:shadow-sm transition-all p-4 text-left"
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <Handshake size={16} className="text-orange-600" />
-                                    <ArrowRight size={12} className="text-gray-300 group-hover:text-orange-500 transition-colors" />
-                                </div>
-                                <div className="text-2xl font-bold text-[#1a2744] leading-none">
-                                    {overviewKpi.partnerProjects.count}
-                                </div>
-                                <div className="text-[11px] text-gray-500 mt-1">Partner</div>
-                            </button>
-
-                            {/* Firme */}
-                            <button
-                                onClick={() => setActiveTab('firme')}
-                                className={`group bg-white rounded-xl border transition-all p-4 text-left ${
-                                    overviewKpi.signRequestsPending.count > 0
-                                        ? 'border-amber-300 ring-1 ring-amber-100 hover:shadow-sm'
-                                        : 'border-gray-100 hover:border-amber-200 hover:shadow-sm'
-                                }`}
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <PenTool size={16} className="text-amber-600" />
-                                    <ArrowRight size={12} className="text-gray-300 group-hover:text-amber-500 transition-colors" />
-                                </div>
-                                <div className="text-2xl font-bold text-[#1a2744] leading-none">
-                                    {overviewKpi.signRequestsPending.count}
-                                </div>
-                                <div className="text-[11px] text-gray-500 mt-1">Firme</div>
-                            </button>
-
-                            {/* Compensi */}
-                            <button
-                                onClick={() => setActiveTab('pagamenti')}
-                                className="group bg-white rounded-xl border border-gray-100 hover:border-emerald-200 hover:shadow-sm transition-all p-4 text-left"
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <Euro size={16} className="text-emerald-600" />
-                                    <ArrowRight size={12} className="text-gray-300 group-hover:text-emerald-500 transition-colors" />
-                                </div>
-                                <div className="text-2xl font-bold text-[#1a2744] leading-none">
-                                    {overviewKpi.payments.total.toLocaleString('it-IT', { maximumFractionDigits: 0 })}€
-                                </div>
-                                <div className="text-[11px] text-gray-500 mt-1">Compensi</div>
-                            </button>
-
-                            {/* Email */}
-                            <button
-                                onClick={() => router.push('/consultant/mia-email')}
-                                className={`group bg-white rounded-xl border transition-all p-4 text-left ${
-                                    overviewKpi.unreadEmails.count > 0
-                                        ? 'border-red-200 ring-1 ring-red-100 hover:shadow-sm'
-                                        : 'border-gray-100 hover:border-red-200 hover:shadow-sm'
-                                }`}
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <Mail size={16} className="text-red-500" />
-                                    <ArrowRight size={12} className="text-gray-300 group-hover:text-red-500 transition-colors" />
-                                </div>
-                                <div className="text-2xl font-bold text-[#1a2744] leading-none">
-                                    {overviewKpi.unreadEmails.count}
-                                </div>
-                                <div className="text-[11px] text-gray-500 mt-1">Non lette</div>
-                            </button>
-                        </div>
-
-                        {/* Alert operativi */}
-                        {overviewAlerts.length > 0 && (
-                            <div className="space-y-1.5 mb-5">
-                                {overviewAlerts.map((a: any, i: number) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => {
-                                            if (a.href.startsWith('/consultant/dashboard')) setActiveTab(a.href.split('tab=')[1] || 'progetti');
-                                            else router.push(a.href);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors text-left group"
-                                    >
-                                        <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                                            {a.count}
-                                        </span>
-                                        <span className="flex-1 text-sm font-medium text-amber-900">{a.label}</span>
-                                        <ArrowRight size={13} className="text-amber-600 group-hover:translate-x-0.5 transition-transform" />
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </>
-                )}
 
                 {/* ═══════════════════════════════════════════════════════
                     HEADER — in Panoramica è ricco (gradient + saluto +
@@ -879,6 +769,63 @@ export default function ConsultantDashboard() {
                 {/* ═══════════════════════════════════════════════════
                     TAB: PANORAMICA — cosa fare oggi
                     ═══════════════════════════════════════════════════ */}
+                {activeTab === 'panoramica' && overviewKpi && (
+                    <>
+                        {/* Strip contatori orizzontale (compatta) */}
+                        <div className="flex flex-wrap items-center gap-3 mb-6">
+                            <button
+                                onClick={() => setActiveTab('progetti')}
+                                className="group flex items-center gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm transition-all"
+                            >
+                                <FolderOpen size={16} className="text-blue-600" />
+                                <span className="text-lg font-bold text-[#1a2744]">
+                                    {overviewKpi.projects.count}
+                                </span>
+                                <span className="text-xs text-gray-500">Progetti</span>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('partner')}
+                                className="group flex items-center gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm transition-all"
+                            >
+                                <Handshake size={16} className="text-orange-600" />
+                                <span className="text-lg font-bold text-[#1a2744]">
+                                    {overviewKpi.partnerProjects.count}
+                                </span>
+                                <span className="text-xs text-gray-500">Partner</span>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('firme')}
+                                className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${
+                                    overviewKpi.signRequestsPending.count > 0
+                                        ? 'border-amber-300 bg-amber-50 hover:shadow-sm'
+                                        : 'border-gray-200 bg-white hover:border-amber-300 hover:shadow-sm'
+                                }`}
+                            >
+                                <PenTool size={16} className="text-amber-600" />
+                                <span className="text-lg font-bold text-[#1a2744]">
+                                    {overviewKpi.signRequestsPending.count}
+                                </span>
+                                <span className="text-xs text-gray-500">Firme</span>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('pagamenti')}
+                                className="group flex items-center gap-3 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:border-emerald-300 hover:shadow-sm transition-all"
+                            >
+                                <Euro size={16} className="text-emerald-600" />
+                                <span className="text-lg font-bold text-[#1a2744]">
+                                    {overviewKpi.payments.total.toLocaleString('it-IT', { maximumFractionDigits: 0 })}€
+                                </span>
+                                <span className="text-xs text-gray-500">Compensi</span>
+                            </button>
+                        </div>
+
+
+                    </>
+                )}
+
                 {activeTab === "panoramica" && (
                     <div className="space-y-6">
 
@@ -946,17 +893,53 @@ export default function ConsultantDashboard() {
                                 Azioni rapide
                             </h2>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <Link href="/consultant/nuovo-lead" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm text-sm font-medium text-gray-700 transition-all">
-                                    <PlusCircle size={16} className="text-orange-500" /> Nuovo cliente
+                                <Link
+                                    href="/consultant/nuovo-lead"
+                                    className="group flex flex-col gap-3 p-5 rounded-2xl border border-gray-200 bg-white hover:border-orange-300 hover:shadow-md transition-all"
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <PlusCircle size={20} className="text-orange-600" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-[#1a2744]">Nuovo cliente</div>
+                                        <div className="text-[11px] text-gray-500 mt-0.5">Avvia un'intervista</div>
+                                    </div>
                                 </Link>
-                                <button onClick={() => setActiveTab('progetti')} className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm text-sm font-medium text-gray-700 transition-all text-left">
-                                    <FolderOpen size={16} className="text-blue-600" /> I miei progetti
+                                <button
+                                    onClick={() => setActiveTab('progetti')}
+                                    className="group flex flex-col gap-3 p-5 rounded-2xl border border-gray-200 bg-white hover:border-blue-300 hover:shadow-md transition-all text-left"
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <FolderOpen size={20} className="text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-[#1a2744]">I miei progetti</div>
+                                        <div className="text-[11px] text-gray-500 mt-0.5">Lavori in corso</div>
+                                    </div>
                                 </button>
-                                <Link href="/consultant/playbook" className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-indigo-300 hover:shadow-sm text-sm font-medium text-gray-700 transition-all">
-                                    <BookOpen size={16} className="text-indigo-600" /> Playbook
+                                <Link
+                                    href="/consultant/playbook"
+                                    className="group flex flex-col gap-3 p-5 rounded-2xl border border-gray-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all"
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <BookOpen size={20} className="text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-[#1a2744]">Playbook</div>
+                                        <div className="text-[11px] text-gray-500 mt-0.5">Catalogo progetti</div>
+                                    </div>
                                 </Link>
-                                <button onClick={() => router.push('/consultant/mia-email')} className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:border-red-300 hover:shadow-sm text-sm font-medium text-gray-700 transition-all text-left">
-                                    <Mail size={16} className="text-red-500" /> La mia email
+                                <button
+                                    onClick={() => router.push('/consultant/mia-email')}
+                                    className="group flex flex-col gap-3 p-5 rounded-2xl border border-gray-200 bg-white hover:border-red-300 hover:shadow-md transition-all text-left"
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Mail size={20} className="text-red-500" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-[#1a2744]">La mia email</div>
+                                        <div className="text-[11px] text-gray-500 mt-0.5">Casella di lavoro</div>
+                                    </div>
                                 </button>
                             </div>
                         </section>
