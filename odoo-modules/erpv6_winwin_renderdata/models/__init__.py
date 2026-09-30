@@ -18,4 +18,5 @@ from . import deal_settlement
 from . import deal_checklist
 from . import deal_snapshot
 from . import deal_event
+from . import deal_event_neo4j_client
 from . import project_access_request

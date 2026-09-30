@@ -86,6 +86,28 @@ class Erpv6DealEvent(models.Model):
         string='Automatico',
         help='True se generato da regola di sistema, False se manuale.')
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        events = super().create(vals_list)
+        # Best effort: sync su Neo4j (non blocca mai l'utente)
+        for ev in events:
+            try:
+                self.env['erpv6.deal.event.neo4j.client'].sync_event(ev)
+            except Exception as e:
+                _logger.debug('Neo4j sync deal.event create skip: %s', e)
+        return events
+
+    def write(self, vals):
+        result = super().write(vals)
+        # Se cambiano campi "strutturali", ri-sync su Neo4j
+        if any(k in vals for k in ('attendees', 'event_type', 'title', 'changes_applied', 'visibility')):
+            for ev in self:
+                try:
+                    self.env['erpv6.deal.event.neo4j.client'].sync_event(ev)
+                except Exception as e:
+                    _logger.debug('Neo4j sync deal.event write skip: %s', e)
+        return result
+
     def action_apply_changes(self):
         """Applica la patch changes_applied al deal e crea snapshot.
 
