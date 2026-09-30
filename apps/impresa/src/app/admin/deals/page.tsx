@@ -19,6 +19,13 @@ type Deal = {
     legCount: number;
     participantCount: number;
     currentProspettoId: number | null;
+    // 30/09/2026: progress checklist
+    progressDone?: number;
+    progressTotal?: number;
+    progressPct?: number;
+    nextStepCode?: string | null;
+    nextStepLabel?: string | null;
+    blockedSteps?: number;
 };
 
 type Group = {
@@ -199,6 +206,7 @@ export default function AdminDealsPage() {
                                         <th className="px-4 py-2 font-medium">Stato</th>
                                         <th className="px-4 py-2 font-medium text-right">Leg</th>
                                         <th className="px-4 py-2 font-medium text-right">Part.</th>
+                                        <th className="px-4 py-2 font-medium">Checklist</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -238,6 +246,39 @@ export default function AdminDealsPage() {
                                             </td>
                                             <td className="px-4 py-3 text-right text-gray-600">{deal.legCount}</td>
                                             <td className="px-4 py-3 text-right text-gray-600">{deal.participantCount}</td>
+                                            <td className="px-4 py-3">
+                                                {(deal.progressTotal ?? 0) > 0 ? (
+                                                    <div className="flex items-center gap-2 min-w-[160px]">
+                                                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full ${
+                                                                    (deal.blockedSteps ?? 0) > 0
+                                                                        ? 'bg-gradient-to-r from-blue-500 to-amber-500'
+                                                                        : 'bg-gradient-to-r from-blue-500 to-emerald-500'
+                                                                }`}
+                                                                style={{ width: `${deal.progressPct ?? 0}%` }}
+                                                            ></div>
+                                                        </div>
+                                                        <span className="text-xs font-medium text-gray-600 whitespace-nowrap tabular-nums">
+                                                            {deal.progressDone}/{deal.progressTotal}
+                                                        </span>
+                                                        {deal.nextStepCode && (
+                                                            <span
+                                                                className={`text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${
+                                                                    (deal.blockedSteps ?? 0) > 0
+                                                                        ? 'bg-amber-100 text-amber-700'
+                                                                        : 'bg-gray-100 text-gray-500'
+                                                                }`}
+                                                                title={deal.nextStepLabel || ''}
+                                                            >
+                                                                → {deal.nextStepCode}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-300">—</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
