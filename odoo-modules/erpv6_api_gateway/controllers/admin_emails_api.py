@@ -134,15 +134,24 @@ class AdminEmailsAPIController(ConsultantAPIController):
         if not u:
             return False  # alias non associato a un utente: mostra (progetto)
         if u.id == current_user.id:
-            return False
+            return False  # è la sua casella: mostra
+
+        # 30/09/2026 (fix privacy): il check deve guardare il VIEWER
+        # (current_user), non l'utente proprietario dell'alias.
+        # Prima: se Denis (admin) era owner di 'denis.deste', TUTTI
+        # vedevano la sua casella (bug segnalato da Christian).
+        # Ora: solo se il viewer è admin vede tutte le caselle.
         try:
-            is_admin_or_manager = (
-                u.has_group('base.group_system') or
-                u.has_group('sales_team.group_sale_manager')
-            )
+            viewer_is_admin = current_user.has_group('base.group_system')
         except Exception:
-            is_admin_or_manager = False
-        return not is_admin_or_manager
+            viewer_is_admin = False
+
+        if viewer_is_admin:
+            return False  # admin vede tutte le caselle personali
+
+        # Viewer non-admin (chief/consultant): nascondi caselle personali
+        # di altri utenti. Vede solo la sua + i progetti.
+        return True
 
     def _all_aliases(self, logs, current_user=None):
         """Estrae caselle uniche dai matched_alias.
@@ -182,6 +191,13 @@ class AdminEmailsAPIController(ConsultantAPIController):
             return err
 
         logs = self._fetch_all_logs()
+
+        # 30/09/2026 (fix privacy): applica lo stesso filtro di list_emails.
+        # Prima __all__ e __sent__ contavano TUTTI i logs globali (Christian
+        # vedeva '38' ma poi solo 22 nel dettaglio). Ora filtrati alla fonte.
+        logs = [l for l in logs
+                if not self._is_consultant_alias(l.get('matched_alias') or '', user)]
+
         mailboxes = self._all_aliases(logs, current_user=user)
 
         # Aggiungi "Tutte" come casella speciale
