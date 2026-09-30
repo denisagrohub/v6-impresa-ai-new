@@ -18,6 +18,8 @@ from . import admin_documents_api
 from . import admin_templates_api
 from . import admin_contracts_api
 from . import admin_deals_api
+from . import consultant_deal_events_api
+from . import admin_deal_events_api
 from . import admin_deal_checklists_api
 from . import admin_emails_api
 from . import admin_split_versions_api

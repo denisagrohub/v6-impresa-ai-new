@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { callOdooAPI } from '@/lib/odoo-adapter';
+import { isOdooEnabled } from '@/config/system';
+
+// 30/09/2026 (F1 S5): PUT/DELETE singolo evento
+export async function PUT(request: NextRequest, { params }: { params: { id: string; eventId: string } }) {
+    if (!isOdooEnabled()) return NextResponse.json({ error: 'Odoo non configurato' }, { status: 503 });
+    const auth = request.headers.get('authorization');
+    if (!auth) return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
+    try {
+        const body = await request.json();
+        const r = await callOdooAPI(`/api/v1/admin/deals/${params.id}/events/${params.eventId}`, {
+            method: 'PUT',
+            headers: { Authorization: auth, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        return NextResponse.json(r.data);
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message || 'Odoo non raggiungibile' }, { status: 502 });
+    }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string; eventId: string } }) {
+    if (!isOdooEnabled()) return NextResponse.json({ error: 'Odoo non configurato' }, { status: 503 });
+    const auth = request.headers.get('authorization');
+    if (!auth) return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
+    try {
+        const r = await callOdooAPI(`/api/v1/admin/deals/${params.id}/events/${params.eventId}`, {
+            method: 'DELETE', headers: { Authorization: auth },
+        });
+        return NextResponse.json(r.data);
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message || 'Odoo non raggiungibile' }, { status: 502 });
+    }
+}

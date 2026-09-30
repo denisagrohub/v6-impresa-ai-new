@@ -16,6 +16,7 @@ import { DealProspettoPanel } from '@/components/deal/detail/DealProspettoPanel'
 import { DealLegsTable } from '@/components/deal/detail/DealLegsTable';
 import { DealParticipantsTable } from '@/components/deal/detail/DealParticipantsTable';
 import { DealAccessLog } from '@/components/deal/detail/DealAccessLog';
+import { DealTimeline } from '@/components/deal/DealTimeline';
 import { STATE_LABELS as stateLabel } from '@/components/deal/detail/constants';
 
 type Variable = {
@@ -351,10 +352,18 @@ export default function DealDetailPage() {
                 </div>
 
                 {/* Leg e partecipanti (C1.b) */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                     <DealLegsTable legs={deal.legs} />
                     <DealParticipantsTable participants={deal.participants} />
                 </div>
+
+                {/* 30/09/2026 (F1 S5): storia del deal (timeline + snapshot) */}
+                <DealTimeline
+                    dealId={deal.id}
+                    mode="admin"
+                    authToken={getAuthToken() || ''}
+                    onRefresh={fetchDeal}
+                />
             </div>
         </AdminLayout>
     );
