@@ -2,7 +2,7 @@ import {
   LayoutDashboard, FolderKanban, Users, Settings,
   CheckCircle2, Mail, Calculator, Landmark, FileText,
   Brain, Shield, UserCog, Phone, PenTool, FileSignature, Code2,
-  Palette, Target, AlertTriangle, Package, Briefcase,
+  Palette, Target, AlertTriangle, Package, Briefcase, Send,
 } from "lucide-react";
 import type { UserRole } from "@/lib/permissions";
 
@@ -77,6 +77,7 @@ export const ADMIN_MENU_CATEGORIES: AdminMenuCategory[] = [
       { icon: Phone, label: "Call Prenotate", href: "/admin/bookings", requiredRoles: PROJECTS_OR_CONSULTANT },
       { icon: Users, label: "Coda Lead", href: "/admin/leads", requiredRoles: ADMIN_OR_PROJECTS },
       { icon: CheckCircle2, label: "Validazione", href: "/admin/validazione", requiredRoles: ADMIN_OR_PROJECTS },
+      { icon: Send, label: "Richieste accesso", href: "/admin/access-requests", requiredRoles: ADMIN_OR_PROJECTS },
       { icon: Target, label: "Bandi", href: "/admin/bandi", requiredRoles: ADMIN_OR_BANDI },
     ],
   },
