@@ -1482,17 +1482,15 @@ export default function ConsultantDashboard() {
                         <div className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-wrap items-center gap-3">
                             <div className="flex items-center gap-4 text-sm">
                                 <span className="flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                                    <span className="font-bold text-[#1a2744]">{paymentsData?.payments?.length ?? 0}</span>
-                                    <span className="text-gray-500">progetti</span>
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span className="font-bold text-[#1a2744]">{paymentsData?.reali?.length ?? 0}</span>
+                                    <span className="text-gray-500">reali</span>
                                 </span>
                                 <span className="text-gray-200">|</span>
                                 <span className="flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    <span className="font-bold text-[#1a2744]">
-                                        {(paymentsData?.payments || []).filter((p: any) => p.split_approvato).length}
-                                    </span>
-                                    <span className="text-gray-500">approvati</span>
+                                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    <span className="font-bold text-[#1a2744]">{paymentsData?.previsioni?.length ?? 0}</span>
+                                    <span className="text-gray-500">previsioni</span>
                                 </span>
                             </div>
 
@@ -1525,53 +1523,129 @@ export default function ConsultantDashboard() {
                             </div>
                         )}
 
-                        {paymentsData && paymentsData.payments?.length === 0 && (
+                        {paymentsData && (paymentsData.reali?.length ?? 0) === 0 && (paymentsData.previsioni?.length ?? 0) === 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-500">
-                                Nessun compenso configurato. Quando sarai inserito nello Split V6 di un progetto, lo vedrai qui.
+                                Nessun compenso ancora. I deal dove sei beneficiaria appariranno qui quando attivati.
                             </div>
                         )}
 
-                        {paymentsData && paymentsData.payments
-                            ?.filter((p: any) => {
-                                if (!paymentSearch.trim()) return true;
-                                return (p.project_name || '').toLowerCase().includes(paymentSearch.toLowerCase());
-                            })
-                            .map((p: any) => (
-                            <div key={p.project_id} className="bg-white rounded-2xl border border-gray-100 p-5">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-[#1a2744]">{p.project_name}</h3>
-                                        <p className="text-sm text-gray-500 mt-1">
-                                            Base: <span className="font-medium">
-                                                {typeof p.base_valore === 'number'
-                                                    ? p.base_valore.toLocaleString('it-IT')
-                                                    : p.base_valore}
-                                            </span>{' '}
-                                            {p.base_tipo === 'fisso_unita' ? `EUR / ${p.base_unita || 'unità'}` : '% sul valore'}
-                                            <span className="mx-2 text-gray-300">·</span>
-                                            Mia quota: <span className="font-medium">
-                                                {typeof p.mia_pct === 'number'
-                                                    ? p.mia_pct.toLocaleString('it-IT')
-                                                    : p.mia_pct}%
-                                            </span>
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-2xl font-bold text-blue-600 whitespace-nowrap">
-                                            {typeof p.mia_quota_teorica === 'number'
-                                                ? p.mia_quota_teorica.toLocaleString('it-IT', { maximumFractionDigits: 2 })
-                                                : String(p.mia_quota_teorica).replace('.', ',')}
-                                            {p.base_tipo === 'fisso_unita' ? ` € / ${p.base_unita || 'u'}` : ' %'}
-                                        </div>
-                                        <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${
-                                            p.split_approvato ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                                        }`}>
-                                            {p.split_approvato ? 'Approvato' : 'Bozza'}
-                                        </span>
-                                    </div>
+                        {/* ─── SEZIONE 1: COMPENSI REALI ─────────────────────── */}
+                        {paymentsData && (paymentsData.reali?.length ?? 0) > 0 && (
+                            <section className="space-y-3">
+                                <h2 className="text-xs uppercase tracking-wider text-emerald-600 font-semibold flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    Compensi reali ({paymentsData.reali.length})
+                                </h2>
+                                {paymentsData.reali
+                                    .filter((r: any) => {
+                                        if (!paymentSearch.trim()) return true;
+                                        return (r.deal_name || '').toLowerCase().includes(paymentSearch.toLowerCase());
+                                    })
+                                    .map((r: any) => {
+                                        const fmtEur = (n: number) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(n);
+                                        const stato = (r.pagamento_stato || '').replace(/_/g, ' ');
+                                        const statoColor = r.pagato ? 'bg-emerald-100 text-emerald-700'
+                                            : r.pagamento_stato === 'attesa_fattura' ? 'bg-amber-100 text-amber-800'
+                                            : r.giorni_ritardo > 0 ? 'bg-red-100 text-red-700'
+                                            : 'bg-blue-100 text-blue-700';
+                                        return (
+                                            <div key={r.id} className="bg-white rounded-2xl border border-emerald-200 p-5">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-bold text-[#1a2744] flex items-center gap-2">
+                                                            {r.deal_name}
+                                                            {r.periodo && (
+                                                                <span className="text-xs font-normal text-gray-400">· {r.periodo}</span>
+                                                            )}
+                                                        </h3>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            Share: <span className="font-medium">{r.share_pct.toLocaleString('it-IT', { maximumFractionDigits: 2 })}%</span>
+                                                            {r.importo_sbloccato > 0 && (
+                                                                <>
+                                                                    <span className="mx-2 text-gray-300">·</span>
+                                                                    Sbloccato: <span className="font-medium">{fmtEur(r.importo_sbloccato)}</span>
+                                                                </>
+                                                            )}
+                                                            {r.giorni_ritardo > 0 && (
+                                                                <>
+                                                                    <span className="mx-2 text-gray-300">·</span>
+                                                                    <span className="text-red-600 font-medium">{r.giorni_ritardo}gg ritardo</span>
+                                                                </>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-2xl font-bold text-emerald-700 whitespace-nowrap">
+                                                            {fmtEur(r.importo_effettivo)}
+                                                        </div>
+                                                        <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-medium ${statoColor}`}>
+                                                            {stato || 'n/d'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                            </section>
+                        )}
+
+                        {/* ─── SEZIONE 2: PREVISIONI (template, collassabile) ── */}
+                        {paymentsData && (paymentsData.previsioni?.length ?? 0) > 0 && (
+                            <details className="bg-amber-50/50 rounded-2xl border border-amber-200">
+                                <summary className="px-5 py-4 cursor-pointer flex items-center gap-3">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    <span className="font-semibold text-amber-900">
+                                        Previsioni di progetto ({paymentsData.previsioni.length})
+                                    </span>
+                                    <span className="text-xs text-amber-700 font-normal">
+                                        — pagato solo se il deal si chiude
+                                    </span>
+                                </summary>
+                                <div className="px-5 pb-5 space-y-3">
+                                    {paymentsData.previsioni
+                                        .filter((p: any) => {
+                                            if (!paymentSearch.trim()) return true;
+                                            return (p.project_name || '').toLowerCase().includes(paymentSearch.toLowerCase());
+                                        })
+                                        .map((p: any) => (
+                                            <div key={p.project_id} className="bg-white rounded-2xl border border-gray-200 p-5">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-bold text-[#1a2744]">{p.project_name}</h3>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            Base: <span className="font-medium">
+                                                                {typeof p.base_valore === 'number'
+                                                                    ? p.base_valore.toLocaleString('it-IT')
+                                                                    : p.base_valore}
+                                                            </span>{' '}
+                                                            {p.base_tipo === 'fisso_unita' ? `EUR / ${p.base_unita || 'unità'}` : '% sul valore'}
+                                                            <span className="mx-2 text-gray-300">·</span>
+                                                            Mia quota: <span className="font-medium">
+                                                                {typeof p.mia_pct === 'number'
+                                                                    ? p.mia_pct.toLocaleString('it-IT')
+                                                                    : p.mia_pct}%
+                                                            </span>
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-2xl font-bold text-amber-700 whitespace-nowrap">
+                                                            {typeof p.mia_quota_teorica === 'number'
+                                                                ? p.mia_quota_teorica.toLocaleString('it-IT', { maximumFractionDigits: 2 })
+                                                                : String(p.mia_quota_teorica).replace('.', ',')}
+                                                            {p.base_tipo === 'fisso_unita' ? ` € / ${p.base_unita || 'u'}` : ' %'}
+                                                        </div>
+                                                        <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${
+                                                            p.split_approvato ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                                        }`}>
+                                                            {p.split_approvato ? 'Approvato' : 'Bozza'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                 </div>
-                            </div>
-                        ))}
+                            </details>
+                        )}
                     </div>
                 )}
 

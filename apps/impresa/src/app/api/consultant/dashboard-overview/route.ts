@@ -48,9 +48,14 @@ export async function GET(request: NextRequest) {
   // Progetti Partner (dove è parte)
   const partnerProjects = partnerRes?.projects || partnerRes?.data?.projects || [];
 
-  // Compensi: somma importi payments
-  const payments = paymentsRes?.payments || paymentsRes?.data?.payments || [];
-  const paymentsTotal = payments.reduce((s: number, p: any) => s + (p.importo || 0), 0);
+  // Compensi reali (settlement line sui deal dove il partner è participant)
+  const reali = paymentsRes?.reali || paymentsRes?.data?.reali || [];
+  const realiTotal = reali.reduce((s: number, r: any) => s + (r.importo_effettivo || 0), 0);
+  // Fallback a previsioni se non ci sono settlement reali (per non mostrare 0€)
+  const previsioni = paymentsRes?.previsioni || paymentsRes?.data?.previsioni || paymentsRes?.payments || paymentsRes?.data?.payments || [];
+  const previsioniTotal = previsioni.reduce((s: number, p: any) => s + (p.mia_quota_teorica || 0), 0);
+  const paymentsTotal = reali.length > 0 ? realiTotal : previsioniTotal;
+  const payments = reali.length > 0 ? reali : previsioni;
 
   // Firme pending (sent + viewed)
   const signRequests = signRes?.signRequests || signRes?.data?.signRequests || [];
