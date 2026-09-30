@@ -93,9 +93,12 @@ class ConsultantPaymentsAPIController(ConsultantAPIController):
         reali = []
         if 'erpv6.deal.settlement.line' in env:
             Line = env['erpv6.deal.settlement.line'].sudo()
+            # 30/09/2026 (fix): solo settlement FROZEN (attiva) — le closed
+            # sono versioni superate con dati storici/sballati, le draft non
+            # sono ancora validate. frozen = l'unica "viva" per deal/periodo.
             lines = Line.search([
                 ('participant_id.partner_id', '=', my_partner_id),
-                ('settlement_id.state', 'in', ['frozen', 'closed', 'sent', 'signed']),
+                ('settlement_id.state', '=', 'frozen'),
             ])
             for l in lines:
                 s = l.settlement_id
