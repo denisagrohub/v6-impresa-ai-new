@@ -9,7 +9,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Monitor, Settings } from 'lucide-react';
+import { ArrowLeft, Monitor, Settings, Megaphone } from 'lucide-react';
 import Dropdown from '@/components/ui/Dropdown';
 import { CharterEditor } from '@/components/CharterEditor';
 
@@ -40,6 +40,8 @@ export type PartnerProjectHeaderHandlers = {
   onOpenSettings: () => void;
   /** Charter modificato dall'editor. */
   onCharterChanged: (c: CharterShape) => void;
+  /** Toggle pubblicazione nel catalogo playbook consultant. */
+  onToggleCatalog: () => void;
 };
 
 type Props = {
@@ -48,11 +50,14 @@ type Props = {
   projectParentId: number | null;
   projectEmailAlias: string | null;
   projectCharter: CharterShape | null;
+  /** Progetto pubblicato nel catalogo playbook consultant. */
+  projectCatalogVisible?: boolean;
   handlers: PartnerProjectHeaderHandlers;
 };
 
 export function PartnerProjectHeader({
   projectId, projectName, projectParentId, projectEmailAlias, projectCharter,
+  projectCatalogVisible = false,
   handlers,
 }: Props) {
   const backHref = projectParentId
@@ -86,6 +91,24 @@ export function PartnerProjectHeader({
           title="Apri playbook consulente (stampa/PDF)"
         >
           📖 Playbook
+        </button>
+
+        {/* 30/09/2026: toggle pubblicazione catalogo consultant.
+            Il pitch pubblico (sotto) è separato: quello è per clienti
+            esterni, questo è per i consultant V6 (opt-in). */}
+        <button
+          onClick={handlers.onToggleCatalog}
+          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded border text-xs font-semibold transition-colors ${
+            projectCatalogVisible
+              ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+          }`}
+          title={projectCatalogVisible
+            ? 'Progetto pubblicato nel catalogo consultant. Clicca per nascondere.'
+            : 'Pubblica il progetto nel catalogo consultant (opt-in richieste accesso).'}
+        >
+          <Megaphone size={11} />
+          {projectCatalogVisible ? 'Nel catalogo' : 'Pubblica nel catalogo'}
         </button>
 
         {aliasSlug && (

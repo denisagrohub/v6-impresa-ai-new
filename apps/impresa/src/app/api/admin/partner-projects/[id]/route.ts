@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const projects = await odoo.execute('erpv6.tracking.relation', 'search_read', [
       [['id', '=', id]],
-      ['id', 'name', 'email_alias', 'partner_id', 'x_v6_charter', 'x_v6_emails_seen_at', 'parent_id', 'x_v6_scouting', 'funzione_progetto', 'contatto_principale_id', 'state', 'child_kind'],
+      ['id', 'name', 'email_alias', 'partner_id', 'x_v6_charter', 'x_v6_emails_seen_at', 'parent_id', 'x_v6_scouting', 'funzione_progetto', 'contatto_principale_id', 'state', 'child_kind', 'x_v6_catalog_visible', 'x_v6_catalog_published_at'],
     ]);
     if (!projects || !projects.length) {
       return NextResponse.json({ success: false, error: 'Progetto non trovato' }, { status: 404 });
@@ -373,6 +373,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         name: project.name,
         emailAlias: project.email_alias ? `${project.email_alias}@v6sviluppoimpresa.it` : null,
         x_v6_emails_seen_at: project.x_v6_emails_seen_at || null,
+        catalogVisible: !!project.x_v6_catalog_visible,
+        catalogPublishedAt: project.x_v6_catalog_published_at || null,
         charter,
         relationScouting,
         funzione_progetto: project.funzione_progetto || null,

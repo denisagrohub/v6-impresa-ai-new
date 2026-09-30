@@ -68,6 +68,7 @@ import { DealsKanban, type KanbanDeal } from "@/components/deal/DealsKanban";
 import { KpiDealRow, type KpiDeal } from "@/components/deal/KpiDealRow";
 import { DealCommandCenter, type DealCommandCenterData } from "@/components/deal/DealCommandCenter";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
+import { getAuthToken } from "@/components/deal/auth";
 import { PartnerProjectHeader, type PartnerProjectHeaderHandlers } from "@/components/admin/partner-projects/detail/PartnerProjectHeader";
 import { PartnerProjectStatusBar, type ViewMode } from "@/components/admin/partner-projects/detail/PartnerProjectStatusBar";
 import { PartnerProjectTabs, type PartnerProjectTab } from "@/components/admin/partner-projects/detail/PartnerProjectTabs";
@@ -710,6 +711,7 @@ export default function PartnerProjectDetailPage() {
                     projectParentId={project?.parent_id ?? null}
                     projectEmailAlias={project?.emailAlias ?? null}
                     projectCharter={project?.charter ?? null}
+                    projectCatalogVisible={!!(project as any)?.catalogVisible}
                     handlers={{
                         onOpenPlaybook: () => window.open(`/consultant/partner-projects/${project?.id}/playbook`, '_blank'),
                         onOpenPitchPublic: () => {
@@ -734,6 +736,23 @@ export default function PartnerProjectDetailPage() {
                         onNewSubproject: () => setShowAcqModal(true),
                         onOpenSettings: () => setIsSettingsOpen(true),
                         onCharterChanged: (c) => setProject((p: any) => p ? { ...p, charter: c } : p),
+                        onToggleCatalog: async () => {
+                            try {
+                                const token = getAuthToken();
+                                const r = await fetch(`/api/admin/partner-projects/${project?.id}/catalog-toggle`, {
+                                    method: 'POST',
+                                    headers: { Authorization: `JWT ${token}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({}),
+                                });
+                                const d = await r.json();
+                                if (d.success) {
+                                    // Ricarica il progetto per aggiornare il flag
+                                    load();
+                                } else {
+                                    alert(d.error || 'Errore toggle catalogo');
+                                }
+                            } catch (e: any) { alert(e.message); }
+                        },
                     }}
                 />
 
