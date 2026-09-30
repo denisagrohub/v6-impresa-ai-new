@@ -619,7 +619,18 @@ export default function ConsultantDashboard() {
                     {menuItems.map((item) => (
                         <button
                             key={item.id}
-                            onClick={() => setActiveTab(item.id)}
+                            onClick={() => {
+                                // 30/09/2026: Email è migrata a una pagina
+                                // dedicata (/consultant/mia-email) con layout
+                                // Gmail identico a admin. Il blocco email
+                                // interno (activeTab === 'email') resta come
+                                // codice morto — verrà rimosso in cleanup.
+                                if (item.id === 'email') {
+                                    router.push('/consultant/mia-email');
+                                    return;
+                                }
+                                setActiveTab(item.id);
+                            }}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left ${
                                 activeTab === item.id 
                                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
