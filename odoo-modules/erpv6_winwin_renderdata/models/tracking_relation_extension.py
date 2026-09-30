@@ -95,6 +95,23 @@ class Erpv6TrackingRelation(models.Model):
              "tipo di progetto tracking.relation, non solo Win-Win.",
     )
 
+    # 30/09/2026 (F2 B3): schema deal associato (padre o figlio)
+    schema_id = fields.Many2one(
+        'erpv6.deal.schema', string='Schema deal',
+        ondelete='set null', index=True,
+        help='Schema di processo associato a questa relazione. Per i padri '
+             'è il template da cui ereditano i figli.')
+    schema_applied_at = fields.Datetime(
+        string='Schema applicato il', readonly=True)
+
+    vertical = fields.Char(
+        string='Vertical', index=True,
+        help='Vertical business (TEE, Fotovoltaico, ESCO, Superbonus...) '
+             'per la selezione automatica dello schema.')
+    revenue_model_default = fields.Char(
+        string='Revenue model default',
+        help='Modello di ricavo di default per i deal figli.')
+
     def notify_owner(self, partner, subject, body):
         """Notifica diretta forzata in-app: message_notify() sul nodo +
         forza la riga mail.notification appena creata per il destinatario
@@ -546,6 +563,89 @@ class Erpv6TrackingRelation(models.Model):
                     f"configurato per questo progetto ({minimo:.1f}%)"
                 )
 
+    def _select_schema_for_relation(self, vals):
+        """Seleziona lo schema deal migliore per i parametri dati.
+
+        30/09/2026 (F2 B4): dato un dict con `vertical`, `revenue_model`,
+        `relation_type` (root/child), `volume`, ritorna lo schema con più
+        matching rispetto ad `applicability_rules`. Vuoto = schema generico
+        sempre candidato. Ritorna None se nessuno schema attivo matcha.
+
+        Regola di scoring:
+        - +3 se vertical matcha
+        - +2 se revenue_model matcha
+        - +1 se relation_type matcha
+        - +1 se volume dentro range [min, max]
+        """
+        Schema = self.env['erpv6.deal.schema'].sudo()
+        schemas = Schema.search([('active', '=', True), ('locked', '=', False)])
+
+        vertical = (vals.get('vertical') or '').strip()
+        revenue_model = (vals.get('revenue_model') or '').strip()
+        relation_type = vals.get('relation_type') or 'root'
+        volume = vals.get('volume')
+
+        best = None
+        best_score = 0
+        for s in schemas:
+            rules = s.applicability_rules or {}
+            if not isinstance(rules, dict) or not rules:
+                # Schema generico senza regole: score 1 di base (fallback)
+                if best is None:
+                    best = s
+                    best_score = 1
+                continue
+
+            score = 0
+            verts = rules.get('verticals') or []
+            if vertical and verts and vertical in verts:
+                score += 3
+            revs = rules.get('revenue_models') or []
+            if revenue_model and revs and revenue_model in revs:
+                score += 2
+            rts = rules.get('relation_types') or []
+            if relation_type in rts:
+                score += 1
+            if volume is not None:
+                vmin = rules.get('min_volume')
+                vmax = rules.get('max_volume')
+                try:
+                    vn = float(volume)
+                    ok_min = (vmin is None or vn >= float(vmin))
+                    ok_max = (vmax is None or vn <= float(vmax))
+                    if ok_min and ok_max:
+                        score += 1
+                except (TypeError, ValueError):
+                    pass
+
+            if score > best_score:
+                best_score = score
+                best = s
+
+        return best
+
+    def _propagate_schema_to_children(self):
+        """Propaga lo schema del padre ai figli che non ne hanno uno.
+
+        30/09/2026 (F2 B4): quando un padre riceve uno schema (o lo cambia),
+        i figli senza schema esplicito lo ereditano. I figli con schema
+        esplicito mantengono il loro.
+        """
+        self.ensure_one()
+        if not self.schema_id:
+            return 0
+        children = self.search([
+            ('parent_id', '=', self.id),
+            ('schema_id', '=', False),
+        ])
+        if not children:
+            return 0
+        children.write({
+            'schema_id': self.schema_id.id,
+            'schema_applied_at': fields.Datetime.now(),
+        })
+        return len(children)
+
     @api.model
     def action_create_deal(self, params):
         """28/09/2026: crea figlio progetto + deal + variabili iniziali.
@@ -594,13 +694,36 @@ class Erpv6TrackingRelation(models.Model):
             'state': 'attivo',
         })
 
-        # 2. Schema deal
+        # 2. Schema deal — usa schema_code se passato, altrimenti auto-selezione
         Schema = self.env['erpv6.deal.schema'].sudo()
-        schema = Schema.search([('code', '=', schema_code)], limit=1)
-        if not schema:
-            raise UserError(f'Schema "{schema_code}" non trovato.')
+        if schema_code:
+            schema = Schema.search([('code', '=', schema_code)], limit=1)
+            if not schema:
+                raise UserError(f'Schema "{schema_code}" non trovato.')
+        else:
+            # 30/09/2026 (F2 B4): auto-selezione tramite applicability_rules
+            schema = parent._select_schema_for_relation({
+                'vertical': getattr(parent, 'vertical', None),
+                'revenue_model': revenue_model,
+                'relation_type': 'root',
+                'volume': volume_month * 12 if volume_month else None,
+            })
+            if not schema:
+                raise UserError(
+                    'Nessuno schema applicabile trovato per i parametri correnti. '
+                    'Specifica schema_code oppure configura applicability_rules.'
+                )
 
         # 3. Deal
+        # 3.bis: assegna schema al padre se non ne ha (una sola volta)
+        if not parent.schema_id:
+            parent.write({
+                'schema_id': schema.id,
+                'schema_applied_at': fields.Datetime.now(),
+            })
+            # Propaga anche ai figli esistenti che non hanno schema
+            parent._propagate_schema_to_children()
+
         Deal = self.env['erpv6.deal'].sudo()
         deal = Deal.create({
             'name': nome,
