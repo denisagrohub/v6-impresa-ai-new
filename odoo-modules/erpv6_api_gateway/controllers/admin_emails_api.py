@@ -31,7 +31,11 @@ _logger = logging.getLogger(__name__)
 
 class AdminEmailsAPIController(ConsultantAPIController):
 
-    def _require_admin(self):
+    def _check_admin_perm(self):
+        # 30/09/2026: rinominato da _require_admin per evitare shadowing
+        # nella MRO (il metodo vecchio non veniva mai chiamato nonostante
+        # list_mailboxes invocasse self._check_admin_perm()). Nome nuovo =
+        # nessuna collisione con classi parent.
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return None, error_response
@@ -173,7 +177,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def list_mailboxes(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -215,7 +219,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def list_emails(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -277,7 +281,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def get_email(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -344,7 +348,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def mark_read(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         kind = request.httprequest.args.get('kind', 'winwin')
@@ -360,7 +364,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def mark_unread(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         kind = request.httprequest.args.get('kind', 'winwin')
@@ -376,7 +380,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def archive(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         kind = request.httprequest.args.get('kind', 'winwin')
@@ -392,7 +396,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def unarchive(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return self._json_response({'error': 'Riservato'}, 403)
         kind = request.httprequest.args.get('kind', 'winwin')
@@ -411,7 +415,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def send_email(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -511,7 +515,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def search_partners(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -549,7 +553,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def search_projects(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -586,7 +590,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def upload_attachment(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 

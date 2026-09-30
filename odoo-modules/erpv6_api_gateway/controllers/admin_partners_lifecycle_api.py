@@ -21,7 +21,7 @@ VALID_STAGES = ('scouting', 'partner', 'attivo', 'degradato', 'chiuso')
 
 class AdminPartnersLifecycleAPIController(ConsultantAPIController):
 
-    def _require_admin(self):
+    def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return None, error_response
@@ -48,7 +48,7 @@ class AdminPartnersLifecycleAPIController(ConsultantAPIController):
     @http.route('/api/v1/admin/partners', type='http', auth='none',
                 methods=['GET'], csrf=False)
     def list_partners(self, lifecycle_stage=None, search=None, limit=100, **kw):
-        _user, error = self._require_admin()
+        _user, error = self._check_admin_perm()
         if error:
             return error
 
@@ -84,7 +84,7 @@ class AdminPartnersLifecycleAPIController(ConsultantAPIController):
     @http.route('/api/v1/admin/partners/<int:partner_id>', type='http',
                 auth='none', methods=['GET'], csrf=False)
     def get_partner(self, partner_id, **kw):
-        _user, error = self._require_admin()
+        _user, error = self._check_admin_perm()
         if error:
             return error
 
@@ -101,7 +101,7 @@ class AdminPartnersLifecycleAPIController(ConsultantAPIController):
     @http.route('/api/v1/admin/partners/<int:partner_id>/lifecycle',
                 type='http', auth='none', methods=['POST'], csrf=False)
     def set_lifecycle(self, partner_id, **kw):
-        _user, error = self._require_admin()
+        _user, error = self._check_admin_perm()
         if error:
             return error
 

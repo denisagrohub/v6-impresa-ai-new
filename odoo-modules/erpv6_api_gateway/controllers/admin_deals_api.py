@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 
 class AdminDealsAPIController(ConsultantAPIController):
 
-    def _require_admin(self):
+    def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return None, error_response
@@ -211,7 +211,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def registra_incasso(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         S = request.env['erpv6.deal.settlement'].sudo()
@@ -245,7 +245,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def delete_incasso(self, incasso_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         I = request.env['erpv6.deal.settlement.incasso'].sudo()
@@ -273,7 +273,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def set_pagamento_stato(self, line_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         L = request.env['erpv6.deal.settlement.line'].sudo()
@@ -316,7 +316,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def get_pagamenti_summary(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         S = request.env['erpv6.deal.settlement'].sudo()
@@ -346,7 +346,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_send_document(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         C = request.env['erpv6.deal.checklist'].sudo()
@@ -401,7 +401,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def get_checklist(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         Deal = request.env['erpv6.deal'].sudo()
@@ -422,7 +422,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_complete(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         C = request.env['erpv6.deal.checklist'].sudo()
@@ -449,7 +449,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_skip(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         C = request.env['erpv6.deal.checklist'].sudo()
@@ -476,7 +476,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_start(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         C = request.env['erpv6.deal.checklist'].sudo()
@@ -590,7 +590,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def list_settlements(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         Deal = request.env['erpv6.deal'].sudo()
@@ -609,7 +609,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def create_settlement(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         Deal = request.env['erpv6.deal'].sudo()
@@ -651,7 +651,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def freeze_settlement(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         S = request.env['erpv6.deal.settlement'].sudo()
@@ -675,7 +675,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def send_settlement_to_sign(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         S = request.env['erpv6.deal.settlement'].sudo()
@@ -727,7 +727,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -792,7 +792,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -819,7 +819,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -884,7 +884,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -919,7 +919,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -951,7 +951,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def search_users(self, q='', **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         q = (q or '').strip()
@@ -978,7 +978,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def deal_access_log(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         Deal = request.env['erpv6.deal'].sudo()
@@ -1018,7 +1018,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_preview_document(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         # 29/09/2026 (C6a fix): in API auth='none', request.env.uid puo'
@@ -1047,7 +1047,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def delete_contract_draft(self, draft_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         Draft = request.env['erpv6.contract.draft'].with_user(user.id).sudo()
@@ -1077,7 +1077,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def approve_second_signature(self, line_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         L = request.env['erpv6.deal.settlement.line'].sudo()
@@ -1104,7 +1104,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def get_deal_payments_settings(self, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         P = request.env['ir.config_parameter'].sudo()
@@ -1132,7 +1132,7 @@ class AdminDealsAPIController(ConsultantAPIController):
     def set_deal_payments_settings(self, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
         try:
@@ -1171,7 +1171,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 

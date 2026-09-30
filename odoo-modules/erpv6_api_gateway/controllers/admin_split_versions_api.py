@@ -22,7 +22,7 @@ _logger = logging.getLogger(__name__)
 
 class AdminSplitVersionsAPIController(ConsultantAPIController):
 
-    def _require_admin(self):
+    def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return None, error_response
@@ -66,7 +66,7 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
     def list_versions(self, relation_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -96,7 +96,7 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
     def create_version(self, relation_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -182,7 +182,7 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
     def freeze_version(self, relation_id, vid, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 

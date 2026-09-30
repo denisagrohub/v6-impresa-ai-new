@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 
 class AdminContractsAPIController(ConsultantAPIController):
 
-    def _require_admin(self):
+    def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return None, error_response
@@ -70,7 +70,7 @@ class AdminContractsAPIController(ConsultantAPIController):
     def list_contracts(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -104,7 +104,7 @@ class AdminContractsAPIController(ConsultantAPIController):
         """Metadati per popolare i dropdown del wizard."""
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -141,7 +141,7 @@ class AdminContractsAPIController(ConsultantAPIController):
     def get_contract(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -155,7 +155,7 @@ class AdminContractsAPIController(ConsultantAPIController):
     def create_contract(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -197,7 +197,7 @@ class AdminContractsAPIController(ConsultantAPIController):
     def update_contract(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -233,7 +233,7 @@ class AdminContractsAPIController(ConsultantAPIController):
     def generate_contract_pdf(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -252,7 +252,7 @@ class AdminContractsAPIController(ConsultantAPIController):
     def edit_contract(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -270,7 +270,7 @@ class AdminContractsAPIController(ConsultantAPIController):
     def send_contract(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
@@ -297,7 +297,7 @@ class AdminContractsAPIController(ConsultantAPIController):
     def download_contract_pdf(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._require_admin()
+        user, err = self._check_admin_perm()
         if err:
             return err
 
