@@ -2,14 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import AdminLayout from "@/components/admin/layout/AdminLayout";
 import Link from "next/link";
-import {
-  LayoutDashboard, FolderKanban, Users, Settings, LogOut,
-  CheckCircle2, Mail, Calculator, Landmark, FileText, Building2,
-  Briefcase, Landmark as LandmarkIcon, Palette, Target, Server,
-  AlertTriangle, Brain, Shield, Plus, Package, UserCog, Phone,
-  PenTool, Clock, Eye, XCircle, CheckCircle, AlertCircle, RefreshCw,
-  Send, Ban, ExternalLink, Search, Filter
-} from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, Settings, LogOut, CheckCircle2, Mail, Calculator, Landmark, FileText, Building2, Briefcase, Landmark as LandmarkIcon, Palette, Target, Server, AlertTriangle, Brain, Shield, Plus, Package, UserCog, Phone, PenTool, Clock, Eye, XCircle, CheckCircle, AlertCircle, RefreshCw, Send, Ban, ExternalLink, Search, Filter, FileSignature, Loader2 } from "lucide-react";
 
 type SignRequest = {
   id: number;
@@ -36,6 +29,27 @@ const KIND_LABELS: Record<string, string> = {
   contratto: "Contratto",
   referral: "Referral",
   altro: "Altro",
+};
+
+// 30/09/2026 (P2): colori/label stato deal (per la Vista deal)
+const stateColor: Record<string, string> = {
+    forecasting: 'bg-gray-100 text-gray-700',
+    negotiating: 'bg-blue-100 text-blue-700',
+    frozen: 'bg-cyan-100 text-cyan-700',
+    signing: 'bg-amber-100 text-amber-700',
+    active: 'bg-green-100 text-green-700',
+    closed: 'bg-gray-100 text-gray-500',
+    cancelled: 'bg-red-100 text-red-700',
+};
+
+const stateLabel: Record<string, string> = {
+    forecasting: 'Previsione',
+    negotiating: 'In trattativa',
+    frozen: 'Congelato',
+    signing: 'In firma',
+    active: 'Attivo',
+    closed: 'Chiuso',
+    cancelled: 'Annullato',
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string; icon: any }> = {
@@ -77,6 +91,34 @@ export default function AdminFirmePage() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
+  // 30/09/2026 (P2): tab switch Firme | Vista deal
+  const [activeView, setActiveView] = useState<'firme' | 'deal'>('firme');
+  const [dealChecklists, setDealChecklists] = useState<any[]>([]);
+  const [dealChecklistsLoading, setDealChecklistsLoading] = useState(false);
+  const [dealChecklistsError, setDealChecklistsError] = useState<string | null>(null);
+
+  const loadDealChecklists = async () => {
+    setDealChecklistsLoading(true);
+    setDealChecklistsError(null);
+    try {
+      const raw = localStorage.getItem('pi_session');
+      const session = raw ? JSON.parse(raw) : null;
+      const token = session?.token;
+      if (!token) throw new Error('Sessione mancante');
+      const r = await fetch('/api/admin/deal-checklists', {
+        headers: { Authorization: `JWT ${token}` },
+      });
+      const json = await r.json();
+      if (!r.ok || !json.success) throw new Error(json.error || 'Errore');
+      setDealChecklists(json.deals || []);
+    } catch (e: any) {
+      setDealChecklistsError(e.message);
+      setDealChecklists([]);
+    } finally {
+      setDealChecklistsLoading(false);
+    }
+  };
+
   // Filtri
   const [filterStatus, setFilterStatus] = useState<string>("");  // "" = default (no cancelled)
   const [filterKind, setFilterKind] = useState<string>("");
@@ -92,6 +134,13 @@ export default function AdminFirmePage() {
     setUser(JSON.parse(session));
     loadData();
   }, []);
+
+  // 30/09/2026 (P2): carica deal-checklists quando si passa alla vista deal
+  useEffect(() => {
+    if (activeView === 'deal') {
+      loadDealChecklists();
+    }
+  }, [activeView]);
 
   const loadData = async () => {
     setLoading(true);
@@ -150,6 +199,38 @@ export default function AdminFirmePage() {
       }
     >
       <div className="p-8 max-w-7xl mx-auto">
+
+          {/* 30/09/2026 (P2): tab switch Firme | Vista deal */}
+          <div className="mb-6 inline-flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
+            <button
+              onClick={() => setActiveView('firme')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeView === 'firme' ? 'bg-white text-[#1a2744] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <FileSignature size={14} /> Firme
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveView('deal')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeView === 'deal' ? 'bg-white text-[#1a2744] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <FolderKanban size={14} /> Vista deal
+                {dealChecklists.length > 0 && (
+                  <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                    {dealChecklists.length}
+                  </span>
+                )}
+              </span>
+            </button>
+          </div>
+
+          {activeView === 'firme' && (
+          <>
           {/* KPI cards */}
           <div className="grid md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-2xl border border-gray-100 p-5">
@@ -307,6 +388,141 @@ export default function AdminFirmePage() {
           <div className="mt-4 text-xs text-gray-400 text-center">
             Mostrate {filtered.length} di {total} firme
           </div>
+          </>
+          )}
+
+          {activeView === 'deal' && (
+            <>
+              {dealChecklistsError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-center gap-2">
+                  <AlertCircle size={16} /> {dealChecklistsError}
+                </div>
+              )}
+
+              {dealChecklistsLoading && (
+                <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                  Carico checklist deal…
+                </div>
+              )}
+
+              {!dealChecklistsLoading && dealChecklists.length === 0 && !dealChecklistsError && (
+                <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
+                  Nessun deal con checklist attiva.
+                </div>
+              )}
+
+              {!dealChecklistsLoading && dealChecklists.map((deal: any) => {
+                const pct = deal.progress?.pct || 0;
+                const blocked = deal.steps?.filter((s: any) => s.isBlocking).length || 0;
+                return (
+                  <div key={deal.dealId} className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+                    <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-transparent border-b border-gray-100">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Link href={`/admin/deals/${deal.dealId}`} className="font-bold text-[#1a2744] hover:underline truncate">
+                            {deal.dealName}
+                          </Link>
+                          {deal.dealState && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${stateColor[deal.dealState] || 'bg-gray-100'}`}>
+                              {stateLabel[deal.dealState] || deal.dealState}
+                            </span>
+                          )}
+                          {deal.relationName && (
+                            <span className="text-xs text-gray-400 hidden md:inline truncate">
+                              · {deal.relationName}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {blocked > 0 && (
+                            <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                              {blocked} blocking
+                            </span>
+                          )}
+                          <div className="text-xs text-gray-500">
+                            <span className="font-bold text-[#1a2744]">{deal.progress.done}</span>/{deal.progress.total}
+                          </div>
+                          <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                blocked > 0 ? 'bg-gradient-to-r from-blue-500 to-amber-500' : 'bg-gradient-to-r from-blue-500 to-emerald-500'
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs font-bold text-emerald-600">{pct}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-1.5">
+                      {deal.steps.map((step: any) => {
+                        const isDone = step.status === 'done';
+                        const isReady = step.isReady && !isDone;
+                        const isLocked = !isReady && !isDone;
+                        const sr = step.signRequest;
+                        return (
+                          <div
+                            key={step.id}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                              isDone ? 'bg-emerald-50/50' :
+                              isReady ? 'bg-amber-50 border border-amber-200' :
+                              'bg-gray-50/50'
+                            }`}
+                          >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                              isDone ? 'bg-emerald-500 text-white' :
+                              isReady ? 'bg-amber-500 text-white' :
+                              'bg-gray-200 text-gray-400'
+                            }`}>
+                              {isDone ? '✓' : isReady ? '!' : '🔒'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-sm font-semibold ${isDone ? 'text-gray-500' : 'text-[#1a2744]'}`}>
+                                {step.label}
+                              </div>
+                              {isLocked && step.requiresCodes && (
+                                <div className="text-[11px] text-gray-400 mt-0.5">
+                                  Si sblocca dopo: {step.requiresCodes.replace(/_/g, ' ')}
+                                </div>
+                              )}
+                              {isDone && sr?.signedAt && (
+                                <div className="text-[11px] text-emerald-600 mt-0.5">
+                                  Firmato il {new Date(sr.signedAt).toLocaleDateString('it-IT')}
+                                  {sr.partnerName && <span className="text-gray-400"> · {sr.partnerName}</span>}
+                                </div>
+                              )}
+                              {isReady && sr && (sr.status === 'sent' || sr.status === 'viewed') && (
+                                <div className="text-[11px] text-amber-700 mt-0.5 font-medium">
+                                  In attesa di firma{sr.partnerName && ` · ${sr.partnerName}`}
+                                </div>
+                              )}
+                            </div>
+                            {isReady && sr?.requestUrl && (sr.status === 'sent' || sr.status === 'viewed' || sr.status === 'draft') && (
+                              <a
+                                href={sr.requestUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 shrink-0"
+                              >
+                                <PenTool size={12} /> Apri
+                              </a>
+                            )}
+                            {isDone && (
+                              <span className="text-[10px] text-emerald-600 font-medium shrink-0 uppercase tracking-wider">
+                                OK
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
       </div>
     </AdminLayout>
   );
