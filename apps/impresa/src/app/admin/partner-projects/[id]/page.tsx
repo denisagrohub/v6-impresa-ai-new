@@ -71,6 +71,7 @@ import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
 import { getAuthToken } from "@/components/deal/auth";
 import { PartnerProjectHeader, type PartnerProjectHeaderHandlers } from "@/components/admin/partner-projects/detail/PartnerProjectHeader";
 import { ProjectScoutingCard } from "@/components/admin/ProjectScoutingCard";
+import { DealTimeline } from "@/components/deal/DealTimeline";
 import { PartnerProjectStatusBar, type ViewMode } from "@/components/admin/partner-projects/detail/PartnerProjectStatusBar";
 import { PartnerProjectTabs, type PartnerProjectTab } from "@/components/admin/partner-projects/detail/PartnerProjectTabs";
 import { OperativaMain } from "@/components/admin/partner-projects/detail/OperativaMain";
@@ -157,6 +158,30 @@ export default function PartnerProjectDetailPage() {
     relationScouting?: RelationScoutingData | null } | null>(null);
 
     // 19/09/2026: carica KPI targets quando si apre Settings
+    // 01/10/2026 (B): carico eventi quando si apre modal email
+    useEffect(() => {
+        if (!isEmailModalOpen || !project?.id) return;
+        const token = (() => {
+            try {
+                const raw = localStorage.getItem('pi_session');
+                const s = raw ? JSON.parse(raw) : null;
+                return s?.token || '';
+            } catch { return ''; }
+        })();
+        fetch(`/api/admin/relations/${project.id}/events`, {
+            headers: { Authorization: `JWT ${token}` },
+        })
+            .then((r) => r.json())
+            .then((d) => {
+                if (d.success && Array.isArray(d.events)) {
+                    // Solo eventi top-level (no figli di altri)
+                    const top = d.events.filter((e: any) => e.eventType !== 'email_rilevante');
+                    setAvailableEvents(top);
+                }
+            })
+            .catch(() => {});
+    }, [isEmailModalOpen, project?.id]);
+
     useEffect(() => {
         if (!isSettingsOpen || !project?.id) return;
         fetch(`/api/admin/partner-projects/${project.id}/kpi-targets`)
@@ -219,6 +244,9 @@ export default function PartnerProjectDetailPage() {
     const [requiresSignature, setRequiresSignature] = useState(false);
     const [requiresDocument, setRequiresDocument] = useState(false);
     const [requiresAction, setRequiresAction] = useState(false);
+    // 01/10/2026 (B): email collegata a un evento (tavolo, call...)
+    const [linkedEventId, setLinkedEventId] = useState<number | null>(null);
+    const [availableEvents, setAvailableEvents] = useState<{ id: number; title: string; event_date: string | null; event_type: string }[]>([]);
     const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
 
     /* ── STATO AGGIUNTA PARTE ──
@@ -487,6 +515,7 @@ export default function PartnerProjectDetailPage() {
                     subject,
                     // Il testo viene inviato come HTML: \n → <br/> per rispettare gli a-capo
                     message: `<p>${message.replace(/\n/g, '<br/>')}</p>`,
+                    linkedEventId: linkedEventId || undefined,
                     requiresSignature,
                     requiresDocument,
                     requiresAction,
@@ -507,6 +536,7 @@ export default function PartnerProjectDetailPage() {
             setSendResult({ ok: true, text: 'Email inviata.' });
             setSubject("");
             setMessage("");
+            setLinkedEventId(null);
             setExtraEmails("");
             setSelectedPartnerIds([]);
             setAttachedFiles([]);
@@ -789,6 +819,29 @@ export default function PartnerProjectDetailPage() {
                 </div>
             )}
 
+            {/* 01/10/2026: timeline eventi (tavoli, call, email rilevanti) — visibile su tutti i nodi */}
+            {project && (
+                <div className="pt-2">
+                    <DealTimeline
+                        relationId={project.id}
+                        mode="admin"
+                        authToken={
+                            (() => {
+                                try {
+                                    const raw = localStorage.getItem('pi_session');
+                                    const s = raw ? JSON.parse(raw) : null;
+                                    return s?.token || '';
+                                } catch { return ''; }
+                            })()
+                        }
+                        onRefresh={() => {
+                            // ricarica la pagina per aggiornare contatori/notifiche
+                            if (typeof window !== 'undefined') window.location.reload();
+                        }}
+                    />
+                </div>
+            )}
+
             {viewTab === 'copertina' && project && (
                 <div className="flex-1 overflow-auto bg-[#f8fafc]">
                     <CopertinaPage
@@ -807,6 +860,7 @@ export default function PartnerProjectDetailPage() {
                         onOpenCharter={() => setShowCharterInCopertina(true)}
                         onOpenSettings={() => setIsSettingsOpen(true)}
                         baseCompenso={(project.charter as any)?.baseCompenso || null}
+                        childProjects={childProjects}
                     />
                 </div>
             )}
@@ -992,6 +1046,8 @@ export default function PartnerProjectDetailPage() {
             <ModalsEmail
                 state={{
                     isEmailModalOpen,
+                    linkedEventId,
+                    availableEvents,
                     subject,
                     message,
                     sending,
@@ -1013,6 +1069,7 @@ export default function PartnerProjectDetailPage() {
                 }}
                 callbacks={{
                     setIsEmailModalOpen,
+                    setLinkedEventId,
                     setSubject,
                     setMessage,
                     setRequiresSignature,

@@ -16,7 +16,7 @@ comunicazioni Agent: sono livelli diversi.
 import logging
 
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -29,7 +29,14 @@ class Erpv6DealEvent(models.Model):
 
     deal_id = fields.Many2one(
         'erpv6.deal', string='Deal',
-        required=True, ondelete='cascade', index=True)
+        ondelete='cascade', index=True,
+        help='Vuoto se evento su progetto (relation_id) anziché su deal.')
+    # 01/10/2026: evento può essere su progetto (tracking.relation) o deal.
+    # Almeno uno dei due deve essere presente (validato in @api.constrains).
+    relation_id = fields.Many2one(
+        'erpv6.tracking.relation', string='Progetto / Canale',
+        ondelete='cascade', index=True,
+        help='Progetto padre o figlio a cui appartiene questo evento.')
 
     event_type = fields.Selection([
         ('tavolo_incontro', '🪑 Tavolo / Incontro'),
@@ -66,6 +73,24 @@ class Erpv6DealEvent(models.Model):
 
     # Patch strutturata sui campi deal (json):
     #   {"prezzo_cessione": {"from": 84, "to": 86}}
+    # 01/10/2026: collegamento gerarchico evento → evento.
+    # Permette di annidare un'email dentro il tavolo che l'ha generata,
+    # o una call dentro la trattativa di riferimento.
+    parent_event_id = fields.Many2one(
+        'erpv6.deal.event', string='Evento padre',
+        ondelete='set null', index=True,
+        help='Evento a cui questo è collegato gerarchicamente (es. email '
+             'inviata dopo il tavolo). Vuoto per eventi top-level.')
+    child_event_ids = fields.One2many(
+        'erpv6.deal.event', 'parent_event_id', string='Eventi figli')
+    child_event_count = fields.Integer(
+        string='N. eventi figli', compute='_compute_child_count', store=True)
+
+    @api.depends('child_event_ids')
+    def _compute_child_count(self):
+        for rec in self:
+            rec.child_event_count = len(rec.child_event_ids)
+
     changes_applied = fields.Json(
         string='Modifiche applicate',
         help='Patch strutturata sui campi del deal, applicata automaticamente.')
@@ -107,6 +132,13 @@ class Erpv6DealEvent(models.Model):
                 except Exception as e:
                     _logger.debug('Neo4j sync deal.event write skip: %s', e)
         return result
+
+    @api.constrains('deal_id', 'relation_id')
+    def _check_deal_or_relation(self):
+        for rec in self:
+            if not rec.deal_id and not rec.relation_id:
+                raise ValidationError(
+                    'Un evento deve essere collegato a un Deal o a un Progetto/Canale.')
 
     def action_apply_changes(self):
         """Applica la patch changes_applied al deal e crea snapshot.

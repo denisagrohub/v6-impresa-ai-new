@@ -45,8 +45,10 @@ class AdminSchemasAPIController(AdminDealsAPIController):
             'description': s.description or '',
         }
         if include_steps:
-            d['steps'] = [self._step_to_dict(st) for st in
-                          s.step_ids.sorted('sequence')]
+            # 01/10/2026: niente one2many su schema, cerco esplicitamente
+            Step = request.env['erpv6.deal.schema.step'].sudo()
+            steps = Step.search([('schema_id', '=', s.id)], order='sequence, id')
+            d['steps'] = [self._step_to_dict(st) for st in steps]
         return d
 
     # ─────────────────────────────────────────────────────────────

@@ -17,11 +17,24 @@ _logger = logging.getLogger(__name__)
 
 class AdminDealEventsAPIController(AdminDealsAPIController):
 
+    def _parse_iso_date(self, s):
+        """ISO 8601 → formato Odoo."""
+        if not s:
+            return False
+        try:
+            from datetime import datetime
+            cleaned = s.replace('Z', '+00:00')
+            dt = datetime.fromisoformat(cleaned)
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
+        except (ValueError, AttributeError):
+            return s
+
     def _event_to_dict(self, ev):
         """Serializza un evento per il frontend."""
         return {
             'id': ev.id,
             'dealId': ev.deal_id.id if ev.deal_id else None,
+            'relationId': ev.relation_id.id if ev.relation_id else None,
             'eventType': ev.event_type or '',
             'eventDate': self._iso_utc(ev.event_date) if ev.event_date else None,
             'title': ev.title or '',
@@ -104,7 +117,7 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
             'source_url': body.get('sourceUrl') or False,
         }
         if body.get('eventDate'):
-            vals['event_date'] = body['eventDate']
+            vals['event_date'] = self._parse_iso_date(body['eventDate'])
         if body.get('attendeeIds'):
             vals['attendees'] = [(6, 0, [int(x) for x in body['attendeeIds']])]
         if body.get('changesApplied'):
@@ -159,7 +172,8 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
         if 'description' in body: vals['description'] = body['description']
         if 'eventType' in body: vals['event_type'] = body['eventType']
         if 'visibility' in body: vals['visibility'] = body['visibility']
-        if 'eventDate' in body and body['eventDate']: vals['event_date'] = body['eventDate']
+        if 'eventDate' in body and body['eventDate']:
+            vals['event_date'] = self._parse_iso_date(body['eventDate'])
         if 'attendeeIds' in body:
             vals['attendees'] = [(6, 0, [int(x) for x in (body['attendeeIds'] or [])])]
         if 'changesApplied' in body:

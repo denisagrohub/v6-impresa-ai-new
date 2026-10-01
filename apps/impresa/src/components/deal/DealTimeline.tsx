@@ -35,7 +35,8 @@ export type DealSnapshot = {
 };
 
 type Props = {
-    dealId: number;
+    dealId?: number;
+    relationId?: number;
     mode: 'admin' | 'consultant';
     authToken: string;
     onRefresh?: () => void;
@@ -59,13 +60,19 @@ function fmtDate(s: string | null): string {
     return d.toLocaleString('it-IT', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
+export function DealTimeline({ dealId, relationId, mode, authToken, onRefresh }: Props) {
+    // 01/10/2026: supporto sia dealId (deal) sia relationId (progetto/canale)
+    const entityType: 'deal' | 'relation' = dealId ? 'deal' : 'relation';
+    const entityId = dealId || relationId || 0;
+    const entityPath = entityType === 'deal' ? 'deals' : 'relations';
     const [events, setEvents] = useState<DealEvent[]>([]);
     const [snapshots, setSnapshots] = useState<DealSnapshot[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showSnapshots, setShowSnapshots] = useState(false);
     const [showNewEvent, setShowNewEvent] = useState(false);
+    // 01/10/2026: collassata di default per non occupare l'intera pagina
+    const [collapsed, setCollapsed] = useState(true);
 
     const baseUrl = mode === 'admin' ? '/api/admin' : '/api/consultant';
 
@@ -73,15 +80,16 @@ export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
         setLoading(true);
         setError(null);
         try {
-            const r = await fetch(`${baseUrl}/deals/${dealId}/events`, {
+            const r = await fetch(`${baseUrl}/${entityPath}/${entityId}/events`, {
                 headers: { Authorization: `JWT ${authToken}` },
             });
             const d = await r.json();
             if (!r.ok || !d.success) throw new Error(d.error || 'Errore caricamento');
             setEvents(d.events || []);
 
-            if (mode === 'admin') {
-                const r2 = await fetch(`${baseUrl}/deals/${dealId}/snapshots`, {
+            // Snapshot solo per deal (i progetti non hanno snapshot versionati)
+            if (mode === 'admin' && entityType === 'deal') {
+                const r2 = await fetch(`${baseUrl}/deals/${entityId}/snapshots`, {
                     headers: { Authorization: `JWT ${authToken}` },
                 });
                 const d2 = await r2.json();
@@ -94,13 +102,13 @@ export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
         }
     };
 
-    useEffect(() => { load(); }, [dealId, authToken, mode]);
+    useEffect(() => { load(); }, [dealId, relationId, authToken, mode]);
 
     const handleDelete = async (id: number) => {
         if (mode !== 'admin') return;
         if (!confirm('Eliminare questo evento dalla timeline?')) return;
         try {
-            const r = await fetch(`${baseUrl}/deals/${dealId}/events/${id}`, {
+            const r = await fetch(`${baseUrl}/${entityPath}/${entityId}/events/${id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `JWT ${authToken}` },
             });
@@ -111,13 +119,17 @@ export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
     return (
         <section className="mb-4 rounded-xl border border-gray-200 bg-white p-5">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h2 className="text-base font-semibold flex items-center gap-2">
+                <button
+                    onClick={() => setCollapsed(!collapsed)}
+                    className="text-base font-semibold flex items-center gap-2 hover:text-indigo-700 transition-colors"
+                >
+                    {collapsed ? <ChevronRight size={16} className="text-indigo-600" /> : <ChevronDown size={16} className="text-indigo-600" />}
                     <Clock size={16} className="text-indigo-600" />
                     Storia del deal
                     {events.length > 0 && (
                         <span className="text-xs font-normal text-gray-500">({events.length} eventi)</span>
                     )}
-                </h2>
+                </button>
                 <div className="flex items-center gap-2">
                     {mode === 'admin' && snapshots.length > 0 && (
                         <button
@@ -140,7 +152,19 @@ export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
                 </div>
             </div>
 
-            {loading && (
+            {/* Anteprima quando collapsed */}
+            {collapsed && events.length > 0 && (
+                <div className="mt-2 text-xs text-gray-500">
+                    Ultimo: <span className="font-medium text-gray-700">{events[0].title}</span>
+                    {events[0].eventDate && (
+                        <span className="ml-2 text-gray-400">
+                            {new Date(events[0].eventDate).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    )}
+                </div>
+            )}
+
+            {loading && !collapsed && (
                 <div className="text-center py-6 text-gray-400 text-sm">Carico la storia…</div>
             )}
 
@@ -150,14 +174,14 @@ export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
                 </div>
             )}
 
-            {!loading && events.length === 0 && (
+            {!loading && !collapsed && events.length === 0 && (
                 <div className="text-center py-8 text-gray-400 text-sm">
                     Nessun evento ancora. La storia si costruisce aggiungendo il primo tavolo, call o nota.
                 </div>
             )}
 
-            {!loading && events.length > 0 && (
-                <ol className="relative border-l-2 border-gray-100 ml-3 space-y-4 pb-2">
+            {!loading && !collapsed && events.length > 0 && (
+                <ol className="relative border-l-2 border-gray-100 ml-3 space-y-4 pb-2 max-h-[400px] overflow-y-auto">
                     {events.map((ev) => {
                         const meta = TYPE_META[ev.eventType] || TYPE_META.altro;
                         const Icon = meta.icon;
@@ -219,7 +243,7 @@ export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
                 </ol>
             )}
 
-            {showSnapshots && snapshots.length > 0 && (
+            {!collapsed && showSnapshots && snapshots.length > 0 && (
                 <div className="mt-5 pt-4 border-t border-gray-100">
                     <h3 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">
                         Traiettoria deal ({snapshots.length} versioni)
@@ -257,7 +281,8 @@ export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
 
             {showNewEvent && (
                 <NewEventModal
-                    dealId={dealId}
+                    entityType={entityType}
+                    entityId={entityId}
                     mode={mode}
                     authToken={authToken}
                     onClose={() => setShowNewEvent(false)}
@@ -272,8 +297,8 @@ export function DealTimeline({ dealId, mode, authToken, onRefresh }: Props) {
 // Modal nuovo evento
 // ─────────────────────────────────────────────────────────────
 function NewEventModal({
-    dealId, mode, authToken, onClose, onSaved,
-}: { dealId: number; mode: 'admin' | 'consultant'; authToken: string; onClose: () => void; onSaved: () => void }) {
+    entityType, entityId, mode, authToken, onClose, onSaved,
+}: { entityType: 'deal' | 'relation'; entityId: number; mode: 'admin' | 'consultant'; authToken: string; onClose: () => void; onSaved: () => void }) {
     const [eventType, setEventType] = useState(mode === 'consultant' ? 'nota_operativa' : 'tavolo_incontro');
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -300,12 +325,14 @@ function NewEventModal({
             };
             if (mode === 'admin') {
                 body.visibility = visibility;
-                if (chgField.trim()) {
+                // applyChanges solo per deal (relation non ha campi numerici tracciati)
+                if (entityType === 'deal' && chgField.trim()) {
                     body.changesApplied = { [chgField.trim()]: { from: chgFrom, to: chgTo } };
                     body.applyChanges = true;
                 }
             }
-            const r = await fetch(`${baseUrl}/deals/${dealId}/events`, {
+            const entityPath = entityType === 'deal' ? 'deals' : 'relations';
+            const r = await fetch(`${baseUrl}/${entityPath}/${entityId}/events`, {
                 method: 'POST',
                 headers: { Authorization: `JWT ${authToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),

@@ -19,6 +19,8 @@ import { Loader2, Send, UploadCloud } from 'lucide-react';
 type Props = {
   state: {
     isEmailModalOpen: boolean;
+    linkedEventId: number | null;
+    availableEvents: { id: number; title: string; event_date: string | null; event_type: string }[];
     subject: string;
     message: string;
     sending: boolean;
@@ -40,6 +42,7 @@ type Props = {
   };
   callbacks: {
     setIsEmailModalOpen: (v: boolean) => void;
+    setLinkedEventId: (v: number | null) => void;
     setSubject: (v: string) => void;
     setMessage: (v: string) => void;
     setRequiresSignature: (v: boolean) => void;
@@ -79,17 +82,20 @@ export function ModalsEmail({ state, data, callbacks }: Props) {
                         <p className="text-xs text-gray-400 italic">Nessuna parte collegata al progetto.</p>
                     ) : (
                         <div className="space-y-1 max-h-32 overflow-y-auto border border-gray-100 rounded p-2">
-                            {data.partners.map((p) => (
+                            {data.partners.map((p) => {
+                                const realId = p.partnerId || p.id;
+                                return (
                                 <label key={p.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 rounded p-1">
                                     <input
                                         type="checkbox"
-                                        checked={state.selectedPartnerIds.includes(p.id)}
-                                        onChange={() => callbacks.togglePartner(p.id)}
+                                        checked={state.selectedPartnerIds.includes(realId)}
+                                        onChange={() => callbacks.togglePartner(realId)}
                                         className="accent-[#0f172a]"
                                     />
                                     <span className="font-medium text-[#0f172a]">{p.partnerName || p.name}</span>
                                 </label>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -102,6 +108,33 @@ export function ModalsEmail({ state, data, callbacks }: Props) {
                     onChange={(e) => callbacks.setExtraEmails(e.target.value)}
                     className="w-full px-3 py-1.5 rounded border border-gray-200 text-xs"
                 />
+
+                {/* 01/10/2026 (B): collega email a evento (tavolo, call...) */}
+                {state.availableEvents && state.availableEvents.length > 0 && (
+                    <div>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                            Collega a evento (opzionale)
+                        </label>
+                        <select
+                            value={state.linkedEventId || ''}
+                            onChange={(e) => callbacks.setLinkedEventId(parseInt(e.target.value, 10) || null)}
+                            className="w-full px-3 py-1.5 rounded border border-gray-200 text-xs"
+                        >
+                            <option value="">— Nessun collegamento —</option>
+                            {state.availableEvents.map((ev: any) => (
+                                <option key={ev.id} value={ev.id}>
+                                    {ev.eventType === 'tavolo_incontro' ? '🪑' : ev.eventType === 'call' ? '📞' : '📌'} {ev.title}
+                                    {ev.eventDate && ` — ${new Date(ev.eventDate).toLocaleDateString('it-IT')}`}
+                                </option>
+                            ))}
+                        </select>
+                        {state.linkedEventId && (
+                            <div className="text-[10px] text-emerald-700 mt-1">
+                                ✓ L'email sarà registrata come evento figlio del tavolo selezionato
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <input required type="text" placeholder="Oggetto *" value={state.subject} onChange={(e) => callbacks.setSubject(e.target.value)} className="w-full px-3 py-1.5 rounded border border-gray-200 text-xs" />
                 <textarea required placeholder="Messaggio *" value={state.message} onChange={(e) => callbacks.setMessage(e.target.value)} rows={6} className="w-full px-3 py-1.5 rounded border border-gray-200 text-xs resize-y" />

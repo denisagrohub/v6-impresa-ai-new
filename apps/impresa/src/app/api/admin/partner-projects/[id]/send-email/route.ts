@@ -16,7 +16,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ success: false, error: 'JSON non valido' }, { status: 400 });
   }
 
-  const { partnerIds, extraEmails, subject, message } = body || {};
+  const { partnerIds, extraEmails, subject, message, linkedEventId } = body || {};
+
+  // 01/10/2026 (debug temp): log del payload ricevuto
+  console.log('📧 send-email payload:', JSON.stringify({
+    partnerIds, extraEmails, linkedEventId,
+    subject: subject?.slice(0, 50),
+    message_len: message?.length,
+  }));
   if (!subject || !message) {
     return NextResponse.json({ success: false, error: 'Oggetto e testo sono obbligatori' }, { status: 400 });
   }
@@ -37,7 +44,36 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     await odoo.execute('erpv6.project.relay.send.email.wizard', 'action_send', [[wizardId]]);
 
-    return NextResponse.json({ success: true });
+    // 01/10/2026 (B): se l'email è collegata a un evento (es. tavolo),
+    // crea un evento figlio nella timeline.
+    let linkedEventCreatedId: number | null = null;
+    if (linkedEventId) {
+      try {
+        const parentEv = await odoo.execute('erpv6.deal.event', 'read', [
+          [linkedEventId], ['id', 'relation_id', 'deal_id', 'title'],
+        ]);
+        if (parentEv && parentEv.length) {
+          const parent = parentEv[0];
+          const evVals: any = {
+            parent_event_id: linkedEventId,
+            event_type: 'email_rilevante',
+            title: subject,
+            description: `<p>Email inviata a ${partnerIds?.length || 0} parti${extraEmails ? ' + extra' : ''}</p><p>${(message || '').slice(0, 500)}</p>`,
+            visibility: 'internal',
+          };
+          const relId = Array.isArray(parent.relation_id) ? parent.relation_id[0] : parent.relation_id;
+          const dealId = Array.isArray(parent.deal_id) ? parent.deal_id[0] : parent.deal_id;
+          if (relId) evVals.relation_id = relId;
+          if (dealId) evVals.deal_id = dealId;
+
+          linkedEventCreatedId = await odoo.execute('erpv6.deal.event', 'create', [evVals]);
+        }
+      } catch (e: any) {
+        console.error('linkedEvent create KO:', e.message);
+      }
+    }
+
+    return NextResponse.json({ success: true, linkedEventId: linkedEventCreatedId });
   } catch (error: any) {
     console.error('❌ Errore /api/admin/partner-projects/[id]/send-email:', error.message);
     return NextResponse.json({ success: false, error: error.message || 'Invio fallito' }, { status: 502 });

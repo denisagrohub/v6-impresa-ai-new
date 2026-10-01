@@ -28,8 +28,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // (nessuna ricerca/creazione, usato cosi' com'è); altrimenti stesso
     // find-or-create per email di prima, per non duplicare un contatto se
     // l'email coincide con uno già presente ma l'admin non l'ha selezionato.
+    //
+    // 01/10/2026 (fix): se partnerId passato E email nuova scritta, aggiorna
+    // il partner esistente con l'email (prima veniva ignorata → Falcaro,
+    // Denis avevano email vuota sul partner).
     let partnerId: number | false = selectedPartnerId || false;
-    if (!partnerId && email) {
+    if (partnerId && email) {
+      // Partner selezionato: se email passata, aggiorno (se diversa da vuota)
+      const existing = await odoo.execute('res.partner', 'read', [
+        [partnerId], ['email'],
+      ]);
+      const currentEmail = existing?.[0]?.email || '';
+      if (currentEmail !== email) {
+        const updateVals: any = { email };
+        if (phone) updateVals.phone = phone;
+        await odoo.execute('res.partner', 'write', [[partnerId], updateVals]);
+      }
+    } else if (!partnerId && email) {
       const existingPartners = await odoo.execute('res.partner', 'search_read', [
         [['email', '=', email]], ['id'], 0, 1,
       ]);

@@ -33,13 +33,22 @@ export type OperativaContext =
   | { type: 'person'; id: number; label: string; partnerId?: number | null }
   | { type: 'target'; id: number; label: string; partnerId?: number | null };
 
+type ChildProjectCard = {
+  id: number; name: string;
+  childKind?: string | null;
+  partnerCount?: number;
+  eventCount?: number;
+  state?: string | null;
+};
+
 export default function CopertinaPage({
   projectId, projectName, projectParentId,
-  baseCompenso,
+  baseCompenso, childProjects,
   onOpenOperativa, onOpenDetail, onOpenCharter, onOpenSettings, onBack,
 }: {
   projectId: number; projectName: string; projectParentId?: number | null;
   baseCompenso?: { tipo: string; valore: number; unita: string } | null;
+  childProjects?: ChildProjectCard[];
   onOpenOperativa: (ctx: OperativaContext) => void;
   onOpenDetail: (person: Partner) => void;
   onOpenCharter: () => void;
@@ -166,7 +175,7 @@ export default function CopertinaPage({
         {/* KPI */}
         <KpiDashboard projectId={projectId} />
 
-        {/* KANBAN full width */}
+        {/* KANBAN full width — Sotto-progetti + Pipeline target */}
         <div className="bg-white rounded-2xl border border-gray-100 p-3 mb-4">
           <div className="flex items-center gap-2 mb-2 px-1">
             <BarChart3 size={13} className="text-indigo-600" />
@@ -174,6 +183,38 @@ export default function CopertinaPage({
               Pipeline target
             </h2>
           </div>
+
+          {/* 01/10/2026: sotto-progetti figli (es. Acquisizione controparti) */}
+          {childProjects && childProjects.length > 0 && (
+            <div className="mb-3 space-y-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1">
+                Sotto-progetti ({childProjects.length})
+              </div>
+              {childProjects.map((cp) => (
+                <a
+                  key={cp.id}
+                  href={`/admin/partner-projects/${cp.id}`}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg border border-indigo-100 bg-indigo-50/40 hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                >
+                  <span className="text-base">📁</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-[#0f172a] truncate">{cp.name}</div>
+                    <div className="text-[10px] text-gray-500 flex items-center gap-2 mt-0.5">
+                      {cp.childKind && <span className="uppercase tracking-wider">{cp.childKind.replace('_', ' ')}</span>}
+                      {typeof cp.partnerCount === 'number' && (
+                        <><span>·</span><span>{cp.partnerCount} parti</span></>
+                      )}
+                      {typeof cp.eventCount === 'number' && cp.eventCount > 0 && (
+                        <><span>·</span><span>{cp.eventCount} eventi</span></>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-indigo-500 text-xs">→</span>
+                </a>
+              ))}
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <AcquisitionKanban relationId={projectId} relationName={projectName} />
           </div>
