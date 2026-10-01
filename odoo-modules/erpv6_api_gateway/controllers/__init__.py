@@ -26,6 +26,7 @@ from . import admin_deal_checklists_api
 from . import admin_emails_api
 from . import admin_split_versions_api
 from . import admin_partners_lifecycle_api
+from . import admin_todos_api
 from . import typst_import_api
 from . import frontend_error_api
 
