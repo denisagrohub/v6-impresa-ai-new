@@ -70,6 +70,7 @@ import { DealCommandCenter, type DealCommandCenterData } from "@/components/deal
 import { Breadcrumb, type BreadcrumbItem } from "@/components/admin/Breadcrumb";
 import { getAuthToken } from "@/components/deal/auth";
 import { PartnerProjectHeader, type PartnerProjectHeaderHandlers } from "@/components/admin/partner-projects/detail/PartnerProjectHeader";
+import { ProjectScoutingCard } from "@/components/admin/ProjectScoutingCard";
 import { PartnerProjectStatusBar, type ViewMode } from "@/components/admin/partner-projects/detail/PartnerProjectStatusBar";
 import { PartnerProjectTabs, type PartnerProjectTab } from "@/components/admin/partner-projects/detail/PartnerProjectTabs";
 import { OperativaMain } from "@/components/admin/partner-projects/detail/OperativaMain";
@@ -775,6 +776,18 @@ export default function PartnerProjectDetailPage() {
                     if (v === 'copertina') setOperativeContext(null);
                 }}
             />
+
+            {/* 01/10/2026 (F3.A BLOCO 4): card scouting inline — visibile solo su root */}
+            {project && !(project as any).parent_id && (
+                <div className="pt-2">
+                    <ProjectScoutingCard
+                        relationId={project.id}
+                        payload={(project as any).relationScouting ?? null}
+                        onOpenDetail={() => setIsRelationScoutingOpen(true)}
+                        onRefreshed={(sc) => setProject((p: any) => p ? { ...p, relationScouting: sc } : p)}
+                    />
+                </div>
+            )}
 
             {viewTab === 'copertina' && project && (
                 <div className="flex-1 overflow-auto bg-[#f8fafc]">
