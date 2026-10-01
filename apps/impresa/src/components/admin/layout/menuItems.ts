@@ -3,6 +3,7 @@ import {
   CheckCircle2, Mail, Calculator, Landmark, FileText,
   Brain, Shield, UserCog, Phone, PenTool, FileSignature, Code2,
   Palette, Target, AlertTriangle, Package, Briefcase, Send,
+  ListTodo,
 } from "lucide-react";
 import type { UserRole } from "@/lib/permissions";
 
@@ -62,6 +63,7 @@ export const ADMIN_MENU_CATEGORIES: AdminMenuCategory[] = [
   {
     label: "Operativo",
     items: [
+      { icon: ListTodo, label: "TODO", href: "/admin/todo", requiredRoles: ALL },
       { icon: Briefcase, label: "Deal", href: "/admin/deals", requiredRoles: PROJECTS_OR_CONSULTANT },
       { icon: Users, label: "Progetti Partner", href: "/admin/partner-projects", requiredRoles: PROJECTS_OR_CONSULTANT },
       { icon: PenTool, label: "Firme", href: "/admin/firme", requiredRoles: ADMIN_OR_PROJECTS },
