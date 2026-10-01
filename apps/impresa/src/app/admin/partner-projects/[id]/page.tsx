@@ -972,12 +972,10 @@ export default function PartnerProjectDetailPage() {
 
             {/* ═══════════════ OVERLAY / MODALS ═══════════════ */}
 
-            {/* MODAL COMPOSER EMAIL: destinatari multipli, flag, allegati dual-source */}
+            </>}
 
-            {/* MODAL NUOVA CALL: oggetto + inviti → crea mail.channel su Odoo → popup */}
-
-            {/* MODAL IMPOSTAZIONI: read-only del circuito (progetto, alias, contatori) */}
-
+            {/* 01/10/2026 (fix UX): modali sempre montati, indipendenti da viewTab.
+                Se apri Scouting/Email/Settings dalla Copertina, il modal ora appare. */}
             <ModalsEmail
                 state={{
                     isEmailModalOpen,
@@ -1076,8 +1074,6 @@ export default function PartnerProjectDetailPage() {
                     setProject, setOperativeContext, load,
                 }}
             />
-
-            </>}
         </div>
     );
 }
