@@ -23,7 +23,6 @@ import {
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { OdooStatus } from '@/components/admin/OdooStatus';
 import ActionToday from '@/components/admin/dashboard/ActionToday';
-import { formatFreshness, isFreshnessStale } from '@/lib/utils/format';
 import ActivityFeed from '@/components/admin/dashboard/ActivityFeed';
 
 type Kpi = {
@@ -64,14 +63,12 @@ export default function AdminDashboard() {
   const [nextActions, setNextActions] = useState<NextAction[]>([]);
   const [recentActivity, setRecentActivity] = useState<Array<{ type: string; icon: string; title: string; href: string | null; timestamp: string }>>([]);
 
-  // 01/10/2026 (A4): auto-refresh + freshness
-  const [lastUpdateAt, setLastUpdateAt] = useState<number | null>(null);
+  // 01/10/2026 (A4): auto-refresh + stato live
   const [refreshError, setRefreshError] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 01/10/2026 (A4): tick di re-render per aggiornare l'indicatore freshness
-  const [, setTick] = useState(0);
+  // 01/10/2026 (A4.1): countdown al prossimo refresh automatico
+  const [secondsToNextRefresh, setSecondsToNextRefresh] = useState<number>(60);
 
   const authHeaders = (): Record<string, string> => {
     try {
@@ -81,10 +78,9 @@ export default function AdminDashboard() {
     } catch { return {}; }
   };
 
-  const loadDashboard = async (opts?: { manual?: boolean }) => {
-    // 01/10/2026 (A4): se è il primo caricamento mostra loader full,
-    // altrimenti solo spinner inline sul pulsante.
-    if (!lastUpdateAt) setLoading(true);
+  const loadDashboard = async () => {
+    // 01/10/2026 (A4.1): primo caricamento → loader full; refresh → spinner inline.
+    if (!kpi) setLoading(true);
     else setIsRefreshing(true);
     setError(null);
 
@@ -95,7 +91,6 @@ export default function AdminDashboard() {
       setKpi(d.kpi);
       setNextActions(d.nextActions || []);
       setRecentActivity(d.recentActivity || []);
-      setLastUpdateAt(Date.now());
       setRefreshError(false);
     } catch (e: any) {
       setError(e.message);
@@ -103,52 +98,49 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
       setIsRefreshing(false);
-      if (opts?.manual) restartTimer();
+      // 01/10/2026 (A4.1): ogni refresh (auto o manuale) riavvia il countdown
+      setSecondsToNextRefresh(60);
     }
   };
 
   // Alias retro-compatibile (usato da onRefresh dei figli)
   const loadData = () => loadDashboard();
 
-  // 01/10/2026 (A4): timer auto-refresh 60s (riavviabile dal bottone)
-  const restartTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      loadDashboard();
-    }, 60_000);
-  };
+  // 01/10/2026 (A4.1): ref stabile per chiamare loadDashboard dal timer
+  const loadDashboardRef = useRef(loadDashboard);
+  loadDashboardRef.current = loadDashboard;
 
   useEffect(() => {
     const raw = localStorage.getItem('pi_session');
     if (!raw) { router.push('/login'); return; }
     setUser(JSON.parse(raw));
     loadDashboard();
-    restartTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // 01/10/2026 (A4): refresh al ritorno sulla tab
+  // 01/10/2026 (A4.1): refresh al ritorno sulla tab
   useEffect(() => {
     const onVis = () => {
-      if (document.visibilityState === 'visible') loadDashboard();
+      if (document.visibilityState === 'visible') loadDashboardRef.current();
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 01/10/2026 (A4): tick ogni 30s per aggiornare l'indicatore freshness
+  // 01/10/2026 (A4.1): countdown 1s. A 0 → refresh (se tab visibile) + reset 60s.
   useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    const t = setInterval(() => {
+      setSecondsToNextRefresh((s) => {
+        if (s <= 1) {
+          if (document.visibilityState === 'visible') {
+            loadDashboardRef.current();
+          }
+          return 60;
+        }
+        return s - 1;
+      });
+    }, 1000);
     return () => clearInterval(t);
-  }, []);
-
-  // Cleanup timer
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
   }, []);
 
   const roles: string[] = user?.roles || (user?.role ? [user.role] : []);
@@ -173,11 +165,27 @@ export default function AdminDashboard() {
         {/* Odoo status + refresh */}
         <div className="mb-6 flex items-center gap-3">
           <div className="flex-1"><OdooStatus /></div>
-          <span className={`text-[11px] ${isFreshnessStale(lastUpdateAt) ? 'text-amber-600' : 'text-gray-500'}`}>
-            {formatFreshness(lastUpdateAt)}
-          </span>
+          {/* 01/10/2026 (A4.1): indicatore live — pallino + countdown */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="relative flex h-2 w-2">
+              {isRefreshing ? (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              ) : refreshError ? (
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+              ) : (
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              )}
+            </span>
+            <span className="text-gray-500 tabular-nums">
+              {isRefreshing
+                ? 'aggiornamento in corso...'
+                : refreshError
+                ? 'ultimo aggiornamento fallito'
+                : `prossimo refresh tra ${secondsToNextRefresh}s`}
+            </span>
+          </div>
           <button
-            onClick={() => loadDashboard({ manual: true })}
+            onClick={() => loadDashboard()}
             disabled={isRefreshing}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
