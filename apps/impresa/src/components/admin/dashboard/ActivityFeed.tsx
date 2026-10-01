@@ -8,8 +8,9 @@
 // Riusa formatRelative da @/lib/utils/format.
 // ═══════════════════════════════════════════════════════════════════
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { Activity, Mail, FileSignature, UserPlus, Circle } from 'lucide-react';
+import { Activity, Mail, FileSignature, UserPlus, Circle, ChevronRight } from 'lucide-react';
 import { formatRelative } from '@/lib/utils/format';
 
 type ActivityItem = {
@@ -47,6 +48,11 @@ function groupLabel(timestamp: string): string {
 }
 
 export default function ActivityFeed({ activity, maxVisible = 10 }: Props) {
+  // 01/10/2026 (A3.1): gruppi collassabili. "Oggi" aperto di default.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ Oggi: true });
+  const toggleGroup = (label: string) =>
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+
   if (!activity || activity.length === 0) {
     return (
       <section className="mb-8">
@@ -82,11 +88,23 @@ export default function ActivityFeed({ activity, maxVisible = 10 }: Props) {
       </h2>
 
       <div className="rounded-xl border border-gray-100 bg-white divide-y divide-gray-50">
-        {groups.map((group) => (
+        {groups.map((group) => {
+          const isOpen = !!openGroups[group.label];
+          return (
           <div key={group.label}>
-            <div className="px-4 py-2 text-[10px] uppercase tracking-wide text-gray-400 font-semibold bg-gray-50/40">
-              {group.label}
-            </div>
+            <button
+              onClick={() => toggleGroup(group.label)}
+              className="w-full flex items-center gap-1.5 px-4 py-2 text-[10px] uppercase tracking-wide text-gray-400 font-semibold bg-gray-50/40 hover:text-gray-600 transition-colors text-left"
+            >
+              <ChevronRight
+                size={11}
+                className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}
+              />
+              <span>{group.label}</span>
+              <span className="text-gray-300">·</span>
+              <span className="text-gray-400">{group.items.length}</span>
+            </button>
+            {isOpen && (
             <div className="divide-y divide-gray-50">
               {group.items.map((item, idx) => {
                 const Icon = ICON_MAP[item.type] || Circle;
@@ -128,15 +146,12 @@ export default function ActivityFeed({ activity, maxVisible = 10 }: Props) {
                 );
               })}
             </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
-      {activity.length > maxVisible && (
-        <div className="mt-2 text-[11px] text-gray-500">
-          Mostrate {maxVisible} di {activity.length} attività.
-        </div>
-      )}
     </section>
   );
 }
