@@ -877,8 +877,9 @@ Rispondi SOLO con un JSON valido (no markdown, no testo attorno):
         for rec in records:
             if rec.parent_id:
                 continue
-            if rec.child_kind == 'parte':
-                continue
+            # 01/10/2026: rimossa esclusione child_kind='parte'. I progetti
+            # reali (26 GO, 21 AV) hanno child_kind='parte' per dato storico.
+            # Basta parent_id=None per essere root.
             try:
                 self.env.cr.postcommit.add(
                     lambda rid=rec.id: self._scouting_after_commit(rid)
@@ -904,6 +905,36 @@ Rispondi SOLO con un JSON valido (no markdown, no testo attorno):
                 new_cr.commit()
         except Exception as e:
             _logger.warning('scouting post-commit KO rel %s: %s', relation_id, e)
+
+    def write(self, vals):
+        """Override write: se cambia x_v6_charter, ri-trigger scouting.
+
+        01/10/2026 (F3.A v2): il charter può essere compilato dopo la
+        creazione. Con debounce 5 min per non martellare AI mentre l'utente
+        compila campo per campo.
+        """
+        charter_changed = 'x_v6_charter' in vals and bool(vals.get('x_v6_charter'))
+        result = super().write(vals)
+
+        if charter_changed:
+            for rec in self:
+                if rec.parent_id:
+                    continue
+                # Debounce: se ultimo scouting < 5 min fa, skip
+                if rec.x_v6_scouting_updated_at:
+                    delta = (fields.Datetime.now() - rec.x_v6_scouting_updated_at).total_seconds()
+                    if delta < 300:
+                        _logger.info(
+                            'scouting debounce: rel %s aggiornata %ss fa, skip',
+                            rec.id, int(delta))
+                        continue
+                try:
+                    self.env.cr.postcommit.add(
+                        lambda rid=rec.id: self._scouting_after_commit(rid)
+                    )
+                except Exception as e:
+                    _logger.debug('postcommit write add skip: %s', e)
+        return result
 
     @api.model
     def action_create_deal(self, params):
