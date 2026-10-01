@@ -137,10 +137,24 @@ class AdminTodosAPIController(ConsultantAPIController):
         if not name:
             return self._json_response({'error': 'Il campo "name" è obbligatorio'}, 400)
 
+        # 02/10/2026 (C1a-3): admin può assegnare a un altro utente.
+        # Non-admin: user_id = user.id (invariato).
+        is_admin = self._is_strict_admin(user)
+        target_user_id = user.id
+        if is_admin and body.get('user_id'):
+            try:
+                target_user_id = int(body['user_id'])
+            except (ValueError, TypeError):
+                return self._json_response({'error': 'user_id non valido'}, 400)
+            target = request.env['res.users'].sudo().browse(target_user_id)
+            if not target.exists() or not target.active:
+                return self._json_response(
+                    {'error': 'Utente non trovato o disattivato'}, 400)
+
         vals = {
             'name': name,
             'description': body.get('description') or '',
-            'user_id': user.id,
+            'user_id': target_user_id,
             'state': 'open',
             'is_auto': False,
         }
@@ -206,6 +220,17 @@ class AdminTodosAPIController(ConsultantAPIController):
             vals['description'] = body.get('description') or ''
         if 'due_date' in body:
             vals['due_date'] = body.get('due_date') or False
+        # 02/10/2026 (C1a-3): solo admin può riassegnare a un altro utente.
+        if 'user_id' in body and is_admin:
+            try:
+                uid = int(body['user_id'])
+            except (ValueError, TypeError):
+                return self._json_response({'error': 'user_id non valido'}, 400)
+            target = request.env['res.users'].sudo().browse(uid)
+            if not target.exists() or not target.active:
+                return self._json_response(
+                    {'error': 'Utente non trovato o disattivato'}, 400)
+            vals['user_id'] = uid
         if 'state' in body:
             st = body.get('state')
             if st not in ('open', 'done', 'cancelled'):

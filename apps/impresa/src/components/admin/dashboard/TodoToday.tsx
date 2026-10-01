@@ -70,8 +70,12 @@ export default function TodoToday({ initialScope = 'mine', maxVisible = 5 }: Pro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [newDueDate, setNewDueDate] = useState('');
+  const [newUserId, setNewUserId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
+  // 02/10/2026 (C1a-3): lista utenti per assegnazione (solo admin)
+  const [users, setUsers] = useState<Array<{ id: number; name: string }>>([]);
 
   const load = async () => {
     setLoading(true);
@@ -95,20 +99,42 @@ export default function TodoToday({ initialScope = 'mine', maxVisible = 5 }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 02/10/2026 (C1a-3): carica lista utenti per il select di assegnazione
+  // (solo admin). Silenzioso se non admin — la select non apparirà.
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/admin/users', { headers: authHeaders() });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (Array.isArray(d.users)) {
+          setUsers(d.users.map((u: any) => ({ id: u.id, name: u.name })));
+        }
+      } catch {
+        // silenzioso
+      }
+    })();
+  }, []);
+
   const create = async () => {
     const name = newName.trim();
     if (!name || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
+      const payload: any = { name };
+      if (newDueDate) payload.due_date = newDueDate;
+      if (newUserId) payload.user_id = parseInt(newUserId, 10);
       const r = await fetch('/api/admin/todos', {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(payload),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d?.error || 'Errore creazione');
       setNewName('');
+      setNewDueDate('');
+      setNewUserId('');
       setTodos((prev) => [d.todo, ...prev]);
     } catch (e: any) {
       setError(e.message || 'Errore');
@@ -171,29 +197,55 @@ export default function TodoToday({ initialScope = 'mine', maxVisible = 5 }: Pro
         )}
       </div>
 
-      {/* Input rapido */}
-      <div className="mb-2 flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-2 focus-within:border-[#0F1E3C] transition-colors">
-        <Plus size={14} className="text-gray-400 shrink-0" />
-        <input
-          type="text"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') create();
-          }}
-          placeholder="Aggiungi un TODO..."
-          className="flex-1 text-sm text-[#0F1E3C] bg-transparent outline-none placeholder:text-gray-400"
-          disabled={submitting}
-        />
-        {newName.trim() && (
-          <button
-            onClick={create}
+      {/* Input rapido — 02/10/2026 (C1a-3): nome + data + assegnatario (admin) */}
+      <div className="mb-2 rounded-xl border border-gray-100 bg-white px-3 py-2 focus-within:border-[#0F1E3C] transition-colors">
+        <div className="flex items-center gap-2">
+          <Plus size={14} className="text-gray-400 shrink-0" />
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') create();
+            }}
+            placeholder="Aggiungi un TODO..."
+            className="flex-1 text-sm text-[#0F1E3C] bg-transparent outline-none placeholder:text-gray-400"
             disabled={submitting}
-            className="text-[11px] px-2 py-1 rounded border border-gray-200 text-[#0F1E3C] hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
-          >
-            {submitting ? <Loader2 size={11} className="animate-spin" /> : 'Invio ↵'}
-          </button>
-        )}
+          />
+          {newName.trim() && (
+            <button
+              onClick={create}
+              disabled={submitting}
+              className="text-[11px] px-2 py-1 rounded border border-gray-200 text-[#0F1E3C] hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
+            >
+              {submitting ? <Loader2 size={11} className="animate-spin" /> : 'Invio ↵'}
+            </button>
+          )}
+        </div>
+        <div className="mt-1.5 pl-6 flex items-center gap-2 flex-wrap">
+          <input
+            type="date"
+            value={newDueDate}
+            onChange={(e) => setNewDueDate(e.target.value)}
+            disabled={submitting}
+            className="text-[11px] text-gray-600 bg-transparent outline-none border border-gray-100 rounded px-1.5 py-0.5 hover:border-gray-200"
+            title="Scadenza"
+          />
+          {users.length > 0 && (
+            <select
+              value={newUserId}
+              onChange={(e) => setNewUserId(e.target.value)}
+              disabled={submitting}
+              className="text-[11px] text-gray-600 bg-transparent outline-none border border-gray-100 rounded px-1.5 py-0.5 hover:border-gray-200 max-w-[160px]"
+              title="Assegna a (default: te stesso)"
+            >
+              <option value="">Assegna a… (io)</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {error && (
