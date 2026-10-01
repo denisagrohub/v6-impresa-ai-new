@@ -24,6 +24,7 @@ import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { OdooStatus } from '@/components/admin/OdooStatus';
 import ActionToday from '@/components/admin/dashboard/ActionToday';
 import ActivityFeed from '@/components/admin/dashboard/ActivityFeed';
+import { userHasPermission } from '@/lib/permissions';
 
 type Kpi = {
   dealsActive: { count: number; feeMonthlyBase: number };
@@ -144,7 +145,6 @@ export default function AdminDashboard() {
   }, []);
 
   const roles: string[] = user?.roles || (user?.role ? [user.role] : []);
-  const isAdmin = roles.includes('admin');
 
   if (loading) {
     return (
@@ -212,7 +212,7 @@ export default function AdminDashboard() {
           <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
 
             {/* Deal attivi */}
-            {(isAdmin || roles.includes('chief_projects') || roles.includes('consultant')) && (
+            {userHasPermission(roles, 'dashboard.view_kpi_deals') && (
               <Link
                 href="/admin/deals"
                 className="group bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all p-5"
@@ -236,7 +236,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Progetti Partner */}
-            {(isAdmin || roles.includes('chief_projects') || roles.includes('chief_bandi')) && (
+            {userHasPermission(roles, 'dashboard.view_kpi_partner_projects') && (
               <Link
                 href="/admin/partner-projects"
                 className="group bg-white rounded-2xl border border-gray-100 hover:border-orange-200 hover:shadow-md transition-all p-5"
@@ -260,7 +260,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Firme pending */}
-            {(isAdmin || roles.includes('chief_projects')) && (
+            {userHasPermission(roles, 'dashboard.view_kpi_signatures') && (
               <Link
                 href="/admin/firme"
                 className="group bg-white rounded-2xl border border-gray-100 hover:border-amber-200 hover:shadow-md transition-all p-5"
@@ -284,7 +284,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Richieste accesso */}
-            {(isAdmin || roles.includes('chief_projects')) && (
+            {userHasPermission(roles, 'dashboard.view_kpi_access_requests') && (
               <Link
                 href="/admin/access-requests"
                 className={`group bg-white rounded-2xl border transition-all p-5 ${
@@ -312,7 +312,7 @@ export default function AdminDashboard() {
             )}
 
             {/* Contabilità (commissioni + tranche pending) */}
-            {(isAdmin || roles.includes('chief_accounting')) && (
+            {userHasPermission(roles, 'dashboard.view_kpi_accounting') && (
               <Link
                 href="/admin/accounting"
                 className={`group bg-white rounded-2xl border transition-all p-5 ${

@@ -96,7 +96,14 @@ export type Permission =
     | 'chief.view_team_availability'
     | 'chief.view_team_projects'
     | 'chief.approve_deal'
-    | 'chief.approve_payment_below_threshold';
+    | 'chief.approve_payment_below_threshold'
+
+    // ─── Dashboard (visibilità KPI) ───
+    | 'dashboard.view_kpi_deals'
+    | 'dashboard.view_kpi_partner_projects'
+    | 'dashboard.view_kpi_signatures'
+    | 'dashboard.view_kpi_access_requests'
+    | 'dashboard.view_kpi_accounting';
 
 /** Ruoli "chief" (manager verticali). Utile per gate rapidi. */
 export const CHIEF_ROLES: UserRole[] = [
@@ -146,6 +153,10 @@ const PERMISSIONS_MATRIX: Record<UserRole, Permission[]> = {
         // Chief
         'chief.view_team_availability', 'chief.view_team_projects',
         'chief.approve_deal', 'chief.approve_payment_below_threshold',
+        // Dashboard KPI
+        'dashboard.view_kpi_deals', 'dashboard.view_kpi_partner_projects',
+        'dashboard.view_kpi_signatures', 'dashboard.view_kpi_access_requests',
+        'dashboard.view_kpi_accounting',
     ],
 
     // ───────────────────────────────────────────────────────────
@@ -166,6 +177,9 @@ const PERMISSIONS_MATRIX: Record<UserRole, Permission[]> = {
         'consultant.use_call_ai', 'consultant.view_own_timesheet',
         'chief.view_team_availability', 'chief.view_team_projects',
         'chief.approve_deal', 'chief.approve_payment_below_threshold',
+        // Dashboard KPI
+        'dashboard.view_kpi_deals', 'dashboard.view_kpi_partner_projects',
+        'dashboard.view_kpi_signatures', 'dashboard.view_kpi_access_requests',
     ],
 
     // ───────────────────────────────────────────────────────────
@@ -179,6 +193,8 @@ const PERMISSIONS_MATRIX: Record<UserRole, Permission[]> = {
         'contracts.view_all',
         'config.manage_commissions',
         'consultant.view_own_timesheet',
+        // Dashboard KPI
+        'dashboard.view_kpi_accounting',
     ],
 
     // ───────────────────────────────────────────────────────────
@@ -190,6 +206,8 @@ const PERMISSIONS_MATRIX: Record<UserRole, Permission[]> = {
         'partners.view_all', 'partners.create',
         'bandi.view_all', 'bandi.create', 'bandi.edit', 'bandi.match',
         'requests.view_all', 'requests.create',
+        // Dashboard KPI
+        'dashboard.view_kpi_partner_projects',
     ],
 
     // ───────────────────────────────────────────────────────────
@@ -221,6 +239,8 @@ const PERMISSIONS_MATRIX: Record<UserRole, Permission[]> = {
         'consultant.manage_own_requests',
         'consultant.use_call_ai',
         'consultant.view_own_timesheet',
+        // Dashboard KPI
+        'dashboard.view_kpi_deals',
     ],
 
     // ───────────────────────────────────────────────────────────
