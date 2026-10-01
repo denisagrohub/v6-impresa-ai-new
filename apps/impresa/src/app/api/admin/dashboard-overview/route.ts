@@ -119,8 +119,14 @@ export async function GET(request: NextRequest) {
       await odoo.connect();
       for (const p of projects) {
         try {
+          // 01/10/2026 (C3a.2): attraversa la gerarchia con child_of
+          // (i deal sono agganciati ai nodi figli, non al root) +
+          // esclude deal terminali (closed, cancelled).
           const cnt = await odoo.execute('erpv6.deal', 'search_count', [
-            [['relation_id', '=', p.id]],
+            [
+              ['relation_id', 'child_of', p.id],
+              ['state', 'not in', ['closed', 'cancelled']],
+            ],
           ]);
           if ((typeof cnt === 'number' ? cnt : 0) > 0) partnerProjectsWithDeal++;
         } catch {

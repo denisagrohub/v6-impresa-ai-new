@@ -14,3 +14,4 @@ access_erpv6_project_access_request_user,erpv6.project.access.request.user,model
 access_erpv6_project_access_request_system,erpv6.project.access.request.system,model_erpv6_project_access_request,base.group_system,1,1,1,1
 access_erpv6_deal_event_system,erpv6.deal.event system,model_erpv6_deal_event,base.group_system,1,1,1,1
 access_erpv6_deal_snapshot_system,erpv6.deal.snapshot system,model_erpv6_deal_snapshot,base.group_system,1,1,1,1
+access_erpv6_deal_system,erpv6.deal system,model_erpv6_deal,base.group_system,1,1,1,1
