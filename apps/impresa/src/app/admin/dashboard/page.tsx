@@ -13,7 +13,7 @@
 // ═══════════════════════════════════════════════════════════════════
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -23,6 +23,7 @@ import {
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { OdooStatus } from '@/components/admin/OdooStatus';
 import ActionToday from '@/components/admin/dashboard/ActionToday';
+import { formatFreshness, isFreshnessStale } from '@/lib/utils/format';
 import ActivityFeed from '@/components/admin/dashboard/ActivityFeed';
 
 type Kpi = {
@@ -63,6 +64,15 @@ export default function AdminDashboard() {
   const [nextActions, setNextActions] = useState<NextAction[]>([]);
   const [recentActivity, setRecentActivity] = useState<Array<{ type: string; icon: string; title: string; href: string | null; timestamp: string }>>([]);
 
+  // 01/10/2026 (A4): auto-refresh + freshness
+  const [lastUpdateAt, setLastUpdateAt] = useState<number | null>(null);
+  const [refreshError, setRefreshError] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 01/10/2026 (A4): tick di re-render per aggiornare l'indicatore freshness
+  const [, setTick] = useState(0);
+
   const authHeaders = (): Record<string, string> => {
     try {
       const raw = localStorage.getItem('pi_session');
@@ -71,29 +81,75 @@ export default function AdminDashboard() {
     } catch { return {}; }
   };
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadDashboard = async (opts?: { manual?: boolean }) => {
+    // 01/10/2026 (A4): se è il primo caricamento mostra loader full,
+    // altrimenti solo spinner inline sul pulsante.
+    if (!lastUpdateAt) setLoading(true);
+    else setIsRefreshing(true);
     setError(null);
+
     try {
       const r = await fetch('/api/admin/dashboard-overview', { headers: authHeaders() });
       const d = await r.json();
-      if (!r.ok || !d.success) { setError(d.error || 'Errore'); return; }
+      if (!r.ok || !d.success) throw new Error(d.error || 'Errore');
       setKpi(d.kpi);
       setNextActions(d.nextActions || []);
       setRecentActivity(d.recentActivity || []);
+      setLastUpdateAt(Date.now());
+      setRefreshError(false);
     } catch (e: any) {
       setError(e.message);
+      setRefreshError(true);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+      if (opts?.manual) restartTimer();
     }
+  };
+
+  // Alias retro-compatibile (usato da onRefresh dei figli)
+  const loadData = () => loadDashboard();
+
+  // 01/10/2026 (A4): timer auto-refresh 60s (riavviabile dal bottone)
+  const restartTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      loadDashboard();
+    }, 60_000);
   };
 
   useEffect(() => {
     const raw = localStorage.getItem('pi_session');
     if (!raw) { router.push('/login'); return; }
     setUser(JSON.parse(raw));
-    loadData();
+    loadDashboard();
+    restartTimer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // 01/10/2026 (A4): refresh al ritorno sulla tab
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') loadDashboard();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 01/10/2026 (A4): tick ogni 30s per aggiornare l'indicatore freshness
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Cleanup timer
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   const roles: string[] = user?.roles || (user?.role ? [user.role] : []);
   const isAdmin = roles.includes('admin');
@@ -117,15 +173,25 @@ export default function AdminDashboard() {
         {/* Odoo status + refresh */}
         <div className="mb-6 flex items-center gap-3">
           <div className="flex-1"><OdooStatus /></div>
+          <span className={`text-[11px] ${isFreshnessStale(lastUpdateAt) ? 'text-amber-600' : 'text-gray-500'}`}>
+            {formatFreshness(lastUpdateAt)}
+          </span>
           <button
-            onClick={loadData}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50"
+            onClick={() => loadDashboard({ manual: true })}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw size={14} /> Aggiorna
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} /> Aggiorna
           </button>
         </div>
 
-        {error && (
+        {refreshError && (
+          <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Ultimo aggiornamento fallito. Riprovo tra 60 secondi.
+          </div>
+        )}
+
+        {error && !refreshError && (
           <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
           </div>

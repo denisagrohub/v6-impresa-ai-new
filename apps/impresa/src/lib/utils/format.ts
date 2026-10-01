@@ -25,3 +25,27 @@ export function formatRelative(iso: string | null): string {
   if (gg < 30) return `${Math.floor(gg / 7)} sett fa`;
   return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
 }
+
+/**
+ * Formatta un timestamp in millisecondi come stringa freshness:
+ * "aggiornato ora" / "aggiornato N min fa" / "aggiornato N h fa".
+ * null → "—".
+ * 01/10/2026 (Fase A - A4): usato dall'indicatore accanto a "Aggiorna".
+ */
+export function formatFreshness(ts: number | null): string {
+  if (ts == null) return '—';
+  const diffMs = Date.now() - ts;
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'aggiornato ora';
+  if (min < 60) return `aggiornato ${min} min fa`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `aggiornato ${h} h fa`;
+  const gg = Math.floor(h / 24);
+  return `aggiornato ${gg} gg fa`;
+}
+
+/** true se il timestamp è "vecchio" (> 5 min). */
+export function isFreshnessStale(ts: number | null): boolean {
+  if (ts == null) return false;
+  return Date.now() - ts > 5 * 60 * 1000;
+}
