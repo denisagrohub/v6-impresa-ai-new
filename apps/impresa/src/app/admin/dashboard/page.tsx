@@ -24,6 +24,7 @@ import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { OdooStatus } from '@/components/admin/OdooStatus';
 import ActionToday from '@/components/admin/dashboard/ActionToday';
 import ActivityFeed from '@/components/admin/dashboard/ActivityFeed';
+import TodoToday from '@/components/admin/dashboard/TodoToday';
 import { userHasPermission } from '@/lib/permissions';
 
 type Kpi = {
@@ -354,6 +355,11 @@ export default function AdminDashboard() {
             AZIONI DI OGGI — da nextActions[] (A2)
             ══════════════════════════════════════════════════════════ */}
         <ActionToday nextActions={nextActions} onRefresh={loadData} />
+
+        {/* ══════════════════════════════════════════════════════════
+            I MIEI TODO — da /api/admin/todos (C1a-2b)
+            ══════════════════════════════════════════════════════════ */}
+        <TodoToday />
 
         {/* ══════════════════════════════════════════════════════════
             ATTIVITÀ RECENTE — da recentActivity[] (A3)
