@@ -284,3 +284,62 @@ class HealthController(APIBaseController):
                 'roles': roles,    # 29/09/2026: multi-ruolo
             },
         })
+
+    @http.route('/api/v1/auth/me', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def me(self, **kwargs):  # pylint: disable=unused-argument
+        """
+        01/10/2026 (C1a-1.5): dati dell'utente loggato dal JWT.
+        Header: Authorization: JWT <token>
+        Risposta: {success: True, data: {user: {id, login, name, roles, ...}}}
+        """
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+
+        auth = request.httprequest.headers.get('Authorization', '')
+        if not auth.startswith('JWT '):
+            return self._json_response({'error': 'Token mancante'}, 401)
+        user = self._validate_jwt(auth[4:])
+        if not user:
+            return self._json_response({'error': 'Token invalido'}, 401)
+
+        # Calcolo roles dai gruppi reali (stessa logica di /auth/login).
+        user_group_ids = set(user.groups_id.ids)
+        def _has(xmlid):
+            g = request.env.ref(xmlid, raise_if_not_found=False)
+            return g and g.id in user_group_ids
+
+        roles = []
+        if _has('base.group_system') or _has('sales_team.group_sale_manager'):
+            roles.append('admin')
+        if _has('erpv6_core.group_chief_projects'):
+            roles.append('chief_projects')
+        if _has('erpv6_core.group_chief_accounting'):
+            roles.append('chief_accounting')
+        if _has('erpv6_core.group_chief_bandi'):
+            roles.append('chief_bandi')
+        if _has('erpv6_core.group_chief_marketing'):
+            roles.append('chief_marketing')
+        if _has('erpv6_core.group_chief_kb'):
+            roles.append('chief_kb')
+        if _has('erpv6_core.group_consulente'):
+            roles.append('consultant')
+        if not roles:
+            roles.append('client')
+
+        consultant = request.env['erpv6.consulting.consultant'].sudo().search(
+            [('partner_id', '=', user.partner_id.id)], limit=1)
+        email_slug = getattr(user, 'email_slug', None)
+
+        return self._json_response({
+            'user': {
+                'id': user.id,
+                'login': user.login,
+                'name': user.name,
+                'email': user.email or user.login,
+                'email_slug': email_slug,
+                'partner_id': user.partner_id.id,
+                'consultant_id': consultant.id if consultant else None,
+                'role': roles[0],
+                'roles': roles,
+            },
+        })
