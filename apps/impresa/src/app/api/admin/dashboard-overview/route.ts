@@ -36,15 +36,22 @@ export async function GET(request: NextRequest) {
     projectsRes,
     commissionsRes,
     paymentsRes,
+    recentActivityRes,
+    unreadSummaryRes,
   ] = await Promise.all([
     tryFetch(`${origin}/api/admin/deals`, auth),
-    tryFetch(`${origin}/api/admin/sign-requests?limit=1`, auth),
+    // 01/10/2026 (A1): limit=20 per costruire nextActions.records (max 5 usati)
+    tryFetch(`${origin}/api/admin/sign-requests?limit=20`, auth),
     tryFetch(`${origin}/api/admin/access-requests`, auth),
     tryFetch(`${origin}/api/admin/candidacies?state=nuova`, auth),
     tryFetch(`${origin}/api/admin/partners-payments`, auth),
     tryFetch(`${origin}/api/admin/partner-projects`, auth),
     tryFetch(`${origin}/api/admin/commissions`, auth),
     tryFetch(`${origin}/api/admin/payments`, auth),
+    // 01/10/2026 (A1): feed attività recenti (nuovo endpoint aggregato)
+    tryFetch(`${origin}/api/admin/dashboard/recent-activity`, auth),
+    // 01/10/2026 (A1): email non lette per progetto
+    tryFetch(`${origin}/api/admin/partner-projects/unread-summary`, auth),
   ]);
 
   // Deals KPI
@@ -89,6 +96,82 @@ export async function GET(request: NextRequest) {
   const projects = projectsRes?.projects || projectsRes?.data?.projects || [];
   const partnerProjectsCount = projects.length;
 
+  // ═════════════════════════════════════════════════════════════════
+  // 01/10/2026 (A1): nextActions — record actionable raggruppati per tipo
+  // Regole: max 5 record, href a lista sempre, href record se esiste
+  // ═════════════════════════════════════════════════════════════════
+  const nextActions: any[] = [];
+
+  // 1. Firme in attesa
+  const signRequests = signRes?.signRequests || signRes?.data?.signRequests || [];
+  if (signKpi.pending > 0) {
+    const pendingRecs = signRequests
+      .filter((s: any) => s.status === 'sent' || s.status === 'viewed')
+      .slice(0, 5)
+      .map((s: any) => {
+        const ts = s.sentAt || s.createdAt || null;
+        return {
+          id: s.id,
+          title: s.name || `Firma #${s.id}`,
+          subtitle: `stato: ${s.status}${s.partnerName ? ' — ' + s.partnerName : ''}`,
+          timestamp: ts,
+          // R1.5: /admin/firme non supporta ?highlight → href null
+          href: null,
+        };
+      })
+      .filter((r: any) => r.id && r.title);
+
+    nextActions.push({
+      type: 'sign_pending',
+      label: `${signKpi.pending} ${signKpi.pending === 1 ? 'firma in attesa' : 'firme in attesa'}`,
+      count: signKpi.pending,
+      href: '/admin/firme',
+      records: pendingRecs,
+    });
+  }
+
+  // 2. Email non lette (aggregato da unread-summary)
+  const unreadSummary = unreadSummaryRes?.summary || {};
+  const totalUnread = Object.values(unreadSummary).reduce(
+    (s: number, n: any) => s + (typeof n === 'number' ? n : 0),
+    0
+  );
+  if (totalUnread > 0) {
+    nextActions.push({
+      type: 'email_unread',
+      label: `${totalUnread} ${totalUnread === 1 ? 'email non letta' : 'email non lette'}`,
+      count: totalUnread,
+      href: '/admin/partner-projects',
+      // Il summary non ha record singoli → records vuoto
+      records: [],
+    });
+  }
+
+  // 3. Incassi in attesa (tranche consulenza)
+  if (tranchesPendingCount > 0) {
+    const tranchesRecs = tranchesDaIncassare
+      .slice(0, 5)
+      .map((t: any) => ({
+        id: t.id,
+        title: t.descrizione || t.name || `Tranche #${t.id}`,
+        subtitle: `€${(t.importo || 0).toLocaleString('it-IT')} — ${t.stato}`,
+        timestamp: t.create_date || null,
+        href: null,
+      }))
+      .filter((r: any) => r.id && r.title);
+
+    nextActions.push({
+      type: 'payment_due',
+      label: `${tranchesPendingCount} ${tranchesPendingCount === 1 ? 'incasso in attesa' : 'incassi in attesa'}`,
+      count: tranchesPendingCount,
+      href: '/admin/payments',
+      records: tranchesRecs,
+    });
+  }
+
+  // recentActivity — già pronto dall'endpoint dedicato
+  const recentActivity = recentActivityRes?.recentActivity || [];
+
   return NextResponse.json({
     success: true,
     kpi: {
@@ -121,5 +204,8 @@ export async function GET(request: NextRequest) {
       candNew > 0 && { type: 'candidacies_new', count: candNew, label: 'Nuove candidature partnership', href: '/admin/candidature' },
       tranchesPendingCount > 0 && { type: 'tranches_pending', count: tranchesPendingCount, label: 'Tranche consulenza da incassare', href: '/admin/payments' },
     ].filter(Boolean),
+    // 01/10/2026 (A1): nuovi campi
+    nextActions,
+    recentActivity,
   });
 }
