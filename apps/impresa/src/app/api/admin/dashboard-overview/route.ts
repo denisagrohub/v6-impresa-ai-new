@@ -9,6 +9,7 @@
 // ritorna valore default (0) senza bloccare la dashboard.
 // ═══════════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
+import { odoo } from '@/lib/odoo/api-adapter';
 
 async function tryFetch(url: string, auth: string): Promise<any> {
   try {
@@ -71,7 +72,21 @@ export async function GET(request: NextRequest) {
     sent: sc.sent || 0,
     viewed: sc.viewed || 0,
     pending: (sc.sent || 0) + (sc.viewed || 0),
+    over48h: 0,
   };
+
+  // 01/10/2026 (C3a): badge "da >48h" — conta le sign request pendenti
+  // con sent_at più vecchio di 48 ore (dai record già nel payload).
+  {
+    const srList = signRes?.signRequests || signRes?.data?.signRequests || [];
+    const cutoff = Date.now() - 48 * 3600 * 1000;
+    for (const s of srList) {
+      if (s.status !== 'sent' && s.status !== 'viewed') continue;
+      if (!s.sentAt) continue;
+      const t = new Date(s.sentAt.replace(' ', 'T') + 'Z').getTime();
+      if (!Number.isNaN(t) && t < cutoff) signKpi.over48h++;
+    }
+  }
 
   // Richieste accesso playbook
   const accessReqCount = accessRes?.count || accessRes?.data?.count || 0;
@@ -95,6 +110,28 @@ export async function GET(request: NextRequest) {
   // Progetti Partner (root tracking_relation padre)
   const projects = projectsRes?.projects || projectsRes?.data?.projects || [];
   const partnerProjectsCount = projects.length;
+
+  // 01/10/2026 (C3a): breakdown "con deal / senza deal" per Progetti Partner.
+  // Per ciascun progetto (<=20), un search_count su erpv6.deal per relation_id.
+  let partnerProjectsWithDeal = 0;
+  if (projects.length > 0) {
+    try {
+      await odoo.connect();
+      for (const p of projects) {
+        try {
+          const cnt = await odoo.execute('erpv6.deal', 'search_count', [
+            [['relation_id', '=', p.id]],
+          ]);
+          if ((typeof cnt === 'number' ? cnt : 0) > 0) partnerProjectsWithDeal++;
+        } catch {
+          // singolo progetto fallito: non blocca, resta "senza deal"
+        }
+      }
+    } catch (e: any) {
+      console.error('C3a: partner-projects withDeal error:', e.message);
+    }
+  }
+  const partnerProjectsWithoutDeal = partnerProjectsCount - partnerProjectsWithDeal;
 
   // ═════════════════════════════════════════════════════════════════
   // 01/10/2026 (A1): nextActions — record actionable raggruppati per tipo
@@ -176,17 +213,25 @@ export async function GET(request: NextRequest) {
     success: true,
     kpi: {
       dealsActive: {
-        count: dealsKpi.active + dealsKpi.signing,
+        // 01/10/2026 (C3a): tutti gli stati non terminali
+        // (forecasting, negotiating, frozen, signing, active).
+        // Esclude solo closed e cancelled.
+        count: dealsKpi.forecasting + dealsKpi.frozen + dealsKpi.signing + dealsKpi.active,
         feeMonthlyBase: dealsKpi.feeMonthlyBase,
       },
       partnerProjects: {
         count: partnerProjectsCount,
         candidaciesNew: candNew,
+        // 01/10/2026 (C3a): breakdown
+        withDeal: partnerProjectsWithDeal,
+        withoutDeal: partnerProjectsWithoutDeal,
       },
       signRequestsPending: {
         count: signKpi.pending,
         sent: signKpi.sent,
         viewed: signKpi.viewed,
+        // 01/10/2026 (C3a): firme pendenti da oltre 48h
+        over48h: signKpi.over48h,
       },
       accessRequestsPending: {
         count: accessReqCount,

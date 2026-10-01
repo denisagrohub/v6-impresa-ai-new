@@ -28,8 +28,8 @@ import { userHasPermission } from '@/lib/permissions';
 
 type Kpi = {
   dealsActive: { count: number; feeMonthlyBase: number };
-  partnerProjects: { count: number; candidaciesNew: number };
-  signRequestsPending: { count: number; sent: number; viewed: number };
+  partnerProjects: { count: number; candidaciesNew: number; withDeal?: number; withoutDeal?: number };
+  signRequestsPending: { count: number; sent: number; viewed: number; over48h?: number };
   accessRequestsPending: { count: number };
   accounting: {
     commissionsTotal: number;
@@ -251,6 +251,12 @@ export default function AdminDashboard() {
                   {kpi.partnerProjects.count}
                 </div>
                 <div className="text-xs text-gray-500">Progetti Partner</div>
+                {/* 01/10/2026 (C3a): breakdown con/senza deal */}
+                {typeof kpi.partnerProjects.withDeal === 'number' && (
+                  <div className="text-[11px] text-gray-500 mt-1">
+                    {kpi.partnerProjects.withDeal} con deal · {kpi.partnerProjects.withoutDeal ?? 0} senza deal
+                  </div>
+                )}
                 {kpi.partnerProjects.candidaciesNew > 0 && (
                   <div className="text-[11px] text-red-600 font-semibold mt-1">
                     {kpi.partnerProjects.candidaciesNew} candidature nuove
@@ -271,13 +277,16 @@ export default function AdminDashboard() {
                   </div>
                   <ArrowRight size={14} className="text-gray-300 group-hover:text-amber-500 transition-colors" />
                 </div>
-                <div className="text-3xl font-bold text-[#1a2744] leading-none mb-1">
+                <div className={`text-3xl font-bold leading-none mb-1 ${kpi.signRequestsPending.count === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                   {kpi.signRequestsPending.count}
                 </div>
                 <div className="text-xs text-gray-500">Firme in attesa</div>
                 {kpi.signRequestsPending.count > 0 && (
                   <div className="text-[11px] text-gray-500 mt-1">
                     {kpi.signRequestsPending.sent} inviate · {kpi.signRequestsPending.viewed} viste
+                    {typeof kpi.signRequestsPending.over48h === 'number' && kpi.signRequestsPending.over48h > 0 && (
+                      <span className="text-amber-600 font-semibold"> · {kpi.signRequestsPending.over48h} da &gt;48h</span>
+                    )}
                   </div>
                 )}
               </Link>
@@ -299,7 +308,7 @@ export default function AdminDashboard() {
                   </div>
                   <ArrowRight size={14} className="text-gray-300 group-hover:text-emerald-500 transition-colors" />
                 </div>
-                <div className="text-3xl font-bold text-[#1a2744] leading-none mb-1">
+                <div className={`text-3xl font-bold leading-none mb-1 ${kpi.accessRequestsPending.count === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                   {kpi.accessRequestsPending.count}
                 </div>
                 <div className="text-xs text-gray-500">Richieste accesso</div>
