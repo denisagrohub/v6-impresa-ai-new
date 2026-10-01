@@ -20,6 +20,8 @@ class Erpv6DeepSourceConfig(models.Model):
         ('google_trends', 'Google Trends'),
         ('amazon', 'Amazon Product API'),
         ('generic_scraper', 'Scraping Generico')
+    ,
+        ('wikipedia', 'Wikipedia (API pubblica)'),
     ], string='Tipo Fetch', required=True)
     target_url_pattern = fields.Char(string='URL/Pattern Target')
     api_credentials = fields.Char(string='Credenziali API (cifrate)')

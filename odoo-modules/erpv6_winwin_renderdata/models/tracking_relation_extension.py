@@ -112,6 +112,17 @@ class Erpv6TrackingRelation(models.Model):
         string='Revenue model default',
         help='Modello di ricavo di default per i deal figli.')
 
+    # 01/10/2026 (F3.A): scouting automatico da charter.
+    # x_v6_scouting è già su res.partner ma serve sul soggetto (padre) per
+    # storicizzare le ricerche fatte in base al charter. Formato JSON:
+    #   {"schemaVersion":1, "generated_at":"...", "queries":[...],
+    #    "results":[{...}], "sources_used":[...]}
+    x_v6_scouting = fields.Text(
+        string='Scouting relazione',
+        help='Risultati dello scouting automatico generato dal charter.')
+    x_v6_scouting_updated_at = fields.Datetime(
+        string='Scouting aggiornato il', readonly=True)
+
     def notify_owner(self, partner, subject, body):
         """Notifica diretta forzata in-app: message_notify() sul nodo +
         forza la riga mail.notification appena creata per il destinatario
@@ -622,6 +633,16 @@ class Erpv6TrackingRelation(models.Model):
                 best_score = score
                 best = s
 
+        # 30/09/2026 (fix): fallback intelligente.
+        # Se nessuno schema ha matchato (best_score = 0) ma esistono schemi
+        # attivi, ritorna il primo per non lasciare il form vuoto.
+        # L'admin vede comunque il dropdown e può cambiare.
+        if best is None and schemas:
+            best = schemas[0]
+            _logger.info(
+                '_select_schema_for_relation: nessun match, fallback a %s',
+                best.code)
+
         return best
 
     def _propagate_schema_to_children(self):
@@ -645,6 +666,244 @@ class Erpv6TrackingRelation(models.Model):
             'schema_applied_at': fields.Datetime.now(),
         })
         return len(children)
+
+    def _scouting_generate_plan(self, charter, project_name):
+        """Genera il PIANO scouting (queries + sources) via AI.
+
+        01/10/2026 (F3.A v2): il piano è dinamico. L'AI legge nome progetto
+        + charter, e sceglie QUAИ quali fonti dal catalogo usare e con quali
+        query. Niente più hardcoded "wikipedia + trends".
+        """
+        self.ensure_one()
+        import json as _json
+        Bridge = self.env['erpv6.omni.bridge'].sudo()
+
+        # Fonti disponibili: le leggo dal catalogo
+        available = self.env['erpv6.deep.source.config'].sudo().search([
+            ('is_active', '=', True),
+        ])
+        sources_list = [
+            {'fetch_type': c.fetch_type, 'name': c.name}
+            for c in available if c.fetch_type
+        ]
+        if not sources_list:
+            return None
+
+        prompt = f"""Sei un analista di scouting B2B. Devi generare un piano di arricchimento per un progetto partner, con dati di mercato aggiornati.
+
+PROGETTO: {project_name}
+
+CHARTER (compilato dall'utente, può essere vuoto):
+- Settore: {charter.get('pitchSettore') or 'non specificato'}
+- Origine: {charter.get('origin') or 'non specificato'}
+- Contesto normativo: {charter.get('regulatoryContext') or 'non specificato'}
+- Requisiti: {charter.get('requirements') or 'non specificato'}
+- Termini commerciali: {charter.get('commercialTerms') or 'non specificato'}
+
+FONTI DISPONIBILI (usa SOLO queste fetch_type):
+{_json.dumps(sources_list, ensure_ascii=False, indent=2)}
+
+Genera ESATTAMENTE 3 query di ricerca (max 5 parole ciascuna) e assegnale alle fonti.
+
+Rispondi SOLO con un JSON valido (no markdown, no testo attorno):
+{{
+  "queries": ["query1", "query2", "query3"],
+  "plan": [
+    {{"fetch_type": "<una delle fetch_type sopra>", "query": "query1", "rationale": "perché"}},
+    {{"fetch_type": "...", "query": "query2", "rationale": "..."}},
+    {{"fetch_type": "...", "query": "query3", "rationale": "..."}}
+  ]
+}}"""
+
+        try:
+            res = Bridge.execute_ai_task(
+                task_type='scouting_plan_generation',
+                prompt=prompt,
+                context={'relation_id': self.id},
+            )
+            if not res.get('success'):
+                _logger.warning('_scouting_generate_plan AI KO: %s', res.get('error'))
+                return None
+
+            # Estrazione: struttura OpenAI-compatible (Gemini via OmniRoute)
+            # res = {'success': True, 'data': {'choices': [{'message': {'content': '...'}}]}}
+            content = ''
+            data = res.get('data') or {}
+            choices = data.get('choices') if isinstance(data, dict) else None
+            if choices and isinstance(choices, list):
+                first = choices[0] or {}
+                msg = first.get('message') or {}
+                content = (msg.get('content') or '').strip()
+            # Fallback: campo diretto (altri provider)
+            if not content:
+                content = (res.get('content') or res.get('response') or '').strip()
+            # Pulizia markdown
+            if content.startswith('```'):
+                content = content.split('```')[1]
+                if content.startswith('json'):
+                    content = content[4:].strip()
+                content = content.strip('`').strip()
+            # A volte l'AI include "JSON:" o simile
+            if ':' in content.split('\n')[0] and not content.startswith('{'):
+                content = content.split(':', 1)[1].strip()
+
+            return _json.loads(content)
+        except Exception as e:
+            _logger.warning('_scouting_generate_plan parse KO: %s', e)
+            return None
+
+    def _scouting_execute_step(self, step):
+        """Esegue un singolo step del piano (fetch_type + query)."""
+        self.ensure_one()
+        ft = step.get('fetch_type')
+        q = step.get('query')
+        if not ft or not q:
+            return None
+
+        Config = self.env['erpv6.deep.source.config'].sudo()
+        cfg = Config.search([('fetch_type', '=', ft), ('is_active', '=', True)], limit=1)
+        if not cfg:
+            _logger.debug('scouting: nessuna config per fetch_type=%s', ft)
+            return {'fetch_type': ft, 'query': q, 'error': 'config non trovata'}
+
+        # Parametri context in base al tipo di fonte
+        ctx_map = {
+            'wikipedia': {'topic': q},
+            'google_trends': {'keyword': q},
+            'amazon': {'query': q},
+        }
+        ctx = ctx_map.get(ft, {'query': q, 'topic': q})
+
+        try:
+            result = self.env['erpv6.deep.source.engine'].sudo().search_and_extract(
+                source_config_id=cfg.id,
+                context_extra=ctx,
+                extraction_schema_override=cfg.default_extraction_schema,
+            )
+            return {
+                'fetch_type': ft,
+                'query': q,
+                'rationale': step.get('rationale', ''),
+                'kb_id': result.id if hasattr(result, 'id') else None,
+            }
+        except Exception as e:
+            _logger.warning('scouting step %s/%s KO: %s', ft, q, e)
+            return {'fetch_type': ft, 'query': q, 'error': str(e)}
+
+    def action_run_scouting_from_charter(self):
+        """Scouting automatico: AI genera piano, sistema esegue.
+
+        01/10/2026 (F3.A v2): refactor. Legge nome progetto + charter,
+        chiede all'AI il PIANO (queries + sources dal catalogo), esegue,
+        aggrega su x_v6_scouting.
+        """
+        self.ensure_one()
+        import json as _json
+        from odoo import fields as _fields
+
+        charter_raw = self.x_v6_charter or '{}'
+        try:
+            charter = _json.loads(charter_raw) if isinstance(charter_raw, str) else (charter_raw or {})
+        except Exception:
+            charter = {}
+
+        # 1. Genera piano via AI
+        plan = self._scouting_generate_plan(charter, self.name)
+
+        queries = (plan or {}).get('queries') or []
+        steps = (plan or {}).get('plan') or []
+
+        # Fallback: se AI KO, uso il nome progetto
+        if not queries:
+            queries = [self.name]
+            steps = [{'fetch_type': 'wikipedia', 'query': self.name, 'rationale': 'Fallback (AI KO)'}]
+
+        # 2. Esegui ogni step del piano
+        # 01/10/2026: separo ok da errori. Tengo entrambi nei risultati (audit)
+        # ma sources_used conta solo quelle che hanno funzionato davvero.
+        results = []
+        sources_used = set()
+        for step in steps:
+            r = self._scouting_execute_step(step)
+            if r:
+                results.append(r)
+                if 'error' not in r:
+                    sources_used.add(r['fetch_type'])
+
+        # 3. Salva aggregato
+        payload = {
+            'schemaVersion': 2,
+            'generated_at': _fields.Datetime.now().isoformat() + 'Z',
+            'generated_by': 'auto',
+            'project_name': self.name,
+            'charter_hash': hash(_json.dumps(charter, sort_keys=True, default=str)) & 0xFFFFFFFF,
+            'queries': queries,
+            'sources_used': list(sources_used),
+            'results': results,
+        }
+
+        self.write({
+            'x_v6_scouting': _json.dumps(payload, ensure_ascii=False, default=str),
+            'x_v6_scouting_updated_at': _fields.Datetime.now(),
+        })
+
+        # 4. Log su chatter
+        try:
+            self.message_post(
+                body=f'🔍 <b>Scouting automatico</b>: {len(queries)} query su {len(sources_used)} fonti.<br/>'
+                     f'Query: {" · ".join(queries)}'
+            )
+        except Exception:
+            pass
+
+        return {
+            'success': True,
+            'queries': queries,
+            'sources_used': list(sources_used),
+            'results_count': len(results),
+        }
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Override create: trigger scouting automatico su progetti root.
+
+        01/10/2026 (F3.A v2): quando viene creato un progetto padre
+        (parent_id=False, child_kind != 'parte'), dopo il commit della
+        transazione lancio in background lo scouting dal charter.
+        L'utente non aspetta — la pagina si apre subito, lo scouting
+        appare in 20-60 sec se ricarica.
+        """
+        records = super().create(vals_list)
+        for rec in records:
+            if rec.parent_id:
+                continue
+            if rec.child_kind == 'parte':
+                continue
+            try:
+                self.env.cr.postcommit.add(
+                    lambda rid=rec.id: self._scouting_after_commit(rid)
+                )
+            except Exception as e:
+                _logger.debug('postcommit add skip: %s', e)
+        return records
+
+    @api.model
+    def _scouting_after_commit(self, relation_id):
+        """Esegue lo scouting in un nuovo cursor dopo il commit.
+
+        Best effort: se fallisce, log e pace. Non blocca mai nulla.
+        """
+        try:
+            with self.pool.cursor() as new_cr:
+                new_env = api.Environment(new_cr, self.env.uid, self.env.context)
+                rel = new_env['erpv6.tracking.relation'].sudo().browse(relation_id)
+                if not rel.exists():
+                    return
+                result = rel.action_run_scouting_from_charter()
+                _logger.info('scouting post-commit rel %s: %s', relation_id, result)
+                new_cr.commit()
+        except Exception as e:
+            _logger.warning('scouting post-commit KO rel %s: %s', relation_id, e)
 
     @api.model
     def action_create_deal(self, params):

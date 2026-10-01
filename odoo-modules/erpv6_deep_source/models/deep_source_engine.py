@@ -23,6 +23,8 @@ class Erpv6DeepSourceEngine(models.AbstractModel):
             return self._fetch_google_trends(config, context_extra)
         elif fetch_type == 'amazon':
             return self._fetch_amazon(config, context_extra)
+        elif fetch_type == 'wikipedia':
+            return self._fetch_wikipedia(config, context_extra)
         else:
             raise NotImplementedError(
                 f"API '{fetch_type}' non implementata. "
@@ -56,6 +58,63 @@ class Erpv6DeepSourceEngine(models.AbstractModel):
             "3) Regione marketplace specificata, "
             "4) Libreria python-amazon-paapi o implementazione REST diretta."
         )
+
+    def _fetch_wikipedia(self, config, context_extra=None):
+        """Wikipedia IT summary API — no auth, dati pubblici.
+
+        01/10/2026 (F3.A): usato per scouting settore/progetto. Il topic
+        viene dal context_extra (es. 'fotovoltaico_aziende_italia').
+        """
+        import requests as _req
+        topic = None
+        if context_extra:
+            topic = context_extra.get('topic') or context_extra.get('query')
+        if not topic:
+            return None
+        # Rimuovo spazi -> underscore (formato Wikipedia)
+        topic_slug = topic.strip().replace(' ', '_')
+
+        try:
+            # Endpoint pubblico REST v1, no auth, CORS-friendly
+            url = f'https://it.wikipedia.org/api/rest_v1/page/summary/{topic_slug}'
+            r = _req.get(url, timeout=10, headers={
+                'User-Agent': 'erpv6-scouting/1.0 (contact@v6impresa.it)',
+                'Accept': 'application/json',
+            })
+            if r.status_code == 404:
+                # Provo con search API
+                search_url = 'https://it.wikipedia.org/w/api.php'
+                sr = _req.get(search_url, params={
+                    'action': 'query', 'list': 'search',
+                    'srsearch': topic, 'format': 'json', 'srlimit': 1,
+                }, timeout=10, headers={
+                    'User-Agent': 'erpv6-scouting/1.0 (contact@v6impresa.it)',
+                })
+                if sr.status_code == 200:
+                    data = sr.json()
+                    hits = data.get('query', {}).get('search', [])
+                    if hits:
+                        first = hits[0]
+                        return (
+                            f"TITLE: {first.get('title')}\n"
+                            f"SNIPPET: {first.get('snippet', '').replace('<span class="searchmatch">', '').replace('</span>', '')}\n"
+                            f"SOURCE: Wikipedia IT (search)"
+                        )
+                return None
+            if r.status_code != 200:
+                _logger.warning('wikipedia %s: %s', topic_slug, r.status_code)
+                return None
+            d = r.json()
+            return (
+                f"TITLE: {d.get('title', '')}\n"
+                f"DESCRIPTION: {d.get('description', '')}\n"
+                f"EXTRACT: {d.get('extract', '')}\n"
+                f"URL: {d.get('content_urls', {}).get('desktop', {}).get('page', '')}\n"
+                f"SOURCE: Wikipedia IT"
+            )
+        except Exception as e:
+            _logger.warning('_fetch_wikipedia %s: %s', topic, e)
+            return None
 
     def _call_scraper_service(self, url, wait_for='networkidle', timeout_ms=15000):
         """
