@@ -23,6 +23,7 @@ import {
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { OdooStatus } from '@/components/admin/OdooStatus';
 import ActionToday from '@/components/admin/dashboard/ActionToday';
+import ActivityFeed from '@/components/admin/dashboard/ActivityFeed';
 
 type Kpi = {
   dealsActive: { count: number; feeMonthlyBase: number };
@@ -60,6 +61,7 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
   const [kpi, setKpi] = useState<Kpi | null>(null);
   const [nextActions, setNextActions] = useState<NextAction[]>([]);
+  const [recentActivity, setRecentActivity] = useState<Array<{ type: string; icon: string; title: string; href: string | null; timestamp: string }>>([]);
 
   const authHeaders = (): Record<string, string> => {
     try {
@@ -78,6 +80,7 @@ export default function AdminDashboard() {
       if (!r.ok || !d.success) { setError(d.error || 'Errore'); return; }
       setKpi(d.kpi);
       setNextActions(d.nextActions || []);
+      setRecentActivity(d.recentActivity || []);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -268,6 +271,11 @@ export default function AdminDashboard() {
             AZIONI DI OGGI — da nextActions[] (A2)
             ══════════════════════════════════════════════════════════ */}
         <ActionToday nextActions={nextActions} onRefresh={loadData} />
+
+        {/* ══════════════════════════════════════════════════════════
+            ATTIVITÀ RECENTE — da recentActivity[] (A3)
+            ══════════════════════════════════════════════════════════ */}
+        <ActivityFeed activity={recentActivity} />
 
         {/* ══════════════════════════════════════════════════════════
             Azioni rapide
