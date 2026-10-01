@@ -17,11 +17,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  FolderKanban, Briefcase, FileSignature, Send, AlertTriangle,
+  FolderKanban, Briefcase, FileSignature, Send,
   ArrowRight, Loader2, RefreshCw, Euro, Users, Landmark,
 } from 'lucide-react';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { OdooStatus } from '@/components/admin/OdooStatus';
+import ActionToday from '@/components/admin/dashboard/ActionToday';
 
 type Kpi = {
   dealsActive: { count: number; feeMonthlyBase: number };
@@ -35,11 +36,18 @@ type Kpi = {
   };
 };
 
-type Alert = {
+type NextAction = {
   type: string;
   count: number;
   label: string;
   href: string;
+  records: Array<{
+    id: number | string;
+    title: string;
+    subtitle: string;
+    timestamp: string | null;
+    href: string | null;
+  }>;
 };
 
 const fmtEur = (n: number) =>
@@ -51,7 +59,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [kpi, setKpi] = useState<Kpi | null>(null);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [nextActions, setNextActions] = useState<NextAction[]>([]);
 
   const authHeaders = (): Record<string, string> => {
     try {
@@ -69,7 +77,7 @@ export default function AdminDashboard() {
       const d = await r.json();
       if (!r.ok || !d.success) { setError(d.error || 'Errore'); return; }
       setKpi(d.kpi);
-      setAlerts(d.alerts || []);
+      setNextActions(d.nextActions || []);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -257,40 +265,9 @@ export default function AdminDashboard() {
         )}
 
         {/* ══════════════════════════════════════════════════════════
-            ALERT OPERATIVI — solo se ce ne sono
+            AZIONI DI OGGI — da nextActions[] (A2)
             ══════════════════════════════════════════════════════════ */}
-        {alerts.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3 flex items-center gap-1.5">
-              <AlertTriangle size={12} /> Attenzione richiesta
-            </h2>
-            <div className="space-y-2">
-              {alerts.map((a, i) => (
-                <Link
-                  key={i}
-                  href={a.href}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors group"
-                >
-                  <span className="w-7 h-7 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                    {a.count}
-                  </span>
-                  <span className="flex-1 text-sm font-medium text-amber-900">{a.label}</span>
-                  <ArrowRight size={14} className="text-amber-600 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════
-            Nessun alert → messaggio positivo
-            ══════════════════════════════════════════════════════════ */}
-        {alerts.length === 0 && kpi && (
-          <div className="mb-8 p-4 rounded-xl border border-emerald-100 bg-emerald-50/50 text-sm text-emerald-800 flex items-center gap-2">
-            <span className="text-lg">✨</span>
-            Tutto sotto controllo — nessuna azione in attesa.
-          </div>
-        )}
+        <ActionToday nextActions={nextActions} onRefresh={loadData} />
 
         {/* ══════════════════════════════════════════════════════════
             Azioni rapide
