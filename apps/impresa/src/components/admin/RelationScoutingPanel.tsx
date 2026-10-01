@@ -82,14 +82,41 @@ export default function RelationScoutingPanel({
       const d = await r.json();
       if (!d.success) throw new Error(d.error || 'Errore');
       setRescoutMsg('Scouting completato. Ricarico dati…');
-      // Ricarico il payload completo dal GET
-      const r2 = await fetch(`/api/admin/partner-projects/${relationId}`);
-      const d2 = await r2.json();
-      if (d2.success && d2.project?.x_v6_scouting) {
+
+      // Il backend POST è sincrono ma la write potrebbe non essere
+      // ancora leggibile (edge case transazionale). Retry con backoff.
+      let loaded = false;
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
         try {
-          const parsed = JSON.parse(d2.project.x_v6_scouting);
-          setLocalScouting(parsed);
+          const r2 = await fetch(`/api/admin/partner-projects/${relationId}`);
+          const d2 = await r2.json();
+          // Il backend ritorna relationScouting già parsato (vedi route.ts)
+          const sc = d2?.project?.relationScouting ?? null;
+          if (sc && (sc.queries || sc.results)) {
+            setLocalScouting(sc);
+            loaded = true;
+            break;
+          }
+          // Fallback: campo raw
+          if (d2?.project?.x_v6_scouting) {
+            try {
+              const parsed = JSON.parse(d2.project.x_v6_scouting);
+              if (parsed && (parsed.queries || parsed.results)) {
+                setLocalScouting(parsed);
+                loaded = true;
+                break;
+              }
+            } catch {}
+          }
         } catch {}
+      }
+
+      if (loaded) {
+        setRescoutMsg('✅ Scouting aggiornato');
+        setTimeout(() => setRescoutMsg(null), 3000);
+      } else {
+        setRescoutMsg('⚠️ Scouting avviato ma dati non ancora disponibili. Riprova tra 30 sec.');
       }
     } catch (e: any) {
       setRescoutMsg(`Errore: ${e.message}`);
