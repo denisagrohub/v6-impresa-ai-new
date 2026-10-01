@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_erpv6_todo_tree" model="ir.ui.view">
+            <field name="name">erpv6.todo.list</field>
+            <field name="model">erpv6.todo</field>
+            <field name="arch" type="xml">
+                <list string="TODO" decoration-success="state=='done'" decoration-muted="state=='cancelled'">
+                    <field name="name"/>
+                    <field name="project_id"/>
+                    <field name="deal_id"/>
+                    <field name="due_date"/>
+                    <field name="state"/>
+                    <field name="user_id"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_erpv6_todo_form" model="ir.ui.view">
+            <field name="name">erpv6.todo.form</field>
+            <field name="model">erpv6.todo</field>
+            <field name="arch" type="xml">
+                <form string="TODO">
+                    <header>
+                        <button name="action_done" type="object" string="Segna fatto"
+                                class="btn-primary" invisible="state=='done'"/>
+                        <button name="action_reopen" type="object" string="Riapri"
+                                invisible="state!='done'"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name"/>
+                                <field name="user_id"/>
+                                <field name="due_date"/>
+                            </group>
+                            <group>
+                                <field name="project_id"/>
+                                <field name="deal_id"/>
+                                <field name="is_auto"/>
+                                <field name="source"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                        <group>
+                            <field name="done_at"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_erpv6_todo_search" model="ir.ui.view">
+            <field name="name">erpv6.todo.search</field>
+            <field name="model">erpv6.todo</field>
+            <field name="arch" type="xml">
+                <search string="TODO">
+                    <field name="name"/>
+                    <field name="project_id"/>
+                    <field name="deal_id"/>
+                    <field name="user_id"/>
+                    <filter name="filter_open" string="Aperti" domain="[('state','=','open')]"/>
+                    <filter name="filter_done" string="Fatti" domain="[('state','=','done')]"/>
+                    <filter name="filter_my" string="Miei" domain="[('user_id','=',uid)]"/>
+                    <separator/>
+                    <filter name="filter_overdue" string="Scaduti"
+                            domain="[('state','=','open'),('due_date','&lt;',context_today().strftime('%Y-%m-%d'))]"/>
+                    <group expand="0" string="Raggruppa per">
+                        <filter name="group_state" string="Stato" context="{'group_by':'state'}"/>
+                        <filter name="group_user" string="Assegnato a" context="{'group_by':'user_id'}"/>
+                        <filter name="group_project" string="Progetto" context="{'group_by':'project_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="view_erpv6_todo_kanban" model="ir.ui.view">
+            <field name="name">erpv6.todo.kanban</field>
+            <field name="model">erpv6.todo</field>
+            <field name="arch" type="xml">
+                <kanban default_group_by="state" class="o_kanban_small_column">
+                    <field name="name"/>
+                    <field name="state"/>
+                    <field name="user_id"/>
+                    <field name="due_date"/>
+                    <templates>
+                        <t t-name="kanban-box">
+                            <div class="oe_kanban_global_click">
+                                <div class="o_kanban_record_top">
+                                    <strong><field name="name"/></strong>
+                                </div>
+                                <div class="o_kanban_record_body">
+                                    <field name="user_id"/>
+                                    <field name="due_date"/>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <record id="action_erpv6_todo" model="ir.actions.act_window">
+            <field name="name">TODO</field>
+            <field name="res_model">erpv6.todo</field>
+            <field name="view_mode">kanban,list,form</field>
+            <field name="search_view_id" ref="view_erpv6_todo_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">Nessun TODO.</p>
+                <p>Crea il primo TODO per te o per un consulente.</p>
+            </field>
+        </record>
+
+        <!-- Menu root V6 Impresa (condiviso, se non esiste già lo crea) -->
+        <menuitem id="menu_erpv6_todo_root" name="TODO" sequence="50"
+                  web_icon="erpv6_todo,static/description/icon.png"
+                  groups="base.group_user"/>
+        <menuitem id="menu_erpv6_todo_list" name="I miei TODO"
+                  parent="menu_erpv6_todo_root"
+                  action="action_erpv6_todo"
+                  sequence="10"/>
+        <menuitem id="menu_erpv6_todo_all" name="Tutti i TODO"
+                  parent="menu_erpv6_todo_root"
+                  action="action_erpv6_todo"
+                  sequence="20"
+                  groups="base.group_system"/>
+
+    </data>
+</odoo>
