@@ -62,7 +62,11 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
         fetch('/api/admin/access-requests', {
           headers: { Authorization: `JWT ${u.token}` },
         }).then(r => r.json()).catch(() => null),
-      ]).then(([srRes, emRes, arRes]) => {
+        // 02/10/2026 (C1a-5): badge TODO in ritardo
+        fetch('/api/admin/todos/counts?scope=mine', {
+          headers: { Authorization: `JWT ${u.token}` },
+        }).then(r => r.json()).catch(() => null),
+      ]).then(([srRes, emRes, arRes, tdRes]) => {
         const list: AdminMenuBadge[] = [];
 
         // Firme: sent + viewed
@@ -84,6 +88,12 @@ export default function AdminSidebar({ badges = [], onLogout, user: userProp }: 
         const arP = arRes?.data || arRes;
         if (arP?.success && (arP.count || 0) > 0) {
           list.push({ href: '/admin/access-requests', count: arP.count, color: 'bg-amber-500' });
+        }
+
+        // 02/10/2026 (C1a-5): badge TODO in ritardo
+        const tdP = tdRes?.data || tdRes;
+        if (tdP?.success && (tdP.overdue || 0) > 0) {
+          list.push({ href: '/admin/todo', count: tdP.overdue, color: 'bg-amber-500' });
         }
 
         setBadges2(list);

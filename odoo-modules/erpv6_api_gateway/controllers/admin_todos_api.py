@@ -116,6 +116,57 @@ class AdminTodosAPIController(ConsultantAPIController):
         })
 
     # ═══════════════════════════════════════════════════════════════
+    # GET /api/v1/admin/todos/counts — contatori per badge sidebar
+    # 02/10/2026 (C1a-5): open / overdue / today / done_today
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/todos/counts', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def counts_todos(self, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+
+        args = request.httprequest.args
+        scope = (args.get('scope') or 'mine').strip().lower()
+        is_admin = self._is_strict_admin(user)
+
+        if scope == 'all' and not is_admin:
+            return self._json_response(
+                {'error': 'Scope "all" riservato agli amministratori'}, 403)
+
+        domain = []
+        if scope == 'mine':
+            domain.append(('user_id', '=', user.id))
+
+        Todo = request.env['erpv6.todo'].sudo()
+        today = fields.Date.today()
+
+        def count(extra):
+            return Todo.search_count(domain + extra)
+
+        overdue = count([('state', '=', 'open'), ('due_date', '<', today)])
+        open_count = count([('state', '=', 'open')])
+        today_count = count([('state', '=', 'open'), ('due_date', '=', today)])
+        # done_today: done con done_at >= inizio giornata
+        from datetime import datetime, time as _time
+        today_start = datetime.combine(today, _time.min)
+        done_today = count([
+            ('state', '=', 'done'),
+            ('done_at', '>=', today_start.strftime('%Y-%m-%d %H:%M:%S')),
+        ])
+
+        return self._json_response({
+            'open': open_count,
+            'overdue': overdue,
+            'today': today_count,
+            'done_today': done_today,
+            'scope': scope,
+        })
+
+    # ═══════════════════════════════════════════════════════════════
     # POST /api/v1/admin/todos
     # ═══════════════════════════════════════════════════════════════
     @http.route('/api/v1/admin/todos', type='http', auth='none',
