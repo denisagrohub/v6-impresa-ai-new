@@ -21,6 +21,7 @@ import {
 import DOMPurify from 'dompurify';
 // Componenti laterali: pannelli AI/note incastonati nelle card delle parti
 import { WorkAreaPanel } from '@/components/admin/WorkAreaPanel';
+import { useState } from 'react';
 import { ChildProjectsList, type ChildProject } from '@/components/projects/ChildProjectsList';
 import { DealCard, type DealCollegato } from '@/components/deals/DealCard';
 import NotesBoard from '@/components/admin/NotesBoard';
@@ -74,8 +75,11 @@ export function OperativaMain({
   operativeContext, viewMode, targets,
   emailState, callbacks,
 }: Props) {
+  // 02/10/2026 (C4b): collassabile per la sezione "Progetti operativi"
+  const [childProjectsOpen, setChildProjectsOpen] = useState(true);
+
   return (
-    <main className="flex flex-col min-w-0 bg-white overflow-y-auto p-6 border-r border-[#e2e8f0]">
+    <main className="flex flex-col min-w-0 bg-white p-6 border-r border-[#e2e8f0]">
 
       {/* HEADER CONTESTUALE (se contesto != progetto) */}
       {operativeContext && operativeContext.type !== 'project' && (
@@ -121,6 +125,29 @@ export function OperativaMain({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 02/10/2026 (C4b): Progetti operativi in alto (era in fondo),
+          collassabile. Default aperto. */}
+      {childProjects.length > 0 && (
+        <section className="mb-6 rounded-xl border border-gray-200 bg-white">
+          <button
+            onClick={() => setChildProjectsOpen((v) => !v)}
+            className="w-full flex items-center gap-2 px-5 py-3 hover:bg-gray-50 transition-colors text-left"
+          >
+            <ChevronDown
+              size={14}
+              className={`text-gray-400 transition-transform shrink-0 ${childProjectsOpen ? '' : '-rotate-90'}`}
+            />
+            <h2 className="text-base font-semibold text-[#0f172a]">Progetti operativi</h2>
+            <span className="text-xs text-gray-400 tabular-nums">({childProjects.length})</span>
+          </button>
+          {childProjectsOpen && (
+            <div className="px-5 pb-5">
+              <ChildProjectsList projects={childProjects} />
+            </div>
+          )}
+        </section>
       )}
 
       {viewMode === 'workbench' ? (
@@ -272,13 +299,6 @@ export function OperativaMain({
               onSendEmail={callbacks.onSendNote}
             />
           )}
-        </section>
-      )}
-
-      {childProjects.length > 0 && (
-        <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-          <h2 className="text-base font-semibold mb-3">Progetti operativi</h2>
-          <ChildProjectsList projects={childProjects} />
         </section>
       )}
 
