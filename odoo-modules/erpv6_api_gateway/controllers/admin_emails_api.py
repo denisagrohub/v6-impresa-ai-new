@@ -243,6 +243,50 @@ class AdminEmailsAPIController(ConsultantAPIController):
     # ================================================================
     # LIST
     # ================================================================
+    # ═══════════════════════════════════════════════════════════════
+    # GET /api/v1/admin/emails/counts — C2: conteggio non lette + tag
+    # Distingue "progetto" (alias su erpv6.tracking.relation.email_alias)
+    # da "personale" (slug utente o rumore).
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/emails/counts', type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def email_counts(self, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._check_admin_perm()
+        if err:
+            return err
+
+        logs = self._fetch_all_logs()
+        logs = [l for l in logs
+                if not self._is_consultant_alias(l.get('matched_alias') or '', user)]
+
+        # Set degli alias-progetto reali
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        relations = Relation.search([('email_alias', '!=', False)])
+        project_aliases = set(a.strip() for a in relations.mapped('email_alias') if a)
+
+        unread_total = 0
+        unread_project = 0
+        unread_personal = 0
+        for l in logs:
+            if l.get('is_read') or l.get('is_archived'):
+                continue
+            if l.get('direction') == 'inviata':
+                continue
+            unread_total += 1
+            alias = (l.get('matched_alias') or '').strip()
+            if alias and alias in project_aliases:
+                unread_project += 1
+            else:
+                unread_personal += 1
+
+        return self._json_response({
+            'unread_total': unread_total,
+            'unread_project': unread_project,
+            'unread_personal': unread_personal,
+        })
+
     @http.route('/api/v1/admin/emails',
                 type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def list_emails(self, **kwargs):

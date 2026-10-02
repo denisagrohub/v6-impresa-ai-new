@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   FolderKanban, Briefcase, FileSignature, Send,
-  ArrowRight, Loader2, RefreshCw, Euro, Users, Landmark,
+  ArrowRight, Loader2, RefreshCw, Euro, Users, Landmark, Mail,
 } from 'lucide-react';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { OdooStatus } from '@/components/admin/OdooStatus';
@@ -31,6 +31,7 @@ type Kpi = {
   dealsActive: { count: number; feeMonthlyBase: number };
   partnerProjects: { count: number; candidaciesNew: number; withDeal?: number; withoutDeal?: number };
   signRequestsPending: { count: number; sent: number; viewed: number; over48h?: number };
+  emailUnread?: { total: number; project: number; personal: number };
   accessRequestsPending: { count: number };
   accounting: {
     commissionsTotal: number;
@@ -64,6 +65,8 @@ export default function AdminDashboard() {
   const [kpi, setKpi] = useState<Kpi | null>(null);
   const [nextActions, setNextActions] = useState<NextAction[]>([]);
   const [recentActivity, setRecentActivity] = useState<Array<{ type: string; icon: string; title: string; href: string | null; timestamp: string }>>([]);
+  // 02/10/2026 (C2): conteggio email non lette
+  const [emailCounts, setEmailCounts] = useState<{ total: number; project: number; personal: number } | null>(null);
 
   // 01/10/2026 (A4): auto-refresh + stato live
   const [refreshError, setRefreshError] = useState<boolean>(false);
@@ -145,6 +148,30 @@ export default function AdminDashboard() {
     return () => clearInterval(t);
   }, []);
 
+  // 02/10/2026 (C2): conteggio email non lette (endpoint separato)
+  useEffect(() => {
+    const loadEmailCounts = async () => {
+      try {
+        const r = await fetch('/api/admin/emails/counts', { headers: authHeaders() });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d?.success !== false) {
+          setEmailCounts({
+            total: d.total ?? d.unread_total ?? 0,
+            project: d.project ?? d.unread_project ?? 0,
+            personal: d.personal ?? d.unread_personal ?? 0,
+          });
+        }
+      } catch {
+        // silenzioso
+      }
+    };
+    loadEmailCounts();
+    const t = setInterval(loadEmailCounts, 120_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const roles: string[] = user?.roles || (user?.role ? [user.role] : []);
 
   if (loading) {
@@ -210,7 +237,7 @@ export default function AdminDashboard() {
             KPI STRIP — 4 card cliccabili
             ══════════════════════════════════════════════════════════ */}
         {kpi && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
 
             {/* Deal attivi */}
             {userHasPermission(roles, 'dashboard.view_kpi_deals') && (
@@ -346,6 +373,32 @@ export default function AdminDashboard() {
                     {kpi.accounting.tranchesPendingCount} tranche da incassare
                   </div>
                 )}
+              </Link>
+            )}
+
+            {/* Email non lette — C2 (02/10/2026) */}
+            {emailCounts && (
+              <Link
+                href="/admin/mia-email"
+                className={`group bg-white rounded-2xl border transition-all p-5 ${
+                  emailCounts.total > 0
+                    ? 'border-gray-200 hover:border-indigo-200 hover:shadow-md'
+                    : 'border-gray-100 hover:border-indigo-200 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                    <Mail size={20} className="text-gray-600" />
+                  </div>
+                  <ArrowRight size={14} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
+                </div>
+                <div className="text-3xl font-bold text-[#1a2744] leading-none mb-1">
+                  {emailCounts.total}
+                </div>
+                <div className="text-xs text-gray-500">Email non lette</div>
+                <div className="text-[11px] text-gray-500 mt-1">
+                  {emailCounts.project} progetto · {emailCounts.personal} personali
+                </div>
               </Link>
             )}
           </div>
