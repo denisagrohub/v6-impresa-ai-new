@@ -67,6 +67,17 @@ class ConsultantEmailAPIController(ConsultantAPIController):
                 ids.update(siblings.ids)
         return sorted(ids)
 
+    def _read_state_map(self, user, email_ids):
+        """02/10/2026 (C2-rd): {email_id: read_at} per l'utente passato."""
+        if not email_ids or 'erpv6.email.read.state' not in request.env:
+            return {}
+        S = request.env['erpv6.email.read.state'].sudo()
+        rows = S.search([
+            ('project_email_id', 'in', list(email_ids)),
+            ('user_id', '=', user.id),
+        ])
+        return {r.project_email_id.id: r.read_at for r in rows}
+
     def _can_access_email(self, user, log):
         """30/09/2026: True se user puo' accedere a questa email
         (record di erpv6.winwin.email.log o erpv6.project.email.log).
@@ -199,6 +210,8 @@ class ConsultantEmailAPIController(ConsultantAPIController):
                 'is_read': bool(l.is_read),
                 'is_archived': bool(l.is_archived),
             })
+        # 02/10/2026 (C2-rd): read state per-utente per le project
+        _read_map = self._read_state_map(user, [l.id for l in project_logs])
         for l in project_logs:
             all_logs.append({
                 'id': l.id,
@@ -215,7 +228,9 @@ class ConsultantEmailAPIController(ConsultantAPIController):
                 'recipient_user_id': None,
                 'recipient_user_name': None,
                 'create_date': self._iso_utc(l.create_date) if l.create_date else None,
-                'is_read': False,  # project log non ha is_read
+                # 02/10/2026 (C2-rd): letto per-utente via read.state
+                'is_read': l.id in _read_map,
+                'read_at': self._iso_utc(_read_map[l.id]) if l.id in _read_map else None,
                 'is_archived': False,
             })
 
@@ -276,7 +291,7 @@ class ConsultantEmailAPIController(ConsultantAPIController):
                 ]
             total += env['erpv6.winwin.email.log'].sudo().search_count(winwin_domain)
 
-        # Fonte 2: project (no is_read → tutte ricevute sono "non lette")
+        # Fonte 2: project (02/10/2026 C2-rd: unread = non in read.state)
         if 'erpv6.project.email.log' in env:
             if is_admin:
                 project_domain = [('direction', '=', 'ricevuta')]
@@ -285,7 +300,16 @@ class ConsultantEmailAPIController(ConsultantAPIController):
                     ('direction', '=', 'ricevuta'),
                     ('relation_id', 'in', visible_ids or [0]),
                 ]
-            total += env['erpv6.project.email.log'].sudo().search_count(project_domain)
+            P = env['erpv6.project.email.log'].sudo()
+            project_ids = P.search(project_domain).ids
+            if project_ids and 'erpv6.email.read.state' in env:
+                read_ids = env['erpv6.email.read.state'].sudo().search([
+                    ('project_email_id', 'in', project_ids),
+                    ('user_id', '=', user.id),
+                ]).mapped('project_email_id').ids
+                total += len(set(project_ids) - set(read_ids))
+            else:
+                total += len(project_ids)
 
         # Escludi caselle personali altrui (stesso pattern di get_consultant_emails)
         # Nota: contiamo a parte, non dobbiamo filtrare per alias qui — il
@@ -334,14 +358,23 @@ class ConsultantEmailAPIController(ConsultantAPIController):
         if not self._can_access_email(user, log):
             return self._json_response({'error': 'Non hai accesso a questa email'}, 403)
 
-        if 'is_read' not in log._fields:
-            # project.email.log non ha is_read: no-op silenzioso (era già
-            # "letto" dal punto di vista dell'utente).
-            return self._json_response({'success': True, 'noop': True})
-
-        if not log.is_read:
-            log.write({'is_read': True})
-        return self._json_response({'success': True})
+        if 'is_read' in log._fields:
+            if not log.is_read:
+                log.write({'is_read': True})
+            return self._json_response({'success': True})
+        # 02/10/2026 (C2-rd): project → read.state per-utente (lazy)
+        if kind == 'project' and 'erpv6.email.read.state' in request.env:
+            S = request.env['erpv6.email.read.state'].sudo()
+            existing = S.search([
+                ('project_email_id', '=', log.id),
+                ('user_id', '=', user.id),
+            ], limit=1)
+            if existing:
+                return self._json_response({'success': True, 'read_at': self._iso_utc(existing.read_at)})
+            s = S.create({'project_email_id': log.id, 'user_id': user.id})
+            request.env.cr.commit()
+            return self._json_response({'success': True, 'read_at': self._iso_utc(s.read_at)})
+        return self._json_response({'success': True, 'noop': True})
 
     @http.route('/api/v1/consultant/emails/<int:email_id>/archive', type='http', auth='none',
                 methods=['POST', 'OPTIONS'], csrf=False)

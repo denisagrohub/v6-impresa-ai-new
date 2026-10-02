@@ -75,9 +75,13 @@ class AdminEmailsAPIController(ConsultantAPIController):
                 })
 
         # project (ha recipient_relation_id, no is_read/is_archived)
+        # 02/10/2026 (C2-rd): read state per-utente via erpv6.email.read.state
         if 'erpv6.project.email.log' in env:
             P = env['erpv6.project.email.log'].sudo()
-            for r in P.search(domain_project or []):
+            _project_recs = P.search(domain_project or [])
+            _user = request.env.user
+            _read_map = self._read_state_map(_user, [r.id for r in _project_recs])
+            for r in _project_recs:
                 result.append({
                     'id': r.id,
                     'kind': 'project',
@@ -91,7 +95,10 @@ class AdminEmailsAPIController(ConsultantAPIController):
                     'relation_id': r.relation_id.id if r.relation_id else None,
                     'relation_name': r.relation_id.name if r.relation_id else None,
                     'recipient_user_id': None,
-                    'is_read': True,  # project log non ha is_read: default letto
+                    # 02/10/2026 (C2-rd): letto per l'utente corrente se
+                    # esiste una riga erpv6.email.read.state
+                    'is_read': r.id in _read_map,
+                    'read_at': self._iso_utc(_read_map[r.id]) if r.id in _read_map else None,
                     'is_archived': False,
                     'create_date': self._iso_utc(r.create_date) if r.create_date else None,
                 })
@@ -152,6 +159,18 @@ class AdminEmailsAPIController(ConsultantAPIController):
         # Viewer non-admin (chief/consultant): nascondi caselle personali
         # di altri utenti. Vede solo la sua + i progetti.
         return True
+
+    def _read_state_map(self, user, email_ids):
+        """02/10/2026 (C2-rd): ritorna {email_id: read_at} per le email
+        indicate e l'utente passato. Una query sola."""
+        if not email_ids or 'erpv6.email.read.state' not in request.env:
+            return {}
+        S = request.env['erpv6.email.read.state'].sudo()
+        rows = S.search([
+            ('project_email_id', 'in', list(email_ids)),
+            ('user_id', '=', user.id),
+        ])
+        return {r.project_email_id.id: r.read_at for r in rows}
 
     def _all_aliases(self, logs, current_user=None):
         """Estrae caselle uniche dai matched_alias.
@@ -398,7 +417,12 @@ class AdminEmailsAPIController(ConsultantAPIController):
                 'matched_alias': r.matched_alias or '',
                 'relation_id': r.relation_id.id if r.relation_id else None,
                 'relation_name': r.relation_id.name if r.relation_id else None,
-                'is_read': bool(getattr(r, 'is_read', True)),
+                # 02/10/2026 (C2-rd): per project, letto per-utente via read.state
+                'is_read': (
+                    r.id in self._read_state_map(request.env.user, [r.id])
+                    if kind == 'project'
+                    else bool(getattr(r, 'is_read', False))
+                ),
                 'is_archived': bool(getattr(r, 'is_archived', False)),
                 'create_date': self._iso_utc(r.create_date) if r.create_date else None,
                 'body_html': body_html,
@@ -416,6 +440,70 @@ class AdminEmailsAPIController(ConsultantAPIController):
         r = request.env[model].sudo().browse(email_id)
         return r if r.exists() else None
 
+    # ═══════════════════════════════════════════════════════════════
+    # GET /api/v1/admin/emails/<id>/readers — chi ha letto (C2-rd)
+    # Solo admin/chief. Ritorna destinatari + read_at, ordinati
+    # non-letti prima poi read_at desc.
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/emails/<int:email_id>/readers',
+                type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def email_readers(self, email_id, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._check_admin_perm()
+        if err:
+            return err
+
+        kind = request.httprequest.args.get('kind', 'project')
+        if kind != 'project':
+            return self._json_response({'recipients': [], 'total': 0, 'read_count': 0})
+        if 'erpv6.project.email.log' not in request.env:
+            return self._json_response({'error': 'modello non trovato'}, 404)
+
+        P = request.env['erpv6.project.email.log'].sudo()
+        email = P.browse(email_id)
+        if not email.exists():
+            return self._json_response({'error': 'not found'}, 404)
+
+        # Destinatari = utenti V6 con accesso al progetto (owner + access)
+        rel = email.relation_id
+        user_ids = set()
+        if rel:
+            if rel.owner_user_id:
+                user_ids.add(rel.owner_user_id.id)
+            for u in (rel.access_user_ids or []):
+                user_ids.add(u.id)
+        # Fallback: tutti gli utenti interni attivi (project senza owner)
+        if not user_ids:
+            U = request.env['res.users'].sudo().search([
+                ('share', '=', False), ('active', '=', True),
+            ])
+            user_ids = set(U.ids)
+
+        Users = request.env['res.users'].sudo().browse(list(user_ids))
+        read_map = {}
+        if 'erpv6.email.read.state' in request.env:
+            S = request.env['erpv6.email.read.state'].sudo()
+            rows = S.search([('project_email_id', '=', email.id)])
+            read_map = {r.user_id.id: r.read_at for r in rows}
+
+        recipients = []
+        for u in Users:
+            recipients.append({
+                'user_id': u.id,
+                'user_name': u.name,
+                'read_at': self._iso_utc(read_map[u.id]) if u.id in read_map else None,
+            })
+        # Ordina: prima i non letti, poi per read_at desc
+        recipients.sort(key=lambda r: (r['read_at'] is not None, r['read_at'] or ''))
+
+        read_count = sum(1 for r in recipients if r['read_at'])
+        return self._json_response({
+            'recipients': recipients,
+            'total': len(recipients),
+            'read_count': read_count,
+        })
+
     @http.route('/api/v1/admin/emails/<int:email_id>/mark-read',
                 type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def mark_read(self, email_id, **kwargs):
@@ -428,8 +516,29 @@ class AdminEmailsAPIController(ConsultantAPIController):
         r = self._get_record(email_id, kind)
         if not r:
             return self._json_response({'error': 'not found'}, 404)
+        # 02/10/2026 (C2-rd): winwin → is_read nativo
         if 'is_read' in r._fields:
             r.write({'is_read': True})
+        # 02/10/2026 (C2-rd): project → read.state (lazy, idempotente)
+        if kind == 'project' and 'erpv6.email.read.state' in request.env:
+            S = request.env['erpv6.email.read.state'].sudo()
+            existing = S.search([
+                ('project_email_id', '=', r.id),
+                ('user_id', '=', user.id),
+            ], limit=1)
+            if existing:
+                return self._json_response({
+                    'success': True,
+                    'read_at': self._iso_utc(existing.read_at),
+                    'already': True,
+                })
+            s = S.create({'project_email_id': r.id, 'user_id': user.id})
+            request.env.cr.commit()
+            return self._json_response({
+                'success': True,
+                'read_at': self._iso_utc(s.read_at),
+                'already': False,
+            })
         return self._json_response({'success': True})
 
     @http.route('/api/v1/admin/emails/<int:email_id>/mark-unread',
@@ -446,6 +555,15 @@ class AdminEmailsAPIController(ConsultantAPIController):
             return self._json_response({'error': 'not found'}, 404)
         if 'is_read' in r._fields:
             r.write({'is_read': False})
+        # 02/10/2026 (C2-rd): project → rimuovi read.state per l'utente
+        if kind == 'project' and 'erpv6.email.read.state' in request.env:
+            S = request.env['erpv6.email.read.state'].sudo()
+            existing = S.search([
+                ('project_email_id', '=', r.id),
+                ('user_id', '=', user.id),
+            ])
+            existing.unlink()
+            request.env.cr.commit()
         return self._json_response({'success': True})
 
     @http.route('/api/v1/admin/emails/<int:email_id>/archive',

@@ -8,7 +8,7 @@ import {
   CheckCircle2, Mail, Calculator, Landmark, FileText,
   Brain, Shield, UserCog, Phone, PenTool, FileSignature, Code2,
   Search, RefreshCw, Inbox, Send, Archive,
-  Reply, ChevronLeft, Circle, Paperclip
+  Reply, ChevronLeft, ChevronDown, Circle, Paperclip
 } from "lucide-react";
 
 type Mailbox = { alias: string; label?: string; total: number; unread: number; lastDate: string | null };
@@ -66,6 +66,9 @@ export default function AdminMiaEmailPage() {
   const [selected, setSelected] = useState<Email | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // 02/10/2026 (C2-rd): pannello "Chi ha letto" (solo project, admin/chief)
+  const [readers, setReaders] = useState<{ recipients: any[]; total: number; read_count: number } | null>(null);
+  const [readersOpen, setReadersOpen] = useState(true);
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerInitial, setComposerInitial] = useState({ to: '', cc: '', subject: '', body: '' });
@@ -163,6 +166,21 @@ export default function AdminMiaEmailPage() {
         });
         setEmails(prev => prev.map(e => e.id === email.id && e.kind === email.kind ? { ...e, is_read: true } : e));
         loadMailboxes();
+      }
+      // 02/10/2026 (C2-rd): solo per project, prova a caricare readers.
+      // Se 403 (non admin/chief), silenziosamente non mostra il pannello.
+      setReaders(null);
+      if (email.kind === 'project') {
+        try {
+          const rr = await fetch(`/api/admin/emails/${email.id}/readers?kind=${email.kind}`, {
+            headers: { Authorization: `JWT ${user?.token || ''}` },
+          });
+          if (rr.ok) {
+            const rd = await rr.json();
+            const p = rd.data || rd;
+            if (p.recipients) setReaders({ recipients: p.recipients, total: p.total, read_count: p.read_count });
+          }
+        } catch { /* silenzioso */ }
       }
     } catch (e: any) {
       setError(e.message);
@@ -302,7 +320,7 @@ export default function AdminMiaEmailPage() {
         {selected && (
           <div className="flex-1 flex flex-col bg-white">
             <div className="p-3 border-b border-gray-200 flex items-center gap-2">
-              <button onClick={() => { setSelected(null); setDetail(null); }} title="Torna alla lista"
+              <button onClick={() => { setSelected(null); setDetail(null); setReaders(null); }} title="Torna alla lista"
                 className="p-1.5 rounded hover:bg-gray-100 flex items-center gap-1 text-xs text-gray-600">
                 <ChevronLeft size={16} /> <span className="hidden sm:inline">Torna</span>
               </button>
@@ -354,6 +372,50 @@ export default function AdminMiaEmailPage() {
                 <div className="prose prose-sm max-w-none text-sm border-t border-gray-100 pt-4"
                   dangerouslySetInnerHTML={{ __html: detail.body_html || '<p class="text-gray-400 italic">(Corpo email non disponibile)</p>' }}
                 />
+
+                {/* 02/10/2026 (C2-rd): pannello "Chi ha letto" (solo project + admin/chief) */}
+                {readers && readers.total > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={() => setReadersOpen(v => !v)}
+                      className="w-full flex items-center gap-2 text-left hover:bg-gray-50 rounded transition-colors"
+                    >
+                      <ChevronDown
+                        size={14}
+                        className={`text-gray-400 transition-transform shrink-0 ${readersOpen ? '' : '-rotate-90'}`}
+                      />
+                      <Users size={13} className="text-gray-500" />
+                      <span className="text-xs font-semibold text-gray-700">
+                        Chi ha letto
+                      </span>
+                      <span className="text-[11px] text-gray-400 tabular-nums">
+                        ({readers.read_count}/{readers.total})
+                      </span>
+                    </button>
+                    {readersOpen && (
+                      <div className="mt-2 space-y-1">
+                        {readers.recipients.map((r: any) => (
+                          <div key={r.user_id} className="flex items-center gap-2 text-xs px-1">
+                            <span className={`shrink-0 ${r.read_at ? 'text-emerald-600' : 'text-gray-300'}`}>
+                              {r.read_at ? '✅' : '⬜'}
+                            </span>
+                            <span className={`flex-1 truncate ${r.read_at ? 'text-gray-700' : 'text-gray-500'}`}>
+                              {r.user_name}
+                            </span>
+                            <span className="text-[10px] text-gray-400 tabular-nums shrink-0">
+                              {r.read_at
+                                ? new Date(r.read_at).toLocaleString('it-IT', {
+                                    day: '2-digit', month: '2-digit',
+                                    hour: '2-digit', minute: '2-digit',
+                                  })
+                                : 'non letta'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-6 pt-4 border-t border-gray-100 flex gap-2 flex-wrap">
                   <button onClick={() => openReply(selected)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460]">
