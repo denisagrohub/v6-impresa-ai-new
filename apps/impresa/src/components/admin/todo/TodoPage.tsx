@@ -77,6 +77,11 @@ export default function TodoPage() {
   const [scope, setScope] = useState<'mine' | 'all'>('mine');
   const [stateFilter, setStateFilter] = useState<string>('');
   const [search, setSearch] = useState('');
+  // 02/10/2026 (C1a-6): filtri progetto/deal
+  const [projectFilter, setProjectFilter] = useState<string>('');
+  const [dealFilter, setDealFilter] = useState<string>('');
+  const [projectsList, setProjectsList] = useState<Array<{ id: number; name: string }>>([]);
+  const [dealsList, setDealsList] = useState<Array<{ id: number; name: string }>>([]);
 
   const [newName, setNewName] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
@@ -102,6 +107,8 @@ export default function TodoPage() {
       params.set('scope', scope);
       params.set('limit', '200');
       if (stateFilter) params.set('state', stateFilter);
+      if (projectFilter) params.set('project_id', projectFilter);
+      if (dealFilter) params.set('deal_id', dealFilter);
       const r = await fetch(`/api/admin/todos?${params.toString()}`, {
         headers: authHeaders(),
       });
@@ -119,7 +126,7 @@ export default function TodoPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, stateFilter]);
+  }, [scope, stateFilter, projectFilter, dealFilter]);
 
   // 02/10/2026 (C1a-3): lista utenti per il select di assegnazione.
   useEffect(() => {
@@ -130,6 +137,39 @@ export default function TodoPage() {
         const d = await r.json();
         if (Array.isArray(d.users)) {
           setUsers(d.users.map((u: any) => ({ id: u.id, name: u.name })));
+        }
+      } catch {
+        // silenzioso
+      }
+    })();
+  }, []);
+
+  // 02/10/2026 (C1a-6): lista progetti + deals per i filtri
+  useEffect(() => {
+    (async () => {
+      try {
+        const [pRes, dRes] = await Promise.all([
+          fetch('/api/admin/partner-projects', { headers: authHeaders() }),
+          fetch('/api/admin/deals', { headers: authHeaders() }),
+        ]);
+        if (pRes.ok) {
+          const pd = await pRes.json();
+          const list = pd?.projects || pd?.data?.projects || [];
+          if (Array.isArray(list)) {
+            setProjectsList(list.map((p: any) => ({ id: p.id, name: p.name })));
+          }
+        }
+        if (dRes.ok) {
+          const dd = await dRes.json();
+          // deals sono raggruppati per progetto: flatten
+          const groups = dd?.groups || dd?.data?.groups || [];
+          const flat: Array<{ id: number; name: string }> = [];
+          for (const g of groups) {
+            for (const deal of (g.deals || [])) {
+              flat.push({ id: deal.id, name: deal.name });
+            }
+          }
+          setDealsList(flat);
         }
       } catch {
         // silenzioso
@@ -373,6 +413,33 @@ export default function TodoPage() {
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
+
+        {/* 02/10/2026 (C1a-6): filtri progetto + deal */}
+        {projectsList.length > 0 && (
+          <select
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs text-[#0F1E3C] outline-none focus:border-[#0F1E3C] max-w-[200px]"
+          >
+            <option value="">Tutti i progetti</option>
+            {projectsList.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        )}
+
+        {dealsList.length > 0 && (
+          <select
+            value={dealFilter}
+            onChange={(e) => setDealFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs text-[#0F1E3C] outline-none focus:border-[#0F1E3C] max-w-[200px]"
+          >
+            <option value="">Tutti i deal</option>
+            {dealsList.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+        )}
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-white focus-within:border-[#0F1E3C] flex-1 min-w-[200px]">
           <Search size={12} className="text-gray-400" />
