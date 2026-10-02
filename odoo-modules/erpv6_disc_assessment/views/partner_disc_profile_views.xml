@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_partner_disc_profile_list" model="ir.ui.view">
+            <field name="name">erpv6.partner.disc_profile.list</field>
+            <field name="model">erpv6.partner.disc_profile</field>
+            <field name="arch" type="xml">
+                <list string="Profili DISC" decoration-muted="is_current==False">
+                    <field name="partner_id"/>
+                    <field name="profile_type"/>
+                    <field name="confidence" widget="integer"/>
+                    <field name="version"/>
+                    <field name="is_current"/>
+                    <field name="generated_at"/>
+                    <field name="generated_by"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_partner_disc_profile_form" model="ir.ui.view">
+            <field name="name">erpv6.partner.disc_profile.form</field>
+            <field name="model">erpv6.partner.disc_profile</field>
+            <field name="arch" type="xml">
+                <form string="Profilo DISC" create="0" edit="0">
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="profile_type"/>
+                                <span class="text-muted ml-2">
+                                    — <field name="confidence" inline="1"/>% confidence
+                                </span>
+                            </h1>
+                            <h3><field name="partner_id"/></h3>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="version"/>
+                                <field name="is_current"/>
+                                <field name="generated_at"/>
+                                <field name="generated_by"/>
+                            </group>
+                            <group>
+                                <field name="sources_count"/>
+                                <field name="sources_types"/>
+                                <field name="superseded_by"/>
+                                <field name="revocable"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Evidenza (JSON)">
+                                <field name="evidence"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_partner_disc_profile" model="ir.actions.act_window">
+            <field name="name">Profili DISC</field>
+            <field name="res_model">erpv6.partner.disc_profile</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+    </data>
+</odoo>

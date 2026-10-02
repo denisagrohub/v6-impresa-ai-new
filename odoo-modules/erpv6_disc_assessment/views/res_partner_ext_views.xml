@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_partner_form_disc_section" model="ir.ui.view">
+            <field name="name">res.partner.form.disc_section</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//div[@name='button_box']" position="inside">
+                    <button name="action_view_disc_profile"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-user-circle"
+                            groups="base.group_system,erpv6_core.group_chief_projects">
+                        <div class="o_stat_info">
+                            <span class="o_stat_text">Profilo DISC</span>
+                            <span class="o_stat_value">
+                                <field name="disc_profile_version_count"/>
+                            </span>
+                        </div>
+                    </button>
+                </xpath>
+
+                <xpath expr="//sheet" position="inside">
+                    <group string="Profilo DISC (admin/chief)"
+                           groups="base.group_system,erpv6_core.group_chief_projects">
+                        <div class="d-flex align-items-start gap-2">
+                            <div class="flex-grow-1">
+                                <field name="disc_profile_current_id" readonly="1"
+                                       options="{'no_open': False}"/>
+                            </div>
+                            <button name="action_regenerate_disc_profile"
+                                    type="object"
+                                    string="Rigenera"
+                                    class="btn-primary"/>
+                            <button name="action_delete_disc_profile"
+                                    type="object"
+                                    string="Cancella"
+                                    class="btn-secondary"
+                                    groups="base.group_system"
+                                    confirm="Cancellare TUTTE le versioni del profilo DISC di questo partner?"/>
+                        </div>
+                    </group>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="view_disc_confirm_wizard_form" model="ir.ui.view">
+            <field name="name">erpv6.disc.confirm.wizard.form</field>
+            <field name="model">erpv6.disc.confirm.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Conferma profilazione">
+                    <div class="alert alert-warning" role="alert">
+                        <field name="message"/>
+                    </div>
+                    <footer>
+                        <button name="action_confirm" type="object"
+                                string="Confermo, procedi" class="btn-primary"/>
+                        <button name="action_cancel" type="object"
+                                string="Annulla" class="btn-secondary"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+    </data>
+</odoo>

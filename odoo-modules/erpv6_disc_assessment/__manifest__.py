@@ -1,43 +1,51 @@
 {
-    'name': 'ERP V6 - DISC Assessment (dipendenti)',
-    'version': '18.0.1.0.0',
+    'name': 'ERP V6 - DISC Assessment (dipendenti + controparti)',
+    'version': '18.0.1.1.0',
     'category': 'V6 Impresa AI',
-    'summary': 'Primo modulo NATIVO Adaptive EOSv6 -- costruito da zero, non convertito',
+    'summary': 'Adaptive EOSv6: DISC dipendenti (intervista) + controparti (inferito)',
     'description': """
-        Denis, 30/08/2026, prompt #21: non una migrazione -- la domanda era
-        se erpv6_core + erpv6_core_dispatch + erpv6_core_engine bastano da
-        soli per costruire qualcosa di reale, senza dipendere da nessun
-        modulo dominio legacy (erpv6_tracking/erpv6_library/erpv6_production/
-        ecc., bloccati nel ciclo scoperto nei prompt #17-#20).
+        Modulo DISC.
 
-        Fase A del layout DISC dipendenti: intervista minima (banco domande
-        campione) -> Motore IPO 'disc_interview_score' (KB-driven, stesso
-        principio di kb_engine_process ma auto-contenuto qui, mai toccato
-        erpv6_kb) -> risultato scritto su res.users (il "dipendente" reale
-        in questo sistema oggi -- nessun modulo HR installato, nessun
-        modello erpv6 dedicato trovato in Fase 0) via Output Binding.
+        FASE A (dipendenti): intervista minima (banco domande campione)
+        -> Motore IPO 'disc_interview_score' (KB-driven) -> risultato
+        su res.users via Output Binding.
 
-        Fase B (correzione da comportamento osservato) NON implementata --
-        bloccata dal vincolo legale gia' segnato nell'addendum architetturale.
+        FASE B (controparti B2B, C1b-DISC 02/10/2026): inferenza
+        PASSIVA del profilo DISC da contesto (email, deal.event, note,
+        charter, scouting) su res.partner. Modello separato
+        erpv6.partner.disc_profile con versioning + evidence + revoca.
+
+        Guardrail G1-G7:
+        - G1 visibilità solo admin/chief
+        - G2 nessuna decisione automatica (solo aiuto informativo)
+        - G3 evidence sempre citata
+        - G4 log completo
+        - G5 versioning
+        - G6 revoca
+        - G7 automatica solo per controparti B2B (persone fisiche
+          senza legame business richiedono force esplicito)
+
+        Regola di prodotto (ADDENDUM.md S.3): "DISC sempre output,
+        MAI client-facing".
     """,
     'author': 'V6 Impresa AI',
     'license': 'LGPL-3',
-    # Denis, 30/08/2026, Fase 0 -- 'erpv6_kb' aggiunto, non previsto
-    # esplicitamente dallo scope originale del prompt: kb_type su erpv6.kb
-    # e' una Selection STATICA chiusa (KB_TYPE_SELECTION in erpv6_kb/
-    # models/kb_knowledge.py), non dinamica come process_key (corretto nel
-    # prompt #15). Aggiungere 'disc_assessment' come valore valido richiede
-    # _inherit + selection_add (vedi models/kb_knowledge_ext.py) -- NESSUN
-    # file di erpv6_kb toccato, ma e' un _inherit strutturale reale, quindi
-    # la dipendenza va dichiarata esplicitamente (stesso principio del
-    # prompt #20). erpv6_core_engine dipende gia' da erpv6_kb (nessun
-    # ciclo nuovo), ma la dichiaro qui comunque per onesta' -- e' un uso
-    # diretto di questo modulo nuovo, non solo transitivo.
-    'depends': ['erpv6_core', 'erpv6_core_dispatch', 'erpv6_core_engine', 'erpv6_kb'],
+    'depends': [
+        'base',
+        'erpv6_kb',
+        'erpv6_omni_bridge',
+        'aeosv6_relation',
+        'aeosv6_project_relay',
+        'erpv6_winwin_renderdata',
+        'erpv6_core',
+    ],
     'data': [
         'security/ir.model.access.csv',
-        'data/kb_disc_assessment_data.xml',
+        'security/disc_profile_security.xml',
+        'data/ir_cron_disc.xml',
         'views/disc_wizard_views.xml',
+        'views/partner_disc_profile_views.xml',
+        'views/res_partner_ext_views.xml',
     ],
     'installable': True,
     'application': False,
