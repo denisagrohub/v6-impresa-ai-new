@@ -113,6 +113,9 @@ interface EmailLog {
     date: string;
     relationId?: number | null;
     recipientRelationId?: number | null;
+    // 02/10/2026 (C2-rd-prog): letto per-utente via read.state
+    is_read?: boolean;
+    read_at?: string | null;
 }
 
 // Allegato nel composer: da PC (fileRaw → base64) o da Libreria (id già su Odoo)
@@ -201,6 +204,8 @@ export default function PartnerProjectDetailPage() {
     // 19/09/2026: target = figli con funzione_progetto='target' (kanban)
     const [targets, setTargets] = useState<{ id: number; name: string; partnerName: string | null; partnerEmail?: string | null; contattoName: string | null; contattoEmail?: string | null; stageId: number | null; state: string }[]>([]);
     const [emails, setEmails] = useState<EmailLog[]>([]);
+    // 02/10/2026 (C2-rd-prog): conteggio email non lette per badge status bar
+    const [unreadCount, setUnreadCount] = useState<number>(0);
     // 28/09/2026: deal collegati (dal modello erpv6.deal)
     const [deals, setDeals] = useState<DealCollegato[]>([]);
     const [dealsFlat, setDealsFlat] = useState<KanbanDeal[]>([]);
@@ -387,8 +392,9 @@ export default function PartnerProjectDetailPage() {
                 return;
             }
             setProject(data.project);
-            // 14/09/2026: segna le email come viste (badge/highlight si spengono al prossimo giro)
-            fetch(`/api/admin/partner-projects/${id}/emails-seen`, { method: 'POST' }).catch(() => {});
+            // 02/10/2026 (C2-rd-prog): rimossa la POST /emails-seen al load.
+            // Il "letto" ora è per-utente (erpv6.email.read.state), marcato
+            // quando si apre la singola email. Vedi toggleEmail.
             setPartners(data.partners || []);
             setTargets(data.targets || []);
             setDeals(data.deals || []);
@@ -415,6 +421,8 @@ export default function PartnerProjectDetailPage() {
                 relationId: Array.isArray(e.relation_id) ? e.relation_id[0] : (e.relationId ?? null),
                 recipientRelationId: Array.isArray(e.recipient_relation_id) ? e.recipient_relation_id[0] : (e.recipientRelationId ?? null),
             })));
+            // 02/10/2026 (C2-rd-prog): conteggio non-lette per il badge
+            setUnreadCount(data.unreadCount || 0);
             loadDocuments(); // fire-and-forget
         } catch (error: any) {
             setLoadError(error.message || 'Errore di rete');
@@ -790,6 +798,7 @@ export default function PartnerProjectDetailPage() {
                 <PartnerProjectStatusBar
                     partnersCount={partners.length}
                     emailsCount={emails.length}
+                    unreadCount={unreadCount}
                     documentsCount={documents.length}
                     isKanbanBoard={isKanbanBoard}
                     viewMode={viewMode as ViewMode}

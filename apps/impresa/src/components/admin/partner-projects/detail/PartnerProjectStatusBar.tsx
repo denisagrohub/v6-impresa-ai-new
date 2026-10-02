@@ -14,6 +14,8 @@ export type ViewMode = 'workbench' | 'lavagna';
 type Props = {
   partnersCount: number;
   emailsCount: number;
+  // 02/10/2026 (C2-rd-prog): conteggio email non lette per-utente
+  unreadCount?: number;
   documentsCount: number;
   isKanbanBoard: boolean;
   viewMode: ViewMode;
@@ -22,7 +24,7 @@ type Props = {
 };
 
 export function PartnerProjectStatusBar({
-  partnersCount, emailsCount, documentsCount,
+  partnersCount, emailsCount, unreadCount = 0, documentsCount,
   isKanbanBoard, viewMode, onBackToCover, onChangeViewMode,
 }: Props) {
   const toggleBase = 'flex items-center gap-1.5 px-3 py-1 rounded cursor-pointer transition-all';
@@ -36,7 +38,9 @@ export function PartnerProjectStatusBar({
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Attivo
         </span>
         <span className="flex items-center gap-1">👥 {partnersCount} parti</span>
-        <span className="flex items-center gap-1">✉ {emailsCount} email</span>
+        <span className={`flex items-center gap-1 ${unreadCount > 0 ? 'text-amber-600 font-semibold' : ''}`}>
+          ✉ {emailsCount} email{unreadCount > 0 && ` · ${unreadCount} da leggere`}
+        </span>
         <span className="flex items-center gap-1">📎 {documentsCount} atti</span>
       </div>
 

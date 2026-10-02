@@ -41,6 +41,9 @@ type EmailLog = {
   date: string;
   relationId?: number | null;
   recipientRelationId?: number | null;
+  // 02/10/2026 (C2-rd-prog): letto per-utente via read.state
+  is_read?: boolean;
+  read_at?: string | null;
 };
 
 type Note = { title: string; body: string; note_type: string };
@@ -51,7 +54,7 @@ type Props = {
   emails: EmailLog[];               // già filtrate dal page (contesto)
   childProjects: ChildProject[];
   deals: DealCollegato[];
-  seenAt: string | null;
+  seenAt?: string | null;  // 02/10/2026: non più usato, backward compat
   operativeContext: OperativaContext | null;
   viewMode: 'workbench' | 'lavagna';
   targets: { id: number; contattoName: string | null }[];
@@ -175,7 +178,9 @@ export function OperativaMain({
             <div className="space-y-1">
               {emails.map((e) => {
                 const isOut = e.direction === 'inviata';
-                const isNew = !seenAt || (!!e.date && e.date > seenAt);
+                // 02/10/2026 (C2-rd-prog): isNew per-utente via read.state
+                // (solo ricevute; le inviate non hanno "da leggere")
+                const isNew = !isOut && !e.is_read;
                 const bodyText = emailState.bodies[e.id] || '';
                 const sentAnalysis = isOut ? analyzeSentEmailContent(e.subject, bodyText) : null;
 

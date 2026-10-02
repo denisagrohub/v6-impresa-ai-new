@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { odoo } from '@/lib/odoo/api-adapter';
+import { callOdooAPI } from '@/lib/odoo-adapter';
 
 // 17/09/2026 (Denis): separati "partners" (controparti reali, tab Persone/Parti)
 // da "subprojects" (rami operativi con pipeline propria, es. Acquisizione Aziende).
@@ -230,6 +231,39 @@ export async function GET(request: Request, { params }: { params: { id: string }
       0, 100, 'create_date desc',
     ]);
 
+    // 02/10/2026 (C2-rd-prog): risolvi utente da JWT per is_read per-utente
+    let userId: number | null = null;
+    try {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader) {
+        const me = await callOdooAPI('/api/v1/auth/me', {
+          method: 'GET',
+          headers: { Authorization: authHeader },
+        });
+        userId = me?.data?.user?.id ?? me?.user?.id ?? null;
+      }
+    } catch (e: any) {
+      console.error('me lookup fallito:', e.message);
+    }
+
+    // read.state map per l'utente corrente
+    let readMap: Record<number, string> = {};
+    if (userId && emails && emails.length) {
+      try {
+        const emailIds = emails.map((e: any) => e.id);
+        const states = await odoo.execute('erpv6.email.read.state', 'search_read', [
+          [['project_email_id', 'in', emailIds], ['user_id', '=', userId]],
+          ['project_email_id', 'read_at'],
+        ]);
+        for (const s of states || []) {
+          const eid = Array.isArray(s.project_email_id) ? s.project_email_id[0] : s.project_email_id;
+          if (eid) readMap[eid] = s.read_at;
+        }
+      } catch (e: any) {
+        console.error('read.state lookup fallito:', e.message);
+      }
+    }
+
     let charter = null;
     try { charter = project.x_v6_charter ? JSON.parse(project.x_v6_charter) : null; } catch { charter = null; }
 
@@ -436,7 +470,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
         matchStatus: e.match_status,
         direction: e.direction || 'ricevuta',
         date: e.create_date,
+        // 02/10/2026 (C2-rd-prog): letto per-utente via read.state
+        is_read: !!readMap[e.id],
+        read_at: readMap[e.id] || null,
       })),
+      // 02/10/2026 (C2-rd-prog): conteggio non-lette per il badge
+      unreadCount: (emails || []).filter(
+        (e: any) => (e.direction || 'ricevuta') === 'ricevuta' && !readMap[e.id]
+      ).length,
     });
   } catch (error: any) {
     console.error('❌ Errore /api/admin/partner-projects/[id]:', error.message);
