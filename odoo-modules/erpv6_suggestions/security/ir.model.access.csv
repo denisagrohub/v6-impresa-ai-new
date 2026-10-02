@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_erpv6_suggestion_user,erpv6.suggestion user,model_erpv6_suggestion,base.group_user,1,1,1,0
+access_erpv6_suggestion_system,erpv6.suggestion system,model_erpv6_suggestion,base.group_system,1,1,1,1
+access_erpv6_suggestion_rule_user,erpv6.suggestion.rule user,model_erpv6_suggestion_rule,base.group_user,1,0,0,0
+access_erpv6_suggestion_rule_system,erpv6.suggestion.rule system,model_erpv6_suggestion_rule,base.group_system,1,1,1,1

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_suggestion_rule_tree" model="ir.ui.view">
+            <field name="name">erpv6.suggestion.rule.tree</field>
+            <field name="model">erpv6.suggestion.rule</field>
+            <field name="arch" type="xml">
+                <list string="Regole suggerimenti" decoration-muted="active==False">
+                    <field name="sequence" widget="handle"/>
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="matcher_type"/>
+                    <field name="target_model"/>
+                    <field name="priority"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_suggestion_rule_form" model="ir.ui.view">
+            <field name="name">erpv6.suggestion.rule.form</field>
+            <field name="model">erpv6.suggestion.rule</field>
+            <field name="arch" type="xml">
+                <form string="Regola suggerimento">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="code"/>
+                                <field name="name"/>
+                                <field name="sequence"/>
+                                <field name="active"/>
+                                <field name="priority"/>
+                            </group>
+                            <group>
+                                <field name="matcher_type"/>
+                                <field name="target_model"/>
+                            </group>
+                        </group>
+
+                        <group string="Parametri di match">
+                            <field name="filter_domain"
+                                   placeholder="[('state', '=', 'negotiating')]"/>
+                            <field name="stale_field"
+                                   invisible="matcher_type in ['sign_pending', 'email_unread', 'event_debrief_missing']"/>
+                            <field name="stale_days"/>
+                            <field name="stale_states"
+                                   placeholder="negotiating,forecasting"/>
+                            <field name="watch_field"
+                                   invisible="matcher_type != 'entity_missing_field'"
+                                   required="matcher_type == 'entity_missing_field'"/>
+                            <field name="sign_states"
+                                   invisible="matcher_type != 'sign_pending'"/>
+                            <field name="sign_date_field"
+                                   invisible="matcher_type != 'sign_pending'"/>
+                            <field name="event_types"
+                                   invisible="matcher_type != 'event_debrief_missing'"/>
+                            <field name="debrief_hours"
+                                   invisible="matcher_type != 'event_debrief_missing'"/>
+                        </group>
+
+                        <group string="Destinatario">
+                            <field name="user_resolver"
+                                   placeholder="relation_id.owner_user_id"/>
+                        </group>
+
+                        <group string="Testo">
+                            <field name="title_template"
+                                   placeholder="Deal {deal_name} fermo da {days_stale}gg"/>
+                            <field name="body_fallback"/>
+                            <field name="prompt_hint"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_suggestion_rule_search" model="ir.ui.view">
+            <field name="name">erpv6.suggestion.rule.search</field>
+            <field name="model">erpv6.suggestion.rule</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="code"/>
+                    <field name="name"/>
+                    <filter name="filter_active" string="Solo attive"
+                            domain="[('active', '=', True)]"/>
+                    <group expand="0" string="Raggruppa per">
+                        <filter name="group_matcher" string="Tipo"
+                                context="{'group_by': 'matcher_type'}"/>
+                        <filter name="group_target" string="Modello"
+                                context="{'group_by': 'target_model'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_suggestion_rule" model="ir.actions.act_window">
+            <field name="name">Regole suggerimenti</field>
+            <field name="res_model">erpv6.suggestion.rule</field>
+            <field name="view_mode">list,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">Nessuna regola configurata.</p>
+                <p>Le regole generano i suggerimenti automatici per gli utenti.</p>
+            </field>
+        </record>
+
+        <menuitem id="menu_suggestion_rule"
+                  name="Regole suggerimenti"
+                  parent="base.menu_administration"
+                  action="action_suggestion_rule"
+                  sequence="90"
+                  groups="base.group_system"/>
+
+    </data>
+</odoo>

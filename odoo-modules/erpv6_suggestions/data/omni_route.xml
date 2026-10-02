@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- 02/10/2026 (C1b-1): route per generazione testo suggerimenti.
+             Provider primario = Groq (id 3, stessa scelta di chat_general).
+             Fallback gestito da get_next_provider con routing_strategy=priority. -->
+        <record id="route_suggestion_text" model="erpv6.omni.route.config">
+            <field name="task_type">suggestion_text</field>
+            <field name="name">Suggestion Text Generation</field>
+            <field name="primary_provider_id" ref="erpv6_omni_bridge.omni_provider_groq"/>
+            <field name="priority">20</field>
+            <field name="routing_strategy">priority</field>
+            <field name="max_retries">3</field>
+            <field name="is_active" eval="True"/>
+            <field name="description">Genera il testo utente dei suggerimenti C1b</field>
+        </record>
+    </data>
+</odoo>

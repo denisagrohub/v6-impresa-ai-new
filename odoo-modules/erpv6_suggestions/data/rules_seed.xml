@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- ═══ DEAL ═══ -->
+        <record id="rule_deal_stale_15d" model="erpv6.suggestion.rule">
+            <field name="code">deal_stale_15d</field>
+            <field name="name">Deal in trattativa fermo da 15gg</field>
+            <field name="sequence">10</field>
+            <field name="priority">normal</field>
+            <field name="matcher_type">entity_no_events</field>
+            <field name="target_model">erpv6.deal</field>
+            <field name="filter_domain">[('state', 'in', ['negotiating', 'forecasting'])]</field>
+            <field name="stale_days">15</field>
+            <field name="user_resolver">relation_id.owner_user_id</field>
+            <field name="title_template">Deal {deal_name} fermo da {days_stale}gg</field>
+            <field name="body_fallback">Riprendi contatto su {deal_name}: {days_stale} giorni senza eventi.</field>
+        </record>
+
+        <record id="rule_deal_forecasting_30d" model="erpv6.suggestion.rule">
+            <field name="code">deal_forecasting_30d</field>
+            <field name="name">Deal in forecasting da 30gg</field>
+            <field name="sequence">20</field>
+            <field name="priority">low</field>
+            <field name="matcher_type">entity_stale</field>
+            <field name="target_model">erpv6.deal</field>
+            <field name="filter_domain">[('state', '=', 'forecasting')]</field>
+            <field name="stale_field">create_date</field>
+            <field name="stale_days">30</field>
+            <field name="user_resolver">relation_id.owner_user_id</field>
+            <field name="title_template">Deal {deal_name} in forecasting da {days_open}gg</field>
+            <field name="body_fallback">Valuta se far avanzare {deal_name} o archiviarlo: {days_open} giorni in forecasting.</field>
+        </record>
+
+        <record id="rule_deal_no_next_step" model="erpv6.suggestion.rule">
+            <field name="code">deal_no_next_step</field>
+            <field name="name">Deal attivo senza prossimo passo</field>
+            <field name="sequence">30</field>
+            <field name="priority">high</field>
+            <field name="matcher_type">entity_missing_field</field>
+            <field name="target_model">erpv6.deal</field>
+            <field name="filter_domain">[('state', 'in', ['negotiating', 'signing'])]</field>
+            <field name="watch_field">next_step_id</field>
+            <field name="user_resolver">relation_id.owner_user_id</field>
+            <field name="title_template">Deal {deal_name} senza prossimo passo</field>
+            <field name="body_fallback">Definisci il next step per {deal_name}.</field>
+        </record>
+
+        <record id="rule_deal_frozen_10d" model="erpv6.suggestion.rule">
+            <field name="code">deal_frozen_10d</field>
+            <field name="name">Deal congelato da 10gg</field>
+            <field name="sequence">40</field>
+            <field name="priority">normal</field>
+            <field name="matcher_type">entity_stale</field>
+            <field name="target_model">erpv6.deal</field>
+            <field name="filter_domain">[('state', '=', 'frozen')]</field>
+            <field name="stale_field">write_date</field>
+            <field name="stale_days">10</field>
+            <field name="user_resolver">relation_id.owner_user_id</field>
+            <field name="title_template">Deal {deal_name} congelato da {days_frozen}gg</field>
+            <field name="body_fallback">Riapri o chiudi {deal_name}: {days_frozen} giorni in stato congelato.</field>
+        </record>
+
+        <!-- ═══ FIRME ═══ -->
+        <record id="rule_sign_pending_7d" model="erpv6.suggestion.rule">
+            <field name="code">sign_pending_7d</field>
+            <field name="name">Firma in attesa da 7gg</field>
+            <field name="sequence">50</field>
+            <field name="priority">high</field>
+            <field name="matcher_type">sign_pending</field>
+            <field name="target_model">erpv6.sign.request</field>
+            <field name="stale_days">7</field>
+            <field name="sign_states">sent,viewed</field>
+            <field name="sign_date_field">sent_at</field>
+            <field name="user_resolver">owner_user_id</field>
+            <field name="title_template">Firma {sign_name} in attesa da {days_pending}gg</field>
+            <field name="body_fallback">Sollecita {counterpart} su {sign_name}: {days_pending} giorni in attesa.</field>
+        </record>
+
+        <record id="rule_sign_viewed_not_signed" model="erpv6.suggestion.rule">
+            <field name="code">sign_viewed_not_signed</field>
+            <field name="name">Firma vista ma non firmata da 3gg</field>
+            <field name="sequence">60</field>
+            <field name="priority">high</field>
+            <field name="matcher_type">sign_pending</field>
+            <field name="target_model">erpv6.sign.request</field>
+            <field name="stale_days">3</field>
+            <field name="sign_states">viewed</field>
+            <field name="sign_date_field">viewed_at</field>
+            <field name="user_resolver">owner_user_id</field>
+            <field name="title_template">Firma {sign_name} vista ma non firmata da {days_viewed}gg</field>
+            <field name="body_fallback">Chiama {counterpart}: ha visto {sign_name} {days_viewed} giorni fa ma non ha firmato.</field>
+        </record>
+
+        <!-- ═══ EMAIL ═══ -->
+        <record id="rule_email_unread_3d" model="erpv6.suggestion.rule">
+            <field name="code">email_unread_3d</field>
+            <field name="name">Email non letta da 3gg</field>
+            <field name="sequence">70</field>
+            <field name="priority">normal</field>
+            <field name="matcher_type">email_unread</field>
+            <field name="target_model">erpv6.project.email.log</field>
+            <field name="stale_days">3</field>
+            <field name="user_resolver">owner_user_id</field>
+            <field name="title_template">Email non letta: {email_subject}</field>
+            <field name="body_fallback">Leggi email da {sender} su progetto: {days_unread} giorni in inbox.</field>
+        </record>
+
+        <!-- ═══ PROGETTI ═══ -->
+        <record id="rule_project_no_events_30d" model="erpv6.suggestion.rule">
+            <field name="code">project_no_events_30d</field>
+            <field name="name">Progetto silente da 30gg</field>
+            <field name="sequence">80</field>
+            <field name="priority">normal</field>
+            <field name="matcher_type">entity_no_events</field>
+            <field name="target_model">erpv6.tracking.relation</field>
+            <field name="filter_domain">[('parent_id', '=', False), ('state', '=', 'attivo')]</field>
+            <field name="stale_days">30</field>
+            <field name="user_resolver">owner_user_id</field>
+            <field name="title_template">Progetto {project_name} silente da {days_silent}gg</field>
+            <field name="body_fallback">Nessun evento su {project_name} da {days_silent} giorni: verifica stato.</field>
+        </record>
+
+        <!-- ═══ DEBRIEF ═══ -->
+        <record id="rule_debrief_missing" model="erpv6.suggestion.rule">
+            <field name="code">debrief_missing</field>
+            <field name="name">Debrief mancante dopo evento</field>
+            <field name="sequence">90</field>
+            <field name="priority">high</field>
+            <field name="matcher_type">event_debrief_missing</field>
+            <field name="target_model">erpv6.deal.event</field>
+            <field name="event_types">tavolo_incontro,call</field>
+            <field name="debrief_hours">4</field>
+            <field name="user_resolver">relation_id.owner_user_id</field>
+            <field name="title_template">Debrief mancante: {event_title}</field>
+            <field name="body_fallback">Compila il debrief di "{event_title}" (del {event_date}): {days_late} giorni fa.</field>
+        </record>
+
+    </data>
+</odoo>
