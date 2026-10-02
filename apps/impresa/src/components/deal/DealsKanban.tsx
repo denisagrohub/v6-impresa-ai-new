@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, ChevronDown } from 'lucide-react';
 import { CreateDealModal } from './CreateDealModal';
 
 export type KanbanDeal = {
@@ -105,6 +105,8 @@ export function DealsKanban({
   onDealCreated?: () => void;
 }) {
   const [showCreate, setShowCreate] = useState(false);
+  // 02/10/2026 (C4b-3): blocco "Pipeline deal" collassabile (default aperto).
+  const [pipelineOpen, setPipelineOpen] = useState(true);
   const canCreate = parentProjectId != null && authToken != null && onDealCreated != null;
 
   if (!deals || deals.length === 0) {
@@ -118,15 +120,23 @@ export function DealsKanban({
 
   return (
     <section className="mt-6">
-      <div className="flex items-center justify-between mb-3">
+      <button
+        onClick={() => setPipelineOpen((v) => !v)}
+        className="w-full flex items-center gap-2 mb-3 hover:bg-gray-50 transition-colors text-left rounded"
+      >
+        <ChevronDown
+          size={14}
+          className={`text-gray-400 transition-transform shrink-0 ${pipelineOpen ? '' : '-rotate-90'}`}
+        />
         <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
           Pipeline deal
           <span className="text-xs font-normal text-gray-400">
             ({deals.length} {deals.length === 1 ? 'deal' : 'deal'})
           </span>
         </h2>
-      </div>
+      </button>
 
+      {pipelineOpen && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
         {byColumn.map(col => (
           <div key={col.key} className={`rounded-xl border-2 ${col.accent} p-2.5`}>
@@ -161,6 +171,7 @@ export function DealsKanban({
           </div>
         ))}
       </div>
+      )}
 
       {showCreate && canCreate && (
         <CreateDealModal
