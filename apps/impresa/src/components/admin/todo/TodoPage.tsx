@@ -86,6 +86,9 @@ export default function TodoPage() {
   const [newName, setNewName] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
   const [newUserId, setNewUserId] = useState<string>('');
+  // 02/10/2026 (C1a-BIS-2): associazioni progetto/deal nel form
+  const [newProjectId, setNewProjectId] = useState<string>('');
+  const [newDealId, setNewDealId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   // 02/10/2026 (C1a-3): lista utenti per assegnazione (solo admin)
   const [users, setUsers] = useState<Array<{ id: number; name: string }>>([]);
@@ -95,6 +98,8 @@ export default function TodoPage() {
   const [editDescription, setEditDescription] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editUserId, setEditUserId] = useState<string>('');
+  const [editProjectId, setEditProjectId] = useState<string>('');
+  const [editDealId, setEditDealId] = useState<string>('');
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
@@ -246,6 +251,8 @@ export default function TodoPage() {
       const payload: any = { name };
       if (newDueDate) payload.due_date = newDueDate;
       if (newUserId) payload.user_id = parseInt(newUserId, 10);
+      if (newProjectId) payload.project_id = parseInt(newProjectId, 10);
+      if (newDealId) payload.deal_id = parseInt(newDealId, 10);
       const r = await fetch('/api/admin/todos', {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
@@ -256,6 +263,8 @@ export default function TodoPage() {
       setNewName('');
       setNewDueDate('');
       setNewUserId('');
+      setNewProjectId('');
+      setNewDealId('');
       setTodos((prev) => [d.todo, ...prev]);
     } catch (e: any) {
       setError(e.message || 'Errore');
@@ -298,6 +307,8 @@ export default function TodoPage() {
     setEditDescription(t.description || '');
     setEditDueDate(t.due_date || '');
     setEditUserId(t.user_id ? String(t.user_id) : '');
+    setEditProjectId(t.project_id ? String(t.project_id) : '');
+    setEditDealId(t.deal_id ? String(t.deal_id) : '');
   };
 
   const cancelEdit = () => {
@@ -306,6 +317,8 @@ export default function TodoPage() {
     setEditDescription('');
     setEditDueDate('');
     setEditUserId('');
+    setEditProjectId('');
+    setEditDealId('');
   };
 
   const saveEdit = async () => {
@@ -322,6 +335,8 @@ export default function TodoPage() {
         name,
         description: editDescription,
         due_date: editDueDate || null,
+        project_id: editProjectId ? parseInt(editProjectId, 10) : null,
+        deal_id: editDealId ? parseInt(editDealId, 10) : null,
       };
       if (isAdmin && editUserId) {
         payload.user_id = parseInt(editUserId, 10);
@@ -499,6 +514,34 @@ export default function TodoPage() {
               ))}
             </select>
           )}
+          {projectsList.length > 0 && (
+            <select
+              value={newProjectId}
+              onChange={(e) => setNewProjectId(e.target.value)}
+              disabled={submitting}
+              className="text-[11px] text-gray-600 bg-transparent outline-none border border-gray-100 rounded px-1.5 py-0.5 hover:border-gray-200 max-w-[180px]"
+              title="Progetto"
+            >
+              <option value="">Nessun progetto</option>
+              {projectsList.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          )}
+          {dealsList.length > 0 && (
+            <select
+              value={newDealId}
+              onChange={(e) => setNewDealId(e.target.value)}
+              disabled={submitting}
+              className="text-[11px] text-gray-600 bg-transparent outline-none border border-gray-100 rounded px-1.5 py-0.5 hover:border-gray-200 max-w-[180px]"
+              title="Deal"
+            >
+              <option value="">Nessun deal</option>
+              {dealsList.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -569,6 +612,32 @@ export default function TodoPage() {
                             <option value="">Assegna a…</option>
                             {users.map((u) => (
                               <option key={u.id} value={u.id}>{u.name}</option>
+                            ))}
+                          </select>
+                        )}
+                        {projectsList.length > 0 && (
+                          <select
+                            value={editProjectId}
+                            onChange={(e) => setEditProjectId(e.target.value)}
+                            className="px-2 py-1.5 rounded border border-gray-200 bg-white text-xs text-[#0F1E3C] outline-none focus:border-[#0F1E3C] max-w-[200px]"
+                            title="Progetto"
+                          >
+                            <option value="">Nessun progetto</option>
+                            {projectsList.map((p) => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                          </select>
+                        )}
+                        {dealsList.length > 0 && (
+                          <select
+                            value={editDealId}
+                            onChange={(e) => setEditDealId(e.target.value)}
+                            className="px-2 py-1.5 rounded border border-gray-200 bg-white text-xs text-[#0F1E3C] outline-none focus:border-[#0F1E3C] max-w-[200px]"
+                            title="Deal"
+                          >
+                            <option value="">Nessun deal</option>
+                            {dealsList.map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
                             ))}
                           </select>
                         )}

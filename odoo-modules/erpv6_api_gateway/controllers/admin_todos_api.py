@@ -271,6 +271,25 @@ class AdminTodosAPIController(ConsultantAPIController):
             vals['description'] = body.get('description') or ''
         if 'due_date' in body:
             vals['due_date'] = body.get('due_date') or False
+        # 02/10/2026 (C1a-BIS-2): project_id/deal_id modificabili, anche a null
+        if 'project_id' in body:
+            pid = body.get('project_id')
+            if pid in (None, '', False):
+                vals['project_id'] = False
+            else:
+                try:
+                    vals['project_id'] = int(pid)
+                except (ValueError, TypeError):
+                    return self._json_response({'error': 'project_id non valido'}, 400)
+        if 'deal_id' in body:
+            did = body.get('deal_id')
+            if did in (None, '', False):
+                vals['deal_id'] = False
+            else:
+                try:
+                    vals['deal_id'] = int(did)
+                except (ValueError, TypeError):
+                    return self._json_response({'error': 'deal_id non valido'}, 400)
         # 02/10/2026 (C1a-3): solo admin può riassegnare a un altro utente.
         if 'user_id' in body and is_admin:
             try:
