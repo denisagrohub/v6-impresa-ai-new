@@ -47,8 +47,14 @@ class AdminEmailsAPIController(ConsultantAPIController):
     # ================================================================
     # UTILITIES
     # ================================================================
-    def _fetch_all_logs(self, domain_winwin=None, domain_project=None):
-        """Ritorna lista unificata di dict dai 2 modelli."""
+    def _fetch_all_logs(self, domain_winwin=None, domain_project=None, user=None):
+        """Ritorna lista unificata di dict dai 2 modelli.
+
+        02/10/2026 (C2-rd-fix): `user` esplicito per il read.state.
+        In auth='none' + JWT, request.env.user è OdooBot (uid 1), non
+        l'utente autenticato. Va passato dal chiamante (che ha già
+        fatto _check_admin_perm).
+        """
         env = request.env
         result = []
 
@@ -79,7 +85,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
         if 'erpv6.project.email.log' in env:
             P = env['erpv6.project.email.log'].sudo()
             _project_recs = P.search(domain_project or [])
-            _user = request.env.user
+            _user = user or request.env.user
             _read_map = self._read_state_map(_user, [r.id for r in _project_recs])
             for r in _project_recs:
                 result.append({
@@ -209,7 +215,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
         if err:
             return err
 
-        logs = self._fetch_all_logs()
+        logs = self._fetch_all_logs(user=user)
 
         # 30/09/2026 (fix privacy): applica lo stesso filtro di list_emails.
         # Prima __all__ e __sent__ contavano TUTTI i logs globali (Christian
@@ -276,7 +282,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
         if err:
             return err
 
-        logs = self._fetch_all_logs()
+        logs = self._fetch_all_logs(user=user)
         logs = [l for l in logs
                 if not self._is_consultant_alias(l.get('matched_alias') or '', user)]
 
@@ -323,7 +329,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
         q = (args.get('q', '') or '').strip().lower()
         limit = int(args.get('limit', 100) or 100)
 
-        logs = self._fetch_all_logs()
+        logs = self._fetch_all_logs(user=user)
 
         # Filtra consulenti (privacy) — a meno che mailbox specifico
         logs = [l for l in logs
@@ -419,7 +425,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                 'relation_name': r.relation_id.name if r.relation_id else None,
                 # 02/10/2026 (C2-rd): per project, letto per-utente via read.state
                 'is_read': (
-                    r.id in self._read_state_map(request.env.user, [r.id])
+                    r.id in self._read_state_map(user, [r.id])
                     if kind == 'project'
                     else bool(getattr(r, 'is_read', False))
                 ),
