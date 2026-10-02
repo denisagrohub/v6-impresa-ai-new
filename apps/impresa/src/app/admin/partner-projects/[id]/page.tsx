@@ -959,7 +959,7 @@ export default function PartnerProjectDetailPage() {
             )}
 
             {/* ───── MAIN: due colonne ───── */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] flex-1 overflow-y-auto min-h-0">
 
                 {/* ═══ COLONNA SINISTRA: contenuto contestuale alla vista ═══ */}
                 <OperativaMain
