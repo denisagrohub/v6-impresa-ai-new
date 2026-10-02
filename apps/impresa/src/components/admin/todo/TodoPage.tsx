@@ -570,7 +570,7 @@ export default function TodoPage() {
                       </span>
                     )}
 
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         onClick={() => startEdit(t)}
                         className="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-[#0F1E3C]"
