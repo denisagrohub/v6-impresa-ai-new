@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="param_mail_test_mode" model="ir.config_parameter">
+            <field name="key">mail.test_mode</field>
+            <field name="value">True</field>
+        </record>
+        <record id="param_mail_test_whitelist" model="ir.config_parameter">
+            <field name="key">mail.test_whitelist</field>
+            <field name="value">denis.deste@v6impresa.it,method@agrohubitalia.it</field>
+        </record>
+    </data>
+</odoo>
