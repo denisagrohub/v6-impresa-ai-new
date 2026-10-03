@@ -49,12 +49,28 @@ class Erpv6KaizenAgent(models.Model):
         # leggerla e applicarla -- bug reale trovato da un agente di
         # verifica dedicato il 20/08/2026, innocuo solo per coincidenza
         # (nessuna voce era mai stata disattivata finora).
-        rules_kbs = self.env['erpv6.kb'].search(
-            [('category_id', '=', agent_config.instructions_category_id.id), ('is_active', '=', True)], order='name')
-        if not rules_kbs:
+        # 03/10/2026 (C5-P3): fix Groq 413. La categoria ha 39 voci
+        # (80.903 char), troppo per il limite Groq. Prendo solo le regole
+        # numerate (le 12 + Principio guida) e tronco ciascuna a
+        # RULES_MAX_CHARS_PER_KB.
+        RULES_MAX_CHARS_PER_KB = 500
+        RULES_MAX_ENTRIES = 15
+        all_kbs = self.env['erpv6.kb'].search(
+            [('category_id', '=', agent_config.instructions_category_id.id),
+             ('is_active', '=', True)], order='name')
+        if not all_kbs:
             _logger.warning("Agente Kaizen: nessuna voce KB nella categoria istruzioni configurata, nessuna proposta generata.")
             return
-        rules_text = "\n\n".join("### %s\n%s" % (kb.name, kb.content) for kb in rules_kbs)
+        # Priorità: Principio guida + 1-12 numerate
+        priority_kbs = all_kbs.filtered(
+            lambda k: k.name.startswith('Principio') or
+                      any(k.name.startswith(f'{n}.') for n in range(1, 13))
+        )[:RULES_MAX_ENTRIES]
+        rules_kbs = priority_kbs if priority_kbs else all_kbs[:RULES_MAX_ENTRIES]
+        rules_text = "\n\n".join(
+            "### %s\n%s" % (kb.name, (kb.content or '')[:RULES_MAX_CHARS_PER_KB])
+            for kb in rules_kbs
+        )
 
         heinrich_all = self.env['erpv6.heinrich.indicator'].search([])
         heinrich_summary = _(
@@ -65,11 +81,15 @@ class Erpv6KaizenAgent(models.Model):
             'near_miss': sum(heinrich_all.mapped('near_miss_segnalati')),
             'n': len(heinrich_all),
         }
+        # 03/10/2026 (C5-P3): top 5 item backlog (era tutti, fino a 20+).
+        BACKLOG_TOP_N = 5
+        top_items = backlog.item_ids.sorted(
+            key=lambda i: i.punteggio, reverse=True)[:BACKLOG_TOP_N]
         backlog_text = "\n".join(
             "- %s (punteggio %d, cumulata %.1f%%%s)" % (
-                item.name, item.punteggio, item.cumulata_pct,
+                item.name[:100], item.punteggio, item.cumulata_pct,
                 " — PRIORITARIO" if item.is_priority else "")
-            for item in backlog.item_ids.sorted(key=lambda i: i.punteggio, reverse=True)
+            for item in top_items
         )
 
         # Senza questo elenco, la prima proposta reale (20/08/2026) ha
@@ -98,8 +118,15 @@ class Erpv6KaizenAgent(models.Model):
         # dedicato, non passa dal motore generico) si comporta comunque
         # come un agente "di prima classe".
         persona_text = agent_config.persona_kb_id.content if agent_config.persona_kb_id else ''
-        memory_kbs = agent_config._get_memory_kbs()
-        memory_text = "\n\n".join("### %s\n%s" % (kb.name, kb.content) for kb in memory_kbs)
+        # 03/10/2026 (C5-P3): limito la memoria a 3 voci (era 10) per
+        # ridurre il payload Groq.
+        MEMORY_MAX_ENTRIES = 3
+        MEMORY_MAX_CHARS_PER_KB = 300
+        memory_kbs = agent_config._get_memory_kbs()[:MEMORY_MAX_ENTRIES]
+        memory_text = "\n\n".join(
+            "### %s\n%s" % (kb.name, (kb.content or '')[:MEMORY_MAX_CHARS_PER_KB])
+            for kb in memory_kbs
+        )
         system_prompt = (
             "Sei l'agente Kaizen del sistema erpv6.%(persona)s Applichi le regole sotto per proporre "
             "UNA sola azione concreta sul backlog tecnico reale fornito -- non inventare problemi "
@@ -124,6 +151,18 @@ class Erpv6KaizenAgent(models.Model):
             "BACKLOG PARETO CONDIVISO (ordinato per punteggio):\n%(backlog)s\n\n"
             "AGGREGATO HEINRICH (cultura organizzativa sulla segnalazione):\n%(heinrich)s"
         ) % {'backlog': backlog_text, 'heinrich': heinrich_summary}
+
+        # 03/10/2026 (C5-P3): log dimensione payload per monitoraggio.
+        total_chars = len(system_prompt) + len(user_content)
+        _logger.info(
+            "Kaizen agent prompt: system=%d char, user=%d char, total=%d char",
+            len(system_prompt), len(user_content), total_chars,
+        )
+        if total_chars > 40000:
+            _logger.warning(
+                "Kaizen agent prompt molto grande (%d char): "
+                "rischio 413 su provider come Groq.", total_chars,
+            )
 
         bridge = self.env['erpv6.omni.bridge']
         result = bridge.execute_ai_task(
