@@ -25,6 +25,7 @@ type Appointment = {
   deal_name: string | null;
   external_attendees: string;
   telegram_reminder_sent_at: string | null;
+  partner_ids: number[];
   attendee_ids: number[];
   attendee_names: string[];
   user_id: number | null;

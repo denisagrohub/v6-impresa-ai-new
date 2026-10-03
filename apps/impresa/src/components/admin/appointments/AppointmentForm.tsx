@@ -24,13 +24,14 @@ type Appointment = {
   deal_id: number | null;
   deal_name: string | null;
   external_attendees: string;
+  partner_ids: number[];
   attendee_ids: number[];
   attendee_names: string[];
   user_id: number | null;
   user_name: string | null;
 };
 
-type UserOpt = { id: number; name: string };
+type UserOpt = { id: number; partner_id: number; name: string };
 type ProjOpt = { id: number; name: string };
 type DealOpt = { id: number; name: string; project_id?: number | null };
 
@@ -126,7 +127,7 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
     setDescription(appointment.description || '');
     setRelationId(appointment.relation_id);
     setDealId(appointment.deal_id);
-    setPartnerIds(appointment.attendee_ids || []);
+    setPartnerIds(appointment.partner_ids || []);
     setExternal(appointment.external_attendees || '');
   }, [appointment]);
 
@@ -141,7 +142,16 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
         ]);
         if (uR.ok) {
           const d = await uR.json();
-          if (Array.isArray(d.users)) setUsers(d.users.map((u: any) => ({ id: u.id, name: u.name })));
+          // 03/10/2026 (agenda-1b-fix): usiamo partner_id per i checkbox,
+          // non user_id. Denis: user_id=2 ma partner_id=3. Se mandiamo
+          // user_id al backend, il filtro V6 scarta il partner.
+          if (Array.isArray(d.users)) {
+            setUsers(d.users.map((u: any) => ({
+              id: u.id,
+              partner_id: u.partner_id,
+              name: u.name,
+            })));
+          }
         }
         if (pR.ok) {
           const d = await pR.json();
@@ -162,22 +172,25 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
     return deals.filter(d => d.project_id == null || d.project_id === relationId);
   }, [deals, relationId]);
 
+  // 03/10/2026 (agenda-1b-fix): timezone.
+  // L'utente sceglie data/ora LOCALI (es. Europe/Rome). Odoo vuole UTC naive.
+  // Costruiamo un Date locale → toISOString() → strip 'Z'.
   const startIso = useMemo(() => {
     if (!date || !time) return '';
-    return `${date}T${time}:00`;
+    const [y, m, d] = date.split('-').map(Number);
+    const [hh, mm] = time.split(':').map(Number);
+    const dt = new Date(y, m - 1, d, hh, mm, 0);
+    return dt.toISOString().replace('Z', '').replace(/\.\d+$/, '');
   }, [date, time]);
 
   const stopIso = useMemo(() => {
-    if (!startIso) return '';
-    const d = new Date(startIso);
-    d.setMinutes(d.getMinutes() + duration);
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const g = String(d.getDate()).padStart(2,'0');
-    const hh = String(d.getHours()).padStart(2,'0');
-    const mm = String(d.getMinutes()).padStart(2,'0');
-    return `${y}-${m}-${g}T${hh}:${mm}:00`;
-  }, [startIso, duration]);
+    if (!date || !time) return '';
+    const [y, m, d] = date.split('-').map(Number);
+    const [hh, mm] = time.split(':').map(Number);
+    const dt = new Date(y, m - 1, d, hh, mm, 0);
+    dt.setMinutes(dt.getMinutes() + duration);
+    return dt.toISOString().replace('Z', '').replace(/\.\d+$/, '');
+  }, [date, time, duration]);
 
   const handleSave = async () => {
     if (!name.trim()) { setError('Il titolo è obbligatorio.'); return; }
@@ -232,8 +245,9 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
     }
   };
 
-  const togglePartner = (id: number) => {
-    setPartnerIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  // 03/10/2026 (agenda-1b-fix): toggle su partner_id (non user_id).
+  const togglePartner = (partnerId: number) => {
+    setPartnerIds(prev => prev.includes(partnerId) ? prev.filter(x => x !== partnerId) : [...prev, partnerId]);
   };
 
   return (
@@ -330,15 +344,33 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
                     <div className="text-xs text-gray-400 italic py-1">Nessun utente caricato.</div>
                   ) : users.map(u => (
                     <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
-                      <input type="checkbox" checked={partnerIds.includes(u.id)}
-                        onChange={() => togglePartner(u.id)}
+                      <input type="checkbox" checked={partnerIds.includes(u.partner_id)}
+                        onChange={() => togglePartner(u.partner_id)}
                         className="accent-[#0F1E3C]" />
                       <span>{u.name}</span>
                     </label>
                   ))}
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Solo utenti V6 interni. Per invitare esterni usa il file .ics.
+                  Solo utenti V6 interni. Per invitare esterni usa il campo sotto.
+                </p>
+              </div>
+
+              {/* 03/10/2026 (agenda-1b-fix): Fix 2 - partecipanti esterni */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Partecipanti esterni (email)
+                </label>
+                <textarea
+                  value={external}
+                  onChange={e => setExternal(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  placeholder="cliente@example.com, altro@example.com"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Solo email separate da virgola. Non riceveranno invito
+                  automatico: scarica il file .ics e condividilo tu.
                 </p>
               </div>
             </div>

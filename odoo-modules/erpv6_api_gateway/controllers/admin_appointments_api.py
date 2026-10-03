@@ -32,6 +32,10 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
             'external_attendees': e.external_attendees or '',
             'telegram_reminder_sent_at': self._iso_utc(e.telegram_reminder_sent_at)
                 if e.telegram_reminder_sent_at else None,
+            # 03/10/2026 (agenda-1b-fix): partner_ids è ciò che il form
+            # usa per i checkbox (allineato a res.partner, non a
+            # calendar.attendee.id). attendee_ids/names restano per debug.
+            'partner_ids': e.partner_ids.ids,
             'attendee_ids': e.attendee_ids.ids,
             'attendee_names': [a.partner_id.name for a in e.attendee_ids],
             'user_id': e.user_id.id if e.user_id else None,
@@ -47,15 +51,24 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         return False
 
     def _parse_datetime(self, s):
-        """Parsing ISO tollerante (from '2026-10-15T10:00' o '10:00:00')."""
+        """Parsing ISO tollerante.
+
+        03/10/2026 (agenda-1b-fix): il frontend ora manda UTC naive
+        (toISOString().replace('Z','')). Accettiamo anche varianti con
+        'Z' finale o offset '+02:00' per robustezza.
+        """
         if not s:
             return False
         s = s.replace('T', ' ')
-        # Rimuovi timezone se presente (naive)
+        # Strip millisecondi se presenti
+        if '.' in s:
+            s = s.split('.')[0]
+        # Strip offset (+02:00, -05:00)
         if '+' in s:
             s = s.split('+')[0].strip()
+        # Strip 'Z' finale (UTC)
         if s.endswith('Z'):
-            s = s[:-1]
+            s = s[:-1].strip()
         return s
 
     # ═══════════════════════════════════════════════════════════════

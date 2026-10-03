@@ -992,6 +992,7 @@ class AdminDealsAPIController(ConsultantAPIController):
 
             result.append({
                 'id': u.id,
+                'partner_id': u.partner_id.id,  # 03/10/2026 (agenda-1b-fix): serve al form appuntamenti per partner_ids
                 'name': u.name,
                 'email': u.email or u.login,
                 'login': u.login,
