@@ -52,7 +52,14 @@ class IrMailServer(models.Model):
         cc_emails = _parse_addrs(message.get('Cc') or '')
         all_recipients = to_emails + cc_emails
 
-        blocked = [e for e in all_recipients if e not in whitelist]
+        # 03/10/2026: whitelist automatica per utenti V6 interni.
+        # Un'email verso Martina/Christian/Stefano (interni) non è un
+        # rischio R2: sono già "dentro". La whitelist manuale aggiunge
+        # indirizzi esterni approvati (es. Denis via agrohub).
+        internal_emails = self._get_internal_user_emails()
+        allowed = whitelist | internal_emails
+
+        blocked = [e for e in all_recipients if e not in allowed]
         if blocked:
             _logger.warning(
                 "MAIL BLOCKED (test_mode) → To=%s Cc=%s | fuori whitelist: %s | "
@@ -63,6 +70,23 @@ class IrMailServer(models.Model):
             return False
 
         return super().send_email(message, *args, **kwargs)
+
+
+    @api.model
+    def _get_internal_user_emails(self):
+        """Ritorna set lowercase di tutte le email di utenti V6 interni
+        (share=False, active=True): user.email + user.login + partner.email.
+        Questi indirizzi sono whitelisted automaticamente."""
+        users = self.env['res.users'].sudo().search([
+            ('share', '=', False),
+            ('active', '=', True),
+        ])
+        emails = set()
+        for u in users:
+            for src in (u.email, u.login, u.partner_id.email):
+                if src and '@' in src:
+                    emails.add(src.strip().lower())
+        return emails
 
 
 def _parse_addrs(raw):

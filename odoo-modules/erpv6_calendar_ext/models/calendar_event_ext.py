@@ -5,7 +5,11 @@
 relation_id, deal_id, booking_token_id, telegram_reminder_sent_at,
 external_attendees.
 """
+import logging
+
 from odoo import fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class CalendarEvent(models.Model):
@@ -45,3 +49,105 @@ class CalendarEvent(models.Model):
         index=True,
         help='True se creato via API V6. False per eventi nativi Odoo.',
     )
+
+
+    # ═══════════════════════════════════════════════════════════════
+    # 03/10/2026 (C1b-agenda-COMPLETE-B): notifica immediata al create
+    # ═══════════════════════════════════════════════════════════════
+    def _notify_attendees(self):
+        """Notifica immediata a tutti i partner V6 dopo il create.
+
+        - Utente V6 con telegram_chat_id → messaggio Telegram con
+          bottoni Accetto/Rifiuto.
+        - Utente V6 senza Telegram → email interna V6 (whitelisted).
+        - Partner esterni NON ricevono nulla da qui: l'invito esterno
+          è gestito da D.4 con conferma esplicita utente.
+        """
+        self.ensure_one()
+        for partner in self.partner_ids:
+            users = partner.user_ids.filtered(lambda u: u.active)
+            for user in users:
+                try:
+                    if user.telegram_chat_id:
+                        self._notify_via_telegram(user)
+                    else:
+                        self._notify_via_email_internal(user)
+                except Exception:  # pylint: disable=broad-except
+                    _logger.exception(
+                        "Notify attendee fallita per user %s (event %s)",
+                        user.id, self.id)
+
+    def _notify_via_telegram(self, user):
+        """Invia messaggio Telegram con bottoni RSVP inline."""
+        config = self.env['erpv6.agent.telegram.config'].sudo().search(
+            [('is_active', '=', True)], limit=1)
+        if not config:
+            _logger.warning("_notify_via_telegram: nessuna config attiva")
+            return
+        attendee = self.attendee_ids.filtered(
+            lambda a: a.partner_id.id == user.partner_id.id)[:1]
+        if not attendee:
+            _logger.warning(
+                "_notify_via_telegram: attendee mancante per user %s", user.id)
+            return
+        start_local = fields.Datetime.context_timestamp(user, self.start)
+        end_local = fields.Datetime.context_timestamp(user, self.stop)
+        text = (
+            f"📅 Nuovo appuntamento\n"
+            f"{self.name}\n"
+            f"🕐 {start_local.strftime('%d/%m %H:%M')} – "
+            f"{end_local.strftime('%H:%M')}"
+        )
+        if self.location:
+            text += f"\n📍 {self.location}"
+        if self.relation_id:
+            text += f"\n📁 {self.relation_id.name}"
+        markup = {'inline_keyboard': [[
+            {'text': '✅ Accetto',
+             'callback_data': f'cal accept {attendee.id}'},
+            {'text': '❌ Rifiuto',
+             'callback_data': f'cal decline {attendee.id}'},
+        ]]}
+        ok = config.send_message(
+            text=text,
+            reply_markup=markup,
+            chat_id_override=user.telegram_chat_id,
+        )
+        if not ok:
+            _logger.warning(
+                "_notify_via_telegram: send_message False per user %s", user.id)
+
+    def _notify_via_email_internal(self, user):
+        """Email interna V6 (in whitelist, non serve transactional)."""
+        attendee = self.attendee_ids.filtered(
+            lambda a: a.partner_id.id == user.partner_id.id)[:1]
+        if not attendee:
+            return
+        template = self.env.ref(
+            'erpv6_calendar_ext.mail_template_internal_invite',
+            raise_if_not_found=False)
+        if not template:
+            _logger.warning("Template email interno mancante")
+            return
+        base_url = self.env['ir.config_parameter'].sudo().get_param(
+            'web.base.url', 'https://erpv6.it')
+        accept_url = (
+            f"{base_url}/api/v1/appointments/rsvp/{attendee.id}/"
+            f"{attendee.access_token}/accept"
+        )
+        decline_url = (
+            f"{base_url}/api/v1/appointments/rsvp/{attendee.id}/"
+            f"{attendee.access_token}/decline"
+        )
+        try:
+            template.with_context(
+                accept_url=accept_url,
+                decline_url=decline_url,
+            ).send_mail(
+                self.id,
+                force_send=False,
+                email_values={'email_to': user.login},
+            )
+        except Exception:  # pylint: disable=broad-except
+            _logger.exception(
+                "_notify_via_email_internal fallita per user %s", user.id)

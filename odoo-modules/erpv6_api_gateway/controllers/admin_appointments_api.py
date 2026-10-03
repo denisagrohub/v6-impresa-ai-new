@@ -191,6 +191,14 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
             e = request.env['calendar.event'].sudo().with_context(
                 no_mail_to_attendees=True,
             ).create(vals)
+            # 03/10/2026 (B): notifica attendee V6 (Telegram o email)
+            # dopo il create. Fuori dalla transazione del create così
+            # un fallimento notifica non blocca l'evento.
+            try:
+                e._notify_attendees()
+            except Exception:
+                _logger.exception(
+                    "Notifica attendee fallita per evento %s", e.id)
             request.env.cr.commit()
         except Exception as ex:
             _logger.exception('Errore create calendar.event')
