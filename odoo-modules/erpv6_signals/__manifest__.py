@@ -19,6 +19,7 @@
         'security/signal_security.xml',
         'views/signal_views.xml',
         'views/signal_menu.xml',
+        'data/ir_cron_sync.xml',
     ],
     'installable': True,
     'application': False,
