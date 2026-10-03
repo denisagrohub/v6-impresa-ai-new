@@ -50,6 +50,10 @@ SUGG_DECISION_RE = re.compile(r'^sugg (accept|ignore) (\d+)$')
 # data telegram = "cal:accept:123" → normalizzata a "cal accept 123".
 CAL_DECISION_RE = re.compile(r'^cal (accept|decline) (\d+)$')
 
+# 03/10/2026 (C5-P3): decisione su erpv6.signal.
+# data telegram = "sig:accept:42" → normalizzata a "sig accept 42".
+SIG_DECISION_RE = re.compile(r'^sig (accept|ignore|silence) (\d+)$')
+
 # Reazione che fa scattare l'autocritica (25/08/2026, richiesta esplicita di
 # Denis) -- SOLO questo emoji, mai un'interpretazione libera di "reazione
 # negativa" (stesso principio non negoziabile gia' seguito per i comandi
@@ -597,6 +601,56 @@ class Erpv6AgentTelegramConfig(models.Model):
                 "Telegram: follow-up calendar decisione fallito per %s.",
                 self.name)
 
+    def _handle_signal_decision(self, action, signal_id, chat_id,
+                                  message_id, callback_query_id):
+        """03/10/2026 (C5-P3): accept/ignore/silence su erpv6.signal da
+        bottoni Telegram.
+
+        - accept: state='acknowledged'
+        - ignore: state='ignored' + register_ignore (mute dopo 3)
+        - silence: action_silence_30d (mute manuale 30gg)
+        """
+        user = self.env['res.users'].sudo().search([
+            ('telegram_chat_id', '=', chat_id)
+        ], limit=1)
+        if not user:
+            self._answer_callback_query(callback_query_id)
+            return
+
+        signal = self.env['erpv6.signal'].sudo().browse(signal_id)
+        if not signal.exists():
+            self._answer_callback_query(callback_query_id)
+            return
+        # Verifica: il signal deve essere assegnato all'utente o a lui accessibile
+        if signal.recipient_user_id and signal.recipient_user_id.id != user.id:
+            self._answer_callback_query(callback_query_id)
+            return
+
+        label = ''
+        try:
+            if action == 'accept':
+                signal.action_acknowledge()
+                label = f"✅ Preso in carico: {signal.title[:60]}"
+            elif action == 'ignore':
+                signal.action_ignore()
+                label = f"❌ Ignorato: {signal.title[:60]}"
+            elif action == 'silence':
+                signal.action_silence_30d()
+                label = f"🔕 Silenziato 30gg: {signal.title[:60]}"
+            self.env.cr.commit()
+        except Exception:  # pylint: disable=broad-except
+            _logger.exception(
+                "Telegram: _handle_signal_decision fallito per signal %s",
+                signal_id)
+            label = "⚠️ Errore nell'azione, riprova da Odoo."
+
+        self._answer_callback_query(callback_query_id)
+        self._edit_message_reply_markup(chat_id, message_id, None)
+        try:
+            self.send_message(label, chat_id_override=chat_id)
+        except Exception:  # pylint: disable=broad-except
+            _logger.exception("Follow-up signal decision fallito")
+
     def _handle_start_registration(self, chat_id, text):
         """C1b-bot-1: gestione /start. Se già registrato, saluta;
         altrimenti chiede l'email V6 e salva stato pending."""
@@ -731,7 +785,17 @@ class Erpv6AgentTelegramConfig(models.Model):
                             callback_query.get('id'),
                         )
                     else:
-                        _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
+                        sig_match = SIG_DECISION_RE.match(normalized)
+                        if sig_match:
+                            self._handle_signal_decision(
+                                sig_match.group(1),
+                                int(sig_match.group(2)),
+                                chat_id,
+                                (callback_query.get('message') or {}).get('message_id'),
+                                callback_query.get('id'),
+                            )
+                        else:
+                            _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
             return
         message = update.get('message') or update.get('edited_message')
         if not message:

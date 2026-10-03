@@ -1016,7 +1016,7 @@ class Erpv6AgentConfig(models.Model):
 
     def notify_pending_confirmation(self, title, facts, res_model, res_id,
                                      action_model=None, action_res_id=None, action_method=None,
-                                     notify_partner_ids=None):
+                                     notify_partner_ids=None, no_telegram=False):
         """Meccanismo GENERICO (riusabile da qualunque agente/pezzo di
         codice, non solo dal rilevatore vocabolario KG) per: scrivere un
         avviso in voce propria sul thread di un record specifico
@@ -1085,6 +1085,11 @@ class Erpv6AgentConfig(models.Model):
         # (bus.presence), non un dato inventato qui. Bottoni cliccabili
         # (24/08/2026, richiesto esplicitamente: "anche loro devono avere
         # accetta rifiuta") -- stesso meccanismo gia' in uso per le proposte.
+        # 03/10/2026 (C5-P3): se no_telegram=True, il chiamante gestirà
+        # lui il Telegram (es. Kaizen con bottoni signal sig:<action>:<id>).
+        # Il chatter/notify sopra resta comunque scritto.
+        if no_telegram:
+            return confirmation
         for partner in self.env['res.partner'].browse(notify_partner_ids):
             user = partner.user_ids[:1]
             if user and user.im_status != 'online':

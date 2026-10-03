@@ -190,6 +190,11 @@ class Erpv6AgentProposal(models.Model):
             user_id=assignee.id,
             date_deadline=fields.Date.context_today(self) + timedelta(days=3),
         )
+        self._notify_assignee(assignee)
+
+    def _notify_assignee(self, assignee):
+        """Notifica l'assegnatario via message_notify."""
+        self.ensure_one()
         if assignee.partner_id:
             # email_from esplicito: senza, message_notify finirebbe con
             # mittente "OdooBot <odoobot@example.com>" invece del mittente

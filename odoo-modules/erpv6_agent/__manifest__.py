@@ -19,7 +19,7 @@
     """,
     'author': 'V6 Impresa AI',
     'license': 'LGPL-3',
-    'depends': ['base', 'crm', 'mail', 'erpv6_kb', 'erpv6_omni_bridge', 'erpv6_library', 'erpv6_crypto'],
+    'depends': ['base', 'crm', 'mail', 'erpv6_kb', 'erpv6_omni_bridge', 'erpv6_library', 'erpv6_crypto'],  # 03/10/2026 (C5-P3): erpv6_todo NON in depends (crea ciclo con erpv6_winwin_renderdata), uso check runtime
     'data': [
         'security/ir.model.access.csv',
         'data/agent_pattern_data.xml',

@@ -13,6 +13,7 @@
         'erpv6_suggestions',
         'aeosv6_relation',
         'erpv6_winwin_renderdata',
+        'erpv6_todo',  # 03/10/2026 (C5-P3): accept→TODO
     ],
     'data': [
         'security/ir.model.access.csv',
@@ -20,6 +21,7 @@
         'views/signal_views.xml',
         'views/signal_menu.xml',
         'data/ir_cron_sync.xml',
+        'data/ir_cron_mute_cleanup.xml',
     ],
     'installable': True,
     'application': False,

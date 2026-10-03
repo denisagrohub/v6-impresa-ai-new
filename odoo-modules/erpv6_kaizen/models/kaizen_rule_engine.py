@@ -207,24 +207,75 @@ class Erpv6KaizenDetectedSignalRuleEngine(models.Model):
                 "Segnale #%s aggregato (res_id=0) e lead 'Amministrazione KB' non trovato -- "
                 "nessuna notifica 'segnale visto' possibile.", self.id)
             return False
+        # 03/10/2026 (C5-P3): messaggio migliorato. Chiarisce cosa succede
+        # dopo (12 regole + aggiornamento entro 24h) e mostra gravità se
+        # disponibile dal manual_report collegato.
         origin_text = (
             _("una segnalazione manuale") if self.origin == 'segnalazione_manuale'
             else _("il sensore automatico"))
+        severity_text = ''
+        if self.manual_report_id:
+            sev_label = dict(self.manual_report_id._fields['severity'].selection).get(
+                self.manual_report_id.severity, self.manual_report_id.severity)
+            severity_text = _(" Gravità dichiarata: %s.") % sev_label
         facts = [
-            _("Ho appena registrato un nuovo segnale (chiave '%(key)s'), arrivato da %(origin)s.") % {
-                'key': self.signal_key, 'origin': origin_text},
+            _("Ho appena registrato un nuovo segnale (chiave '%(key)s'), arrivato da %(origin)s.%(sev)s") % {
+                'key': self.signal_key, 'origin': origin_text, 'sev': severity_text},
             _("Riguarda %(model)s (record %(id)s).") % {
                 'model': self.res_model,
                 'id': self.res_id or _("nessuno -- riguarda l'intera classe di record")},
-            _("Lo sto guardando: applichero' tutte e 12 le Regole Kaizen e ti scrivo di nuovo "
-              "con l'esito."),
+            _("Il sistema lo processerà con le 12 Regole Kaizen e ti scriverò di nuovo "
+              "con l'esito entro 24 ore. Se non ricevi aggiornamenti, il segnale è "
+              "in coda di elaborazione."),
         ]
-        return kaizen.notify_pending_confirmation(
+        # 03/10/2026 (C5-P3): no_telegram=True. Il Telegram lo invia
+        # sotto questo metodo con bottoni signal-specifici (sig:).
+        # Evita doppio messaggio.
+        confirmation = kaizen.notify_pending_confirmation(
             title=_("Ho visto un nuovo segnale: %s") % self.signal_key,
             facts=facts,
             res_model=target_model,
             res_id=target_id,
+            no_telegram=True,
         )
+
+        # 03/10/2026 (C5-P3): Telegram addizionale con bottoni signal.
+        # Cerca l'erpv6.signal collegato a questo detected_signal (C5-b
+        # sync) per usare il suo id nei callback sig:<action>:<id>.
+        try:
+            Signal = self.env['erpv6.signal'].sudo()
+            sig = Signal.search([
+                ('source_model', '=', self._name),
+                ('source_id', '=', self.id),
+            ], limit=1)
+            if sig:
+                reply_markup = {'inline_keyboard': [[
+                    {'text': '✅ Prendi in carico',
+                     'callback_data': f'sig:accept:{sig.id}'},
+                    {'text': '❌ Ignora',
+                     'callback_data': f'sig:ignore:{sig.id}'},
+                    {'text': '🔕 Silenzia 30gg',
+                     'callback_data': f'sig:silence:{sig.id}'},
+                ]]}
+                body_text = _(
+                    "📝 Segnalazione ricevuta: %(title)s\n"
+                    "Gravità: %(sev)s\n"
+                    "Origine: %(origin)s\n"
+                    "Il sistema la processerà con le 12 Regole Kaizen. "
+                    "Riceverai aggiornamento entro 24h."
+                ) % {
+                    'title': self.signal_key,
+                    'sev': sig.severity or 'lieve',
+                    'origin': origin_text,
+                }
+                self.env['erpv6.agent.telegram.config'].send_message_for_agent(
+                    kaizen, body_text, reply_markup=reply_markup)
+        except Exception:  # pylint: disable=broad-except
+            _logger.exception(
+                "Invio Telegram bottoni signal fallito per #%s (non bloccante)",
+                self.id)
+
+        return confirmation
 
     @api.model
     def _cron_evaluate_kaizen_rules(self):

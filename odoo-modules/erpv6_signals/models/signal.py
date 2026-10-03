@@ -7,6 +7,8 @@ urgent). NON sostituisce i modelli originali — li aggrega.
 
 La logica di popolamento (sync) è in C5-b.
 """
+from datetime import timedelta
+
 from odoo import api, fields, models
 
 
@@ -157,3 +159,107 @@ class Erpv6Signal(models.Model):
     def action_ignore(self):
         self.ensure_one()
         self.write({'state': 'ignored'})
+        # 03/10/2026 (C5-P3): registra ignore → mute dopo N
+        try:
+            self.env['erpv6.signal.mute'].sudo().register_ignore(self)
+        except Exception:  # pylint: disable=broad-except
+            import logging
+            logging.getLogger(__name__).exception(
+                "register_ignore fallito per signal %s (non bloccante)", self.id)
+
+    def action_silence_30d(self):
+        """Silenzia manualmente il pattern di questo signal per 30gg."""
+        self.ensure_one()
+        pk = self._pattern_key()
+        if not pk:
+            # Evento singolo: silenzia solo questo signal
+            self.write({'state': 'ignored'})
+            return
+        user_id = self.recipient_user_id.id if self.recipient_user_id else self.env.user.id
+        Mute = self.env['erpv6.signal.mute'].sudo()
+        existing = Mute.search([
+            ('user_id', '=', user_id),
+            ('pattern_key', '=', pk),
+            ('source_type', '=', self.source_type),
+        ], limit=1)
+        vals = {
+            'muted_until': fields.Datetime.now() + timedelta(days=30),
+            'reason': 'manual',
+            'note': f'Manual silence da signal {self.id}',
+        }
+        if existing:
+            existing.write(vals)
+        else:
+            vals.update({
+                'user_id': user_id,
+                'pattern_key': pk,
+                'source_type': self.source_type,
+            })
+            Mute.create(vals)
+
+    def action_unsilence(self):
+        """Rimuove il mute per il pattern di questo signal."""
+        self.ensure_one()
+        pk = self._pattern_key()
+        if not pk:
+            return
+        user_id = self.recipient_user_id.id if self.recipient_user_id else self.env.user.id
+        self.env['erpv6.signal.mute'].sudo().search([
+            ('user_id', '=', user_id),
+            ('pattern_key', '=', pk),
+            ('source_type', '=', self.source_type),
+        ]).unlink()
+
+    def action_unignore(self):
+        """Riporta un signal ignorato a 'new'."""
+        self.ensure_one()
+        if self.state == 'ignored':
+            self.write({'state': 'new'})
+
+    def _pattern_key(self):
+        """Deriva una chiave di pattern stabile dal dedup_key.
+
+        Esempi:
+        - kaizen_detected:validation_escalation_stuck:crm.lead:120
+          → validation_escalation_stuck
+        - kaizen_detected_agg:validation_escalation_stuck:5
+          → validation_escalation_stuck
+        - kaizen_manual:7
+          → None (evento singolo, mai un pattern)
+        - heinrich:crm.lead:120
+          → heinrich:crm.lead
+        - suggestion:42
+          → rule:<rule_code> da evidence (se presente)
+        """
+        self.ensure_one()
+        dk = self.dedup_key or ''
+        if dk.startswith('kaizen_detected_agg:'):
+            parts = dk.split(':')
+            return parts[1] if len(parts) >= 2 else None
+        if dk.startswith('kaizen_detected:'):
+            parts = dk.split(':')
+            return parts[1] if len(parts) >= 2 else None
+        if dk.startswith('kaizen_manual:'):
+            return None  # evento singolo
+        if dk.startswith('heinrich:'):
+            parts = dk.split(':')
+            return ':'.join(parts[:2]) if len(parts) >= 2 else None
+        if dk.startswith('suggestion:'):
+            # Leggi rule_code da evidence (JSON)
+            try:
+                import json
+                ev = json.loads(self.evidence or '{}')
+                rc = ev.get('rule_code')
+                return f'rule:{rc}' if rc else None
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    @api.model
+    def _is_signal_muted(self, user_id, pattern_key, source_type):
+        """Check mute attivo. Se pattern_key è None, ritorna False
+        (eventi singoli non si mutano)."""
+        if not pattern_key:
+            return False
+        return self.env['erpv6.signal.mute'].sudo().is_muted(
+            user_id, pattern_key, source_type)
