@@ -96,6 +96,22 @@ class Erpv6SuggestionRule(models.Model):
         string='Istruzioni aggiuntive per AI',
         help="Opzionale: contesto extra passato al prompt.")
 
+    # 02/10/2026 (C1b-bot-1): Telegram
+    communication_type = fields.Selection([
+        ('urgent', 'Urgente — azione oggi'),
+        ('attention', 'Attenzione — azione ma non oggi'),
+        ('info', 'Informativo'),
+    ], string='Tipo comunicazione', default='attention', required=True)
+
+    message_template = fields.Text(
+        string='Template Telegram',
+        help='Template del messaggio. Variabili: {deal_name}, '
+             '{signer_name}, {counterpart}, {days}, {project_name}. '
+             'Se vuoto, la regola non va su Telegram.')
+
+    sunday_ok = fields.Boolean(
+        string='Invia anche la domenica', default=False)
+
     @api.model
     def _get_active_rules(self):
         return self.search([('active', '=', True)])

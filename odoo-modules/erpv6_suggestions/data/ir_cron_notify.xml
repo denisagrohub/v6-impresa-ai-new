@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- 02/10/2026 (C1b-bot-1): batch notifiche Telegram urgent.
+             Inattivo di default: si attiva dopo verifica in produzione. -->
+        <record id="cron_suggestions_notify_telegram" model="ir.cron">
+            <field name="name">C1b: Notifica suggestion via Telegram</field>
+            <field name="model_id" ref="model_erpv6_suggestion"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_notify_telegram_batch()</field>
+            <field name="interval_number">5</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="False"/>
+            <field name="user_id" ref="base.user_admin"/>
+        </record>
+    </data>
+</odoo>

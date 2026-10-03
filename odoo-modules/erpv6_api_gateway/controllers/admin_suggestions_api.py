@@ -10,7 +10,7 @@ Endpoint:
 """
 import logging
 
-from odoo import http
+from odoo import fields, http
 from odoo.http import request
 
 from .consultant_api import ConsultantAPIController
@@ -146,6 +146,70 @@ class AdminSuggestionsAPIController(ConsultantAPIController):
     # ═══════════════════════════════════════════════════════════════
     # POST /show — marca come 'shown' le new visibili
     # ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════
+    # POST /<id>/notify-telegram — admin only, bypassa rate limit
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/suggestions/<int:sid>/notify-telegram',
+                type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
+    def notify_telegram(self, sid, **kwargs):  # pylint: disable=unused-argument
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        if not self._is_strict_admin(user):
+            return self._json_response({'error': 'Solo admin'}, 403)
+
+        S = request.env['erpv6.suggestion'].sudo()
+        suggestion = S.browse(sid)
+        if not suggestion.exists():
+            return self._json_response({'error': 'Suggestion non trovata'}, 404)
+        if not suggestion.user_id.telegram_chat_id:
+            return self._json_response({
+                'sent': False,
+                'reason': 'User senza telegram_chat_id',
+            })
+        rule = suggestion._get_rule()
+        if not rule.message_template:
+            return self._json_response({
+                'sent': False,
+                'reason': 'Rule senza message_template',
+            })
+
+        text, markup = suggestion._build_single_message(
+            suggestion, suggestion.user_id)
+        if not text:
+            return self._json_response({
+                'sent': False,
+                'reason': 'Template vuoto',
+            })
+
+        Config = request.env['erpv6.agent.telegram.config'].sudo()
+        config = Config.search([('is_active', '=', True)], limit=1)
+        if not config:
+            return self._json_response({
+                'sent': False,
+                'reason': 'Nessuna config Telegram attiva',
+            })
+
+        try:
+            ok = config.send_message(
+                text=text,
+                reply_markup=markup,
+                chat_id_override=suggestion.user_id.telegram_chat_id,
+            )
+            if ok:
+                suggestion.notified_telegram_at = fields.Datetime.now()
+                request.env.cr.commit()
+                return self._json_response({'sent': True})
+            return self._json_response({
+                'sent': False,
+                'reason': 'send_message ha ritornato False (vedi log Odoo)',
+            })
+        except Exception as e:
+            _logger.exception('notify_telegram fallito')
+            return self._json_response({'sent': False, 'reason': str(e)}, 500)
+
     @http.route('/api/v1/admin/suggestions/show', type='http',
                 auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def show_suggestions(self, **kwargs):  # pylint: disable=unused-argument

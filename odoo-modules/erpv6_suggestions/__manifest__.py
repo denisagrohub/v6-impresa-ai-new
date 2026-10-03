@@ -27,6 +27,7 @@
         'data/rules_seed.xml',
         'data/omni_route.xml',
         'data/ir_cron.xml',
+        'data/ir_cron_notify.xml',
         'views/suggestion_rule_views.xml',
     ],
     'installable': True,

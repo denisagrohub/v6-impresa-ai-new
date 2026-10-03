@@ -60,6 +60,12 @@ class Erpv6Suggestion(models.Model):
     decided_at = fields.Datetime(string='Deciso il')
     ignore_count = fields.Integer(string='Volte ignorato', default=0)
 
+    # 02/10/2026 (C1b-bot-1): timestamp notifica Telegram inviata
+    notified_telegram_at = fields.Datetime(
+        string='Notificato su Telegram il',
+        readonly=True, index=True,
+    )
+
     _sql_constraints = [
         ('rule_source_user_uniq',
          'unique(rule_code, source_model, source_id, user_id)',
@@ -221,6 +227,197 @@ class Erpv6Suggestion(models.Model):
     # ═══════════════════════════════════════════════════════════════
     # AZIONI UTENTE
     # ═══════════════════════════════════════════════════════════════
+    def _get_rule(self):
+        """02/10/2026 (C1b-bot-1): ritorna la regola che ha generato
+        questa suggestion (via rule_code)."""
+        return self.env['erpv6.suggestion.rule'].search([
+            ('code', '=', self.rule_code)
+        ], limit=1)
+
+    def _resolve_template_vars(self):
+        """Variabili per message_template."""
+        ctx = {
+            'deal_name': self.deal_id.name if self.deal_id else '',
+            'project_name': self.relation_id.name if self.relation_id else '',
+            'signer_name': '',
+            'counterpart': '',
+            'days': '',
+        }
+        # Se source è una sign.request, risolvi signer + days
+        if self.source_model == 'erpv6.sign.request':
+            sign = self.env['erpv6.sign.request'].sudo().browse(self.source_id)
+            if sign.exists():
+                ctx['signer_name'] = sign.partner_id.name if sign.partner_id else ''
+                if sign.sent_at:
+                    ctx['days'] = str((fields.Datetime.now() - sign.sent_at).days)
+        elif self.source_model == 'erpv6.deal':
+            deal = self.env['erpv6.deal'].sudo().browse(self.source_id)
+            if deal.exists():
+                ctx['counterpart'] = (
+                    deal.seller_id.name if deal.seller_id else ''
+                ) or (deal.buyer_id.name if deal.buyer_id else '')
+        return ctx
+
+    def _dashboard_path_for(self, user):
+        """Path dashboard per ruolo."""
+        chief_groups = [
+            'base.group_system',
+            'erpv6_core.group_chief_projects',
+            'erpv6_core.group_chief_bandi',
+            'erpv6_core.group_chief_accounting',
+            'erpv6_core.group_chief_marketing',
+            'erpv6_core.group_chief_kb',
+        ]
+        for g in chief_groups:
+            if user.has_group(g):
+                return '/admin/dashboard'
+        return '/consultant/dashboard'
+
+    def _build_single_message(self, suggestion, user):
+        """Costruisce (text, markup) per 1 suggestion."""
+        rule = suggestion._get_rule()
+        template = rule.message_template or ''
+        if not template:
+            return None, None
+        ctx = suggestion._resolve_template_vars()
+        try:
+            body = template.format(**ctx)
+        except (KeyError, IndexError):
+            body = suggestion.title or ''
+        # 02/10/2026: pulizia spazi doppi da variabili vuote
+        if body:
+            import re as _re
+            body = _re.sub(r'[ \t]{2,}', ' ', body).strip()
+        if not body:
+            return None, None
+
+        frontend_url = self.env['ir.config_parameter'].sudo().get_param(
+            'web.frontend.url', '')
+        path = suggestion._dashboard_path_for(user)
+        keyboard = [[
+            {'text': '✅ Accetta',
+             'callback_data': f'sugg:accept:{suggestion.id}'},
+            {'text': '❌ Ignora',
+             'callback_data': f'sugg:ignore:{suggestion.id}'},
+        ]]
+        if frontend_url:
+            keyboard.append([{
+                'text': '🔗 Apri dashboard',
+                'url': f'{frontend_url}{path}',
+            }])
+        return body, {'inline_keyboard': keyboard}
+
+    def _build_digest_message(self, suggestions, user):
+        """Costruisce (text, markup) per N suggestion (cap 3)."""
+        lines = [f"🚨 {len(suggestions)} azioni urgenti:"]
+        keyboard = []
+        frontend_url = self.env['ir.config_parameter'].sudo().get_param(
+            'web.frontend.url', '')
+        for i, s in enumerate(suggestions, 1):
+            template = (s._get_rule().message_template or '').split('\n')[0]
+            ctx = s._resolve_template_vars()
+            try:
+                short = template.format(**ctx)
+            except (KeyError, IndexError):
+                short = s.title or ''
+            lines.append(f"{i}. {short}")
+            keyboard.append([
+                {'text': f'✅ #{i}',
+                 'callback_data': f'sugg:accept:{s.id}'},
+                {'text': f'❌ #{i}',
+                 'callback_data': f'sugg:ignore:{s.id}'},
+            ])
+        if frontend_url:
+            path = user and suggestions[0]._dashboard_path_for(user) or '/admin/dashboard'
+            keyboard.append([{
+                'text': '🔗 Apri dashboard',
+                'url': f'{frontend_url}{path}',
+            }])
+        return '\n'.join(lines), {'inline_keyboard': keyboard}
+
+    @api.model
+    def _cron_notify_telegram_batch(self):
+        """Batch notifiche Telegram urgent.
+
+        Rate limit 2/giorno/utente, quiet hours 21:00-07:00,
+        domenica solo se rule.sunday_ok.
+        """
+        import logging
+        _log = logging.getLogger(__name__)
+
+        now = fields.Datetime.now()
+        user_admin = self.env.ref('base.user_admin', raise_if_not_found=False)
+        local_now = fields.Datetime.context_timestamp(
+            user_admin or self.env.user, now)
+        hour = local_now.hour
+        weekday = local_now.weekday()
+
+        # quiet hours 21:00-07:00
+        if hour >= 21 or hour < 7:
+            _log.info('C1b-bot: quiet hours (%s), skip', hour)
+            return 0
+
+        is_sunday = (weekday == 6)
+
+        pending = self.search([
+            ('state', 'in', ['new', 'shown']),
+            ('notified_telegram_at', '=', False),
+            ('user_id.telegram_chat_id', '!=', False),
+        ])
+
+        # Filtra urgent + sunday_ok
+        pending = pending.filtered(
+            lambda s: s._get_rule().communication_type == 'urgent'
+            and (not is_sunday or s._get_rule().sunday_ok)
+        )
+
+        by_user = {}
+        for s in pending:
+            by_user.setdefault(s.user_id.id, []).append(s)
+
+        sent_count = 0
+        Config = self.env['erpv6.agent.telegram.config'].sudo()
+        config = Config.search([('is_active', '=', True)], limit=1)
+        if not config:
+            _log.warning('C1b-bot: nessuna config Telegram attiva')
+            return 0
+
+        for user_id, suggestions in by_user.items():
+            user = self.env['res.users'].sudo().browse(user_id)
+            today_start = now.replace(hour=0, minute=0, second=0)
+            sent_today = self.search_count([
+                ('user_id', '=', user_id),
+                ('notified_telegram_at', '>=', today_start),
+            ])
+            if sent_today >= 2:
+                continue
+
+            if len(suggestions) == 1:
+                text, markup = suggestions[0]._build_single_message(
+                    suggestions[0], user)
+            else:
+                text, markup = suggestions[0]._build_digest_message(
+                    suggestions[:3], user)
+
+            if not text:
+                continue
+
+            try:
+                ok = config.send_message(
+                    text=text,
+                    reply_markup=markup,
+                    chat_id_override=user.telegram_chat_id,
+                )
+                if ok:
+                    for s in suggestions[:3]:
+                        s.notified_telegram_at = now
+                    sent_count += 1
+                    self.env.cr.commit()
+            except Exception as e:
+                _log.warning('C1b-bot: notify fail user %s: %s', user_id, e)
+
+        return sent_count
+
     def action_show(self):
         self.filtered(lambda s: s.state == 'new').write({
             'state': 'shown',

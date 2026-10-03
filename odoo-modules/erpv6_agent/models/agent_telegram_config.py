@@ -42,6 +42,10 @@ CONFIRMATION_DECISION_RE = re.compile(r'^\s*(conferma|procedi|pianifica|fermati)
 # vedi erpv6.agent.chat.log.find_pending_action.
 REGISTRA_RE = re.compile(r'^\s*registra(?:\s+(\d+))?\s*$', re.IGNORECASE)
 
+# C1b-bot-1 (02/10/2026): decisione su erpv6.suggestion da bottone inline.
+# data telegram = "sugg:accept:123" → normalizzata a "sugg accept 123".
+SUGG_DECISION_RE = re.compile(r'^sugg (accept|ignore) (\d+)$')
+
 # Reazione che fa scattare l'autocritica (25/08/2026, richiesta esplicita di
 # Denis) -- SOLO questo emoji, mai un'interpretazione libera di "reazione
 # negativa" (stesso principio non negoziabile gia' seguito per i comandi
@@ -187,7 +191,7 @@ class Erpv6AgentTelegramConfig(models.Model):
     # perche' nessun record ha is_active=True + bot_token reale.
     # ------------------------------------------------------------------
 
-    def send_message(self, text, reply_markup=None, reply_to_message_id=None, return_message_id=False):
+    def send_message(self, text, reply_markup=None, reply_to_message_id=None, return_message_id=False, chat_id_override=None):
         """Invia un messaggio di testo alla chat configurata (sendMessage).
         Ritorna True/False -- non solleva mai un'eccezione al chiamante
         (stesso principio gia' seguito ovunque per i canali di notifica: un
@@ -223,7 +227,7 @@ class Erpv6AgentTelegramConfig(models.Model):
         messaggio normalmente -- mai un fallimento per questo."""
         self.ensure_one()
         failure = None if return_message_id else False
-        if not self.is_active or not self.bot_token or not self.chat_id:
+        if not self.is_active or not self.bot_token or not (chat_id_override or self.chat_id):
             _logger.debug(
                 "Configurazione Telegram %s non attiva/incompleta -- send_message() non invia nulla "
                 "(is_active=%s, bot_token=%s, chat_id=%s).",
@@ -234,7 +238,7 @@ class Erpv6AgentTelegramConfig(models.Model):
             _logger.warning("Configurazione Telegram %s: bot_token non decifrabile, invio saltato.", self.name)
             return failure
         try:
-            body = {'chat_id': self.chat_id, 'text': text}
+            body = {'chat_id': chat_id_override or self.chat_id, 'text': text}
             if reply_markup:
                 body['reply_markup'] = reply_markup
             if reply_to_message_id:
@@ -428,6 +432,129 @@ class Erpv6AgentTelegramConfig(models.Model):
         except Exception:
             _logger.exception("answerCallbackQuery fallito (non bloccante) per %s.", self.name)
 
+    def _edit_message_reply_markup(self, chat_id, message_id, reply_markup=None):
+        """Rimuove/aggiorna la tastiera inline. Best-effort."""
+        token = self.get_decrypted_bot_token()
+        if not token:
+            return
+        try:
+            if reply_markup is None:
+                reply_markup = {'inline_keyboard': []}
+            requests.post(
+                (TELEGRAM_API_BASE % token) + '/editMessageReplyMarkup',
+                json={
+                    'chat_id': chat_id,
+                    'message_id': message_id,
+                    'reply_markup': reply_markup,
+                },
+                timeout=TELEGRAM_HTTP_TIMEOUT,
+            )
+        except Exception:
+            _logger.exception("editMessageReplyMarkup fallito (non bloccante) per %s.", self.name)
+
+    def _handle_suggestion_decision(self, action, sugg_id, chat_id, message_id, callback_query_id):
+        """C1b-bot-1: accept/ignore su erpv6.suggestion da bottone."""
+        user = self.env['res.users'].sudo().search([
+            ('telegram_chat_id', '=', chat_id)
+        ], limit=1)
+        if not user and str(chat_id) == str(self.chat_id):
+            user = self.env['res.users'].sudo().browse(2)
+        if not user:
+            self._answer_callback_query(callback_query_id)
+            return
+
+        suggestion = self.env['erpv6.suggestion'].sudo().browse(sugg_id)
+        if not suggestion.exists() or suggestion.user_id.id != user.id:
+            self._answer_callback_query(callback_query_id)
+            return
+        if suggestion.state in ('accepted', 'ignored', 'expired'):
+            self._answer_callback_query(callback_query_id)
+            return
+
+        if action == 'accept':
+            suggestion.write({
+                'state': 'accepted',
+                'decided_at': fields.Datetime.now(),
+            })
+        elif action == 'ignore':
+            suggestion.write({
+                'state': 'ignored',
+                'decided_at': fields.Datetime.now(),
+                'ignore_count': suggestion.ignore_count + 1,
+            })
+
+        self._answer_callback_query(callback_query_id)
+        self._edit_message_reply_markup(chat_id, message_id, None)
+
+    def _handle_start_registration(self, chat_id, text):
+        """C1b-bot-1: gestione /start. Se già registrato, saluta;
+        altrimenti chiede l'email V6 e salva stato pending."""
+        user = self.env['res.users'].sudo().search([
+            ('telegram_chat_id', '=', chat_id)
+        ], limit=1)
+        if user:
+            self.send_message(
+                f"Ciao {user.name}, sei già registrato. "
+                f"Riceverai qui le azioni urgenti V6.",
+                chat_id_override=chat_id,
+            )
+            return
+
+        # Utente legacy (chat_id == config.chat_id): è Denis
+        if str(chat_id) == str(self.chat_id):
+            self.send_message(
+                "Ciao Denis, sei già configurato. "
+                "Riceverai qui le azioni urgenti V6.",
+                chat_id_override=chat_id,
+            )
+            return
+
+        # Nuovo utente: chiedi email
+        self.send_message(
+            "Ciao! Per registrarti manda la tua email V6 "
+            "(quella con cui accedi alla dashboard).",
+            chat_id_override=chat_id,
+        )
+        self.env['ir.config_parameter'].sudo().set_param(
+            f'telegram.pending.{chat_id}', '1')
+
+    def _is_pending_registration(self, chat_id):
+        return bool(self.env['ir.config_parameter'].sudo().get_param(
+            f'telegram.pending.{chat_id}'))
+
+    def _handle_email_registration(self, chat_id, text):
+        """C1b-bot-1: riceve l'email di registrazione e associa chat_id."""
+        email = (text or '').strip().lower()
+        user = self.env['res.users'].sudo().search([
+            ('login', '=', email),
+            ('active', '=', True),
+        ], limit=1)
+
+        if user and not user.telegram_chat_id:
+            user.write({
+                'telegram_chat_id': chat_id,
+                'telegram_registered_at': fields.Datetime.now(),
+            })
+            self.env['ir.config_parameter'].sudo().search([
+                ('key', '=', f'telegram.pending.{chat_id}')
+            ]).unlink()
+            self.send_message(
+                f"Registrato come {user.name}. Riceverai qui "
+                f"le azioni urgenti V6.",
+                chat_id_override=chat_id,
+            )
+        elif user and user.telegram_chat_id:
+            self.send_message(
+                f"{user.name} è già associato a un altro chat_id. "
+                f"Contatta un admin.",
+                chat_id_override=chat_id,
+            )
+        else:
+            self.send_message(
+                "Email non trovata. Riprova (o /start).",
+                chat_id_override=chat_id,
+            )
+
     def _process_update(self, update):
         """UN update in ingresso: solo messaggi testuali, click sui bottoni
         Approva/Rifiuta, O reazioni 👎 (25/08/2026, vedi
@@ -447,13 +574,21 @@ class Erpv6AgentTelegramConfig(models.Model):
         callback_query = update.get('callback_query')
         if callback_query:
             chat_id = str(((callback_query.get('message') or {}).get('chat') or {}).get('id', ''))
-            if not chat_id or chat_id != str(self.chat_id):
+            authorized = (
+                chat_id and (
+                    chat_id == str(self.chat_id)
+                    or self.env['res.users'].sudo().search_count([
+                        ('telegram_chat_id', '=', chat_id)
+                    ]) > 0
+                )
+            )
+            if not authorized:
                 _logger.warning(
-                    "Telegram: click bottone da una chat NON configurata (%s) sulla configurazione "
-                    "%s -- ignorato.", chat_id, self.name)
+                    "Telegram: click bottone da chat NON autorizzata (%s) su %s -- ignorato.",
+                    chat_id, self.name)
                 return
             data = (callback_query.get('data') or '').strip()
-            normalized = data.replace(':', ' ', 1)
+            normalized = data.replace(':', ' ')  # C1b-bot-1: replace ALL (era 1)
             match = PROPOSAL_DECISION_RE.match(normalized)
             confirmation_match = CONFIRMATION_DECISION_RE.match(normalized)
             registra_match = REGISTRA_RE.match(normalized)
@@ -465,16 +600,46 @@ class Erpv6AgentTelegramConfig(models.Model):
             elif registra_match and self.agent_config_id:
                 self._handle_registra(int(registra_match.group(1)) if registra_match.group(1) else None)
             else:
-                _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
+                sugg_match = SUGG_DECISION_RE.match(normalized)
+                if sugg_match:
+                    self._handle_suggestion_decision(
+                        sugg_match.group(1),
+                        int(sugg_match.group(2)),
+                        chat_id,
+                        (callback_query.get('message') or {}).get('message_id'),
+                        callback_query.get('id'),
+                    )
+                else:
+                    _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
             return
         message = update.get('message') or update.get('edited_message')
         if not message:
             return
         chat_id = str((message.get('chat') or {}).get('id', ''))
-        if not chat_id or chat_id != str(self.chat_id):
+        text_early = html2plaintext(message.get('text') or '').strip()
+
+        # 02/10/2026 (C1b-bot-1): /start + email di registrazione
+        # PRIMA della whitelist (altrimenti un utente nuovo non può
+        # mai registrarsi).
+        if text_early == '/start':
+            self._handle_start_registration(chat_id, text_early)
+            return
+        if self._is_pending_registration(chat_id):
+            self._handle_email_registration(chat_id, text_early)
+            return
+
+        authorized = (
+            chat_id and (
+                chat_id == str(self.chat_id)
+                or self.env['res.users'].sudo().search_count([
+                    ('telegram_chat_id', '=', chat_id)
+                ]) > 0
+            )
+        )
+        if not authorized:
             _logger.warning(
-                "Telegram: messaggio ricevuto da una chat NON configurata (%s) sulla configurazione "
-                "%s -- ignorato (chat_id atteso: %s).", chat_id, self.name, self.chat_id)
+                "Telegram: messaggio da chat NON autorizzata (%s) su %s -- ignorato.",
+                chat_id, self.name)
             return
         text = html2plaintext(message.get('text') or '').strip()
         if not text:
