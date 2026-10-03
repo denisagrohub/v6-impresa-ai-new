@@ -3,33 +3,30 @@
     <record id="mail_template_internal_invite" model="mail.template">
         <field name="name">V6 Appuntamento — Invito interno</field>
         <field name="model_id" ref="calendar.model_calendar_event"/>
-        <field name="subject">📅 Invito: ${object.name}</field>
+        <field name="subject">📅 Invito: {{ object.name }}</field>
         <field name="email_from">noreply@v6impresa.it</field>
         <field name="body_html"><![CDATA[
             <div style="font-family:Arial,sans-serif;color:#0F1E3C;max-width:600px;">
                 <p>Ciao,</p>
                 <p>Sei stato invitato al seguente appuntamento:</p>
-                <p style="font-size:16px;"><strong>${object.name}</strong></p>
+                <p style="font-size:16px;"><strong t-out="object.name"/></p>
                 <p>
-                    📅 <strong>Quando:</strong>
-                    ${object.start.strftime('%d/%m/%Y %H:%M')}<br/>
+                    �� <strong>Quando:</strong>
+                    <t t-out="object.start.strftime('%d/%m/%Y %H:%M')"/> UTC<br/>
                     📍 <strong>Dove:</strong>
-                    ${object.location or '—'}
+                    <t t-out="object.location or '—'"/>
                 </p>
+                <t t-if="object.description">
+                    <p style="color:#666;font-size:13px;">
+                        <t t-out="object.description"/>
+                    </p>
+                </t>
                 <p style="margin-top:20px;">
-                    <a href="${ctx.get('accept_url', '#')}"
-                       style="background:#0F1E3C;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;">
-                       ✅ Accetta
-                    </a>
+                    <a t-att-href="ctx.get('accept_url', '#')" style="background:#0F1E3C;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;">✅ Accetta</a>
                     &nbsp;
-                    <a href="${ctx.get('decline_url', '#')}"
-                       style="background:#fee;color:#a00;padding:10px 20px;text-decoration:none;border-radius:6px;border:1px solid #fcc;">
-                       ❌ Rifiuta
-                    </a>
+                    <a t-att-href="ctx.get('decline_url', '#')" style="background:#fee;color:#a00;padding:10px 20px;text-decoration:none;border-radius:6px;border:1px solid #fcc;">❌ Rifiuta</a>
                 </p>
-                <p style="color:#999;font-size:11px;margin-top:30px;">
-                    V6 Impresa — messaggio automatico
-                </p>
+                <p style="color:#999;font-size:11px;margin-top:30px;">V6 Impresa — messaggio automatico</p>
             </div>
         ]]></field>
     </record>
