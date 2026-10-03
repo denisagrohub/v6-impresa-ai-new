@@ -28,6 +28,7 @@ from . import admin_split_versions_api
 from . import admin_partners_lifecycle_api
 from . import admin_todos_api
 from . import admin_suggestions_api
+from . import admin_appointments_api  # 03/10/2026 (C1b-agenda-1a): CRUD calendar.event
 from . import admin_disc_api
 from . import typst_import_api
 from . import frontend_error_api
