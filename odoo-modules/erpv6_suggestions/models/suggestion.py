@@ -66,6 +66,16 @@ class Erpv6Suggestion(models.Model):
         readonly=True, index=True,
     )
 
+    # 03/10/2026 (C1b-bot-2): TODO creato automaticamente all'accept
+    todo_id = fields.Many2one(
+        'erpv6.todo',
+        string='TODO collegato',
+        readonly=True,
+        ondelete='set null',
+        help='TODO creato automaticamente quando la suggestion '
+             'viene accettata (urgent/attention). Vuoto per info.',
+    )
+
     _sql_constraints = [
         ('rule_source_user_uniq',
          'unique(rule_code, source_model, source_id, user_id)',
@@ -425,13 +435,67 @@ class Erpv6Suggestion(models.Model):
         })
 
     def action_accept(self):
+        """Accetta la suggestion e crea TODO collegato (C1b-bot-2).
+
+        Regola:
+          - urgent    → TODO con due_date = oggi + 2gg
+          - attention → TODO con due_date = oggi + 7gg
+          - info      → nessun TODO
+
+        Idempotente: 2 accept → 1 TODO (source univoco).
+        Ritorna: erpv6.todo recordset (o None per info).
+        """
+        self.ensure_one()
+        if self.state == 'accepted':
+            return self.todo_id
+
+        rule = self._get_rule()
+        comm_type = (rule.communication_type or 'attention') if rule else 'attention'
+
+        # Marca accettata
         self.write({
             'state': 'accepted',
             'decided_at': fields.Datetime.now(),
         })
 
+        # Info → nessun TODO
+        if comm_type == 'info':
+            return None
+
+        # Anti-duplicazione (source univoco)
+        source = f'suggestion:{self.id}'
+        Todo = self.env['erpv6.todo'].sudo()
+        existing = Todo.search([('source', '=', source)], limit=1)
+        if existing:
+            self.todo_id = existing.id
+            return existing
+
+        # Crea TODO
+        due_days = 2 if comm_type == 'urgent' else 7
+        due = fields.Date.add(fields.Date.today(), days=due_days)
+        description = self.title
+        if self.body:
+            description = f"{self.title}\n\n{self.body}"
+
+        todo = Todo.create({
+            'name': self.title,
+            'description': description,
+            'user_id': self.user_id.id,
+            'project_id': self.relation_id.id if self.relation_id else False,
+            'deal_id': self.deal_id.id if self.deal_id else False,
+            'due_date': due,
+            'state': 'open',
+            'is_auto': True,
+            'source': source,
+        })
+        self.todo_id = todo.id
+        return todo
+
     def action_ignore(self):
+        """Ignora la suggestion (idempotente)."""
         for s in self:
+            if s.state in ('accepted', 'ignored', 'expired'):
+                continue
             s.write({
                 'state': 'ignored',
                 'decided_at': fields.Datetime.now(),

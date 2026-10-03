@@ -471,20 +471,28 @@ class Erpv6AgentTelegramConfig(models.Model):
             self._answer_callback_query(callback_query_id)
             return
 
+        followup_msg = None
         if action == 'accept':
-            suggestion.write({
-                'state': 'accepted',
-                'decided_at': fields.Datetime.now(),
-            })
+            # C1b-bot-2: azione centralizzata (crea TODO se urgent/attention)
+            todo = suggestion.action_accept()
+            if todo:
+                followup_msg = f"✅ Accettata. TODO #{todo.id} creato (scadenza {todo.due_date})."
+            else:
+                followup_msg = "✅ Accettata."
         elif action == 'ignore':
-            suggestion.write({
-                'state': 'ignored',
-                'decided_at': fields.Datetime.now(),
-                'ignore_count': suggestion.ignore_count + 1,
-            })
+            suggestion.action_ignore()
+            followup_msg = "❌ Ignorata."
 
         self._answer_callback_query(callback_query_id)
         self._edit_message_reply_markup(chat_id, message_id, None)
+        # 03/10/2026 (C1b-bot-2): messaggio di conferma separato
+        if followup_msg:
+            try:
+                self.send_message(followup_msg, chat_id_override=chat_id)
+            except Exception:
+                _logger.exception(
+                    "Telegram: follow-up suggestion decisione fallito per %s.",
+                    self.name)
 
     def _handle_start_registration(self, chat_id, text):
         """C1b-bot-1: gestione /start. Se già registrato, saluta;

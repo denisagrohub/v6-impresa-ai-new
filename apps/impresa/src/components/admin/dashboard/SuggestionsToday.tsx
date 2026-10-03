@@ -47,6 +47,8 @@ export default function SuggestionsToday() {
   const [loading, setLoading] = useState(true);
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  // 03/10/2026 (C1b-bot-2): feedback "TODO creato" dopo accept
+  const [todoFeedback, setTodoFeedback] = useState<{ id: number; due_date: string | null } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -87,6 +89,13 @@ export default function SuggestionsToday() {
         body: '{}',
       });
       if (!r.ok) throw new Error('Errore');
+      // 03/10/2026 (C1b-bot-2): se accept ha creato un TODO, mostra feedback
+      const resp = await r.json();
+      const data = resp.data || resp;
+      if (action === 'accept' && data?.todo_created) {
+        setTodoFeedback({ id: data.todo_created.id, due_date: data.todo_created.due_date });
+        setTimeout(() => setTodoFeedback(null), 5000);
+      }
     } catch (e: any) {
       setSuggestions(prevList);
       setError(e.message || 'Errore');
@@ -114,6 +123,15 @@ export default function SuggestionsToday() {
           ({suggestions.length})
         </span>
       </div>
+
+      {todoFeedback && (
+        <div className="mb-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 flex items-center gap-2">
+          ✅ TODO #{todoFeedback.id} creato{todoFeedback.due_date && ` (scadenza ${todoFeedback.due_date})`}.
+          <Link href="/admin/todo" className="ml-auto underline font-semibold">
+            Vedi in /admin/todo →
+          </Link>
+        </div>
+      )}
 
       {error && (
         <div className="mb-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-center gap-2">

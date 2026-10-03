@@ -99,9 +99,20 @@ class AdminSuggestionsAPIController(ConsultantAPIController):
         is_admin = self._is_strict_admin(user)
         if s.user_id.id != user.id and not is_admin:
             return self._json_response({'error': 'Non tuo'}, 403)
-        s.action_accept()
+        # 03/10/2026 (C1b-bot-2): action_accept centralizzato, crea TODO
+        todo = s.action_accept()
         request.env.cr.commit()
-        return self._json_response({'success': True, 'id': sid})
+        return self._json_response({
+            'success': True,
+            'id': sid,
+            'suggestion': self._suggestion_to_dict(s),
+            'todo_created': {
+                'id': todo.id,
+                'name': todo.name,
+                'due_date': str(todo.due_date) if todo.due_date else None,
+                'source': todo.source,
+            } if todo else None,
+        })
 
     # ═══════════════════════════════════════════════════════════════
     # POST /<id>/ignore
