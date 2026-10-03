@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_signal_list" model="ir.ui.view">
+            <field name="name">erpv6.signal.list</field>
+            <field name="model">erpv6.signal</field>
+            <field name="arch" type="xml">
+                <list string="Segnali"
+                      decoration-danger="severity == 'grave' and state == 'new'"
+                      decoration-warning="severity == 'medio' and state == 'new'">
+                    <field name="severity" widget="badge"/>
+                    <field name="source_type"/>
+                    <field name="title"/>
+                    <field name="relation_id" optional="show"/>
+                    <field name="recipient_user_id" optional="show"/>
+                    <field name="state" widget="badge"/>
+                    <field name="create_date" optional="show"/>
+                    <field name="dedup_key" optional="hide"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_signal_form" model="ir.ui.view">
+            <field name="name">erpv6.signal.form</field>
+            <field name="model">erpv6.signal</field>
+            <field name="arch" type="xml">
+                <form string="Segnale">
+                    <header>
+                        <button name="action_acknowledge" type="object"
+                                string="Prendi in carico"
+                                class="btn-primary"
+                                invisible="state != 'new'"/>
+                        <button name="action_resolve" type="object"
+                                string="Risolvi"
+                                invisible="state in ('resolved', 'ignored', 'expired')"/>
+                        <button name="action_ignore" type="object"
+                                string="Ignora"
+                                invisible="state in ('resolved', 'ignored', 'expired')"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1><field name="title"/></h1>
+                        </div>
+                        <group>
+                            <group string="Classificazione">
+                                <field name="severity"/>
+                                <field name="category"/>
+                                <field name="source_type"/>
+                            </group>
+                            <group string="Destinatario">
+                                <field name="recipient_user_id"/>
+                                <field name="relation_id"/>
+                                <field name="deal_id"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Descrizione">
+                                <field name="description"/>
+                            </page>
+                            <page string="Origine">
+                                <group>
+                                    <field name="source_model"/>
+                                    <field name="source_id"/>
+                                    <field name="source_ref"/>
+                                    <field name="dedup_key"/>
+                                </group>
+                            </page>
+                            <page string="Stato e escalation">
+                                <group>
+                                    <field name="acknowledged_at"/>
+                                    <field name="acknowledged_by"/>
+                                    <field name="resolved_at"/>
+                                    <field name="resolved_by"/>
+                                    <field name="escalation_count"/>
+                                    <field name="parent_signal_id"/>
+                                    <field name="telegram_notified_at"/>
+                                </group>
+                            </page>
+                            <page string="Evidenza">
+                                <field name="evidence"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_signal_kanban" model="ir.ui.view">
+            <field name="name">erpv6.signal.kanban</field>
+            <field name="model">erpv6.signal</field>
+            <field name="arch" type="xml">
+                <kanban default_group_by="state" class="o_kanban_small_column">
+                    <field name="severity"/>
+                    <field name="source_type"/>
+                    <field name="title"/>
+                    <field name="relation_id"/>
+                    <field name="recipient_user_id"/>
+                    <templates>
+                        <t t-name="kanban-box">
+                            <div class="oe_kanban_global_click">
+                                <div class="o_kanban_record_title">
+                                    <strong><field name="title"/></strong>
+                                </div>
+                                <div class="o_kanban_record_subtitle">
+                                    <field name="severity" widget="badge"/>
+                                    <field name="source_type"/>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <record id="view_signal_search" model="ir.ui.view">
+            <field name="name">erpv6.signal.search</field>
+            <field name="model">erpv6.signal</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="title"/>
+                    <field name="relation_id"/>
+                    <field name="recipient_user_id"/>
+                    <filter name="f_new" string="Nuovi"
+                            domain="[('state', '=', 'new')]"/>
+                    <filter name="f_grave" string="Gravi"
+                            domain="[('severity', '=', 'grave')]"/>
+                    <filter name="f_mine" string="Assegnati a me"
+                            domain="[('recipient_user_id', '=', uid)]"/>
+                    <group expand="0" string="Raggruppa per">
+                        <filter name="g_severity" string="Gravità"
+                                context="{'group_by': 'severity'}"/>
+                        <filter name="g_state" string="Stato"
+                                context="{'group_by': 'state'}"/>
+                        <filter name="g_source" string="Origine"
+                                context="{'group_by': 'source_type'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_signal_all" model="ir.actions.act_window">
+            <field name="name">Tutti i segnali</field>
+            <field name="res_model">erpv6.signal</field>
+            <field name="view_mode">list,kanban,form</field>
+            <field name="search_view_id" ref="view_signal_search"/>
+        </record>
+
+        <record id="action_signal_open" model="ir.actions.act_window">
+            <field name="name">Segnali aperti</field>
+            <field name="res_model">erpv6.signal</field>
+            <field name="view_mode">list,kanban,form</field>
+            <field name="domain">[('state', 'in', ['new', 'acknowledged'])]</field>
+            <field name="context">{'search_default_f_new': 1}</field>
+            <field name="search_view_id" ref="view_signal_search"/>
+        </record>
+
+        <record id="action_signal_new" model="ir.actions.act_window">
+            <field name="name">Nuovi</field>
+            <field name="res_model">erpv6.signal</field>
+            <field name="view_mode">list,form</field>
+            <field name="domain">[('state', '=', 'new')]</field>
+            <field name="search_view_id" ref="view_signal_search"/>
+        </record>
+
+    </data>
+</odoo>

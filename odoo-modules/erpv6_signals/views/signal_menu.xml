@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <menuitem id="menu_signal_root"
+                  name="Segnali"
+                  parent="erpv6_core.menu_erpv6_root"
+                  sequence="16"/>
+
+        <menuitem id="menu_signal_open"
+                  name="Segnali aperti"
+                  parent="menu_signal_root"
+                  action="action_signal_open"
+                  sequence="10"/>
+
+        <menuitem id="menu_signal_new"
+                  name="Nuovi"
+                  parent="menu_signal_root"
+                  action="action_signal_new"
+                  sequence="20"/>
+
+        <menuitem id="menu_signal_all"
+                  name="Tutti i segnali"
+                  parent="menu_signal_root"
+                  action="action_signal_all"
+                  sequence="90"/>
+    </data>
+</odoo>
