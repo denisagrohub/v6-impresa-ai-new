@@ -328,5 +328,44 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
             ],
         )
 
+    # ═══════════════════════════════════════════════════════════════
+    # 03/10/2026 (C1b-agenda-COMPLETE-C): RSVP via link email
+    # Pubblico (auth='public'): il link viene cliccato dall'utente
+    # anche se non loggato. Token access_token dell'attendee è
+    # l'autenticazione.
+    # ═══════════════════════════════════════════════════════════════
+    @http.route(
+        '/api/v1/appointments/rsvp/<int:attendee_id>/<string:token>/<string:action>',
+        type='http', auth='public', csrf=False, methods=['GET'],
+    )
+    def rsvp_by_token(self, attendee_id, token, action, **kwargs):
+        if action not in ('accept', 'decline'):
+            return request.not_found()
+        attendee = request.env['calendar.attendee'].sudo().browse(attendee_id)
+        if not attendee.exists():
+            return request.not_found()
+        # Verifica token
+        stored_token = attendee.access_token or ''
+        if not stored_token or stored_token != token:
+            _logger.warning(
+                "RSVP token mismatch: attendee=%s token=%s... atteso=%s...",
+                attendee_id, token[:8], stored_token[:8],
+            )
+            return request.not_found()
+
+        new_state = 'accepted' if action == 'accept' else 'declined'
+        if attendee.state not in ('accepted', 'declined'):
+            # idempotente: se già deciso, non sovrascrivere
+            attendee.write({'state': new_state})
+
+        # Redirect a pagina conferma
+        base_url = request.env['ir.config_parameter'].sudo().get_param(
+            'web.base.url', 'https://erpv6.it')
+        target = (
+            f"{base_url}/appointments/rsvp-done?"
+            f"state={new_state}&event={attendee.event_id.id}"
+        )
+        return request.redirect(target)
+
     def _is_strict_admin(self, user):
         return user.has_group('base.group_system')

@@ -46,6 +46,10 @@ REGISTRA_RE = re.compile(r'^\s*registra(?:\s+(\d+))?\s*$', re.IGNORECASE)
 # data telegram = "sugg:accept:123" → normalizzata a "sugg accept 123".
 SUGG_DECISION_RE = re.compile(r'^sugg (accept|ignore) (\d+)$')
 
+# 03/10/2026 (C1b-agenda-COMPLETE-C): decisione su calendar.attendee.
+# data telegram = "cal:accept:123" → normalizzata a "cal accept 123".
+CAL_DECISION_RE = re.compile(r'^cal (accept|decline) (\d+)$')
+
 # Reazione che fa scattare l'autocritica (25/08/2026, richiesta esplicita di
 # Denis) -- SOLO questo emoji, mai un'interpretazione libera di "reazione
 # negativa" (stesso principio non negoziabile gia' seguito per i comandi
@@ -494,6 +498,105 @@ class Erpv6AgentTelegramConfig(models.Model):
                     "Telegram: follow-up suggestion decisione fallito per %s.",
                     self.name)
 
+    def _handle_calendar_decision(self, action, attendee_id, chat_id,
+                                    message_id, callback_query_id):
+        """03/10/2026 (C1b-agenda-COMPLETE-C): accept/decline su
+        calendar.attendee da bottoni Telegram.
+
+        Estensione (A, richiesta master): dopo accept, invia messaggio
+        con link Google Calendar + .ics per aggiungere l'evento al
+        calendario personale. Solo dati pubblici dell'evento
+        (name/start/stop/location/description), MAI contesto V6."""
+        user = self.env['res.users'].sudo().search([
+            ('telegram_chat_id', '=', chat_id)
+        ], limit=1)
+        if not user:
+            self._answer_callback_query(callback_query_id)
+            return
+
+        attendee = self.env['calendar.attendee'].sudo().browse(attendee_id)
+        if not attendee.exists() or \
+                attendee.partner_id.id != user.partner_id.id:
+            self._answer_callback_query(callback_query_id)
+            return
+
+        new_state = 'accepted' if action == 'accept' else 'declined'
+        attendee.write({'state': new_state})
+        event = attendee.event_id
+
+        self._answer_callback_query(callback_query_id)
+        self._edit_message_reply_markup(chat_id, message_id, None)
+
+        # Messaggio di conferma + link calendario (solo se accept)
+        label = '✅ Accettato' if action == 'accept' else '❌ Rifiutato'
+        text = f"{label}: {event.name}"
+
+        if action == 'accept':
+            # Riga con dettagli evento (data/ora/luogo)
+            try:
+                from odoo import fields as odoo_fields
+                start_local = odoo_fields.Datetime.context_timestamp(
+                    user, event.start)
+                end_local = odoo_fields.Datetime.context_timestamp(
+                    user, event.stop)
+                text += (
+                    f"\n🕐 {start_local.strftime('%d/%m %H:%M')} – "
+                    f"{end_local.strftime('%H:%M')}"
+                )
+                if event.location:
+                    text += f"\n📍 {event.location}"
+            except Exception:  # pylint: disable=broad-except
+                _logger.debug("Errore formattazione dettagli evento")
+
+            # Link Google Calendar + .ics (solo dati pubblici - ADDENDUM)
+            # 03/10/2026: Telegram rifiuta URL localhost. Usare un
+            # param dedicato invece di web.base.url (che in dev/prod
+            # interno è localhost:8069).
+            base_url = self.env['ir.config_parameter'].sudo().get_param(
+                'v6.public.base_url', 'https://erpv6.it')
+
+            def _fmt_gcal(dt):
+                """Datetime UTC naive → formato Google YYYYMMDDTHHmmssZ."""
+                return dt.strftime('%Y%m%dT%H%M%SZ')
+
+            from urllib.parse import urlencode
+            params = {
+                'action': 'TEMPLATE',
+                'text': event.name or '',
+                'dates': f"{_fmt_gcal(event.start)}/{_fmt_gcal(event.stop)}",
+                'location': event.location or '',
+                # ADDENDUM: solo description, mai contesto V6
+                'details': event.description or '',
+            }
+            gcal_url = (
+                'https://calendar.google.com/calendar/render?'
+                + urlencode(params)
+            )
+            ics_url = f"{base_url}/api/v1/admin/appointments/{event.id}/ics"
+
+            try:
+                self.send_message(
+                    text=text,
+                    chat_id_override=chat_id,
+                    reply_markup={'inline_keyboard': [[
+                        {'text': '📆 Google Calendar', 'url': gcal_url},
+                        {'text': '📥 .ics', 'url': ics_url},
+                    ]]},
+                )
+                return
+            except Exception:  # pylint: disable=broad-except
+                _logger.exception(
+                    "Telegram: invio conferma calendario con bottoni URL "
+                    "fallito (provo testo semplice)")
+
+        # Fallback: testo semplice (decline o errore)
+        try:
+            self.send_message(text, chat_id_override=chat_id)
+        except Exception:  # pylint: disable=broad-except
+            _logger.exception(
+                "Telegram: follow-up calendar decisione fallito per %s.",
+                self.name)
+
     def _handle_start_registration(self, chat_id, text):
         """C1b-bot-1: gestione /start. Se già registrato, saluta;
         altrimenti chiede l'email V6 e salva stato pending."""
@@ -618,7 +721,17 @@ class Erpv6AgentTelegramConfig(models.Model):
                         callback_query.get('id'),
                     )
                 else:
-                    _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
+                    cal_match = CAL_DECISION_RE.match(normalized)
+                    if cal_match:
+                        self._handle_calendar_decision(
+                            cal_match.group(1),
+                            int(cal_match.group(2)),
+                            chat_id,
+                            (callback_query.get('message') or {}).get('message_id'),
+                            callback_query.get('id'),
+                        )
+                    else:
+                        _logger.warning("Telegram: callback_data non riconosciuto: %r su %s.", data, self.name)
             return
         message = update.get('message') or update.get('edited_message')
         if not message:
