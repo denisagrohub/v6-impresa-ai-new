@@ -412,8 +412,9 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
                   placeholder="cliente@example.com, altro@example.com"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Solo email separate da virgola. Non riceveranno invito
-                  automatico: scarica il file .ics e condividilo tu.
+                  Solo email separate da virgola. Al salvataggio ti verrà
+                  chiesto di confermare: se accetti, riceveranno l'invito
+                  via email con il file .ics allegato.
                 </p>
               </div>
             </div>

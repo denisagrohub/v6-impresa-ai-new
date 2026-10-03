@@ -38,6 +38,7 @@ type Appointment = {
   attendee_ids: number[];
   attendee_names: string[];
   attendees: AttendeeInfo[];
+  external_invite_sent_at: string | null;
   user_id: number | null;
   user_name: string | null;
   is_v6: boolean;
@@ -244,6 +245,17 @@ export default function AppointmentsPage() {
                               </span>
                               {ev.location && (
                                 <span className="text-xs text-gray-500 block mt-0.5">{ev.location}</span>
+                              )}
+                              {/* 03/10/2026 (fix 3): stato invito esterno */}
+                              {ev.external_attendees && ev.external_invite_sent_at && (
+                                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full inline-block mt-1">
+                                  📤 Invito esterno inviato
+                                </span>
+                              )}
+                              {ev.external_attendees && !ev.external_invite_sent_at && (
+                                <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full inline-block mt-1">
+                                  ⚠️ Invito esterno non inviato
+                                </span>
                               )}
                               {(ev.relation_name || ev.deal_name) && (
                                 <span className="text-xs text-gray-400 block mt-0.5">

@@ -483,16 +483,26 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         # Una mail per ogni destinatario (privacy: no reciproci visibili)
         for email in externals:
             try:
-                template.sudo().with_context(
+                # 03/10/2026 (fix 1 + fix allegato): creiamo la mail
+                # con force_send=False, alleghiamo il .ics, poi la
+                # inviamo esplicitamente. Con force_send=True Odoo la
+                # cancella subito (auto_delete) e non possiamo più
+                # collegare l'attachment.
+                mail_id = template.sudo().with_context(
                     mail_transactional_approved=True,
                 ).send_mail(
                     event.id,
                     force_send=False,
-                    email_values={
-                        'email_to': email,
-                        'attachment_ids': [(6, 0, [att.id])],
-                    },
+                    email_values={'email_to': email},
                 )
+                if mail_id:
+                    mail = request.env['mail.mail'].sudo().browse(mail_id)
+                    mail.write({'attachment_ids': [(4, att.id)]})
+                    # Invio esplicito (con context transazionale
+                    # ereditato dalla send_mail precedente).
+                    mail.with_context(
+                        mail_transactional_approved=True,
+                    ).send()
             except Exception:
                 _logger.exception(
                     "_send_external_invites fallito per %s (event %s)",
