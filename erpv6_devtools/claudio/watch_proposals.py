@@ -59,6 +59,20 @@ CICLO_SECONDI = 120
 # claudio/ (vedi promote_modules sotto): riusato da entrambi, mai duplicato.
 AGENT_CODES = ('claudio', 'alessandro')
 
+# 03/10/2026 (C5-gate-1a): whitelist percorsi dove Aider puo' scrivere.
+# Blocco .git/, erpv6_devtools/, scripts/, docs/, config root.
+REPO_PATH = '/home/erpv6admin/erpv6-src'
+ALLOWED_PATHS = ('odoo-modules/', 'apps/impresa/')
+BLOCKED_PATHS = (
+    '.git/', 'erpv6_devtools/', 'scripts/',
+    'docker-compose.yml', '.env', '.env.local',
+    'package.json', 'turbo.json', 'docs/',
+    'README.md',
+)
+
+# Flag globale settato da main() --dry-run.
+DRY_RUN = False
+
 
 def agent_dir(agent_code):
     return SCRIPT_DIR if agent_code == 'claudio' else REPO_ROOT / "erpv6_devtools" / agent_code
@@ -98,6 +112,137 @@ print("RESULT_JSON:" + json.dumps(result))
             return json.loads(line[len("RESULT_JSON:"):])
     print("ATTENZIONE: query proposte (%s) fallita, stdout:" % agent_code, result.stdout[-1000:], file=sys.stderr)
     return []
+
+
+def _extract_target_paths(text):
+    """Best-effort: estrae path di file dal testo proposta.
+    Cerca pattern tipo 'foo/bar.py', 'apps/impresa/x.tsx'.
+    """
+    if not text:
+        return []
+    # 03/10/2026: include anche dotfile (.env, .env.local) e
+    # nomi come docker-compose.yml (senza slash iniziale).
+    # Pattern 1: file con estensione (con o senza path).
+    # Pattern 2: dotfile in root (.env, .env.local, .gitignore).
+    matches = re.findall(
+        r'\b(?:[\w\-]+/)*[\w\-]+\.'
+        r'(?:py|ts|tsx|js|jsx|xml|json|md|yml|yaml|sh|bash|toml|ini|cfg|conf|env)\b',
+        text)
+    # Dotfile in root o dentro path (es. .env, dir/.env, .env.local)
+    matches += re.findall(
+        r'(?:^|[\s(])((?:[\w\-]+/)*\.[\w\-]+(?:\.[\w\-]+)?)',
+        text)
+    return matches
+
+
+def _validate_paths(proposal):
+    """Ritorna (ok, motivo). Se non ok, skip dispatch.
+    Verifica che tutti i path citati nel testo proposta siano in whitelist.
+    """
+    paths = _extract_target_paths(proposal.get("proposal_text") or '')
+    for p in paths:
+        if any(p.startswith(bp) for bp in BLOCKED_PATHS):
+            return False, f"path bloccato: {p}"
+        if not any(p.startswith(ap) for ap in ALLOWED_PATHS):
+            return False, f"path fuori whitelist: {p}"
+    return True, None
+
+
+def _working_tree_is_clean():
+    """Ritorna True se il working tree del repo e' pulito (no modifiche
+    non committate). Usato per evitare che modifiche residue di un giro
+    precedente finiscano nel commit del giro corrente.
+    """
+    try:
+        status = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            cwd=REPO_PATH, capture_output=True, text=True, timeout=30,
+        )
+        return not status.stdout.strip()
+    except Exception as e:
+        print("[watch_proposals] _working_tree_is_clean errore: %s" % e, file=sys.stderr)
+        return False
+
+
+def commit_to_branch(agent_code, proposal_id, proposal_text):
+    """03/10/2026 (C5-gate-1a): dopo promote+Argus, crea branch
+    agent/<code>/<id>, committa le modifiche del working tree, pusha
+    su origin, ritorna su main.
+
+    Ritorna: (branch_name, branch_url) se ok; (None, None) altrimenti.
+    """
+    if DRY_RUN:
+        branch = f"agent/{agent_code}/{proposal_id}"
+        print("[DRY] commit_to_branch: sarebbe andato su branch %s" % branch)
+        return branch, f"(dry-run, no push)"
+
+    branch = f"agent/{agent_code}/{proposal_id}"
+    try:
+        # 1. Crea branch dal main corrente
+        subprocess.run(
+            ['git', 'checkout', '-b', branch],
+            cwd=REPO_PATH, check=True, capture_output=True, timeout=30,
+        )
+
+        # 2. Aggiungi tutti i file (Aider ha gia' scritto)
+        subprocess.run(
+            ['git', 'add', '-A'],
+            cwd=REPO_PATH, check=True, capture_output=True, timeout=30,
+        )
+
+        # 3. Verifica che ci sia qualcosa da committare
+        status = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            cwd=REPO_PATH, capture_output=True, text=True, timeout=30,
+        )
+        if not status.stdout.strip():
+            print("[watch_proposals] branch %s: nessun file da committare, skip" % branch)
+            subprocess.run(
+                ['git', 'checkout', 'main'],
+                cwd=REPO_PATH, check=True, capture_output=True, timeout=30,
+            )
+            return None, None
+
+        # 4. Commit strutturato
+        title = (proposal_text or '')[:80].replace('\n', ' ')
+        commit_msg = (
+            f"[agent:{agent_code}] {title}\n\n"
+            f"Proposta: {proposal_id}\n"
+            f"Co-Authored-By: {agent_code} <noreply@v6impresa.it>"
+        )
+        subprocess.run(
+            ['git', 'commit', '-m', commit_msg],
+            cwd=REPO_PATH, check=True, capture_output=True, timeout=60,
+        )
+
+        # 5. Push
+        subprocess.run(
+            ['git', 'push', '-u', 'origin', branch],
+            cwd=REPO_PATH, check=True, capture_output=True, timeout=120,
+        )
+
+        # 6. Torna su main
+        subprocess.run(
+            ['git', 'checkout', 'main'],
+            cwd=REPO_PATH, check=True, capture_output=True, timeout=30,
+        )
+
+        url = f"https://github.com/denisagrohub/v6-impresa-ai-new/tree/{branch}"
+        print("[watch_proposals] branch %s pushato" % branch)
+        return branch, url
+
+    except subprocess.CalledProcessError as e:
+        err = (e.stderr or b'').decode('utf-8', errors='replace')[:500] if isinstance(e.stderr, bytes) else str(e.stderr or '')
+        print("[watch_proposals] commit_to_branch fallito: %s" % err, file=sys.stderr)
+        # Tenta di tornare su main
+        try:
+            subprocess.run(
+                ['git', 'checkout', 'main'],
+                cwd=REPO_PATH, check=True, capture_output=True, timeout=30,
+            )
+        except Exception:
+            pass
+        return None, None
 
 
 def apply_proposal(agent_code, proposal):
@@ -613,6 +758,30 @@ def run_once_for_agent(agent_code):
         dispatched.add(proposal["id"])
         save_dispatched(agent_code, dispatched)  # subito, prima di applicare: mai rielaborare due volte
 
+        # 03/10/2026 (C5-gate-1a): whitelist check. Se il testo proposta
+        # cita path fuori da odoo-modules/ o apps/impresa/, skip.
+        paths_ok, paths_reason = _validate_paths(proposal)
+        if not paths_ok:
+            print("[watch_proposals] (%s) proposta #%d SKIPPATA: %s" % (
+                agent_code, proposal["id"], paths_reason))
+            notify_telegram(agent_code, "⚠️ Proposta #%d skippata: %s" % (
+                proposal["id"], paths_reason))
+            continue
+
+        # Sicurezza: se il working tree NON e' pulito prima di Aider,
+        # salta (evita che modifiche residue finiscano nel branch).
+        if not _working_tree_is_clean():
+            print("[watch_proposals] (%s) proposta #%d: working tree sporco, skip" % (
+                agent_code, proposal["id"]))
+            notify_telegram(agent_code, "⚠️ Proposta #%d: working tree sporco prima di Aider, skip per sicurezza." % proposal["id"])
+            continue
+
+        if DRY_RUN:
+            print("[DRY] (%s) proposta #%d sarebbe processata: %s" % (
+                agent_code, proposal["id"], proposal["name"]))
+            print("[DRY] (%s) path validati OK, skip apply/promote/branch." % agent_code)
+            continue
+
         success, output, diff = apply_proposal(agent_code, proposal)
         # Messaggio in italiano semplice, non il transcript grezzo del
         # terminale (Denis l'ha segnalato incomprensibile il 24/08/2026) -
@@ -713,6 +882,18 @@ def run_once_for_agent(agent_code):
                 "--- Controllo di Argus ---\n%s"
             ) % (proposal["id"], agent_name, argus_check)
             print(output, file=sys.stderr)
+        # 03/10/2026 (C5-gate-1a): branch+commit+push di tracciabilita'.
+        # Solo se il working tree ha modifiche (Aider ha scritto qualcosa).
+        branch_line = ""
+        if diff:  # Aider ha toccato file
+            branch_name, branch_url = commit_to_branch(
+                agent_code, proposal["id"], proposal.get("proposal_text", ""))
+            if branch_name:
+                branch_line = "\n\n🌿 Branch: %s\n🔗 %s" % (branch_name, branch_url)
+            else:
+                branch_line = "\n\n⚠️ Branch/commit/push fallito (controllare git status)."
+
+        body = body + branch_line
         notify_telegram(agent_code, body)
         print("[watch_proposals] (%s)" % agent_code, body)
 
@@ -743,9 +924,16 @@ def run_once():
 
 
 def main():
+    global DRY_RUN
     p = argparse.ArgumentParser()
     p.add_argument("--once", action="store_true", help="Un solo giro invece del loop infinito")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Non esegue Aider/promote/commit: solo log di cosa farebbe")
     args = p.parse_args()
+
+    if args.dry_run:
+        DRY_RUN = True
+        print("[watch_proposals] MODALITA' DRY-RUN: nessuna azione reale.")
 
     if args.once:
         run_once()
