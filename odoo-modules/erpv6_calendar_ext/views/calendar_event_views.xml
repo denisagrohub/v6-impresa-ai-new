@@ -16,6 +16,7 @@
                             <group>
                                 <field name="booking_token_id"/>
                                 <field name="telegram_reminder_sent_at"/>
+                                <field name="external_invite_sent_at"/>
                             </group>
                         </group>
                         <group>

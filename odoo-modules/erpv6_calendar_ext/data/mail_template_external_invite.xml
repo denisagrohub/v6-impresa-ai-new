@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="mail_template_external_invite" model="mail.template">
+        <field name="name">V6 Appuntamento — Invito esterno</field>
+        <field name="model_id" ref="calendar.model_calendar_event"/>
+        <field name="subject">📅 Invito: ${object.name}</field>
+        <field name="email_from">noreply@v6impresa.it</field>
+        <field name="body_html"><![CDATA[
+            <div style="font-family:Arial,sans-serif;color:#0F1E3C;max-width:600px;">
+                <p>Ciao,</p>
+                <p>Sei invitato al seguente appuntamento:</p>
+                <p style="font-size:16px;"><strong>${object.name}</strong></p>
+                <p>
+                    📅 <strong>Quando:</strong>
+                    ${object.start.strftime('%d/%m/%Y %H:%M')} UTC<br/>
+                    📍 <strong>Dove:</strong>
+                    ${object.location or '—'}
+                </p>
+                % if object.description:
+                <p style="color:#666;font-size:13px;">
+                    ${object.description}
+                </p>
+                % endif
+                <p style="margin-top:20px;">
+                    Trovi in allegato il file <strong>.ics</strong>:
+                    puoi aprirlo per aggiungere l'appuntamento al tuo
+                    calendario (Google, Apple, Outlook).
+                </p>
+                <p style="color:#999;font-size:11px;margin-top:30px;">
+                    V6 Impresa — messaggio automatico
+                </p>
+            </div>
+        ]]></field>
+    </record>
+</odoo>

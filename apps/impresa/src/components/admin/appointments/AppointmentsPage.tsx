@@ -12,6 +12,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Loader2, AlertCircle, Clock } from 'lucide-react';
 import AppointmentForm from './AppointmentForm';
 
+type AttendeeInfo = {
+  attendee_id: number;
+  partner_id: number;
+  user_id: number | null;
+  name: string;
+  email: string;
+  state: 'needsAction' | 'accepted' | 'declined' | string;
+};
+
 type Appointment = {
   id: number;
   name: string;
@@ -28,6 +37,7 @@ type Appointment = {
   partner_ids: number[];
   attendee_ids: number[];
   attendee_names: string[];
+  attendees: AttendeeInfo[];
   user_id: number | null;
   user_name: string | null;
   is_v6: boolean;
@@ -55,6 +65,18 @@ function toISO(d: Date): string {
   const g = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${g}`;
 }
+// 03/10/2026 (D.2): badge aggregato RSVP per evento in lista.
+function rsvpBadge(attendees: AttendeeInfo[]): { label: string; cls: string } | null {
+  if (!attendees || attendees.length === 0) return null;
+  const accepted = attendees.filter(a => a.state === 'accepted').length;
+  const declined = attendees.filter(a => a.state === 'declined').length;
+  const pending = attendees.length - accepted - declined;
+  if (declined > 0) return { label: `✗ ${declined} rifiutato/i`, cls: 'bg-red-100 text-red-700' };
+  if (pending > 0) return { label: `⏳ ${pending} in attesa`, cls: 'bg-amber-100 text-amber-700' };
+  if (accepted > 0) return { label: `✓ ${accepted} accettato/i`, cls: 'bg-emerald-100 text-emerald-700' };
+  return null;
+}
+
 const DAY_NAMES = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 const MONTHS_SHORT = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
 
@@ -209,7 +231,17 @@ export default function AppointmentsPage() {
                               {fmtTime(ev.start)} – {fmtTime(ev.stop)}
                             </span>
                             <span className="flex-1">
-                              <span className="font-medium text-sm text-[#0F1E3C] block">{ev.name}</span>
+                              <span className="font-medium text-sm text-[#0F1E3C] block">
+                                {ev.name}
+                                {(() => {
+                                  const b = rsvpBadge(ev.attendees || []);
+                                  return b ? (
+                                    <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-normal ${b.cls}`}>
+                                      {b.label}
+                                    </span>
+                                  ) : null;
+                                })()}
+                              </span>
                               {ev.location && (
                                 <span className="text-xs text-gray-500 block mt-0.5">{ev.location}</span>
                               )}

@@ -4,6 +4,7 @@
 Riusa _authenticate di APIBaseController.
 Sicurezza R2: partner_ids accettati SOLO se V6 interni (group_user).
 """
+import base64
 import json
 import logging
 
@@ -38,6 +39,21 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
             'partner_ids': e.partner_ids.ids,
             'attendee_ids': e.attendee_ids.ids,
             'attendee_names': [a.partner_id.name for a in e.attendee_ids],
+            # 03/10/2026 (D.1): dettaglio RSVP per ogni attendee.
+            'attendees': [
+                {
+                    'attendee_id': a.id,
+                    'partner_id': a.partner_id.id,
+                    'user_id': a.partner_id.user_ids[:1].id
+                        if a.partner_id.user_ids else None,
+                    'name': a.partner_id.name,
+                    'email': a.partner_id.email or a.email or '',
+                    'state': a.state,
+                }
+                for a in e.attendee_ids
+            ],
+            'external_invite_sent_at': self._iso_utc(e.external_invite_sent_at)
+                if e.external_invite_sent_at else None,
             'user_id': e.user_id.id if e.user_id else None,
             'user_name': e.user_id.name if e.user_id else None,
             'is_v6': bool(e.relation_id),
@@ -82,6 +98,11 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        # 03/10/2026 (D-fix): propaga user JWT nell'env. Necessario per
+        # audit erpv6_crypto_audit (user_id NOT NULL) che scatta su
+        # _get_ics_file() e altre operazioni. Senza questo, audit insert
+        # fallisce con NULL e abortisce la transazione.
+        request.update_env(user=user.id)
 
         args = request.httprequest.args
         date_from = (args.get('from') or '').strip()
@@ -117,6 +138,11 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        # 03/10/2026 (D-fix): propaga user JWT nell'env. Necessario per
+        # audit erpv6_crypto_audit (user_id NOT NULL) che scatta su
+        # _get_ics_file() e altre operazioni. Senza questo, audit insert
+        # fallisce con NULL e abortisce la transazione.
+        request.update_env(user=user.id)
 
         E = request.env['calendar.event'].sudo()
         e = E.browse(eid)
@@ -135,6 +161,11 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        # 03/10/2026 (D-fix): propaga user JWT nell'env. Necessario per
+        # audit erpv6_crypto_audit (user_id NOT NULL) che scatta su
+        # _get_ics_file() e altre operazioni. Senza questo, audit insert
+        # fallisce con NULL e abortisce la transazione.
+        request.update_env(user=user.id)
 
         try:
             body = json.loads(request.httprequest.data or b'{}')
@@ -182,12 +213,23 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         if not vals.get('user_id'):
             vals['user_id'] = user.id
 
+        # 03/10/2026 (D.4): email a external_attendees con conferma esplicita.
+        external_attendees = vals.get('external_attendees') or ''
+        confirm_external_send = bool(body.get('confirm_external_send'))
+        if external_attendees and not confirm_external_send:
+            return self._json_response({
+                'error': 'Conferma richiesta per invio email esterne',
+                'requires_confirmation': True,
+                'external_recipients': [
+                    x.strip() for x in external_attendees.split(',') if x.strip()
+                ],
+            }, 400)
+
         try:
             # 03/10/2026 (C1b-agenda-1a): no_mail_to_attendees=True per R2.
             # Il create() di calendar.event chiama _send_invitation_emails()
             # automaticamente. Nel MVP non inviamo email: l'invito è .ics
-            # scaricato manualmente. In agenda-1c si aggiungerà un endpoint
-            # /invite esplicito che usa action_sendmail.
+            # scaricato manualmente.
             e = request.env['calendar.event'].sudo().with_context(
                 no_mail_to_attendees=True,
             ).create(vals)
@@ -199,6 +241,13 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
             except Exception:
                 _logger.exception(
                     "Notifica attendee fallita per evento %s", e.id)
+            # 03/10/2026 (D.4): invio email esterne (transazionale approved).
+            if external_attendees and confirm_external_send:
+                try:
+                    self._send_external_invites(e)
+                except Exception:
+                    _logger.exception(
+                        "Invio email esterne fallito per evento %s", e.id)
             request.env.cr.commit()
         except Exception as ex:
             _logger.exception('Errore create calendar.event')
@@ -221,6 +270,11 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        # 03/10/2026 (D-fix): propaga user JWT nell'env. Necessario per
+        # audit erpv6_crypto_audit (user_id NOT NULL) che scatta su
+        # _get_ics_file() e altre operazioni. Senza questo, audit insert
+        # fallisce con NULL e abortisce la transazione.
+        request.update_env(user=user.id)
 
         E = request.env['calendar.event'].sudo()
         e = E.browse(eid)
@@ -273,6 +327,11 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        # 03/10/2026 (D-fix): propaga user JWT nell'env. Necessario per
+        # audit erpv6_crypto_audit (user_id NOT NULL) che scatta su
+        # _get_ics_file() e altre operazioni. Senza questo, audit insert
+        # fallisce con NULL e abortisce la transazione.
+        request.update_env(user=user.id)
         if not self._is_strict_admin(user):
             return self._json_response({'error': 'Solo admin'}, 403)
 
@@ -298,6 +357,11 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        # 03/10/2026 (D-fix): propaga user JWT nell'env. Necessario per
+        # audit erpv6_crypto_audit (user_id NOT NULL) che scatta su
+        # _get_ics_file() e altre operazioni. Senza questo, audit insert
+        # fallisce con NULL e abortisce la transazione.
+        request.update_env(user=user.id)
 
         E = request.env['calendar.event'].sudo()
         e = E.browse(eid)
@@ -366,6 +430,82 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
             f"state={new_state}&event={attendee.event_id.id}"
         )
         return request.redirect(target)
+
+    def _send_external_invites(self, event):
+        """03/10/2026 (D.4): invia email con .ics ai partecipanti esterni.
+
+        Chiamato dal POST dopo conferma esplicita utente
+        (confirm_external_send=true). Usa context
+        mail_transactional_approved=True per bypassare la whitelist
+        R2 (guardrail erpv6_mail_guard).
+        """
+        externals = [
+            x.strip() for x in (event.external_attendees or '').split(',')
+            if x.strip() and '@' in x
+        ]
+        if not externals:
+            return
+
+        # Genera .ics
+        try:
+            ics_dict = event._get_ics_file() or {}
+            ics_content = b''
+            if isinstance(ics_dict, dict) and ics_dict:
+                ics_content = list(ics_dict.values())[0]
+            elif isinstance(ics_dict, bytes):
+                ics_content = ics_dict
+        except Exception:
+            _logger.exception("_get_ics_file fallito per evento %s", event.id)
+            return
+
+        if not ics_content:
+            _logger.warning("ICS vuoto per evento %s", event.id)
+            return
+
+        # Attachment .ics
+        Attachment = request.env['ir.attachment'].sudo()
+        att = Attachment.create({
+            'name': f'appuntamento-{event.id}.ics',
+            'datas': base64.b64encode(ics_content),
+            'mimetype': 'text/calendar',
+            'res_model': 'calendar.event',
+            'res_id': event.id,
+        })
+
+        template = request.env.ref(
+            'erpv6_calendar_ext.mail_template_external_invite',
+            raise_if_not_found=False,
+        )
+        if not template:
+            _logger.warning("Template email esterno mancante")
+            return
+
+        # Una mail per ogni destinatario (privacy: no reciproci visibili)
+        for email in externals:
+            try:
+                template.sudo().with_context(
+                    mail_transactional_approved=True,
+                ).send_mail(
+                    event.id,
+                    force_send=False,
+                    email_values={
+                        'email_to': email,
+                        'attachment_ids': [(6, 0, [att.id])],
+                    },
+                )
+            except Exception:
+                _logger.exception(
+                    "_send_external_invites fallito per %s (event %s)",
+                    email, event.id,
+                )
+
+        event.write({
+            'external_invite_sent_at': fields.Datetime.now(),
+        })
+        _logger.info(
+            "Inviti esterni inviati per evento %s → %s",
+            event.id, externals,
+        )
 
     def _is_strict_admin(self, user):
         return user.has_group('base.group_system')

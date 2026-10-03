@@ -7,7 +7,7 @@ external_attendees.
 """
 import logging
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -48,6 +48,13 @@ class CalendarEvent(models.Model):
         readonly=True,
         index=True,
         help='True se creato via API V6. False per eventi nativi Odoo.',
+    )
+    # 03/10/2026 (D.5): tracciamento invio invito a external_attendees
+    external_invite_sent_at = fields.Datetime(
+        string='Invito esterno inviato il',
+        readonly=True,
+        help='Popolato quando il controller invia email transazionale '
+             'ai partecipanti esterni (con .ics allegato).',
     )
 
 
@@ -116,6 +123,82 @@ class CalendarEvent(models.Model):
         if not ok:
             _logger.warning(
                 "_notify_via_telegram: send_message False per user %s", user.id)
+
+    # ═══════════════════════════════════════════════════════════════
+    # 03/10/2026 (D.3): reminder Telegram 2h prima dell'evento
+    # ═══════════════════════════════════════════════════════════════
+    @api.model
+    def _cron_telegram_reminder(self):
+        """Cron ogni 15 min. Invia reminder agli attendee con
+        state='accepted' se l'evento inizia tra 1h55 e 2h05.
+
+        Solo accepted: chi non ha risposto non ha confermato.
+        Telegram se telegram_chat_id, altrimenti email interna V6.
+        """
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        win_start = now + timedelta(hours=1, minutes=55)
+        win_end = now + timedelta(hours=2, minutes=5)
+
+        events = self.search([
+            ('start', '>=', win_start),
+            ('start', '<=', win_end),
+            ('is_v6_managed', '=', True),
+            ('telegram_reminder_sent_at', '=', False),
+        ])
+        if not events:
+            return 0
+        sent_count = 0
+        for event in events:
+            attendee_accepted = event.attendee_ids.filtered(
+                lambda a: a.state == 'accepted')
+            for attendee in attendee_accepted:
+                for user in attendee.partner_id.user_ids.filtered(
+                        lambda u: u.active):
+                    try:
+                        event._send_reminder(user, attendee)
+                        sent_count += 1
+                    except Exception:  # pylint: disable=broad-except
+                        _logger.exception(
+                            "Reminder fail user=%s event=%s",
+                            user.id, event.id)
+            event.write({
+                'telegram_reminder_sent_at': fields.Datetime.now(),
+            })
+        return sent_count
+
+    def _send_reminder(self, user, attendee):
+        """Invia reminder: Telegram se possibile, altrimenti email."""
+        start_local = fields.Datetime.context_timestamp(user, self.start)
+        text = (
+            f"⏰ Promemoria: appuntamento tra 2 ore\n"
+            f"{self.name}\n"
+            f"🕐 {start_local.strftime('%d/%m %H:%M')}"
+        )
+        if self.location:
+            text += f"\n📍 {self.location}"
+
+        if user.telegram_chat_id:
+            config = self.env['erpv6.agent.telegram.config'].sudo().search(
+                [('is_active', '=', True)], limit=1)
+            if config:
+                config.send_message(
+                    text=text,
+                    chat_id_override=user.telegram_chat_id,
+                )
+                return
+
+        # Fallback: email interna V6
+        template = self.env.ref(
+            'erpv6_calendar_ext.mail_template_internal_invite',
+            raise_if_not_found=False)
+        if template:
+            template.with_context(
+                accept_url='', decline_url='',
+            ).send_mail(
+                self.id, force_send=False,
+                email_values={'email_to': user.login},
+            )
 
     def _notify_via_email_internal(self, user):
         """Email interna V6 (in whitelist, non serve transactional)."""

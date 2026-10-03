@@ -12,6 +12,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X, Loader2, AlertCircle, Info, Download, ExternalLink, Link2 } from 'lucide-react';
 
+type AttendeeInfo = {
+  attendee_id: number;
+  partner_id: number;
+  user_id: number | null;
+  name: string;
+  email: string;
+  state: 'needsAction' | 'accepted' | 'declined' | string;
+};
+
 type Appointment = {
   id: number;
   name: string;
@@ -27,6 +36,7 @@ type Appointment = {
   partner_ids: number[];
   attendee_ids: number[];
   attendee_names: string[];
+  attendees: AttendeeInfo[];
   user_id: number | null;
   user_name: string | null;
 };
@@ -58,6 +68,13 @@ function toLocalIso(dt: string): { date: string; time: string } {
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
   return { date: `${y}-${m}-${g}`, time: `${hh}:${mm}` };
+}
+
+// 03/10/2026 (D.2): stato RSVP per singolo partecipante.
+function stateBadge(state: string): { label: string; cls: string } {
+  if (state === 'accepted') return { label: '✓ Accettato', cls: 'text-emerald-700' };
+  if (state === 'declined') return { label: '✗ Rifiutato', cls: 'text-red-700' };
+  return { label: '⏳ In attesa', cls: 'text-amber-700' };
 }
 
 const DURATIONS = [
@@ -106,6 +123,10 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 03/10/2026 (D.4b): dialog conferma invio email a esterni.
+  const [confirmExternal, setConfirmExternal] = useState<{
+    recipients: string[];
+  } | null>(null);
 
   // Popola dal record esistente
   useEffect(() => {
@@ -192,9 +213,20 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
     return dt.toISOString().replace('Z', '').replace(/\.\d+$/, '');
   }, [date, time, duration]);
 
-  const handleSave = async () => {
+  // 03/10/2026 (D.4b): se ci sono email esterne, chiedi conferma.
+  // Il POST invia solo con confirm_external_send=true.
+  const handleSave = async (confirmExternalSend: boolean = false) => {
     if (!name.trim()) { setError('Il titolo è obbligatorio.'); return; }
     if (!startIso || !stopIso) { setError('Data e ora obbligatorie.'); return; }
+
+    // Se ci sono esterni e non è già stata data conferma → chiedi
+    const extList = (external || '')
+      .split(',').map(e => e.trim()).filter(e => e && e.includes('@'));
+    if (extList.length > 0 && !confirmExternalSend) {
+      setConfirmExternal({ recipients: extList });
+      return;
+    }
+
     setBusy(true); setError(null);
     try {
       const body: any = {
@@ -207,6 +239,7 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
         partner_ids: partnerIds,
         relation_id: relationId || null,
         deal_id: dealId || null,
+        confirm_external_send: confirmExternalSend,
       };
       const url = isEdit
         ? `/api/admin/appointments/${appointment!.id}`
@@ -221,6 +254,7 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
         const t = await r.text();
         throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
       }
+      setConfirmExternal(null);
       onSaved();
     } catch (e: any) {
       setError(e?.message || 'Errore salvataggio');
@@ -342,14 +376,23 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
                 <div className="border border-gray-200 rounded-lg p-2 max-h-32 overflow-y-auto space-y-1">
                   {users.length === 0 ? (
                     <div className="text-xs text-gray-400 italic py-1">Nessun utente caricato.</div>
-                  ) : users.map(u => (
-                    <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
-                      <input type="checkbox" checked={partnerIds.includes(u.partner_id)}
-                        onChange={() => togglePartner(u.partner_id)}
-                        className="accent-[#0F1E3C]" />
-                      <span>{u.name}</span>
-                    </label>
-                  ))}
+                  ) : users.map(u => {
+                    const att = isEdit
+                      ? (appointment?.attendees || []).find(a => a.partner_id === u.partner_id)
+                      : null;
+                    const sb = att ? stateBadge(att.state) : null;
+                    return (
+                      <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                        <input type="checkbox" checked={partnerIds.includes(u.partner_id)}
+                          onChange={() => togglePartner(u.partner_id)}
+                          className="accent-[#0F1E3C]" />
+                        <span>{u.name}</span>
+                        {sb && (
+                          <span className={`ml-auto text-[11px] ${sb.cls}`}>{sb.label}</span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1">
                   Solo utenti V6 interni. Per invitare esterni usa il campo sotto.
@@ -475,7 +518,7 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
               className="px-4 py-2 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50">
               Annulla
             </button>
-            <button onClick={handleSave} disabled={busy}
+            <button onClick={() => handleSave(false)} disabled={busy}
               className="px-4 py-2 text-sm rounded-lg bg-[#0F1E3C] text-white hover:bg-[#1a2f54] disabled:opacity-50 flex items-center gap-1.5">
               {busy && <Loader2 size={14} className="animate-spin" />}
               Salva
@@ -483,6 +526,44 @@ export default function AppointmentForm({ appointment, onClose, onSaved }: Props
           </div>
         </div>
       </div>
+
+      {/* 03/10/2026 (D.4b): dialog conferma invio email esterne */}
+      {confirmExternal && (
+        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"
+             onClick={() => setConfirmExternal(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
+               onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-[#0F1E3C] mb-2">
+              Inviare invito via email?
+            </h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Stai per inviare un invito con file <strong>.ics</strong> a:
+            </p>
+            <ul className="text-sm bg-gray-50 rounded-lg p-3 mb-4 space-y-1">
+              {confirmExternal.recipients.map((e, i) => (
+                <li key={i} className="font-mono text-xs">{e}</li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-2 py-1 mb-4">
+              ⚠️ L'email parte immediatamente verso indirizzi esterni.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmExternal(null)}
+                className="px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50">
+                Annulla
+              </button>
+              <button onClick={() => handleSave(false)}
+                className="px-3 py-2 text-sm rounded-lg border border-gray-200 hover:bg-gray-50">
+                Salva senza inviare
+              </button>
+              <button onClick={() => handleSave(true)}
+                className="px-3 py-2 text-sm rounded-lg bg-[#0F1E3C] text-white hover:bg-[#1a2f54]">
+                Sì, invia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

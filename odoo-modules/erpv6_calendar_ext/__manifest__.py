@@ -14,6 +14,8 @@
     'data': [
         'views/calendar_event_views.xml',
         'data/mail_template_internal_invite.xml',
+        'data/mail_template_external_invite.xml',
+        'data/ir_cron_reminder.xml',
     ],
     'installable': True,
     'application': False,
