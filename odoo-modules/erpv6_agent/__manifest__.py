@@ -29,6 +29,7 @@
         'data/agent_andrea_data.xml',
         'data/agent_susanna_data.xml',
         'data/agent_telegram_cron_data.xml',
+        'data/ir_cron_gate2c1.xml',
         'data/agent_monitor_data.xml',
         'data/agent_monitor_rules_data.xml',
         'data/agent_claudio_data.xml',

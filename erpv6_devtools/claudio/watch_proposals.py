@@ -57,7 +57,60 @@ CICLO_SECONDI = 120
 # lo stesso id di proposta non puo' mai comparire per due agenti diversi,
 # ma tenerli separati evita ogni ambiguita'). safe_exec.sh resta SOLO in
 # claudio/ (vedi promote_modules sotto): riusato da entrambi, mai duplicato.
-AGENT_CODES = ('claudio', 'alessandro')
+# 04/10/2026 (C5-gate-2c-1): la lista agenti esecutori viene letta da
+# Odoo (agent.config active) con cache 60s. Fallback su hardcoded se
+# Odoo non risponde. La costante AGENT_CODES resta per backward compat
+# (fallback e logging).
+AGENT_CODES_FALLBACK = ('claudio', 'alessandro')
+AGENT_CODES = AGENT_CODES_FALLBACK  # alias per compatibilità
+
+_AGENT_CODES_CACHE = {'codes': None, 'ts': 0.0}
+
+
+def get_agent_codes():
+    """Legge da Odoo gli agenti esecutori attivi (claudio/alessandro).
+    Cache 60s. Fallback su AGENT_CODES_FALLBACK se Odoo non risponde.
+    """
+    now = time.time()
+    if (_AGENT_CODES_CACHE['codes'] is not None and
+            now - _AGENT_CODES_CACHE['ts'] < 60):
+        return _AGENT_CODES_CACHE['codes']
+
+    cmd = [
+        'docker', 'exec', '-i', 'odoo', 'odoo', 'shell',
+        '-d', 'erpv6', '--no-http',
+    ]
+    script = """
+configs = env['erpv6.agent.config'].sudo().search([
+    ('active', '=', True),
+    ('code', 'in', ('claudio', 'alessandro')),
+])
+print('AGENTS:' + '|'.join(c.code for c in configs))
+"""
+    codes = AGENT_CODES_FALLBACK
+    try:
+        result = subprocess.run(
+            cmd, input=script, capture_output=True,
+            text=True, timeout=30,
+        )
+        for line in (result.stdout or '').split('\n'):
+            if line.startswith('AGENTS:'):
+                raw = line[len('AGENTS:'):].strip()
+                if raw:
+                    # Ordine stabile: claudio, alessandro (come fallback)
+                    found = set(raw.split('|'))
+                    ordered = [c for c in AGENT_CODES_FALLBACK if c in found]
+                    # aggiungi eventuali agenti extra non previsti
+                    ordered += [c for c in found if c not in AGENT_CODES_FALLBACK]
+                    codes = tuple(ordered)
+                break
+    except Exception as e:
+        print('[watch_proposals] get_agent_codes fail: %s' % e,
+              file=sys.stderr)
+
+    _AGENT_CODES_CACHE['codes'] = codes
+    _AGENT_CODES_CACHE['ts'] = now
+    return codes
 
 # 03/10/2026 (C5-gate-1a): whitelist percorsi dove Aider puo' scrivere.
 # Blocco .git/, erpv6_devtools/, scripts/, docs/, config root.
@@ -912,7 +965,7 @@ def run_pending_investigations():
 
 
 def run_once():
-    for agent_code in AGENT_CODES:
+    for agent_code in get_agent_codes():
         try:
             run_once_for_agent(agent_code)
         except Exception as e:
@@ -939,7 +992,7 @@ def main():
         run_once()
         return
 
-    print("[watch_proposals] avviato (agenti: %s), ciclo ogni %ds. Ctrl+C per fermare." % (", ".join(AGENT_CODES), CICLO_SECONDI))
+    print("[watch_proposals] avviato (agenti: %s), ciclo ogni %ds. Ctrl+C per fermare." % (", ".join(get_agent_codes()), CICLO_SECONDI))
     while True:
         try:
             run_once()

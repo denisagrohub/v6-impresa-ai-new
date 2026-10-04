@@ -67,6 +67,14 @@ class Erpv6AgentConfig(models.Model):
              "cosa sa fare. Facoltativa ma consigliata -- senza, l'agente ha istruzioni e contesto "
              "ma nessuna voce propria.",
     )
+    # 04/10/2026 (C5-gate-2c-1): KB con il prompt di revisione
+    # (usato da Argus revisore). Fallback su costante hardcoded se vuoto.
+    review_prompt_kb_id = fields.Many2one(
+        'erpv6.kb',
+        string='Prompt revisione (KB)',
+        help='KB con il prompt di revisione. Se vuoto, si usa il '
+             'prompt di fallback hardcoded (nel codice).',
+    )
     partner_id = fields.Many2one(
         'res.partner', string='Identità (mittente messaggi)',
         help="Contatto dedicato usato come autore quando questo agente scrive un messaggio nel "

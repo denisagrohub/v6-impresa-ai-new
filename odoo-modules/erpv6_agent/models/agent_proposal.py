@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import timedelta
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -191,7 +191,7 @@ class Erpv6AgentProposal(models.Model):
 
     # ─── C5-gate-2b: Argus revisore (L2) + loop correzione ───
 
-    _ARGUS_REVIEW_PROMPT = (
+    _ARGUS_REVIEW_PROMPT_FALLBACK = (
         "Sei Argus, revisore di proposte di miglioramento V6.\n\n"
         "Ricevi una proposta strutturata in JSON. Valuta:\n\n"
         "  1. Il PROBLEMA e' reale, concreto, verificabile?\n"
@@ -210,6 +210,22 @@ class Erpv6AgentProposal(models.Model):
         "weak = torna al proponente con motivi (max 2 giri)\n"
         "reject = rifiutata definitivamente"
     )
+
+    def _get_argus_review_prompt(self):
+        """Legge il prompt di revisione da KB se configurato su
+        agent_config(code=argus).review_prompt_kb_id, altrimenti
+        fallback hardcoded."""
+        try:
+            argus = self.env['erpv6.agent.config'].sudo().search([
+                ('code', '=', 'argus')], limit=1)
+            if argus and argus.review_prompt_kb_id:
+                content = argus.review_prompt_kb_id.content or ''
+                if content.strip():
+                    return content
+        except Exception:  # pylint: disable=broad-except
+            _logger.warning(
+                'Lettura KB review_prompt fallita, uso fallback')
+        return self._ARGUS_REVIEW_PROMPT_FALLBACK
 
     def _argus_review(self):
         """Argus valuta la proposta. Salta se proposta di Argus
@@ -242,7 +258,7 @@ class Erpv6AgentProposal(models.Model):
                 payload={
                     'temperature': 0.2,
                     'messages': [
-                        {'role': 'system', 'content': self._ARGUS_REVIEW_PROMPT},
+                        {'role': 'system', 'content': self._get_argus_review_prompt()},
                         {'role': 'user', 'content': user_content},
                     ],
                 },
@@ -590,3 +606,23 @@ class Erpv6AgentProposal(models.Model):
             proposal.write({
                 'status': 'actioned', 'reviewer_id': self.env.user.id, 'reviewed_at': fields.Datetime.now(),
             })
+
+    @api.model
+    def _cron_process_pending_reviews(self):
+        """04/10/2026 (C5-gate-2c-1): processa fino a N pending_review
+        per run applicando L1+L2. Solo proposte CON structured_data
+        (le legacy sono escluse). Ritorna il numero processate."""
+        MAX_PER_RUN = 5
+        pending = self.search([
+            ('status', '=', 'pending_review'),
+            ('structured_data', '!=', False),
+        ], limit=MAX_PER_RUN, order='id asc')
+
+        processed = 0
+        for p in pending:
+            try:
+                p.action_process_review()
+                processed += 1
+            except Exception as e:  # pylint: disable=broad-except
+                _logger.warning('Cron review fail #%s: %s', p.id, e)
+        return processed
