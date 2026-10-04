@@ -60,6 +60,9 @@ class Erpv6AgentProposal(models.Model):
         ('rejected_incomplete', 'Rifiutata: forma incompleta (L1)'),
         ('rejected_by_argus', 'Rifiutata: Argus (L2)'),
         ('rejected_max_attempts', 'Rifiutata: troppi tentativi'),
+        # 04/10/2026 (C5-gate-2b-legacy): proposte create prima del
+        # formato strutturato (L1). Fuori dal ciclo di validazione.
+        ('legacy_no_structured', 'Legacy (senza formato strutturato)'),
     ], string='Stato', default='pending_review', required=True, tracking=True)
     reviewer_id = fields.Many2one('res.users', string='Revisionata da', tracking=True)
     reviewed_at = fields.Datetime(string='Revisionata il', tracking=True)
