@@ -129,16 +129,30 @@ class Erpv6KaizenAgent(models.Model):
         )
         system_prompt = (
             "Sei l'agente Kaizen del sistema erpv6.%(persona)s Applichi le regole sotto per proporre "
-            "UNA sola azione concreta sul backlog tecnico reale fornito -- non inventare problemi "
+            "fino a 3 azioni concrete sul backlog tecnico reale fornito -- non inventare problemi "
             "non presenti nei dati, non proporre nulla se i dati non giustificano un'azione chiara. "
-            "Non applichi mai nulla da solo: la tua proposta va sempre a un umano per la revisione. "
+            "Non applichi mai nulla da solo: le tue proposte vanno sempre a un umano per la revisione. "
             "PRIMA di proporre di creare qualcosa di nuovo, verifica se uno degli strumenti gia' "
             "esistenti sotto lo copre gia' -- se si', la tua proposta deve dire di RIUSARE quello, "
             "mai duplicarlo (principio motore vs conoscenza: non creare un secondo modo di fare la "
             "stessa cosa).\n\nSTRUMENTI GIA' ESISTENTI IN erpv6_kaizen:\n%(tools)s\n\n"
-            "Rispondi SOLO con un oggetto JSON valido, senza markdown code fence, senza altro testo: "
-            '{"title": "<titolo breve>", "proposal_text": "<proposta in italiano, concreta e azionabile>", '
-            '"rule_applied": "<quale regola tra quelle sotto hai applicato>"}\n\n'
+            "Output: array JSON (0-3 elementi). Se non trovi problemi reali, ritorna []. "
+            "Mai inventare problemi.\n\n"
+            "Schema di ogni proposta (campi L1 obbligatori):\n"
+            "{\n"
+            '  "title": "max 80 char",\n'
+            '  "problem": "cosa e rotto, min 50 char",\n'
+            '  "proposed_change": "cosa cambiare, min 50 char",\n'
+            '  "files_affected": ["odoo-modules/..."],\n'
+            '  "impact": "low|medium|high",\n'
+            '  "effort": "es: 2h",\n'
+            '  "risk": "min 20 char",\n'
+            '  "test_plan": "come verificare, min 30 char",\n'
+            '  "rationale": "perche e un fix, min 30 char",\n'
+            '  "target_agent": "claudio|alessandro|auto",\n'
+            '  "rule_applied": "quale regola tra quelle sotto hai applicato"\n'
+            "}\n\n"
+            "Rispondi SOLO con l'array JSON, nessun markdown code fence, nessun altro testo.\n\n"
             "REGOLE:\n%(rules)s%(memory)s"
         ) % {
             'persona': (" " + persona_text) if persona_text else '',
@@ -181,66 +195,122 @@ class Erpv6KaizenAgent(models.Model):
             return
         try:
             content = result['data']['choices'][0]['message']['content']
-            parsed = json.loads(content)
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
-            _logger.warning("Agente Kaizen: risposta AI in formato inatteso, nessuna proposta generata: %s", e)
-            return
-        if not parsed.get('title') or not parsed.get('proposal_text'):
-            _logger.warning("Agente Kaizen: risposta AI incompleta (manca titolo o proposta), scartata.")
+        except (KeyError, IndexError, TypeError) as e:
+            _logger.warning("Agente Kaizen: risposta AI in formato inatteso: %s", e)
             return
 
-        proposal = self.env['erpv6.agent.proposal'].create({
-            'agent_config_id': agent_config.id,
-            'name': parsed['title'],
-            'proposal_text': parsed['proposal_text'],
-            'based_on': backlog_text + "\n\n" + heinrich_summary,
-            'rule_applied': parsed.get('rule_applied', ''),
-            'provider_name': result.get('provider_used', ''),
-        })
-        agent_config._write_memory(_("Ho proposto: %(title)s — %(text)s") % {
-            'title': parsed['title'], 'text': parsed['proposal_text']})
+        # 04/10/2026 (C5-gate-2c-2-step8): parse array JSON (0-3)
+        # con strip markdown fence, validazione L1, create con structured_data.
+        proposals_data = self._parse_proposals_json(content)
+        if not proposals_data:
+            _logger.info("Agente Kaizen: nessuna proposta JSON valida, fine.")
+            return
 
-        # Stesso resolver del referente KB globale gia' usato ovunque per
-        # decidere "chi e' il supervisore" (erpv6.kb._resolve_kb_supervisor
-        # non e' chiamabile qui senza un record erpv6.kb concreto: si legge
-        # direttamente lo stesso lead di riferimento).
-        kb_admin_lead = self.env.ref('erpv6_production.crm_lead_kb_admin', raise_if_not_found=False)
+        Proposal = self.env['erpv6.agent.proposal']
+        created = 0
+        skipped = 0
+        created_records = []
+        for pd in proposals_data:
+            ok, reasons = Proposal._validate_structured_dict(pd)
+            if not ok:
+                _logger.info(
+                    "Agente Kaizen: proposta scartata L1: %s", reasons)
+                skipped += 1
+                continue
+            try:
+                p_rec = Proposal.create({
+                    'agent_config_id': agent_config.id,
+                    'name': (pd.get('title') or '')[:80],
+                    'proposal_text': (
+                        (pd.get('problem') or '') + '\n\n'
+                        + (pd.get('proposed_change') or '')
+                    ),
+                    'structured_data': json.dumps(pd, ensure_ascii=False),
+                    'target_agent': pd.get('target_agent', 'auto'),
+                    'based_on': backlog_text + "\n\n" + heinrich_summary,
+                    'rule_applied': pd.get('rule_applied', ''),
+                    'provider_name': result.get('provider_used', ''),
+                    'status': 'pending_review',
+                })
+                created_records.append(p_rec)
+                created += 1
+            except Exception as e:  # pylint: disable=broad-except
+                _logger.warning(
+                    "Agente Kaizen: creazione proposta fallita: %s", e)
+
+        _logger.info(
+            "Agente Kaizen: %d proposte create, %d scartate L1",
+            created, skipped,
+        )
+
+        # Notifica per ogni proposta creata (email + Telegram se offline)
+        for p_rec in created_records:
+            try:
+                self._notify_kaizen_proposal(p_rec, agent_config)
+            except Exception:  # pylint: disable=broad-except
+                _logger.exception(
+                    "Notifica proposta #%s fallita (non bloccante).", p_rec.id)
+
+        return created
+
+    def _notify_kaizen_proposal(self, proposal, agent_config):
+        """Notifica email + Telegram per una proposta Kaizen.
+        Estratto in 2c-2-step8 dal vecchio _cron_kaizen_agent_propose."""
+        kb_admin_lead = self.env.ref(
+            'erpv6_production.crm_lead_kb_admin', raise_if_not_found=False)
         supervisor = kb_admin_lead.user_id if kb_admin_lead else self.env['res.users']
-        if supervisor and supervisor.email:
-            default_from = self.env['ir.config_parameter'].sudo().get_param('mail.default.from')
-            mail_values = {
-                'subject': _("[Kaizen] Nuova proposta: %s") % proposal.name,
-                'body_html': _("<p><strong>%(title)s</strong></p><p>%(text)s</p>") % {
-                    'title': proposal.name, 'text': proposal.proposal_text.replace("\n", "<br/>")},
-                'email_to': supervisor.email,
-            }
-            if default_from:
-                mail_values['email_from'] = '"%s" <%s>' % (self.env.company.name, default_from)
-            self.env['mail.mail'].sudo().create(mail_values).send()
-            proposal.message_post(body=_("Proposta inviata via email a %s per revisione.") % supervisor.name)
-            # Telegram se non online (24/08/2026, richiesto esplicitamente
-            # da Denis: "controlla che anche Kaizen... scriva sempre
-            # tramite Susanna" -- questa proposta usava SOLO email, mai
-            # Telegram, stesso buco gia' trovato e corretto altrove
-            # stanotte per erpv6.agent.confirmation). Kaizen non ha un bot
-            # proprio (verificato sul DB): send_proposal_decision_for_agent
-            # ricade da solo sul bot di Susanna, vedi agent_telegram_config.py.
-            #
-            # BUG REALE trovato il 25/08/2026 (Denis: "non ha nessun
-            # pulsante per dire si o no" su un messaggio Kaizen reale):
-            # questa chiamata usava send_message_for_agent (solo testo),
-            # mai send_proposal_decision_for_agent (Approva/Rifiuta veri) -
-            # la proposta arrivava senza NESSUN modo di agire dal telefono,
-            # nonostante il meccanismo dei bottoni esistesse gia' per
-            # Claudio/Alessandro. Corretto qui, stesso schema.
-            if supervisor.im_status != 'online':
-                try:
-                    self.env['erpv6.agent.telegram.config'].send_proposal_decision_for_agent(
-                        agent_config, proposal.id,
-                        _("[Kaizen] Nuova proposta: %(title)s\n\n%(text)s") % {
-                            'title': proposal.name, 'text': proposal.proposal_text},
-                    )
-                except Exception:
-                    _logger.exception(
-                        "Invio Telegram (utente non online) fallito per la proposta Kaizen #%s -- "
-                        "l'email sopra resta comunque valida.", proposal.id)
+        if not supervisor or not supervisor.email:
+            return
+
+        default_from = self.env['ir.config_parameter'].sudo().get_param(
+            'mail.default.from')
+        mail_values = {
+            'subject': _("[Kaizen] Nuova proposta: %s") % proposal.name,
+            'body_html': _("<p><strong>%(title)s</strong></p><p>%(text)s</p>") % {
+                'title': proposal.name,
+                'text': (proposal.proposal_text or '').replace("\n", "<br/>")},
+            'email_to': supervisor.email,
+        }
+        if default_from:
+            mail_values['email_from'] = '"%s" <%s>' % (
+                self.env.company.name, default_from)
+        self.env['mail.mail'].sudo().create(mail_values).send()
+        proposal.message_post(body=_(
+            "Proposta inviata via email a %s per revisione.") % supervisor.name)
+
+        if supervisor.im_status != 'online':
+            try:
+                self.env['erpv6.agent.telegram.config'].send_proposal_decision_for_agent(
+                    agent_config, proposal.id,
+                    _("[Kaizen] Nuova proposta: %(title)s\n\n%(text)s") % {
+                        'title': proposal.name,
+                        'text': proposal.proposal_text or ''},
+                )
+            except Exception:  # pylint: disable=broad-except
+                _logger.exception(
+                    "Invio Telegram fallito per proposta #%s.", proposal.id)
+
+    @api.model
+    def _parse_proposals_json(self, raw):
+        """04/10/2026 (C5-gate-2c-2-step8): parse robusto della risposta
+        LLM. Ritorna array di 0-3 dict. Gestisce markdown fence.
+        """
+        if not raw:
+            return []
+        raw = raw.strip()
+        if raw.startswith('```'):
+            ls = raw.split('\n')
+            if ls and ls[0].startswith('```'):
+                ls = ls[1:]
+            if ls and ls[-1].strip() == '```':
+                ls = ls[:-1]
+            raw = '\n'.join(ls).strip()
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return []
+        if isinstance(data, dict):
+            data = [data]
+        if not isinstance(data, list):
+            return []
+        return [x for x in data if isinstance(x, dict)][:3]
