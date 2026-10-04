@@ -14,7 +14,7 @@ export const SYSTEM_CONFIG = {
         URL: process.env.NEXT_PUBLIC_ODOO_URL || 'https://agrohub.odoo.com',
         DB: process.env.NEXT_PUBLIC_ODOO_DB || 'agrohub',
         API_KEY: process.env.ODOO_API_KEY || '',
-        TIMEOUT: 5000,
+        TIMEOUT: 20000,  // 04/10/2026 (C5-h): alzato da 5000 per andon (create report + ciclo Kaizen + email)
     },
 
     // Modalità white-label

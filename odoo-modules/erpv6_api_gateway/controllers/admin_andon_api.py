@@ -59,7 +59,10 @@ class AdminAndonAPIController(ConsultantAPIController):
             return self._json_response(
                 {'error': 'Gravita non valida'}, 400)
 
-        # Costruisci related_record (obbligatorio per il ciclo Kaizen)
+        # 04/10/2026 (C5-h): related_record sempre valorizzato per il
+        # ciclo Kaizen. Se relation_id/deal_id mancano, fallback al nodo
+        # "Andon — segnalazioni interne" (id noto).
+        ANDON_FALLBACK_ID = 94
         related_record = False
         if relation_id:
             rel = request.env['erpv6.tracking.relation'].sudo().browse(
@@ -72,9 +75,16 @@ class AdminAndonAPIController(ConsultantAPIController):
                 related_record = 'erpv6.deal,%d' % deal.id
 
         if not related_record:
-            return self._json_response({
-                'error': 'Progetto (relation_id) o deal_id obbligatorio',
-            }, 400)
+            rel = request.env['erpv6.tracking.relation'].sudo().browse(
+                ANDON_FALLBACK_ID)
+            if rel.exists():
+                related_record = 'erpv6.tracking.relation,%d' % rel.id
+            else:
+                _logger.warning(
+                    "Andon fallback nodo %d non trovato", ANDON_FALLBACK_ID)
+                return self._json_response({
+                    'error': 'Nodo Andon fallback non configurato',
+                }, 500)
 
         try:
             report = request.env['erpv6.kaizen.manual_report'].sudo().create({

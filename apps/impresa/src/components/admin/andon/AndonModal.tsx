@@ -47,7 +47,6 @@ export default function AndonModal({ onClose }: { onClose: () => void }) {
 
   async function submit() {
     if (!title.trim()) { setError('Cosa hai visto? È obbligatorio.'); return; }
-    if (!relationId) { setError('Seleziona un progetto per la segnalazione.'); return; }
     setSubmitting(true);
     setError(null);
     try {
@@ -155,14 +154,14 @@ export default function AndonModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <label className="block text-sm font-medium mb-1 text-gray-700">
-          Progetto <span className="text-red-500">*</span>
+          Progetto (opzionale)
         </label>
         <select
           value={relationId ?? ''}
           onChange={(e) => setRelationId(e.target.value ? Number(e.target.value) : null)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:border-[#0F1E3C]"
         >
-          <option value="">Seleziona un progetto...</option>
+          <option value="">Nessun progetto specifico</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
