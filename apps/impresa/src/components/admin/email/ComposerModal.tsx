@@ -115,8 +115,24 @@ export default function ComposerModal({
     finally { setBusy(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
+  // 04/10/2026 (fix segnale #1): promuove input digitato non ancora
+  // confermato con Enter in una voce della lista.
+  const commitInputs = () => {
+    const extraTo = toInput.trim();
+    const extraCc = ccInput.trim();
+    const newTo = [...toList];
+    const newCc = [...ccList];
+    if (extraTo && !newTo.includes(extraTo)) newTo.push(extraTo);
+    if (extraCc && !newCc.includes(extraCc)) newCc.push(extraCc);
+    if (extraTo) { setToList(newTo); setToInput(''); }
+    if (extraCc) { setCcList(newCc); setCcInput(''); }
+    setSuggestions([]); setSuggestFor(null);
+    return { to: newTo, cc: newCc };
+  };
+
   const send = async () => {
-    if (toList.length === 0 || !subject.trim()) {
+    const { to: finalTo, cc: finalCc } = commitInputs();
+    if (finalTo.length === 0 || !subject.trim()) {
       setMsg('Destinatario e oggetto obbligatori');
       return;
     }
@@ -126,8 +142,8 @@ export default function ComposerModal({
         method: 'POST',
         headers: { Authorization: `JWT ${user?.token || ''}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: toList,
-          cc: ccList,
+          to: finalTo,
+          cc: finalCc,
           subject,
           body,
           attachmentIds: attachments.map(a => a.id),
@@ -274,7 +290,7 @@ export default function ComposerModal({
           <button onClick={onClose} className="px-3 py-1.5 rounded text-xs text-gray-600 hover:bg-gray-100">
             Annulla
           </button>
-          <button onClick={send} disabled={busy || toList.length === 0 || !subject.trim()}
+          <button onClick={send} disabled={busy || (toList.length === 0 && !toInput.trim()) || !subject.trim()}
             className="px-4 py-1.5 rounded bg-[#1a2744] text-white text-xs font-medium hover:bg-[#0f3460] disabled:opacity-40 flex items-center gap-1.5">
             {busy ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             {busy ? 'Invio…' : 'Invia'}
