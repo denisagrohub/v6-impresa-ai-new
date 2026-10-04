@@ -243,15 +243,93 @@ class Erpv6KaizenAgent(models.Model):
             created, skipped,
         )
 
-        # Notifica per ogni proposta creata (email + Telegram se offline)
-        for p_rec in created_records:
-            try:
-                self._notify_kaizen_proposal(p_rec, agent_config)
-            except Exception:  # pylint: disable=broad-except
-                _logger.exception(
-                    "Notifica proposta #%s fallita (non bloccante).", p_rec.id)
+        # 04/10/2026 (C5-batch): notifica unica batch invece di N.
+        # Se N=1 → messaggio dettagliato. Se N>1 → 1 email + 1 Telegram.
+        try:
+            self._notify_kaizen_proposals_batch(created_records, agent_config)
+        except Exception:  # pylint: disable=broad-except
+            _logger.exception(
+                "Notifica batch fallita (non bloccante).")
 
         return created
+
+    def _notify_kaizen_proposals_batch(self, proposals, agent_config):
+        """04/10/2026 (C5-batch): un solo Telegram per N proposte Kaizen.
+        Per N=1 → messaggio dettagliato (email + Telegram + bottoni).
+        Per N>1 → 1 email batch + 1 Telegram batch (lista + link),
+        message_post su ogni proposta per tracciabilita."""
+        if not proposals:
+            return
+        if len(proposals) == 1:
+            self._notify_kaizen_proposal(proposals[0], agent_config)
+            return
+
+        kb_admin_lead = self.env.ref(
+            'erpv6_production.crm_lead_kb_admin', raise_if_not_found=False)
+        supervisor = kb_admin_lead.user_id if kb_admin_lead else self.env['res.users']
+        if not supervisor or not supervisor.email:
+            return
+
+        n = len(proposals)
+        items_html = ''.join(
+            '<li><strong>%s</strong></li>' % (p.name or '') for p in proposals)
+        body_html = (
+            '<p>Kaizen ha generato <strong>%d nuove proposte</strong>:</p>'
+            '<ul>%s</ul>'
+            '<p>Apri <code>/admin/signals</code> per rivederle.</p>'
+        ) % (n, items_html)
+
+        default_from = self.env['ir.config_parameter'].sudo().get_param(
+            'mail.default.from')
+        mail_values = {
+            'subject': _('[Kaizen] %d nuove proposte') % n,
+            'body_html': body_html,
+            'email_to': supervisor.email,
+        }
+        if default_from:
+            mail_values['email_from'] = '"%s" <%s>' % (
+                self.env.company.name, default_from)
+        self.env['mail.mail'].sudo().create(mail_values).send()
+
+        for p in proposals:
+            p.message_post(body=_(
+                'Proposta inclusa nel batch (%d) inviato a %s.'
+            ) % (n, supervisor.name))
+
+        if supervisor.im_status != 'online':
+            # 04/10/2026 (C5-batch-bottoni): bottoni inline per ogni
+            # proposta (cap 10) + link alla lista Odoo.
+            MAX_BUTTONS = 10
+            base_url = self.env['ir.config_parameter'].sudo().get_param(
+                'v6.public.base_url', 'https://erpv6.it')
+
+            lines = [_('[Kaizen] %d nuove proposte') % n, '']
+            for i, p in enumerate(proposals[:MAX_BUTTONS], 1):
+                lines.append('%d. %s' % (i, (p.name or '')[:70]))
+            if n > MAX_BUTTONS:
+                lines.append('... e altre %d' % (n - MAX_BUTTONS))
+            text = '\n'.join(lines)
+
+            # Bottoni: per ogni proposta una riga [OK] [KO]
+            buttons = []
+            for i, p in enumerate(proposals[:MAX_BUTTONS], 1):
+                buttons.append([
+                    {'text': 'OK %d' % i, 'callback_data': 'approva:%d' % p.id},
+                    {'text': 'KO %d' % i, 'callback_data': 'rifiuta:%d' % p.id},
+                ])
+            # Link lista Odoo (action 1178 = Proposte Agenti)
+            buttons.append([
+                {'text': 'Apri tutte le proposte in Odoo',
+                 'url': '%s/odoo/action-1178' % base_url},
+            ])
+            reply_markup = {'inline_keyboard': buttons}
+
+            try:
+                self.env['erpv6.agent.telegram.config'].send_message_for_agent(
+                    agent_config, text, reply_markup=reply_markup)
+            except Exception:  # pylint: disable=broad-except
+                _logger.exception('Batch notify Telegram fallito.')
+
 
     def _notify_kaizen_proposal(self, proposal, agent_config):
         """Notifica email + Telegram per una proposta Kaizen.
