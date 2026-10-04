@@ -23,6 +23,21 @@ class ResPartnerFiscalExtension(models.Model):
        default='personal',
        help="Dove inviare notifiche di sistema (firma, split, ecc.)")
 
+    # 04/10/2026 (segnale UX #2): secondo indirizzo email del contatto.
+    # Esempio: Enzo Furlanetto - email principale = sito consulente,
+    # secondaria = istituzionale Banca Generali.
+    # TECH-DEBT: toppa temporanea. Verra' assorbita dal modello 1-N
+    # quando faremo l'hub contatto (multi-email per partner).
+    email_secondary = fields.Char(
+        string='Email secondaria',
+        help='Secondo indirizzo email (istituzionale, PEC alternativa, '
+             'ecc.). Comparira nel composer come voce separata.')
+
+    email_secondary_label = fields.Char(
+        string='Etichetta email secondaria',
+        help='Testo mostrato accanto alla email secondaria nel composer '
+             '(es. Banca Generali, PEC).')
+
 
 
 class ResPartnerPlaceholderExtension(models.Model):

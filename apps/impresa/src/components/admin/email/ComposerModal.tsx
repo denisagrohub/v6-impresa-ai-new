@@ -2,7 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Send, Paperclip, Loader2, Trash2, Search } from "lucide-react";
 
-type Partner = { id: number; name: string; email: string; isCompany: boolean };
+type Partner = {
+  id: number; name: string; email: string; isCompany: boolean;
+  // 04/10/2026 (segnale UX #2): seconda email del contatto, con etichetta.
+  email_secondary?: string | false;
+  email_secondary_label?: string | false;
+};
 type Project = { id: number; name: string; emailAlias: string };
 type Attachment = { id: number; name: string; size: number };
 
@@ -25,7 +30,11 @@ interface RecipientChipsProps {
   list: string[];
   input: string;
   placeholder: string;
-  suggestions: { id: number; name: string; email: string; isCompany?: boolean }[];
+  suggestions: {
+    id: number; name: string; email: string; isCompany?: boolean;
+    email_secondary?: string | false;
+    email_secondary_label?: string | false;
+  }[];
   onInputChange: (v: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onRemove: (value: string) => void;
@@ -60,17 +69,42 @@ function RecipientChips({
       </div>
       {suggestions.length > 0 && (
         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-auto">
-          {suggestions.map(p => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => onSelectSuggestion(p.email)}
-              className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-xs border-b border-gray-50 last:border-0"
-            >
-              <span className="font-medium">{p.isCompany ? '🏢 ' : '👤 '}{p.name}</span>
-              <span className="text-gray-500 ml-2">{p.email}</span>
-            </button>
-          ))}
+          {suggestions.flatMap(p => {
+            // 04/10/2026 (segnale UX #2): se il partner ha una seconda
+            // email, mostriamo 2 voci distinte per la stessa persona.
+            const entries = [
+              { key: `${p.id}-p`, email: p.email, label: null as string | null,
+                sublabel: null as string | null },
+            ];
+            if (p.email_secondary) {
+              entries.push({
+                key: `${p.id}-s`,
+                email: p.email_secondary as string,
+                label: p.email_secondary_label || 'secondaria',
+                sublabel: p.email_secondary as string,
+              });
+            }
+            return entries.map(e => (
+              <button
+                key={e.key}
+                type="button"
+                onClick={() => onSelectSuggestion(e.email)}
+                className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-xs border-b border-gray-50 last:border-0"
+              >
+                <span className="font-medium">
+                  {p.isCompany ? '🏢 ' : '👤 '}{p.name}
+                  {e.label && (
+                    <span className="ml-1 text-[10px] text-amber-700 bg-amber-50 px-1 rounded">
+                      {e.label}
+                    </span>
+                  )}
+                </span>
+                <span className="text-gray-500 ml-2">
+                  {e.sublabel || e.email}
+                </span>
+              </button>
+            ));
+          })}
         </div>
       )}
     </div>

@@ -41,6 +41,7 @@
         'data/product_report_winwin_data.xml',
         'views/winwin_dashboard_views.xml',
         'views/sale_order_portal_redirect.xml',
+        'views/res_partner_email_views.xml',
     ],
     'assets': {
         'web.assets_backend': [

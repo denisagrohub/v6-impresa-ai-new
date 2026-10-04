@@ -18,7 +18,10 @@ export async function GET(request: Request) {
     const domain: any[] = ['|', ['name', 'ilike', q], ['email', 'ilike', q]];
     if (onlyCompany) domain.push(['is_company', '=', true]);
     const partners = await odoo.execute('res.partner', 'search_read', [
-      domain, ['id', 'name', 'email', 'phone', 'is_company'], 0, 8,
+      domain,
+      ['id', 'name', 'email', 'phone', 'is_company',
+       'email_secondary', 'email_secondary_label'],  // 04/10/2026 UX#2
+      0, 8,
     ]);
     return NextResponse.json({ success: true, partners: partners || [] });
   } catch (error: any) {

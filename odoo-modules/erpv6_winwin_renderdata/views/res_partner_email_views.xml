@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <!-- 04/10/2026 (segnale UX #2): email secondaria + etichetta
+             editabili dal form res.partner. Pagina "V6" per non
+             intaccare la vista standard Odoo. -->
+        <record id="view_res_partner_form_email_secondary" model="ir.ui.view">
+            <field name="name">res.partner.form.email_secondary</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//notebook" position="inside">
+                    <page string="V6" name="page_v6_email">
+                        <group>
+                            <group string="Preferenza email (sistema)">
+                                <field name="x_v6_email_mode"/>
+                            </group>
+                            <group string="Email secondaria">
+                                <field name="email_secondary" widget="email"/>
+                                <field name="email_secondary_label"
+                                       placeholder="es. Banca Generali, PEC"/>
+                            </group>
+                        </group>
+                        <div class="text-muted" colspan="2">
+                            <p>
+                                <strong>Email principale</strong> (sopra, campo standard)
+                                + <strong>Email secondaria</strong> (opzionale) —
+                                compariranno entrambe nel composer email di
+                                <code>/admin/mia-email</code> come voci separate.
+                            </p>
+                            <p class="text-warning">
+                                ⚠️ Tech-debt: la "secondaria" è una toppa temporanea.
+                                Verrà assorbita dal modello 1-N (multi-email per
+                                contatto) nell'hub contatto futuro.
+                            </p>
+                        </div>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>
