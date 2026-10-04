@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_credit_portfolio_list" model="ir.ui.view">
+            <field name="name">erpv6.credit.portfolio.list</field>
+            <field name="model">erpv6.credit.portfolio</field>
+            <field name="arch" type="xml">
+                <list string="Portfolio crediti" decoration-success="state == 'reviewed'" decoration-info="state == 'parsed'">
+                    <field name="name"/>
+                    <field name="cedente_id"/>
+                    <field name="certificate_type" optional="show"/>
+                    <field name="total_lines"/>
+                    <field name="total_amount" widget="monetary"/>
+                    <field name="state" widget="badge"/>
+                    <field name="create_date" optional="show"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_credit_portfolio_form" model="ir.ui.view">
+            <field name="name">erpv6.credit.portfolio.form</field>
+            <field name="model">erpv6.credit.portfolio</field>
+            <field name="arch" type="xml">
+                <form string="Portfolio crediti">
+                    <header>
+                        <button name="action_analyze_pdf" type="object"
+                                string="Analizza PDF"
+                                class="oe_highlight"
+                                invisible="state != 'draft' or not file_pdf"/>
+                        <button name="action_confirm" type="object"
+                                string="Conferma"
+                                class="oe_highlight"
+                                invisible="state != 'parsed'"/>
+                        <button name="action_archive" type="object"
+                                string="Archivia"
+                                invisible="state in ('draft', 'archived')"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1><field name="name" placeholder="Es. Cassetto Chimera 2025"/></h1>
+                        </div>
+                        <group>
+                            <group string="Cedente">
+                                <field name="cedente_id"/>
+                                <field name="mandatario_id"/>
+                            </group>
+                            <group string="Contesto">
+                                <field name="certificate_type"/>
+                                <field name="relation_id"/>
+                                <field name="deal_id"/>
+                            </group>
+                        </group>
+                        <group string="Documento">
+                            <field name="file_pdf" filename="file_pdf_name"/>
+                            <field name="file_pdf_name" invisible="1"/>
+                            <field name="source_email_id"/>
+                            <field name="data_estratto"/>
+                            <field name="utenza_lavoro"/>
+                            <field name="cf_commercialista"/>
+                        </group>
+                        <notebook>
+                            <page string="Righe" name="page_lines">
+                                <field name="line_ids">
+                                    <list editable="bottom">
+                                        <field name="codice"/>
+                                        <field name="codice_progetto" optional="show"/>
+                                        <field name="descrizione"/>
+                                        <field name="tipologia"/>
+                                        <field name="anno"/>
+                                        <field name="quantita" optional="hide"/>
+                                        <field name="prezzo_unitario" widget="monetary" optional="hide"/>
+                                        <field name="importo" widget="monetary"/>
+                                        <field name="categoria_cedibilita" optional="hide"/>
+                                        <field name="selezionato"/>
+                                    </list>
+                                </field>
+                                <group class="oe_subtotal_footer">
+                                    <field name="total_lines"/>
+                                    <field name="total_amount" widget="monetary"/>
+                                </group>
+                            </page>
+                            <page string="Note" name="page_notes">
+                                <field name="notes"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_credit_portfolio_search" model="ir.ui.view">
+            <field name="name">erpv6.credit.portfolio.search</field>
+            <field name="model">erpv6.credit.portfolio</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="name"/>
+                    <field name="cedente_id"/>
+                    <filter name="f_draft" string="Bozze" domain="[('state', '=', 'draft')]"/>
+                    <filter name="f_parsed" string="Da verificare" domain="[('state', '=', 'parsed')]"/>
+                    <filter name="f_reviewed" string="Verificate" domain="[('state', '=', 'reviewed')]"/>
+                    <group>
+                        <filter name="g_state" string="Stato" context="{'group_by': 'state'}"/>
+                        <filter name="g_cedente" string="Cedente" context="{'group_by': 'cedente_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_credit_portfolio" model="ir.actions.act_window">
+            <field name="name">Portfolio crediti</field>
+            <field name="res_model">erpv6.credit.portfolio</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_credit_portfolio_search"/>
+        </record>
+
+        <menuitem id="menu_credit_root"
+                  name="Crediti"
+                  parent="erpv6_core.menu_erpv6_root"
+                  sequence="20"/>
+        <menuitem id="menu_credit_portfolio"
+                  name="Portfolio"
+                  parent="menu_credit_root"
+                  action="action_credit_portfolio"
+                  sequence="10"/>
+
+    </data>
+</odoo>

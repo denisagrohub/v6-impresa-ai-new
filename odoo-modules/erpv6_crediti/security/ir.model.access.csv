@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_credit_portfolio_admin,erpv6.credit.portfolio admin,model_erpv6_credit_portfolio,base.group_system,1,1,1,1
+access_credit_portfolio_user,erpv6.credit.portfolio user,model_erpv6_credit_portfolio,erpv6_core.group_chief_projects,1,1,1,0
+access_credit_portfolio_consultant,erpv6.credit.portfolio consultant,model_erpv6_credit_portfolio,erpv6_core.group_consulente,1,0,0,0
+access_credit_line_admin,erpv6.credit.line admin,model_erpv6_credit_line,base.group_system,1,1,1,1
+access_credit_line_user,erpv6.credit.line user,model_erpv6_credit_line,erpv6_core.group_chief_projects,1,1,1,0
+access_credit_line_consultant,erpv6.credit.line consultant,model_erpv6_credit_line,erpv6_core.group_consulente,1,0,0,0
+access_credit_parser_admin,erpv6.credit.parser admin,model_erpv6_credit_parser,base.group_system,1,1,1,1

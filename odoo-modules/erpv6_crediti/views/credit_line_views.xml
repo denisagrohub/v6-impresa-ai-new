@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_credit_line_list" model="ir.ui.view">
+            <field name="name">erpv6.credit.line.list</field>
+            <field name="model">erpv6.credit.line</field>
+            <field name="arch" type="xml">
+                <list string="Righe crediti">
+                    <field name="portfolio_id"/>
+                    <field name="cedente_via_portfolio" optional="show"/>
+                    <field name="certificate_type" optional="hide"/>
+                    <field name="codice"/>
+                    <field name="codice_progetto" optional="show"/>
+                    <field name="descrizione"/>
+                    <field name="tipologia"/>
+                    <field name="anno"/>
+                    <field name="quantita" optional="hide"/>
+                    <field name="prezzo_unitario" widget="monetary" optional="hide"/>
+                    <field name="importo" widget="monetary"/>
+                    <field name="selezionato"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_credit_line_search" model="ir.ui.view">
+            <field name="name">erpv6.credit.line.search</field>
+            <field name="model">erpv6.credit.line</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="portfolio_id"/>
+                    <field name="cedente_via_portfolio"/>
+                    <field name="codice"/>
+                    <field name="tipologia"/>
+                    <field name="anno"/>
+                    <filter name="f_selected" string="Selezionate"
+                            domain="[('selezionato', '=', True)]"/>
+                    <group>
+                        <filter name="g_tipologia" string="Tipologia"
+                                context="{'group_by': 'tipologia'}"/>
+                        <filter name="g_anno" string="Anno"
+                                context="{'group_by': 'anno'}"/>
+                        <filter name="g_portfolio" string="Portfolio"
+                                context="{'group_by': 'portfolio_id'}"/>
+                        <filter name="g_cedente" string="Cedente"
+                                context="{'group_by': 'cedente_via_portfolio'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_credit_line" model="ir.actions.act_window">
+            <field name="name">Righe crediti</field>
+            <field name="res_model">erpv6.credit.line</field>
+            <field name="view_mode">list</field>
+            <field name="search_view_id" ref="view_credit_line_search"/>
+        </record>
+
+        <menuitem id="menu_credit_line"
+                  name="Righe"
+                  parent="menu_credit_root"
+                  action="action_credit_line"
+                  sequence="20"/>
+
+    </data>
+</odoo>
