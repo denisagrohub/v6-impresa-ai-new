@@ -17,6 +17,66 @@ interface Props {
   onSent?: () => void;
 }
 
+// 04/10/2026 (fix UX #2): estratto top-level per evitare che React
+// ricrei il componente ad ogni render (causa perdita focus).
+interface RecipientChipsProps {
+  id: string;
+  name: string;
+  list: string[];
+  input: string;
+  placeholder: string;
+  suggestions: { id: number; name: string; email: string; isCompany?: boolean }[];
+  onInputChange: (v: string) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onRemove: (value: string) => void;
+  onSelectSuggestion: (email: string) => void;
+}
+
+function RecipientChips({
+  id, name, list, input, placeholder, suggestions,
+  onInputChange, onKeyDown, onRemove, onSelectSuggestion,
+}: RecipientChipsProps) {
+  return (
+    <div className="relative">
+      <div className="flex flex-wrap gap-1 p-1.5 border border-gray-200 rounded text-sm bg-white min-h-[36px]">
+        {list.map((v: string) => (
+          <span key={v} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">
+            {v}
+            <button type="button" onClick={() => onRemove(v)} className="hover:text-red-600">
+              <X size={10} />
+            </button>
+          </span>
+        ))}
+        <input
+          id={id}
+          name={name}
+          type="text"
+          value={input}
+          onChange={(e) => onInputChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder={list.length === 0 ? placeholder : ''}
+          className="flex-1 min-w-[120px] outline-none text-xs bg-transparent"
+        />
+      </div>
+      {suggestions.length > 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-auto">
+          {suggestions.map(p => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onSelectSuggestion(p.email)}
+              className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-xs border-b border-gray-50 last:border-0"
+            >
+              <span className="font-medium">{p.isCompany ? '🏢 ' : '👤 '}{p.name}</span>
+              <span className="text-gray-500 ml-2">{p.email}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ComposerModal({
   open, onClose, user,
   initialTo = '', initialCc = '', initialSubject = '', initialBody = '',
@@ -161,54 +221,6 @@ export default function ComposerModal({
 
   if (!open) return null;
 
-  const RecipientChips = ({ list, input, target, placeholder }: any) => (
-    <div className="relative">
-      <div className="flex flex-wrap gap-1 p-1.5 border border-gray-200 rounded text-sm bg-white min-h-[36px]">
-        {list.map((v: string) => (
-          <span key={v} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">
-            {v}
-            <button onClick={() => removeRecipient(target, v)} className="hover:text-red-600">
-              <X size={10} />
-            </button>
-          </span>
-        ))}
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (target === 'to') setToInput(v); else setCcInput(v);
-            searchPartners(v, target);
-          }}
-          onKeyDown={(e) => {
-            if ((e.key === 'Enter' || e.key === ',') && input.trim()) {
-              e.preventDefault();
-              addRecipient(target, input);
-            } else if (e.key === 'Backspace' && !input && list.length > 0) {
-              removeRecipient(target, list[list.length - 1]);
-            }
-          }}
-          placeholder={list.length === 0 ? placeholder : ''}
-          className="flex-1 min-w-[120px] outline-none text-xs bg-transparent"
-        />
-      </div>
-      {suggestFor === target && suggestions.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-auto">
-          {suggestions.map(p => (
-            <button
-              key={p.id}
-              onClick={() => addRecipient(target, p.email)}
-              className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-xs border-b border-gray-50 last:border-0"
-            >
-              <span className="font-medium">{p.isCompany ? '🏢 ' : '👤 '}{p.name}</span>
-              <span className="text-gray-500 ml-2">{p.email}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -219,24 +231,60 @@ export default function ComposerModal({
 
         <div className="p-4 space-y-3 overflow-y-auto">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">A *</label>
-            <RecipientChips list={toList} input={toInput} target="to" placeholder="nome@esempio.it (invio per aggiungere)" />
+            <label htmlFor="email-to" className="block text-xs font-medium text-gray-600 mb-1">A *</label>
+            <RecipientChips
+              id="email-to"
+              name="email-to"
+              list={toList}
+              input={toInput}
+              placeholder="nome@esempio.it (invio per aggiungere)"
+              suggestions={suggestFor === 'to' ? suggestions : []}
+              onInputChange={(v) => { setToInput(v); searchPartners(v, 'to'); }}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ',') && toInput.trim()) {
+                  e.preventDefault();
+                  addRecipient('to', toInput);
+                } else if (e.key === 'Backspace' && !toInput && toList.length > 0) {
+                  removeRecipient('to', toList[toList.length - 1]);
+                }
+              }}
+              onRemove={(v) => removeRecipient('to', v)}
+              onSelectSuggestion={(email) => addRecipient('to', email)}
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">CC</label>
-            <RecipientChips list={ccList} input={ccInput} target="cc" placeholder="(opzionale)" />
+            <label htmlFor="email-cc" className="block text-xs font-medium text-gray-600 mb-1">CC</label>
+            <RecipientChips
+              id="email-cc"
+              name="email-cc"
+              list={ccList}
+              input={ccInput}
+              placeholder="(opzionale)"
+              suggestions={suggestFor === 'cc' ? suggestions : []}
+              onInputChange={(v) => { setCcInput(v); searchPartners(v, 'cc'); }}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ',') && ccInput.trim()) {
+                  e.preventDefault();
+                  addRecipient('cc', ccInput);
+                } else if (e.key === 'Backspace' && !ccInput && ccList.length > 0) {
+                  removeRecipient('cc', ccList[ccList.length - 1]);
+                }
+              }}
+              onRemove={(v) => removeRecipient('cc', v)}
+              onSelectSuggestion={(email) => addRecipient('cc', email)}
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Oggetto *</label>
-            <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
+            <label htmlFor="email-subject" className="block text-xs font-medium text-gray-600 mb-1">Oggetto *</label>
+            <input id="email-subject" name="subject" type="text" value={subject} onChange={e => setSubject(e.target.value)}
               className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20" />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Progetto (opzionale)</label>
-            <select value={projectId} onChange={e => setProjectId(parseInt(e.target.value))}
+            <label htmlFor="email-project" className="block text-xs font-medium text-gray-600 mb-1">Progetto (opzionale)</label>
+            <select id="email-project" name="project" value={projectId} onChange={e => setProjectId(parseInt(e.target.value))}
               className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm">
               <option value={0}>— nessun progetto collegato —</option>
               {projects.map(p => (
@@ -247,19 +295,19 @@ export default function ComposerModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Messaggio</label>
-            <textarea value={body} onChange={e => setBody(e.target.value)} rows={10}
+            <label htmlFor="email-body" className="block text-xs font-medium text-gray-600 mb-1">Messaggio</label>
+            <textarea id="email-body" name="body" value={body} onChange={e => setBody(e.target.value)} rows={10}
               className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 resize-y" />
           </div>
 
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <label className="text-xs font-medium text-gray-600">Allegati</label>
+              <label htmlFor="email-attachment" className="text-xs font-medium text-gray-600">Allegati</label>
               <button onClick={() => fileInputRef.current?.click()} disabled={busy}
                 className="text-xs px-2 py-0.5 rounded border border-gray-300 hover:bg-gray-50 flex items-center gap-1 disabled:opacity-50">
                 <Paperclip size={12} /> Allega
               </button>
-              <input ref={fileInputRef} type="file" className="hidden"
+              <input id="email-attachment" name="attachment" ref={fileInputRef} type="file" className="hidden"
                 onChange={e => handleUpload(e.target.files)} />
             </div>
             {attachments.length > 0 && (
