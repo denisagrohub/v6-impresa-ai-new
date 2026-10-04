@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 
 from odoo import _, fields, models
@@ -52,10 +53,135 @@ class Erpv6AgentProposal(models.Model):
         ('accepted', 'Accettata'),
         ('rejected', 'Rifiutata'),
         ('actioned', 'Attuata manualmente'),
+        # 04/10/2026 (C5-gate-2a): stati del ciclo L1/L2.
+        ('rejected_incomplete', 'Rifiutata: forma incompleta (L1)'),
+        ('rejected_by_argus', 'Rifiutata: Argus (L2)'),
+        ('rejected_max_attempts', 'Rifiutata: troppi tentativi'),
     ], string='Stato', default='pending_review', required=True, tracking=True)
     reviewer_id = fields.Many2one('res.users', string='Revisionata da', tracking=True)
     reviewed_at = fields.Datetime(string='Revisionata il', tracking=True)
     review_notes = fields.Text(string='Note del revisore')
+
+    # 04/10/2026 (C5-gate-2a): formato strutturato + ciclo L1/L2.
+    structured_data = fields.Text(
+        string='Dati strutturati (JSON)',
+        help='Payload JSON con schema fisso (title, problem, '
+             'proposed_change, files_affected, impact, effort, '
+             'risk, test_plan, rationale, target_agent). '
+             'Se presente, il validatore L1 lo controlla.',
+    )
+
+    revision_attempts = fields.Integer(
+        string='Tentativi revisione',
+        default=0,
+        readonly=True,
+        help='Contatore cicli L2 (weak→reformula). Cap a 2.',
+    )
+
+    target_agent = fields.Selection([
+        ('claudio', 'Claudio'),
+        ('alessandro', 'Alessandro'),
+        ('auto', 'Auto (router per tipo file)'),
+    ], string='Agente target', default='auto', required=True)
+
+    review_verdict = fields.Selection([
+        ('pending', 'In attesa'),
+        ('ok', 'OK'),
+        ('weak', 'Weak — torna al proponente'),
+        ('reject', 'Rifiutata'),
+        ('skipped', 'Saltata (self)'),
+    ], string='Verdetto Argus', default='pending')
+
+    review_notes_json = fields.Text(
+        string='Note revisione (JSON)',
+        help='Motivazioni e suggerimenti da Argus revisore.',
+    )
+
+    # ─── Schema validazione L1 ───
+    SCHEMA_REQUIRED = (
+        'title', 'problem', 'proposed_change',
+        'files_affected', 'impact', 'effort', 'risk',
+        'test_plan', 'rationale', 'target_agent',
+    )
+
+    SCHEMA_MIN_LENGTH = {
+        'title': 10,
+        'problem': 50,
+        'proposed_change': 50,
+        'risk': 20,
+        'test_plan': 30,
+        'rationale': 30,
+    }
+
+    SCHEMA_ENUMS = {
+        'impact': ('low', 'medium', 'high'),
+        'target_agent': ('claudio', 'alessandro', 'auto'),
+    }
+
+    def _validate_structure(self):
+        """Valida structured_data contro lo schema fisso.
+
+        Ritorna: (ok: bool, reasons: list[str])
+        """
+        self.ensure_one()
+        if not self.structured_data:
+            return False, ['structured_data mancante']
+
+        try:
+            data = json.loads(self.structured_data)
+        except (json.JSONDecodeError, TypeError) as e:
+            return False, ['JSON non valido: %s' % e]
+
+        reasons = []
+
+        # Campi obbligatori
+        for field in self.SCHEMA_REQUIRED:
+            if field not in data:
+                reasons.append('campo mancante: %s' % field)
+
+        if reasons:
+            return False, reasons
+
+        # Lunghezze minime
+        for field, min_len in self.SCHEMA_MIN_LENGTH.items():
+            value = data.get(field, '')
+            if not isinstance(value, str) or len(value) < min_len:
+                reasons.append(
+                    '%s troppo corto (min %d char)' % (field, min_len))
+
+        # Enum
+        for field, allowed in self.SCHEMA_ENUMS.items():
+            value = data.get(field)
+            if value not in allowed:
+                reasons.append(
+                    '%s non valido: %s (atteso uno di %s)'
+                    % (field, value, allowed))
+
+        # files_affected deve essere lista non vuota di stringhe
+        files = data.get('files_affected', [])
+        if not isinstance(files, list) or not files:
+            reasons.append('files_affected deve essere lista non vuota')
+        else:
+            for f in files:
+                if not isinstance(f, str):
+                    reasons.append(
+                        'files_affected contiene non-stringa: %r' % f)
+
+        return len(reasons) == 0, reasons
+
+    def action_validate_l1(self):
+        """Applica validazione L1. Cambia stato a rejected_incomplete
+        se fallisce. Non e' un hook: invocabile manualmente."""
+        self.ensure_one()
+        ok, reasons = self._validate_structure()
+        if not ok:
+            self.write({
+                'status': 'rejected_incomplete',
+                'review_notes_json': json.dumps(
+                    {'reasons': reasons, 'source': 'L1'},
+                    ensure_ascii=False),
+            })
+        return ok
 
     def write(self, vals):
         """Bug reale trovato il 24/08/2026 (proposta #18 di Kaizen,
