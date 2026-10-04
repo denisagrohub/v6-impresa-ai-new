@@ -1,7 +1,10 @@
 import json
+import logging
 from datetime import timedelta
 
 from odoo import _, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 class Erpv6AgentProposal(models.Model):
@@ -182,6 +185,241 @@ class Erpv6AgentProposal(models.Model):
                     ensure_ascii=False),
             })
         return ok
+
+    # ─── C5-gate-2b: Argus revisore (L2) + loop correzione ───
+
+    _ARGUS_REVIEW_PROMPT = (
+        "Sei Argus, revisore di proposte di miglioramento V6.\n\n"
+        "Ricevi una proposta strutturata in JSON. Valuta:\n\n"
+        "  1. Il PROBLEMA e' reale, concreto, verificabile?\n"
+        "  2. La SOLUZIONE e' chiara, attuabile, specifica?\n"
+        "  3. Il TARGET_AGENT e' coerente con i file toccati?\n"
+        "  4. L'EFFORT e' realistico?\n"
+        "  5. Il TEST_PLAN e' verificabile passo-passo?\n"
+        "  6. Il RISK e' dichiarato onestamente?\n\n"
+        "Output JSON (nessun altro testo):\n"
+        "{\n"
+        '  "verdict": "ok" | "weak" | "reject",\n'
+        '  "reasons": ["motivo 1", ...],\n'
+        '  "suggestions": ["cosa migliorare 1", ...]\n'
+        "}\n\n"
+        "ok = passa a Denis\n"
+        "weak = torna al proponente con motivi (max 2 giri)\n"
+        "reject = rifiutata definitivamente"
+    )
+
+    def _argus_review(self):
+        """Argus valuta la proposta. Salta se proposta di Argus
+        (self-review vietato).
+        Ritorna dict {verdict, reasons, suggestions}."""
+        self.ensure_one()
+
+        if self.agent_config_id and self.agent_config_id.code == 'argus':
+            return {
+                'verdict': 'skipped',
+                'reasons': ['self-review vietato'],
+                'suggestions': [],
+            }
+
+        payload_proposal = {}
+        if self.structured_data:
+            try:
+                payload_proposal = json.loads(self.structured_data)
+            except (json.JSONDecodeError, TypeError):
+                payload_proposal = {'_raw': self.structured_data}
+
+        user_content = (
+            "PROPOSTA DA REVISIONARE:\n"
+            + json.dumps(payload_proposal, ensure_ascii=False, indent=2)
+        )
+
+        try:
+            result = self.env['erpv6.omni.bridge'].sudo().execute_ai_task(
+                task_type='proposal_review',
+                payload={
+                    'temperature': 0.2,
+                    'messages': [
+                        {'role': 'system', 'content': self._ARGUS_REVIEW_PROMPT},
+                        {'role': 'user', 'content': user_content},
+                    ],
+                },
+                context={'source': 'erpv6_agent:_argus_review',
+                         'proposal_id': self.id},
+            )
+        except Exception as e:
+            _logger.warning('Argus review failed %s: %s', self.id, e)
+            return {
+                'verdict': 'reject',
+                'reasons': ['errore Argus: %s' % e],
+                'suggestions': [],
+            }
+
+        if not result.get('success'):
+            return {
+                'verdict': 'reject',
+                'reasons': ['AI call failed: %s' % result.get('error', '')],
+                'suggestions': [],
+            }
+
+        try:
+            raw = result['data']['choices'][0]['message']['content']
+        except (KeyError, IndexError, TypeError) as e:
+            return {
+                'verdict': 'reject',
+                'reasons': ['output AI inatteso: %s' % e],
+                'suggestions': [],
+            }
+
+        # Pulisci eventuale markdown fence
+        raw_clean = raw.strip()
+        if raw_clean.startswith('```'):
+            # Rimuovi prima riga ```json e ultima ```
+            lines = raw_clean.split('\n')
+            if lines[0].startswith('```'):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == '```':
+                lines = lines[:-1]
+            raw_clean = '\n'.join(lines).strip()
+
+        try:
+            parsed = json.loads(raw_clean)
+        except json.JSONDecodeError:
+            _logger.warning(
+                'Argus review parse fail %s: %s', self.id, raw_clean[:200])
+            return {
+                'verdict': 'reject',
+                'reasons': ['output non parsabile (JSON malformato)'],
+                'suggestions': [],
+            }
+
+        verdict = parsed.get('verdict', 'reject')
+        if verdict not in ('ok', 'weak', 'reject'):
+            verdict = 'reject'
+        return {
+            'verdict': verdict,
+            'reasons': parsed.get('reasons', []) or [],
+            'suggestions': parsed.get('suggestions', []) or [],
+        }
+
+    def _request_reformulation(self, review):
+        """Chiama il proponente per riformulare la proposta (weak).
+        Ritorna True se la riformulazione e' avvenuta e JSON valido."""
+        self.ensure_one()
+        if not self.agent_config_id:
+            return False
+
+        task_type = '%s_agent_propose' % self.agent_config_id.code
+
+        reform_prompt = (
+            "La tua proposta precedente e' stata valutata 'weak' da Argus.\n\n"
+            "Motivi:\n"
+            + '\n'.join('- %s' % r for r in review.get('reasons', []))
+            + "\n\nSuggerimenti:\n"
+            + '\n'.join('- %s' % s for s in review.get('suggestions', []))
+            + "\n\nProposta originale (JSON):\n%s\n\n"
+            "Riformula la proposta mantenendo ESATTAMENTE lo stesso "
+            "schema JSON (title, problem, proposed_change, files_affected, "
+            "impact, effort, risk, test_plan, rationale, target_agent). "
+            "Rispondi SOLO con il JSON, nessun altro testo."
+        ) % (self.structured_data or '{}')
+
+        try:
+            result = self.env['erpv6.omni.bridge'].sudo().execute_ai_task(
+                task_type=task_type,
+                payload={
+                    'temperature': 0.3,
+                    'messages': [
+                        {'role': 'user', 'content': reform_prompt},
+                    ],
+                },
+                context={'source': 'erpv6_agent:_request_reformulation',
+                         'proposal_id': self.id},
+            )
+        except Exception as e:
+            _logger.warning('Reformulation failed %s: %s', self.id, e)
+            return False
+
+        if not result.get('success'):
+            return False
+
+        try:
+            raw = result['data']['choices'][0]['message']['content']
+        except (KeyError, IndexError, TypeError):
+            return False
+
+        raw_clean = raw.strip()
+        if raw_clean.startswith('```'):
+            lines = raw_clean.split('\n')
+            if lines[0].startswith('```'):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == '```':
+                lines = lines[:-1]
+            raw_clean = '\n'.join(lines).strip()
+
+        try:
+            json.loads(raw_clean)
+        except json.JSONDecodeError:
+            _logger.warning(
+                'Reformulation output non JSON %s', self.id)
+            return False
+
+        self.write({'structured_data': raw_clean})
+        return True
+
+    def action_process_review(self):
+        """Orchestra L1 + L2 + loop correzione (max 2 tentativi).
+        Ritorna il verdict finale (stringa)."""
+        self.ensure_one()
+        MAX_ATTEMPTS = 2
+
+        # ── L1 ──
+        if not self.action_validate_l1():
+            return 'rejected_incomplete'
+
+        # ── L2 + loop ──
+        while self.revision_attempts < MAX_ATTEMPTS:
+            review = self._argus_review()
+            verdict = review.get('verdict')
+
+            self.write({
+                'review_verdict': verdict if verdict in (
+                    'ok', 'weak', 'reject', 'skipped') else 'pending',
+                'review_notes_json': json.dumps(review, ensure_ascii=False),
+            })
+
+            if verdict == 'ok':
+                return 'ok'
+
+            if verdict == 'skipped':
+                # self-review (Argus) → passa a Denis senza L2
+                return 'ok'
+
+            if verdict == 'reject':
+                self.write({'status': 'rejected_by_argus'})
+                return 'rejected_by_argus'
+
+            if verdict == 'weak':
+                self.write({
+                    'revision_attempts': self.revision_attempts + 1,
+                })
+                if self.revision_attempts >= MAX_ATTEMPTS:
+                    self.write({'status': 'rejected_max_attempts'})
+                    return 'rejected_max_attempts'
+
+                if not self._request_reformulation(review):
+                    self.write({'status': 'rejected_by_argus'})
+                    return 'rejected_by_argus'
+
+                # Ricicla L1 sulla nuova structured_data
+                if not self.action_validate_l1():
+                    return 'rejected_incomplete'
+            else:
+                # verdict inatteso
+                self.write({'status': 'rejected_by_argus'})
+                return 'rejected_by_argus'
+
+        self.write({'status': 'rejected_max_attempts'})
+        return 'rejected_max_attempts'
 
     def write(self, vals):
         """Bug reale trovato il 24/08/2026 (proposta #18 di Kaizen,
