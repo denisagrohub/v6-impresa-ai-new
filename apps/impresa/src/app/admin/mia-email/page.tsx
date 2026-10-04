@@ -252,7 +252,8 @@ export default function AdminMiaEmailPage() {
             <div className="flex items-center gap-2 mb-2">
               <div className="flex-1 flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-1">
                 <Search size={12} className="text-gray-400" />
-                <input type="text" placeholder="Cerca..." value={search}
+                <input id="email-search" name="email-search" type="search" placeholder="Cerca..." value={search}
+                  aria-label="Cerca email"
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && loadEmails()}
                   className="flex-1 bg-transparent text-xs focus:outline-none" />
