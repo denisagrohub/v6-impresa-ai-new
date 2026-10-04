@@ -206,10 +206,254 @@ class Erpv6AgentProposal(models.Model):
         '  "reasons": ["motivo 1", ...],\n'
         '  "suggestions": ["cosa migliorare 1", ...]\n'
         "}\n\n"
-        "ok = passa a Denis\n"
-        "weak = torna al proponente con motivi (max 2 giri)\n"
-        "reject = rifiutata definitivamente"
+        "REGOLA reject vs weak (IMPORTANTE):\n"
+        "- reject = la proposta e' SBAGLIATA: fuori contesto, \n"
+        "  modulo non chiaro, feature non richiesta, refactor \n"
+        "  cosmetico senza impatto, file inesistenti, impact \n"
+        "  incoerente con la modifica.\n"
+        "- weak = la proposta e' VALIDA ma migliorabile: manca \n"
+        "  un dettaglio, il test_plan e' superficiale, l'effort \n"
+        "  e' vago.\n"
+        "- ok = la proposta e' chiara e actionable cosi' com'e'.\n"
+        "\n"
+        "IN DUBBIO TRA REJECT E WEAK, SCEGLI WEAK.\n"
+        "Denis decide. Mai sostituire Denis nel giudizio finale.\n"
+        "Il tuo ruolo e' FILTRO, non gatekeeper."
     )
+
+    # ─── C5-gate-2c-2: Argus propositore ───
+
+    _PROPOSER_PROMPT_FALLBACK = (
+        "Sei Argus, agente propositore di miglioramento V6.\n\n"
+        "Cosa e' un miglioramento:\n"
+        "  - Riduce click / tempo / errori per l'utente finale\n"
+        "  - Aggiunge chiarezza (help, doc, naming)\n"
+        "  - Semplifica un passaggio complesso\n"
+        "  - Risolve un bug reale (con evidenza)\n"
+        "  - Migliora performance con impatto misurabile\n\n"
+        "Cosa NON e' un miglioramento:\n"
+        "  - Refactor cosmetici senza impatto\n"
+        "  - Nuove feature non richieste\n"
+        "  - Modifiche a moduli non chiari\n"
+        "  - Aggiunta dipendenze senza motivo\n\n"
+        "Leggi il contesto fornito. Genera 0-3 proposte specifiche.\n"
+        "Se non trovi problemi reali, ritorna lista vuota [].\n"
+        "Mai inventare problemi.\n\n"
+        "Output: array JSON (max 3) di oggetti con schema:\n"
+        "{\n"
+        '  "title": "max 80 char",\n'
+        '  "problem": "cosa e rotto, min 50 char",\n'
+        '  "proposed_change": "cosa cambiare, min 50 char",\n'
+        '  "files_affected": ["path/file.py"],\n'
+        '  "impact": "low|medium|high",\n'
+        '  "effort": "es: 2h",\n'
+        '  "risk": "min 20 char",\n'
+        '  "test_plan": "come verificare, min 30 char",\n'
+        '  "rationale": "perche migliora, min 30 char",\n'
+        '  "target_agent": "claudio|alessandro|auto"\n'
+        "}"
+    )
+
+    def _get_argus_proposer_prompt(self):
+        """Legge il prompt propositore da KB se configurato su
+        agent_config(code=argus).proposer_prompt_kb_id, altrimenti
+        fallback hardcoded."""
+        try:
+            argus = self.env['erpv6.agent.config'].sudo().search([
+                ('code', '=', 'argus')], limit=1)
+            if argus and argus.proposer_prompt_kb_id:
+                content = argus.proposer_prompt_kb_id.content or ''
+                if content.strip():
+                    return content
+        except Exception:  # pylint: disable=broad-except
+            _logger.warning(
+                'Lettura KB proposer_prompt fallita, uso fallback')
+        return self._PROPOSER_PROMPT_FALLBACK
+
+    def _collect_proposer_context(self):
+        """Raccoglie contesto per Argus propositore.
+        NON legge kaizen.detected_signal (dominio Kaizen)."""
+        import subprocess
+
+        ctx = {}
+
+        # Commit recenti: letti da un cache file generato sul host
+        # (il container odoo non ha accesso al repo git). Il file
+        # e' /mnt/custom-addons/.git_commits_cache.json, scritto
+        # periodicamente da erpv6_devtools/dump_git_commits.sh.
+        ctx['recent_commits'] = []
+        cache_path = '/mnt/custom-addons/.git_commits_cache.json'
+        try:
+            import json as _json_local
+            import os as _os
+            if _os.path.exists(cache_path):
+                with open(cache_path, 'r', encoding='utf-8') as fh:
+                    cache = _json_local.load(fh)
+                    ctx['recent_commits'] = cache.get('commits', [])[:20]
+        except Exception as e:  # pylint: disable=broad-except
+            _logger.warning('Lettura cache commits fallita: %s', e)
+
+        # Proposte recenti (per evitare di riproporre le stesse)
+        P = self.env['erpv6.agent.proposal']
+        recent = P.sudo().search([
+            ('status', 'in', ('pending_review', 'accepted')),
+        ], limit=10, order='id desc')
+        ctx['recent_proposals'] = [
+            {'id': p.id, 'title': p.name[:80]}
+            for p in recent
+        ]
+
+        # Proposte chiuse con problemi (weak/reject)
+        failed = P.sudo().search([
+            ('review_verdict', 'in', ('weak', 'reject')),
+        ], limit=10, order='id desc')
+        ctx['recent_problems'] = [
+            {'id': p.id, 'name': p.name[:80], 'verdict': p.review_verdict}
+            for p in failed
+        ]
+
+        return ctx
+
+    def _validate_structured_dict(self, d):
+        """Valida un dict contro lo schema L1 (senza self.ensure_one).
+        Ritorna (ok, reasons)."""
+        if not isinstance(d, dict):
+            return False, ['non e un dict']
+
+        reasons = []
+
+        # Campi obbligatori
+        for field in self.SCHEMA_REQUIRED:
+            if field not in d:
+                reasons.append('campo mancante: %s' % field)
+        if reasons:
+            return False, reasons
+
+        # Lunghezze minime
+        for field, min_len in self.SCHEMA_MIN_LENGTH.items():
+            value = d.get(field, '')
+            if not isinstance(value, str) or len(value) < min_len:
+                reasons.append(
+                    '%s troppo corto (min %d char)' % (field, min_len))
+
+        # Enum
+        for field, allowed in self.SCHEMA_ENUMS.items():
+            value = d.get(field)
+            if value not in allowed:
+                reasons.append(
+                    '%s non valido: %s' % (field, value))
+
+        # files_affected lista non vuota di stringhe
+        files = d.get('files_affected', [])
+        if not isinstance(files, list) or not files:
+            reasons.append('files_affected deve essere lista non vuota')
+        else:
+            for f in files:
+                if not isinstance(f, str):
+                    reasons.append(
+                        'files_affected contiene non-stringa: %r' % f)
+
+        return len(reasons) == 0, reasons
+
+    def _argus_propose(self):
+        """Argus legge contesto sistema e propone 0-3 miglioramenti.
+        Ogni proposta viene validata L1 prima di essere creata.
+        Ritorna il numero di proposte create."""
+        import json as _json
+
+        ctx = self._collect_proposer_context()
+        system_prompt = self._get_argus_proposer_prompt()
+        user_content = (
+            "CONTESTO SISTEMA:\n"
+            + _json.dumps(ctx, ensure_ascii=False, indent=2)
+        )
+
+        try:
+            result = self.env['erpv6.omni.bridge'].sudo().execute_ai_task(
+                task_type='argus_propose_improvement',
+                payload={
+                    'temperature': 0.3,
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': user_content},
+                    ],
+                },
+                context={'source': 'erpv6_agent:_argus_propose'},
+            )
+        except Exception as e:  # pylint: disable=broad-except
+            _logger.warning('Argus propose call failed: %s', e)
+            return 0
+
+        if not result.get('success'):
+            _logger.warning(
+                'Argus propose AI failed: %s', result.get('error', ''))
+            return 0
+
+        try:
+            raw = result['data']['choices'][0]['message']['content']
+        except (KeyError, IndexError, TypeError) as e:
+            _logger.warning('Argus propose output inatteso: %s', e)
+            return 0
+
+        # Pulisci markdown fence
+        raw_clean = raw.strip()
+        if raw_clean.startswith('```'):
+            lines = raw_clean.split('\n')
+            if lines[0].startswith('```'):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == '```':
+                lines = lines[:-1]
+            raw_clean = '\n'.join(lines).strip()
+
+        try:
+            proposals_data = _json.loads(raw_clean)
+        except _json.JSONDecodeError as e:
+            _logger.warning('Argus propose parse fail: %s', e)
+            return 0
+
+        if not isinstance(proposals_data, list):
+            proposals_data = [proposals_data]
+
+        argus = self.env['erpv6.agent.config'].sudo().search([
+            ('code', '=', 'argus')], limit=1)
+        if not argus:
+            _logger.warning('Agent config argus non trovato')
+            return 0
+
+        created = 0
+        for pd in proposals_data[:3]:
+            ok, reasons = self._validate_structured_dict(pd)
+            if not ok:
+                _logger.info(
+                    'Argus proposta scartata L1: %s', reasons)
+                continue
+
+            try:
+                self.env['erpv6.agent.proposal'].sudo().create({
+                    'name': (pd.get('title') or '')[:80],
+                    'proposal_text': (
+                        (pd.get('problem') or '') + '\n\n'
+                        + (pd.get('proposed_change') or '')
+                    ),
+                    'structured_data': _json.dumps(
+                        pd, ensure_ascii=False),
+                    'agent_config_id': argus.id,
+                    'target_agent': pd.get('target_agent', 'auto'),
+                    'status': 'pending_review',
+                })
+                created += 1
+            except Exception as e:  # pylint: disable=broad-except
+                _logger.warning(
+                    'Creazione proposta Argus fallita: %s', e)
+
+        _logger.info('Argus propose: %d create', created)
+        return created
+
+    @api.model
+    def _cron_argus_propose(self):
+        """Cron wrapper per _argus_propose(). Ritorna il numero
+        di proposte create."""
+        return self._argus_propose()
 
     def _get_argus_review_prompt(self):
         """Legge il prompt di revisione da KB se configurato su

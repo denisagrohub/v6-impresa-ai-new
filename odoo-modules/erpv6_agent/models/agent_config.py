@@ -69,6 +69,13 @@ class Erpv6AgentConfig(models.Model):
     )
     # 04/10/2026 (C5-gate-2c-1): KB con il prompt di revisione
     # (usato da Argus revisore). Fallback su costante hardcoded se vuoto.
+    # 04/10/2026 (C5-gate-2c-2): KB con il prompt del propositore.
+    proposer_prompt_kb_id = fields.Many2one(
+        'erpv6.kb',
+        string='Prompt propositore (KB)',
+        help='KB con il prompt di proposizione. Se vuoto, si usa '
+             'il fallback hardcoded.',
+    )
     review_prompt_kb_id = fields.Many2one(
         'erpv6.kb',
         string='Prompt revisione (KB)',

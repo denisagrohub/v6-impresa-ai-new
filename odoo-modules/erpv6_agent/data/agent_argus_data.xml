@@ -53,6 +53,19 @@
             <field name="description">Route AI per Argus revisore — valuta proposte strutturate (L2). Stessi provider di argus_agent_propose.</field>
         </record>
 
+        <!-- 04/10/2026 (C5-gate-2c-2): route per Argus propositore.
+             Stessi provider di argus_agent_propose. -->
+        <record id="omni_route_argus_propose_improvement" model="erpv6.omni.route.config">
+            <field name="task_type">argus_propose_improvement</field>
+            <field name="name">Argus — Propositore miglioramenti</field>
+            <field name="primary_provider_id" eval="6"/>
+            <field name="fallback_provider_ids" eval="[(6, 0, [3, 7])]"/>
+            <field name="priority">10</field>
+            <field name="max_retries">2</field>
+            <field name="is_active" eval="True"/>
+            <field name="description">Route AI per Argus propositore — genera 0-3 proposte strutturate da contesto sistema.</field>
+        </record>
+
         <record id="agent_config_argus" model="erpv6.agent.config">
             <field name="name">Argus</field>
             <field name="code">argus</field>
