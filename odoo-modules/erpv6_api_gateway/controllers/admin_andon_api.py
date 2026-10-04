@@ -61,8 +61,7 @@ class AdminAndonAPIController(ConsultantAPIController):
 
         # 04/10/2026 (C5-h): related_record sempre valorizzato per il
         # ciclo Kaizen. Se relation_id/deal_id mancano, fallback al nodo
-        # "Andon — segnalazioni interne" (id noto).
-        ANDON_FALLBACK_ID = 94
+        # "Andon segnalazioni interne" via xmlid (non id hardcoded).
         related_record = False
         if relation_id:
             rel = request.env['erpv6.tracking.relation'].sudo().browse(
@@ -75,13 +74,15 @@ class AdminAndonAPIController(ConsultantAPIController):
                 related_record = 'erpv6.deal,%d' % deal.id
 
         if not related_record:
-            rel = request.env['erpv6.tracking.relation'].sudo().browse(
-                ANDON_FALLBACK_ID)
-            if rel.exists():
+            rel = request.env.ref(
+                'erpv6_kaizen.tracking_relation_andon',
+                raise_if_not_found=False)
+            if rel and rel.exists():
                 related_record = 'erpv6.tracking.relation,%d' % rel.id
             else:
                 _logger.warning(
-                    "Andon fallback nodo %d non trovato", ANDON_FALLBACK_ID)
+                    "Andon fallback nodo (xmlid erpv6_kaizen."
+                    "tracking_relation_andon) non trovato")
                 return self._json_response({
                     'error': 'Nodo Andon fallback non configurato',
                 }, 500)

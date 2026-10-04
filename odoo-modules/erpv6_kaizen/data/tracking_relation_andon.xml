@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- 04/10/2026 (C5-h): nodo tracking.relation fallback per le
+             segnalazioni Andon senza progetto specifico. Serve un
+             related_record valido per far partire il ciclo Kaizen. -->
+        <record id="tracking_relation_andon" model="erpv6.tracking.relation">
+            <field name="name">Andon — segnalazioni interne</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>
