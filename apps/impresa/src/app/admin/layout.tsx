@@ -1,6 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import AdminSidebar from "@/components/admin/layout/AdminSidebar";
+import AndonFAB from "@/components/admin/andon/AndonFAB";
 
 // 27/09/2026: layout admin globale. Un'unica fonte di verità per la
 // sidebar. Tutte le pagine /admin/* la ereditano automaticamente.
@@ -29,7 +30,12 @@ export default function AdminRootLayout({ children }: { children: React.ReactNod
   const skip = SKIP_PREFIXES.some((p) => pathname === p || pathname?.startsWith(p + '/'));
 
   if (skip) {
-    return <>{children}</>;
+    return (
+      <>
+        {children}
+        <AndonFAB />
+      </>
+    );
   }
 
   return (
@@ -38,6 +44,7 @@ export default function AdminRootLayout({ children }: { children: React.ReactNod
       <div className="flex-1 overflow-auto">
         {children}
       </div>
+      <AndonFAB />
     </div>
   );
 }

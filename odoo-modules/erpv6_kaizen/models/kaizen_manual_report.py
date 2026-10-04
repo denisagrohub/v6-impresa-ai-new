@@ -1,6 +1,10 @@
+import logging
+
 from odoo import _, api, fields, models
 
 from .kaizen_detected_signal import MANUAL_REPORT_SIGNAL_PREFIX
+
+_logger = logging.getLogger(__name__)
 
 
 class Erpv6KaizenManualReport(models.Model):
@@ -42,6 +46,11 @@ class Erpv6KaizenManualReport(models.Model):
             ('erpv6.kb', 'Voce KB'),
             ('erpv6.validation.session', 'Sessione di Validazione'),
             ('project.task', 'Task Progetto'),
+            # 04/10/2026 (C5-h): Andon FAB — segnalazione agganciata a un
+            # progetto Partner o deal. Il ciclo Kaizen (heinrich +
+            # detected_signal + Regola 4) usa .exists() generico, safe.
+            ('erpv6.tracking.relation', 'Progetto Partner'),
+            ('erpv6.deal', 'Deal'),
         ],
         string='Record collegato', required=True,
         help="Obbligatorio (regola Kaizen #4, KB #302): nessuna segnalazione "
@@ -49,6 +58,11 @@ class Erpv6KaizenManualReport(models.Model):
     )
     reporter_id = fields.Many2one('res.users', string='Segnalato da', default=lambda self: self.env.user, required=True)
     heinrich_indicator_id = fields.Many2one('erpv6.heinrich.indicator', string='Indicatore Heinrich', readonly=True, copy=False)
+    # 04/10/2026 (C5-h): pagina di origine della segnalazione Andon.
+    source_url = fields.Char(
+        string='Pagina di origine',
+        readonly=True,
+        help='Path della pagina da cui e partita la segnalazione (Andon FAB).')
 
     detected_signal_id = fields.Many2one(
         'erpv6.kaizen.detected_signal', string='Segnale Collegato', readonly=True, copy=False,
@@ -62,7 +76,37 @@ class Erpv6KaizenManualReport(models.Model):
         for report in reports:
             report._log_to_heinrich()
             report._create_detected_signal()
+            # 04/10/2026 (C5-h): email di conferma al reporter.
+            report._send_andon_confirmation_email()
         return reports
+
+    def _send_andon_confirmation_email(self):
+        """04/10/2026 (C5-h): email di conferma al reporter Andon.
+        Solo se il reporter ha un'email. Best-effort (non bloccante).
+        Passa per la whitelist R2 (5 livelli) — se l'email è interna
+        V6, viene inviata; se fuori, viene bloccata silenziosamente."""
+        self.ensure_one()
+        reporter = self.reporter_id
+        if not reporter:
+            return
+        email_to = reporter.email or reporter.login
+        if not email_to or '@' not in email_to:
+            return
+        template = self.env.ref(
+            'erpv6_kaizen.mail_template_andon_confirmation',
+            raise_if_not_found=False)
+        if not template:
+            _logger.info(
+                "Template andon_confirmation non trovato — email non inviata")
+            return
+        try:
+            template.send_mail(
+                self.id,
+                email_values={'email_to': email_to},
+                force_send=False)
+        except Exception:  # pylint: disable=broad-except
+            _logger.exception(
+                "Andon email confirm fallita per report #%s", self.id)
 
     def _log_to_heinrich(self):
         self.ensure_one()

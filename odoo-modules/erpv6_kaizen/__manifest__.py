@@ -30,6 +30,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/kaizen_cron.xml',
+        'data/mail_template_andon.xml',
         'data/kaizen_agent_config.xml',
         'data/kaizen_plain_language_data.xml',
         'data/circuit_kaizen_data.xml',
