@@ -123,8 +123,17 @@ class Erpv6CreditPortfolioWatcherOverride(models.Model):
                 })
                 att.is_credit_processed = True
                 created.append(p)
+                # 05/10/2026: crea evento timeline sul progetto
+                email_subj = None
+                email_from = None
+                if msg:
+                    email_subj = msg.subject
+                    email_from = msg.email_from
+                self._create_timeline_event(
+                    process, p, att,
+                    email_subject=email_subj, email_from=email_from)
                 _logger.info(
-                    'Watcher: creato portfolio %d (processo %s)',
+                    'Watcher: creato portfolio %d + evento timeline (processo %s)',
                     p.id, process.process_code)
             except Exception as e:
                 _logger.warning(
@@ -133,6 +142,47 @@ class Erpv6CreditPortfolioWatcherOverride(models.Model):
                 continue
 
         return created
+
+    @api.model
+    def _create_timeline_event(self, process, portfolio, attachment, email_subject=None, email_from=None):
+        """Crea un erpv6.deal.event sulla timeline del progetto.
+
+        05/10/2026: il watcher creava portfolio ma NON li rendeva
+        visibili nella timeline del progetto. Questo metodo colma il
+        gap: ogni cassetto ricevuto -> 1 evento documento_ricevuto.
+        """
+        try:
+            Event = self.env['erpv6.deal.event'].sudo()
+            cedente = portfolio.cedente_id.name if portfolio.cedente_id else portfolio.name
+            tot = portfolio.total_amount or 0.0
+            title = '\U0001F4C1 Cassetto ricevuto: %s' % (cedente or 'Sconosciuto')
+            desc_lines = [
+                '%d righe  |  EUR %s' % (
+                    len(portfolio.line_ids),
+                    format(tot, ',.2f').replace(',', 'X').replace('.', ',').replace('X', '.')),
+                'PDF: %s' % (attachment.name or '-'),
+                'Portfolio: #%d' % portfolio.id,
+            ]
+            if email_from:
+                desc_lines.append('Da: %s' % email_from)
+            if email_subject:
+                desc_lines.append('Oggetto: %s' % email_subject)
+            Event.create({
+                'relation_id': process.relation_id.id,
+                'event_type': 'documento_ricevuto',
+                'title': title[:200],
+                'description': '\n'.join(desc_lines),
+                'event_date': fields.Datetime.now(),
+                'visibility': 'consultant',
+                'is_auto': True,
+                'source_attachment_id': attachment.id,
+                'source_url': '/admin/credit-portfolios/%d' % portfolio.id,
+                'created_by_id': self.env.user.partner_id.id,
+            })
+        except Exception as e:
+            _logger.warning(
+                'Credit watcher: evento timeline fallito per portfolio %d: %s',
+                portfolio.id, e)
 
     @api.model
     def _attachments_for_process(self, process, alias):
