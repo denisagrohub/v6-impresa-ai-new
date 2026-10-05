@@ -32,6 +32,17 @@ class Erpv6CreditPortfolio(models.Model):
         default=False, readonly=True,
         help='True dopo conferma del wizard (task 1b).')
 
+    # 05/10/2026 (C-attribution-1g): audit trail. Dato di audit
+    # dedicato (write_date/write_uid tracciano l'ultima modifica
+    # generica, non l'ultima conferma attribuzione). Serve per
+    # contestazioni, report, responsabilita' su commissioni.
+    attribution_confirmed_at = fields.Datetime(
+        string='Attribuzione confermata il',
+        readonly=True, index=True)
+    attribution_confirmed_by_id = fields.Many2one(
+        'res.users', string='Confermata da',
+        readonly=True, ondelete='set null')
+
     def _compute_co_segnalatore_count(self):
         for p in self:
             p.co_segnalatore_count = len(p.co_segnalatore_ids)

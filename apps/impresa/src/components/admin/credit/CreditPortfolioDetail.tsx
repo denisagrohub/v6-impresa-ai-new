@@ -45,6 +45,8 @@ type Portfolio = {
     co_segnalatori: Array<{ id: number; name: string; pct: number; notes: string }>;
     co_segnalatori_count: number;
     confirmed: boolean;
+    confirmed_at?: string | null;
+    confirmed_by?: string | null;
   };
 };
 
@@ -99,6 +101,7 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
   const [notesDirty, setNotesDirty] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'confirm' | 'edit'>('confirm');
 
   async function load() {
     setLoading(true); setError(null);
@@ -398,10 +401,28 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end">
               <button
                 type="button"
-                onClick={() => setShowModal(true)}
+                onClick={() => { setModalMode('confirm'); setShowModal(true); }}
                 className="px-3 py-1.5 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700"
               >
                 Conferma attribuzione
+              </button>
+            </div>
+          )}
+          {p.attribution.confirmed && (
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+              <div className="text-xs text-slate-500">
+                {p.attribution.confirmed_at && p.attribution.confirmed_by ? (
+                  <>Confermato il {new Date(p.attribution.confirmed_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })} da <strong>{p.attribution.confirmed_by}</strong></>
+                ) : (
+                  'Attribuzione confermata'
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setModalMode('edit'); setShowModal(true); }}
+                className="px-3 py-1.5 text-sm rounded border border-slate-300 hover:bg-slate-50"
+              >
+                Modifica attribuzione
               </button>
             </div>
           )}
@@ -433,10 +454,11 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
       {showModal && (
         <AttributionWizardModal
           portfolioId={parseInt(portfolioId, 10)}
+          mode={modalMode}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);
-            setNotice('Attribuzione confermata.');
+            setNotice(modalMode === 'edit' ? 'Attribuzione aggiornata.' : 'Attribuzione confermata.');
             load();
           }}
         />

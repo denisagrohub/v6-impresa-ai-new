@@ -47,6 +47,7 @@ type SplitPreview = {
 
 type Props = {
   portfolioId: number;
+  mode?: 'confirm' | 'edit';  // 05/10/2026 (C-attribution-1g)
   onClose: () => void;
   onSuccess: () => void;
 };
@@ -59,7 +60,8 @@ function authHeaders(): Record<string, string> {
   } catch { return {}; }
 }
 
-export default function AttributionWizardModal({ portfolioId, onClose, onSuccess }: Props) {
+export default function AttributionWizardModal({ portfolioId, mode = 'confirm', onClose, onSuccess }: Props) {
+  const isEdit = mode === 'edit';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +125,7 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
   }, [portfolioId]);
 
   async function handleConfirm() {
-    if (!verificatoRighe) {
+    if (!isEdit && !verificatoRighe) {
       setError('Devi confermare di aver verificato le righe.');
       return;
     }
@@ -140,6 +142,7 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
           headers: { ...authHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
             verificato_righe: true,
+            confirmed_edit: isEdit,
             note_verifica: noteVerifica,
             brought_by_partner_id: broughtBy.id,
             referral_id: referralId,
@@ -182,7 +185,9 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Conferma attribuzione</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              {isEdit ? 'Modifica attribuzione' : 'Conferma attribuzione'}
+            </h2>
             {portfolio && (
               <p className="text-xs text-slate-500 mt-0.5">
                 #{portfolio.id} · {portfolio.cedente_name || portfolio.name}
@@ -209,6 +214,7 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
 
         {!loading && (
           <div className="p-6 space-y-6">
+            {!isEdit && (
             <section>
               <h3 className="text-sm font-semibold text-slate-800 mb-2">1. Verifica estrazione</h3>
               <label className="flex items-center gap-2 text-sm">
@@ -227,9 +233,10 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
                 className="mt-2 w-full text-sm border border-slate-200 rounded px-2 py-1"
               />
             </section>
+            )}
 
             <section>
-              <h3 className="text-sm font-semibold text-slate-800 mb-2">2. Attribuzione</h3>
+              <h3 className="text-sm font-semibold text-slate-800 mb-2">{isEdit ? '1' : '2'}. Attribuzione</h3>
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-slate-500">Portatore <span className="text-red-500">*</span></label>
@@ -261,7 +268,7 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
 
             <section>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-slate-800">3. Co-segnalatori</h3>
+                <h3 className="text-sm font-semibold text-slate-800">{isEdit ? '2' : '3'}. Co-segnalatori</h3>
                 <button
                   type="button"
                   onClick={() => setCoSigners([...coSigners, { partner: null, pct: 3.0, notes: '' }])}
@@ -315,7 +322,7 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
 
             {split && !split.error && (
               <section>
-                <h3 className="text-sm font-semibold text-slate-800 mb-2">4. Split proposto (anteprima)</h3>
+                <h3 className="text-sm font-semibold text-slate-800 mb-2">{isEdit ? '3' : '4'}. Split proposto (anteprima)</h3>
                 <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs space-y-1">
                   {split.portatore && (
                     <div className="flex justify-between">
@@ -359,11 +366,11 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
             </button>
             <button
               onClick={handleConfirm}
-              disabled={saving || !verificatoRighe || !broughtBy}
+              disabled={saving || (!isEdit && !verificatoRighe) || !broughtBy}
               className="px-4 py-2 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              {saving ? 'Salvataggio…' : 'Conferma attribuzione'}
+              {saving ? 'Salvataggio…' : (isEdit ? 'Salva modifiche' : 'Conferma attribuzione')}
             </button>
           </div>
         )}

@@ -68,6 +68,10 @@ class AdminCreditsAPIController(ConsultantAPIController):
                 ],
                 'co_segnalatori_count': len(p.co_segnalatore_ids),
                 'confirmed': bool(p.attribution_confirmed),
+                'confirmed_at': self._iso_utc(p.attribution_confirmed_at)
+                    if 'attribution_confirmed_at' in p._fields and p.attribution_confirmed_at else None,
+                'confirmed_by': p.attribution_confirmed_by_id.name
+                    if 'attribution_confirmed_by_id' in p._fields and p.attribution_confirmed_by_id else None,
             }
         return d
 
@@ -378,7 +382,11 @@ class AdminCreditsAPIController(ConsultantAPIController):
         except Exception:
             body = {}
 
-        if not body.get('verificato_righe'):
+        # 05/10/2026 (C-attribution-1g): se mode='edit' (modifica
+        # post-conferma) la verifica righe e' gia' stata fatta: la
+        # salto. Solo la scelta del portatore resta obbligatoria.
+        is_edit = bool(body.get('confirmed_edit'))
+        if not is_edit and not body.get('verificato_righe'):
             return self._json_response(
                 {'error': 'Devi confermare di aver verificato le righe.'}, 400)
         if not body.get('brought_by_partner_id'):
@@ -413,7 +421,13 @@ class AdminCreditsAPIController(ConsultantAPIController):
         if note_verifica:
             P.notes = (P.notes or '') + '\n[Verifica] ' + note_verifica
 
+        # 05/10/2026 (C-attribution-1g): audit trail. Setto sempre
+        # i campi di conferma (sia in create che in edit): tengo traccia
+        # di chi ha confermato l'attribuzione e quando, indipendentemente
+        # dall'ultima modifica generica al record.
         P.attribution_confirmed = True
+        P.attribution_confirmed_at = fields.Datetime.now()
+        P.attribution_confirmed_by_id = user.id
         if P.state == 'draft':
             P.state = 'parsed'
         if P.state == 'parsed':
