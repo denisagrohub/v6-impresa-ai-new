@@ -32,6 +32,7 @@ from . import admin_appointments_api  # 03/10/2026 (C1b-agenda-1a): CRUD calenda
 from . import admin_disc_api
 from . import admin_mail_whitelist_api
 from . import admin_andon_api  # 04/10/2026 (C5-h)  # 04/10/2026 (C5-mail-whitelist-dinamica)
+from . import admin_credits_api  # 05/10/2026 (C-crediti-1c)
 from . import typst_import_api
 from . import frontend_error_api
 

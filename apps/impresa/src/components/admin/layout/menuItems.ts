@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, FolderKanban, Users, Settings,
-  CheckCircle2, Mail, Calculator, Landmark, FileText,
+  CheckCircle2, Mail, Calculator, Landmark, FileText, FileCheck,
   Brain, Shield, UserCog, Phone, PenTool, FileSignature, Code2,
   Palette, Target, AlertTriangle, Package, Briefcase, Send,
   ListTodo, CalendarClock,
@@ -70,6 +70,7 @@ export const ADMIN_MENU_CATEGORIES: AdminMenuCategory[] = [
       { icon: PenTool, label: "Firme", href: "/admin/firme", requiredRoles: ADMIN_OR_PROJECTS },
       { icon: FileSignature, label: "Contratti", href: "/admin/contratti", requiredRoles: ADMIN_OR_PROJECTS },
       { icon: FileText, label: "Documenti", href: "/admin/documenti", requiredRoles: ADMIN_OR_PROJECTS },
+      { icon: FileCheck, label: "Crediti", href: "/admin/credit-portfolios", requiredRoles: ADMIN_OR_PROJECTS },
     ],
   },
   {
