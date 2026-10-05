@@ -125,17 +125,24 @@ class Erpv6WinwinEmailLog(models.Model):
             return thread_id
 
         # Fallback: logica progetto esistente (email a progetto-xxx@)
+        # 05/10/2026 (C-email-relation-fix): due step.
+        # Step 1: scoped ai nodi Win-Win (production_order_id settato)
+        #   per mantenere priorita' ai progetti operativi se due
+        #   progetti condividono lo slug.
+        # Step 2 (FALLBACK): cerca senza filtro production_order_id,
+        #   per trovare anche progetti non-production (es. 89
+        #   Acquisizione controparti, 88 Certificati intermediazione,
+        #   19 fotovoltaico). Bug precedente: il filtro era SEMPRE
+        #   attivo e escludeva 10 progetti, producendo 6 log con
+        #   match_status='alias_riconosciuto_progetto_mancante'.
         project = Relation
         matched_alias = False
         for alias in candidates:
-            # ('production_order_id', '!=', False): resta scoped ai nodi
-            # Win-Win, non collide con gli alias TEE sullo stesso modello
-            # condiviso (dominio email gia' li separa nella pratica, ma
-            # il filtro esplicito evita qualunque ambiguita' se due
-            # progetti su domini diversi avessero per coincidenza lo
-            # stesso slug).
             project = Relation.search(
                 [('email_alias', '=', alias), ('production_order_id', '!=', False)], limit=1)
+            if not project:
+                project = Relation.search(
+                    [('email_alias', '=', alias)], limit=1)
             if project:
                 matched_alias = alias
                 break
