@@ -88,6 +88,8 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
+  const [notesDirty, setNotesDirty] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
 
   async function load() {
     setLoading(true); setError(null);
@@ -97,6 +99,7 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       setP(j);
       setNotesDraft(j.notes || '');
+      setNotesDirty(false);
     } catch (e: any) {
       setError(e.message || 'Errore');
     } finally {
@@ -139,6 +142,25 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
       const newTotal = newLines.reduce((s, l) => s + (l.importo || 0), 0);
       return { ...prev, lines: newLines, total_amount: newTotal };
     });
+  }
+
+  async function saveNotes() {
+    setSavingNotes(true); setError(null);
+    try {
+      const r = await fetch(`/api/admin/credit-portfolios/${portfolioId}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: notesDraft }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      setNotesDirty(false);
+      setNotice('Note salvate.');
+    } catch (e: any) {
+      setError(e.message || 'Errore salvataggio note');
+    } finally {
+      setSavingNotes(false);
+    }
   }
 
   if (loading) return (
@@ -237,7 +259,24 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between"><dt className="text-slate-500">Righe</dt><dd className="text-slate-900 tabular-nums">{p.total_lines}</dd></div>
             <div className="flex justify-between"><dt className="text-slate-500">Importo totale</dt><dd className="text-slate-900 font-semibold tabular-nums">{eur(p.total_amount)}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">PDF</dt><dd className="text-slate-900 truncate text-xs max-w-xs" title={p.file_pdf_name}>{p.file_pdf_name || '-'}</dd></div>
+            <div className="flex justify-between items-center"><dt className="text-slate-500">PDF</dt>
+              <dd className="text-slate-900 text-xs max-w-xs flex items-center gap-2">
+                <span className="truncate" title={p.file_pdf_name}>{p.file_pdf_name || '-'}</span>
+                {p.file_pdf_name && (
+                  <button
+                    onClick={() => {
+                      fetch(`/api/admin/credit-portfolios/${portfolioId}/pdf`, { headers: authHeaders() })
+                        .then(r => r.blob())
+                        .then(b => { window.open(URL.createObjectURL(b), '_blank'); })
+                        .catch(() => setError('Impossibile aprire il PDF'));
+                    }}
+                    className="flex-shrink-0 px-2 py-0.5 text-xs rounded border border-slate-300 hover:bg-slate-50"
+                  >
+                    Apri
+                  </button>
+                )}
+              </dd>
+            </div>
           </dl>
         </div>
       </div>
@@ -314,11 +353,22 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
         <h3 className="text-xs font-medium text-slate-500 uppercase mb-2">Note</h3>
         <textarea
           value={notesDraft}
-          onChange={(e) => setNotesDraft(e.target.value)}
+          onChange={(e) => { setNotesDraft(e.target.value); setNotesDirty(true); }}
           rows={3}
           className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:border-blue-400 outline-none"
           placeholder="Note interne…"
         />
+        {notesDirty && (
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={saveNotes}
+              disabled={savingNotes}
+              className="px-3 py-1.5 text-sm rounded bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {savingNotes ? 'Salvataggio…' : 'Salva note'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

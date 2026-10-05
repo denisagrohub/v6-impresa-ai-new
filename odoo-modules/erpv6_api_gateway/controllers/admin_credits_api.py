@@ -206,3 +206,70 @@ class AdminCreditsAPIController(ConsultantAPIController):
             'line': self._line_to_dict(L),
             'portfolio_total': L.portfolio_id.total_amount,
         })
+
+    # ═══════════════════════════════════════════════════════════════
+    # PATCH /api/v1/admin/credit-portfolios/<id>  (note + cedente)
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/credit-portfolios/<int:pid>', type='http',
+                auth='none', methods=['PATCH', 'POST', 'OPTIONS'],
+                csrf=False)
+    def patch_credit_portfolio(self, pid, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
+        if not P.exists():
+            return self._json_response({'error': 'Portfolio non trovato'}, 404)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+        allowed = {'notes', 'cedente_id'}
+        vals = {k: v for k, v in body.items() if k in allowed}
+        if not vals:
+            return self._json_response({'error': 'Nessun campo valido'}, 400)
+        try:
+            P.write(vals)
+            if 'cedente_id' in vals and vals['cedente_id'] and P.state == 'draft':
+                P.state = 'parsed'
+        except Exception as e:
+            return self._json_response({'error': str(e)}, 400)
+        return self._json_response({
+            'ok': True,
+            'portfolio': self._portfolio_to_dict(P, with_lines=False),
+        })
+
+    # ═══════════════════════════════════════════════════════════════
+    # GET /api/v1/admin/credit-portfolios/<id>/pdf
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/credit-portfolios/<int:pid>/pdf',
+                type='http', auth='none', methods=['GET', 'OPTIONS'],
+                csrf=False)
+    def download_credit_portfolio_pdf(self, pid, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
+        if not P.exists() or not P.file_pdf:
+            return self._json_response({'error': 'PDF non disponibile'}, 404)
+
+        pdf_bytes = base64.b64decode(P.file_pdf)
+        filename = (P.file_pdf_name or 'cassetto.pdf').replace('"', '')
+        return request.make_response(
+            pdf_bytes,
+            headers=[
+                ('Content-Type', 'application/pdf'),
+                ('Content-Disposition',
+                 'inline; filename="%s"' % filename),
+                ('Content-Length', str(len(pdf_bytes))),
+            ],
+        )
