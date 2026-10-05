@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, AlertCircle, RefreshCw, CheckCircle2, ArrowLeft, RotateCw } from 'lucide-react';
 import Link from 'next/link';
+import { openOdooAction } from '@/lib/odoo-actions';
 
 type Line = {
   id: number;
@@ -393,9 +394,17 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
             </div>
           </dl>
           {!p.attribution.confirmed && (
-            <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-600">
-              Per confermare l&apos;attribuzione apri il portfolio in Odoo
-              e usa il bottone <strong>Conferma attribuzione</strong> (wizard).
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => openOdooAction(
+                  'erpv6_attribution.action_attribution_wizard',
+                  { default_portfolio_id: p.id },
+                )}
+                className="px-3 py-1.5 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                Conferma attribuzione
+              </button>
             </div>
           )}
         </div>

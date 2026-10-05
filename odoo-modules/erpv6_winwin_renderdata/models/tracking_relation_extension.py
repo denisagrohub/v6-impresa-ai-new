@@ -955,6 +955,10 @@ Rispondi SOLO con un JSON valido (no markdown, no testo attorno):
         schema_code = params.get('schema_code', 'TEE-ROLLING-001')
         unit = params.get('unit', 'TEE')
         nome = params.get('nome')
+        # 05/10/2026 (C-attribution-1d): link opzionale al portfolio
+        # di origine. Il deal NON copia i campi attribuzione: linka,
+        # e l'attribuzione si legge dal portfolio.
+        source_portfolio_id = params.get('source_portfolio_id')
         parent = self.browse(parent_id)
         if not parent.exists():
             raise UserError('Progetto padre non trovato')
@@ -1015,7 +1019,7 @@ Rispondi SOLO con un JSON valido (no markdown, no testo attorno):
             parent._propagate_schema_to_children()
 
         Deal = self.env['erpv6.deal'].sudo()
-        deal = Deal.create({
+        deal_vals = {
             'name': nome,
             'relation_id': child.id,
             'schema_id': schema.id,
@@ -1023,7 +1027,10 @@ Rispondi SOLO con un JSON valido (no markdown, no testo attorno):
             'buyer_id': buyer_partner_id,
             'revenue_model': revenue_model,
             'state': 'forecasting',
-        })
+        }
+        if source_portfolio_id:
+            deal_vals['source_portfolio_id'] = source_portfolio_id
+        deal = Deal.create(deal_vals)
 
         # 4. Variabili iniziali (source=manual, enabled=True)
         Var = self.env['erpv6.deal.variable'].sudo()

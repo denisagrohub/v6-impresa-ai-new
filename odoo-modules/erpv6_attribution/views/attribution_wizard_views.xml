@@ -50,5 +50,16 @@
             </field>
         </record>
 
+
+        <!-- 05/10/2026 (C-attribution-1d): action per aprire il wizard
+             da UI Next (link /odoo/action-erpv6_attribution.action_attribution_wizard
+             con context default_portfolio_id). -->
+        <record id="action_attribution_wizard" model="ir.actions.act_window">
+            <field name="name">Conferma attribuzione</field>
+            <field name="res_model">erpv6.attribution.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+
     </data>
 </odoo>
