@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_cert_process_admin,cert.process admin,model_erpv6_certificate_process,base.group_system,1,1,1,1
+access_cert_process_user,cert.process user,model_erpv6_certificate_process,erpv6_core.group_chief_projects,1,1,1,0
+access_cert_process_consultant,cert.process consultant,model_erpv6_certificate_process,erpv6_core.group_consulente,1,0,0,0

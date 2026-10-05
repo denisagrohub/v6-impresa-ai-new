@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="process_credit_tax_89" model="erpv6.certificate.process">
+            <field name="name">Crediti fiscali — Acquisizione controparti</field>
+            <field name="relation_id" eval="89"/>
+            <field name="process_code">credit_tax_ade</field>
+            <field name="is_active" eval="True"/>
+            <field name="alias_in">acquisizione-certificati</field>
+            <field name="parser_key">ade_pdf</field>
+        </record>
+
+    </data>
+</odoo>

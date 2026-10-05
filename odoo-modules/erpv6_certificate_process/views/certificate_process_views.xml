@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_tracking_relation_cert_process_form" model="ir.ui.view">
+            <field name="name">erpv6.tracking.relation.form.cert.process</field>
+            <field name="model">erpv6.tracking.relation</field>
+            <field name="inherit_id" ref="aeosv6_relation.view_tracking_relation_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//notebook" position="inside">
+                    <page string="Processi certificati" name="page_cert_process">
+                        <field name="certificate_process_ids">
+                            <list editable="bottom">
+                                <field name="name"/>
+                                <field name="process_code"/>
+                                <field name="is_active"/>
+                                <field name="alias_in"/>
+                                <field name="parser_key"/>
+                                <field name="kb_category_id"/>
+                            </list>
+                        </field>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>
