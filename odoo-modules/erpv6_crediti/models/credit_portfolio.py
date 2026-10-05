@@ -34,9 +34,13 @@ class Erpv6CreditPortfolio(models.Model):
         # futuri: 'go'
     ], string='Tipo certificato', default='credit_tax',
        required=True, index=True)
+    # 05/10/2026 (C-crediti-1b): NON required. Il watcher crea
+    # portfolio in state='draft' quando il cedente non e' ancora
+    # un res.partner (evita auto-create duplicati). L'operatore
+    # crea il partner e poi usa action_reprocess.
     cedente_id = fields.Many2one(
         'res.partner', string='Cedente',
-        required=True, index=True, ondelete='restrict')
+        index=True, ondelete='restrict')
     mandatario_id = fields.Many2one(
         'res.partner', string='Mandatario V6',
         default=lambda self: self.env.user.partner_id)
@@ -52,6 +56,11 @@ class Erpv6CreditPortfolio(models.Model):
         'mail.message', string='Email di origine',
         ondelete='set null',
         help='Email da cui il PDF e stato estratto.')
+    # 05/10/2026 (C-crediti-1b): allegato di origine (per reprocess).
+    source_attachment_id = fields.Many2one(
+        'ir.attachment', string='Allegato di origine',
+        ondelete='set null',
+        help='PDF AdE originale. Usato da action_reprocess.')
     file_pdf = fields.Binary(string='File PDF', attachment=True)
     file_pdf_name = fields.Char(string='Nome file PDF')
     data_estratto = fields.Date(string='Data estratto')
@@ -116,6 +125,50 @@ class Erpv6CreditPortfolio(models.Model):
         if self.state == 'parsed':
             self.state = 'reviewed'
         return True
+
+    def action_reprocess(self):
+        """05/10/2026 (C-crediti-1b): ri-esegue il parser
+        sull'allegato di origine. Utile quando il portfolio e'
+        in draft perche' il cedente non esisteva, dopo aver
+        creato il partner a mano."""
+        self.ensure_one()
+        if not self.source_attachment_id:
+            return False
+        parser = self.env['erpv6.credit.parser']
+        result = parser.parse_attachment(self.source_attachment_id.id)
+        if not result or 'error' in result:
+            return False
+        self.write({
+            'data_estratto': result.get('data_estratto'),
+            'utenza_lavoro': result.get('utenza'),
+            'cf_commercialista': result.get('cf_commercialista'),
+        })
+        if not self.cedente_id:
+            cedente = self._match_cedente(result.get('cedente_nome'))
+            if cedente:
+                self.cedente_id = cedente.id
+                self.state = 'parsed'
+        return True
+
+    @api.model
+    def _match_cedente(self, nome_pdf):
+        """Match nome cedente PDF -> res.partner.
+
+        05/10/2026 (C-crediti-1b): NO auto-create (evita
+        duplicati tipo 'CHIMERA SOC. A RESP. LIM. SEMP.' vs
+        'Chimera srl'). Se non trovato, ritorna vuoto."""
+        if not nome_pdf:
+            return self.env['res.partner']
+        P = self.env['res.partner'].sudo()
+        p = P.search([('name', '=ilike', nome_pdf)], limit=1)
+        if p:
+            return p
+        first = nome_pdf.split()[0] if nome_pdf.split() else ''
+        if len(first) >= 4:
+            p = P.search([('name', 'ilike', first)], limit=1)
+            if p:
+                return p
+        return self.env['res.partner']
 
     def action_archive(self):
         self.ensure_one()

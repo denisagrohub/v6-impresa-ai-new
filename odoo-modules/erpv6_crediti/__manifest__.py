@@ -13,6 +13,7 @@
         'security/ir.model.access.csv',
         'views/credit_portfolio_views.xml',
         'views/credit_line_views.xml',
+        'data/ir_cron_watcher.xml',
     ],
     'installable': True,
     'application': False,

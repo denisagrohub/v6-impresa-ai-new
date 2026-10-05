@@ -32,6 +32,9 @@
                                 string="Conferma"
                                 class="oe_highlight"
                                 invisible="state != 'parsed'"/>
+                        <button name="action_reprocess" type="object"
+                                string="Riprocessa"
+                                invisible="state != 'draft' or not source_attachment_id"/>
                         <button name="action_archive" type="object"
                                 string="Archivia"
                                 invisible="state in ('draft', 'archived')"/>
