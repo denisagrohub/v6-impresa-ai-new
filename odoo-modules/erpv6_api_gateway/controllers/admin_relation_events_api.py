@@ -35,7 +35,7 @@ class AdminRelationEventsAPIController(AdminDealsAPIController):
             # Fallback: se già nel formato Odoo, lo lascio
             return s
 
-    def _event_to_dict(self, ev):
+    def _event_to_dict_relation(self, ev):
         return {
             'id': ev.id,
             'dealId': ev.deal_id.id if ev.deal_id else None,
@@ -79,7 +79,7 @@ class AdminRelationEventsAPIController(AdminDealsAPIController):
                                   order='event_date desc, id desc')
             return self._json_response({
                 'success': True,
-                'events': [self._event_to_dict(e) for e in events],
+                'events': [self._event_to_dict_relation(e) for e in events],
                 'total': len(events),
             })
 
@@ -110,7 +110,7 @@ class AdminRelationEventsAPIController(AdminDealsAPIController):
 
         self._log_api_call(f'/api/v1/admin/relations/{relation_id}/events', 'POST',
                            user.id, 200, start_time)
-        return self._json_response({'success': True, 'event': self._event_to_dict(ev)})
+        return self._json_response({'success': True, 'event': self._event_to_dict_relation(ev)})
 
     @http.route('/api/v1/admin/relations/<int:relation_id>/events/<int:event_id>',
                 type='http', auth='none',
@@ -150,4 +150,4 @@ class AdminRelationEventsAPIController(AdminDealsAPIController):
         if vals:
             ev.write(vals)
 
-        return self._json_response({'success': True, 'event': self._event_to_dict(ev)})
+        return self._json_response({'success': True, 'event': self._event_to_dict_relation(ev)})
