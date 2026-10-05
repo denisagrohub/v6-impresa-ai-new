@@ -742,3 +742,294 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             'subject': subject,
         })
 
+    # ═══════════════════════════════════════════════════════════════
+    # Helper: corpo lettera per variante (template puro, ZERO AI).
+    #
+    # GUARDRAIL v2: se la generazione passera' ad AI, il contesto sara'
+    # SOLO KB 607 + guida introduttiva + x_v6_charter + dati reali
+    # destinatario. MAI inventare numeri, certificazioni, partnership,
+    # nomi clienti, claim quantitativi.
+    # ═══════════════════════════════════════════════════════════════
+    _LETTER_VARIANTS = {
+        'facilitator': {
+            'label': 'Facilitatore',
+            'tone': 'tu',
+            'subject': 'V6 Impresa - collaborazione su operazioni di cessione crediti',
+            'paragraph': (
+                'Stiamo cercando controparti con partite di crediti '
+                '(o facilitatori che ne seguono), con alcuni criteri '
+                'operativi di base:\n'
+                '  - Mandato scritto del cedente (non dichiarazioni verbali)\n'
+                '  - Catena di facilitatori corta\n'
+                '  - Operazioni recenti, non gia a mercato da settimane\n'
+                '  - Importi di una certa consistenza (> 500k)'
+            ),
+        },
+        'buyer': {
+            'label': 'Compratore',
+            'tone': 'tu',
+            'subject': 'V6 Impresa - pacchetti crediti fiscali per acquisto',
+            'paragraph': (
+                'Stiamo cercando operatori interessati a pacchetti di '
+                'crediti fiscali tra 500k e 5M EUR. Componiamo pacchetti '
+                'ottimizzati (omogenei per anno/tipologia) con pricing '
+                'competitivo.'
+            ),
+        },
+        'seller': {
+            'label': 'Cedente',
+            'tone': 'lei',
+            'subject': 'V6 Impresa - valutazione cessione crediti fiscali',
+            'paragraph': (
+                'Se la Sua azienda ha crediti fiscali da cedere, '
+                'valutiamo insieme la cessione. Il primo passo e il '
+                'cassetto fiscale: analizziamo in 48h e proponiamo '
+                'una offerta.'
+            ),
+        },
+        'studio': {
+            'label': 'Studio / commercialista',
+            'tone': 'lei',
+            'subject': 'V6 Impresa - collaborazione su cessione crediti dei suoi clienti',
+            'paragraph': (
+                'Lavoriamo con commercialisti e consulenti che seguono '
+                'aziende con crediti. Se ha clienti in questa situazione, '
+                'possiamo strutturare la cessione insieme con split '
+                'commissionale trasparente.'
+            ),
+        },
+    }
+
+    def _build_letter_data(self, root, variant, recipient_name,
+                            recipient_email='', personalization=''):
+        """Ritorna dict con subject + body_html + body_text + payload
+        per Typst. Template puro, zero AI."""
+        from datetime import date as _date
+        user = request.env.user
+        user_name = user.partner_id.name or user.name or 'Consulente V6'
+        user_slug = getattr(user, 'email_slug', None) or ''
+        firma_email = '%s@v6impresa.it' % user_slug if user_slug else ''
+
+        v = self._LETTER_VARIANTS.get(variant)
+        if not v:
+            return None
+
+        alias_full = '%s@v6impresa.it' % (root.email_alias or '')
+        tone = v.get('tone', 'tu')
+        # Saluto coerente col tono. In "Lei" il consulente puo'
+        # scrivere titolo nel campo destinatario (Dott./Sig.).
+        nome = (recipient_name or '').strip() or (
+            'Gentile controparte' if tone == 'lei' else 'Ciao')
+
+        recipient_block_lines = [nome]
+        if recipient_email:
+            recipient_block_lines.append(recipient_email)
+        recipient_block = '\n'.join(recipient_block_lines)
+
+        intro = (
+            'Buongiorno %s,\n\n'
+            'sono %s, referente di V6 Impresa per il progetto %s.\n\n'
+            'Ci occupiamo di intermediazione su crediti fiscali e certificati '
+            'energetici (Superbonus, bonus facciate, ecobonus, TEE) tra aziende '
+            'che hanno crediti da cedere e operatori interessati all\'acquisto.'
+        ) % (nome, user_name, root.name or '')
+
+        para = v['paragraph']
+
+        # Closing differenziato per tono (coerenza totale tu/Lei).
+        if tone == 'lei':
+            closing = (
+                'Se Lei riconosce queste caratteristiche nella Sua realta '
+                'o ha contatti interessati, possiamo valutare insieme '
+                'l\'operazione.\n\n'
+                'Il primo passo e semplice: ci manda il cassetto fiscale (o ci '
+                'mette in contatto con il cedente) e in 48h Le diamo un '
+                'riscontro sull\'interesse.\n\n'
+                'Per informazioni o per aprire un dialogo:\n'
+                '  %s\n  %s'
+            ) % (alias_full, firma_email)
+        else:
+            closing = (
+                'Se ti riconosci in queste caratteristiche o hai contatti '
+                'interessati, possiamo valutare insieme l\'operazione.\n\n'
+                'Il primo passo e semplice: ci mandi il cassetto fiscale (o ci '
+                'metti in contatto con il cedente) e in 48h ti diamo un '
+                'riscontro sull\'interesse.\n\n'
+                'Per info o per aprire un dialogo:\n'
+                '  %s\n  %s'
+            ) % (alias_full, firma_email)
+
+        custom = (personalization or '').strip()
+        custom_block = ('\n\n' + custom) if custom else ''
+
+        body_text = '\n\n'.join([intro, para, closing]) + custom_block
+
+        signature = (
+            'Un saluto,\n'
+            '%s\n'
+            'V6 Impresa - Consulente\n'
+            '%s'
+        ) % (user_name, firma_email)
+
+        def _h(t):
+            return t.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+        body_html = (
+            '<div style="font-family:sans-serif;font-size:14px;color:#333;line-height:1.6;">'
+            '<p>' + _h(intro).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>'
+            '<p>' + _h(para).replace('\n', '<br/>') + '</p>'
+            '<p>' + _h(closing).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>'
+            + ('<p>' + _h(custom).replace('\n', '<br/>') + '</p>' if custom else '')
+            + '<p style="color:#666;font-size:13px;margin-top:24px;">'
+            '<strong>' + _h(user_name) + '</strong><br/>V6 Impresa - Consulente<br/>'
+            + _h(firma_email) + '</p></div>'
+        )
+
+        place_date = 'Italia, %s' % _date.today().strftime('%d/%m/%Y')
+
+        return {
+            'variant': variant,
+            'variant_label': v['label'],
+            'subject': v['subject'],
+            'recipient_name': nome,
+            'recipient_email': recipient_email,
+            'body_text': body_text,
+            'body_html': body_html,
+            'typst_payload': {
+                'place_date': place_date,
+                'recipient_block': recipient_block,
+                'subject': v['subject'],
+                'body': body_text,
+                'signature': signature,
+            },
+        }
+
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/playbook/letter',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def post_playbook_letter(self, relation_id, **kwargs):
+        """Genera preview lettera (JSON)."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        root = Relation.browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            in_access = user.id in (root.access_user_ids.ids or [])
+            is_owner = root.owner_user_id.id == user.id
+            if not (is_owner or in_access):
+                return self._json_response({'error': 'Non hai accesso'}, 403)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+
+        variant = (body.get('variant') or 'facilitator').strip()
+        recipient_name = (body.get('recipient_name') or '').strip()
+        recipient_email = (body.get('recipient_email') or '').strip()
+        personalization = (body.get('personalization') or '').strip()
+
+        data = self._build_letter_data(
+            root, variant, recipient_name, recipient_email, personalization)
+        if not data:
+            return self._json_response({
+                'error': 'Variante non valida. Uso: facilitator, buyer, seller, studio.'
+            }, 400)
+
+        return self._json_response({
+            'ok': True,
+            'subject': data['subject'],
+            'body_text': data['body_text'],
+            'body_html': data['body_html'],
+            'variant': variant,
+            'variant_label': data['variant_label'],
+        })
+
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/playbook/letter/pdf',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def post_playbook_letter_pdf(self, relation_id, **kwargs):
+        """Genera PDF lettera."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        root = Relation.browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            in_access = user.id in (root.access_user_ids.ids or [])
+            is_owner = root.owner_user_id.id == user.id
+            if not (is_owner or in_access):
+                return self._json_response({'error': 'Non hai accesso'}, 403)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+
+        variant = (body.get('variant') or 'facilitator').strip()
+        recipient_name = (body.get('recipient_name') or '').strip()
+        recipient_email = (body.get('recipient_email') or '').strip()
+        personalization = (body.get('personalization') or '').strip()
+
+        data = self._build_letter_data(
+            root, variant, recipient_name, recipient_email, personalization)
+        if not data:
+            return self._json_response({'error': 'Variante non valida'}, 400)
+
+        import os
+        candidates = [
+            '/mnt/custom-addons/erpv6_typst/templates/lettera.typ',
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(
+                    os.path.abspath(__file__)))),
+                'erpv6_typst', 'templates', 'lettera.typ'),
+        ]
+        source = None
+        for path in candidates:
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        source = f.read()
+                    break
+                except Exception:
+                    continue
+        if not source:
+            return self._json_response({'error': 'Template lettera non disponibile'}, 500)
+
+        engine = request.env['erpv6.typst.engine'].sudo()
+        result = engine.preview_source(source, data=data['typst_payload'])
+        if not result.get('ok'):
+            errs = result.get('errors') or []
+            msg = errs[0].get('message') if errs else 'Errore compilazione'
+            return self._json_response({'error': msg}, 500)
+
+        pdf_bytes = result['pdf']
+        slug = ''.join(c if c.isalnum() else '_' for c in (root.email_alias or str(root.id)))
+        from datetime import date as _date
+        filename = 'lettera_%s_%s_%s.pdf' % (variant, slug, _date.today().strftime('%Y%m%d'))
+
+        return request.make_response(
+            pdf_bytes,
+            headers=[
+                ('Content-Type', 'application/pdf'),
+                ('Content-Disposition', 'inline; filename="%s"' % filename),
+                ('Content-Length', str(len(pdf_bytes))),
+            ],
+        )
