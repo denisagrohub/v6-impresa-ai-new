@@ -155,6 +155,19 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
                 'state': t.state,
             })
 
+        # 05/10/2026 (C-playbook-1): sezione Knowledge da KB collegate.
+        knowledge = []
+        if 'playbook_kb_ids' in root._fields:
+            for kb in root.playbook_kb_ids:
+                knowledge.append({
+                    'id': kb.id,
+                    'name': kb.name,
+                    'category': kb.category_id.name if 'category_id' in kb._fields and kb.category_id else None,
+                    'kb_type': kb.kb_type if 'kb_type' in kb._fields else None,
+                    'content_format': kb.content_format if 'content_format' in kb._fields else 'text',
+                    'content': kb.content or '',
+                })
+
         return self._json_response({
             'id': root.id,
             'name': root.name,
@@ -164,6 +177,8 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             'scouting': scouting,
             'targets': targets_data,
             'target_count': len(targets_data),
+            'knowledge': knowledge,
+            'knowledge_count': len(knowledge),
         })
 
     # ------------------------------------------------------------------

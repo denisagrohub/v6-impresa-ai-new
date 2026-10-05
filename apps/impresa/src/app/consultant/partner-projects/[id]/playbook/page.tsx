@@ -172,6 +172,37 @@ export default function PlaybookPage() {
                             )}
                         </section>
 
+                        {data.knowledge && data.knowledge.length > 0 && (
+                            <section className="mb-8">
+                                <h2 className="text-lg font-bold text-[#1a2744] mb-3 flex items-center gap-2">
+                                    <BookOpen size={18} /> Knowledge ({data.knowledge.length})
+                                </h2>
+                                <div className="space-y-4 not-prose">
+                                    {data.knowledge.map((kb: any) => (
+                                        <details key={kb.id} className="border border-gray-200 rounded-lg bg-white group" open>
+                                            <summary className="px-4 py-3 cursor-pointer flex items-center justify-between hover:bg-gray-50">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-semibold text-[#1a2744]">{kb.name}</span>
+                                                    {kb.category && (
+                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{kb.category}</span>
+                                                    )}
+                                                    {kb.kb_type && (
+                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{kb.kb_type}</span>
+                                                    )}
+                                                </div>
+                                                <span className="text-xs text-gray-400 group-open:hidden">Espandi</span>
+                                            </summary>
+                                            <div className="px-4 pb-4 pt-1 border-t border-gray-100">
+                                                <div className="text-sm text-gray-800 whitespace-pre-wrap font-mono leading-relaxed">
+                                                    {kb.content}
+                                                </div>
+                                            </div>
+                                        </details>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
                         <footer className="mt-12 pt-6 border-t border-gray-200 text-xs text-gray-400 print:mt-4">
                             V6 Impresa AI · Playbook riservato ai consulenti · Non condividere all'esterno
                         </footer>
