@@ -423,3 +423,39 @@ class AdminCreditsAPIController(ConsultantAPIController):
             'ok': True,
             'portfolio': self._portfolio_to_dict(P, with_lines=False),
         })
+
+    # ═══════════════════════════════════════════════════════════════
+    # GET /api/v1/admin/partners/search?q=xxx
+    # Typeahead partner per la modale attribuzione (evita prompt ID).
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/partners/search', type='http',
+                auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def search_partners(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        args = request.httprequest.args
+        q = (args.get('q') or '').strip()
+        limit = min(int(args.get('limit') or 15), 50)
+        if len(q) < 2:
+            return self._json_response({'partners': []})
+
+        P = request.env['res.partner'].sudo()
+        partners = P.search([
+            '|', '|',
+            ('name', 'ilike', q),
+            ('email', 'ilike', q),
+            ('vat', 'ilike', q),
+        ], limit=limit, order='name asc')
+
+        return self._json_response({
+            'partners': [
+                {'id': p.id, 'name': p.name,
+                 'email': p.email or '', 'vat': p.vat or ''}
+                for p in partners
+            ],
+        })

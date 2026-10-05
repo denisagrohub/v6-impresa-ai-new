@@ -1,15 +1,14 @@
 'use client';
 
-// 05/10/2026 (C-attribution-1e): modale nativa Next per conferma
-// attribuzione. Sostituisce il vecchio bottone che apriva Odoo in
-// nuova tab. Stesso dominio, stessa UI, un solo login.
+// 05/10/2026 (C-attribution-1e/1f): modale nativa Next per conferma
+// attribuzione. Sostituisce il bottone che apriva Odoo in nuova tab.
 
 import { useEffect, useState } from 'react';
 import { X, Loader2, AlertCircle, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import PartnerAutocomplete, { PartnerValue } from './PartnerAutocomplete';
 
 type CoSigner = {
-  partner_id: number | null;
-  partner_name: string;
+  partner: PartnerValue;
   pct: number;
   notes: string;
 };
@@ -28,7 +27,12 @@ type Defaults = {
   brought_by_partner_name: string | null;
   referral_id: number | null;
   referral_name: string | null;
-  co_signer_lines: CoSigner[];
+  co_signer_lines: Array<{
+    partner_id: number | null;
+    partner_name: string;
+    pct: number;
+    notes: string;
+  }>;
 };
 
 type SplitPreview = {
@@ -62,15 +66,12 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [split, setSplit] = useState<SplitPreview | null>(null);
 
-  // Form state
   const [verificatoRighe, setVerificatoRighe] = useState(false);
   const [noteVerifica, setNoteVerifica] = useState('');
-  const [broughtById, setBroughtById] = useState<number | null>(null);
-  const [broughtByName, setBroughtByName] = useState('');
+  const [broughtBy, setBroughtBy] = useState<PartnerValue>(null);
   const [referralId, setReferralId] = useState<number | null>(null);
   const [referralName, setReferralName] = useState('');
   const [coSigners, setCoSigners] = useState<CoSigner[]>([]);
-  const [partnerSearch, setPartnerSearch] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -82,16 +83,37 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
         );
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-        setPortfolio(j.portfolio);
-        const d: Defaults = j.defaults;
-        setVerificatoRighe(d.verificato_righe);
+        // 05/10/2026 (C-attribution-1f): il proxy Next inoltra la
+        // risposta grezza di Odoo = {success, data}. Il payload utile
+        // sta in data.defaults / data.split_preview.
+        const payload = j.data || j;
+        setPortfolio(payload.portfolio || null);
+        const d: Defaults = payload.defaults || {
+          verificato_righe: false,
+          note_verifica: '',
+          brought_by_partner_id: null,
+          brought_by_partner_name: null,
+          referral_id: null,
+          referral_name: null,
+          co_signer_lines: [],
+        };
+        setVerificatoRighe(!!d.verificato_righe);
         setNoteVerifica(d.note_verifica || '');
-        setBroughtById(d.brought_by_partner_id);
-        setBroughtByName(d.brought_by_partner_name || '');
-        setReferralId(d.referral_id);
+        setBroughtBy(
+          d.brought_by_partner_id
+            ? { id: d.brought_by_partner_id, name: d.brought_by_partner_name || '' }
+            : null,
+        );
+        setReferralId(d.referral_id || null);
         setReferralName(d.referral_name || '');
-        setCoSigners(d.co_signer_lines || []);
-        setSplit(j.split_preview || null);
+        setCoSigners(
+          (d.co_signer_lines || []).map((cs) => ({
+            partner: cs.partner_id ? { id: cs.partner_id, name: cs.partner_name } : null,
+            pct: cs.pct,
+            notes: cs.notes || '',
+          })),
+        );
+        setSplit(payload.split_preview || null);
       } catch (e: any) {
         setError(e.message || 'Errore caricamento');
       } finally {
@@ -105,8 +127,8 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
       setError('Devi confermare di aver verificato le righe.');
       return;
     }
-    if (!broughtById) {
-      setError('Il portatore e\' obbligatorio.');
+    if (!broughtBy) {
+      setError("Il portatore e' obbligatorio.");
       return;
     }
     setSaving(true); setError(null);
@@ -119,9 +141,15 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
           body: JSON.stringify({
             verificato_righe: true,
             note_verifica: noteVerifica,
-            brought_by_partner_id: broughtById,
+            brought_by_partner_id: broughtBy.id,
             referral_id: referralId,
-            co_signer_lines: coSigners.filter(cs => cs.partner_id),
+            co_signer_lines: coSigners
+              .filter((cs) => cs.partner)
+              .map((cs) => ({
+                partner_id: cs.partner!.id,
+                pct: cs.pct,
+                notes: cs.notes,
+              })),
           }),
         },
       );
@@ -135,17 +163,10 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
     }
   }
 
-  // Simple numeric input via prompt per portatore/referral
-  // (evita di aggiungere una modale di ricerca partner complessa)
-  function pickBroughtBy() {
-    const s = prompt('ID partner portatore (o nome parziale):', broughtById ? String(broughtById) : '');
-    if (!s) return;
-    setBroughtById(Number(s));
-    setBroughtByName(`Partner #${s}`);
-  }
   function pickReferral() {
     const s = prompt('ID referral (o vuoto per annullare):', referralId ? String(referralId) : '');
-    if (!s) { setReferralId(null); setReferralName(''); return; }
+    if (s === null) return;
+    if (s === '') { setReferralId(null); setReferralName(''); return; }
     setReferralId(Number(s));
     setReferralName(`Referral #${s}`);
   }
@@ -159,7 +180,6 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
         className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Conferma attribuzione</h2>
@@ -189,8 +209,6 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
 
         {!loading && (
           <div className="p-6 space-y-6">
-
-            {/* 1. Verifica */}
             <section>
               <h3 className="text-sm font-semibold text-slate-800 mb-2">1. Verifica estrazione</h3>
               <label className="flex items-center gap-2 text-sm">
@@ -210,32 +228,23 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
               />
             </section>
 
-            {/* 2. Attribuzione */}
             <section>
               <h3 className="text-sm font-semibold text-slate-800 mb-2">2. Attribuzione</h3>
-              <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-3">
                 <div>
                   <label className="text-xs text-slate-500">Portatore <span className="text-red-500">*</span></label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="flex-1 text-sm border border-slate-200 rounded px-2 py-1 bg-slate-50">
-                      {broughtByName || <span className="text-amber-700 italic">Da assegnare</span>}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={pickBroughtBy}
-                      className="px-3 py-1 text-xs rounded border border-slate-300 hover:bg-slate-50"
-                    >
-                      Cambia
-                    </button>
+                  <div className="mt-1">
+                    <PartnerAutocomplete
+                      value={broughtBy}
+                      onChange={setBroughtBy}
+                      placeholder="Cerca portatore per nome, email o P.IVA…"
+                    />
                   </div>
-                  {broughtById && (
-                    <p className="text-xs text-slate-400 mt-1">ID: {broughtById}</p>
-                  )}
                 </div>
                 <div>
                   <label className="text-xs text-slate-500">Referral (opzionale)</label>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="flex-1 text-sm border border-slate-200 rounded px-2 py-1 bg-slate-50">
+                    <span className="flex-1 text-sm border border-slate-200 rounded px-2 py-1 bg-slate-50 truncate">
                       {referralName || '—'}
                     </span>
                     <button
@@ -250,13 +259,12 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
               </div>
             </section>
 
-            {/* 3. Co-segnalatori */}
             <section>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-slate-800">3. Co-segnalatori</h3>
                 <button
                   type="button"
-                  onClick={() => setCoSigners([...coSigners, { partner_id: null, partner_name: '', pct: 3.0, notes: '' }])}
+                  onClick={() => setCoSigners([...coSigners, { partner: null, pct: 3.0, notes: '' }])}
                   className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 flex items-center gap-1"
                 >
                   <Plus className="w-3 h-3" /> Aggiungi
@@ -266,30 +274,18 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
                 <p className="text-xs text-slate-500 italic">Nessun co-segnalatore</p>
               )}
               {coSigners.map((cs, idx) => (
-                <div key={idx} className="flex items-center gap-2 mt-2">
-                  <input
-                    type="text"
-                    placeholder="ID partner"
-                    value={cs.partner_id || ''}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const copy = [...coSigners];
-                      copy[idx] = { ...copy[idx], partner_id: v ? Number(v) : null };
-                      setCoSigners(copy);
-                    }}
-                    className="w-24 text-sm border border-slate-200 rounded px-2 py-1"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Nome"
-                    value={cs.partner_name}
-                    onChange={(e) => {
-                      const copy = [...coSigners];
-                      copy[idx] = { ...copy[idx], partner_name: e.target.value };
-                      setCoSigners(copy);
-                    }}
-                    className="flex-1 text-sm border border-slate-200 rounded px-2 py-1"
-                  />
+                <div key={idx} className="flex items-start gap-2 mt-2">
+                  <div className="flex-1 min-w-0">
+                    <PartnerAutocomplete
+                      value={cs.partner}
+                      onChange={(p) => {
+                        const copy = [...coSigners];
+                        copy[idx] = { ...copy[idx], partner: p };
+                        setCoSigners(copy);
+                      }}
+                      placeholder="Cerca partner…"
+                    />
+                  </div>
                   <input
                     type="number"
                     step="0.5"
@@ -302,12 +298,14 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
                       setCoSigners(copy);
                     }}
                     className="w-20 text-sm border border-slate-200 rounded px-2 py-1"
+                    title="% fee V6"
                   />
-                  <span className="text-xs text-slate-500">%</span>
+                  <span className="text-xs text-slate-500 pt-2">%</span>
                   <button
                     type="button"
                     onClick={() => setCoSigners(coSigners.filter((_, i) => i !== idx))}
-                    className="p-1 text-red-500 hover:bg-red-50 rounded"
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded mt-0.5"
+                    title="Rimuovi"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -315,7 +313,6 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
               ))}
             </section>
 
-            {/* 4. Preview split */}
             {split && !split.error && (
               <section>
                 <h3 className="text-sm font-semibold text-slate-800 mb-2">4. Split proposto (anteprima)</h3>
@@ -355,7 +352,6 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
           </div>
         )}
 
-        {/* Footer */}
         {!loading && (
           <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-200 bg-slate-50">
             <button onClick={onClose} className="px-4 py-2 text-sm rounded border border-slate-300 hover:bg-slate-100">
@@ -363,7 +359,7 @@ export default function AttributionWizardModal({ portfolioId, onClose, onSuccess
             </button>
             <button
               onClick={handleConfirm}
-              disabled={saving || !verificatoRighe || !broughtById}
+              disabled={saving || !verificatoRighe || !broughtBy}
               className="px-4 py-2 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}

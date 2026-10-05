@@ -1,31 +1,23 @@
-import { NextResponse } from 'next/server';
-import { odoo } from '@/lib/odoo/api-adapter';
+import { NextRequest, NextResponse } from 'next/server';
+import { callOdooAPI } from '@/lib/odoo-adapter';
+import { isOdooEnabled } from '@/config/system';
 
-// 10/09/2026: ricerca res.partner per autocomplete "Aggiungi Parte".
-// EVOLUZIONE (scheda completa): aggiunto is_company ai campi e parametro
-// ?company=1 per cercare SOLO aziende (usato dalla RichPartModal).
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const q = (searchParams.get('q') || '').trim();
-  const onlyCompany = searchParams.get('company') === '1';
-  if (q.length < 2) return NextResponse.json({ success: true, partners: [] });
+// 05/10/2026 (C-attribution-1f): typeahead partner per modali Next.
 
+function fwError(e: any) {
+  const msg = String(e?.message || 'Odoo non raggiungibile');
+  const m = msg.match(/ha risposto (\d{3})/);
+  return NextResponse.json({ error: msg }, { status: m ? parseInt(m[1], 10) : 502 });
+}
+
+export async function GET(request: NextRequest) {
+  if (!isOdooEnabled()) return NextResponse.json({ error: 'Odoo non configurato' }, { status: 503 });
+  const auth = request.headers.get('authorization');
+  if (!auth) return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
   try {
-    await odoo.connect();
-    // '|'(nome|email) + eventuale filtro azienda
-    // 23/09/2026: sintassi Odoo corretta per OR: '|' come primo elemento
-    // della domain, non dentro una sottolista.
-    const domain: any[] = ['|', ['name', 'ilike', q], ['email', 'ilike', q]];
-    if (onlyCompany) domain.push(['is_company', '=', true]);
-    const partners = await odoo.execute('res.partner', 'search_read', [
-      domain,
-      ['id', 'name', 'email', 'phone', 'is_company',
-       'email_secondary', 'email_secondary_label'],  // 04/10/2026 UX#2
-      0, 8,
-    ]);
-    return NextResponse.json({ success: true, partners: partners || [] });
-  } catch (error: any) {
-    console.error('❌ Errore /api/admin/partners/search:', error.message);
-    return NextResponse.json({ success: false, error: error.message || 'Errore di connessione a Odoo' }, { status: 503 });
-  }
+    const qs = request.nextUrl.searchParams.toString();
+    const path = qs ? `/api/v1/admin/partners/search?${qs}` : '/api/v1/admin/partners/search';
+    const r = await callOdooAPI(path, { method: 'GET', headers: { Authorization: auth } });
+    return NextResponse.json(r);
+  } catch (e: any) { return fwError(e); }
 }
