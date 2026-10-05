@@ -465,3 +465,280 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             'calls': calls_data,
         })
 
+    # ═══════════════════════════════════════════════════════════════
+    # GET /api/v1/consultant/projects/<id>/playbook/pdf
+    # 05/10/2026 (C-playbook-3a): export PDF del playbook consulente.
+    # Compila il template Typst con i dati del playbook.
+    # ═══════════════════════════════════════════════════════════════
+
+    # ═══════════════════════════════════════════════════════════════
+    # Helper: costruisce i dati del playbook + compila PDF.
+    # 05/10/2026 (C-playbook-3a): estratto per riuso tra GET pdf
+    # e POST send.
+    # ═══════════════════════════════════════════════════════════════
+    def _build_playbook_data(self, root):
+        """Ritorna dict con tutti i dati del playbook."""
+        import json as _json
+        from datetime import date as _date
+
+        charter = {}
+        try:
+            charter = _json.loads(root.x_v6_charter or '{}') if root.x_v6_charter else {}
+        except Exception:
+            pass
+        charter_data = charter.get('data') or {}
+
+        scouting = {}
+        try:
+            scouting = _json.loads(root.x_v6_scouting or '{}') if root.x_v6_scouting else {}
+        except Exception:
+            pass
+        scouting_data = scouting.get('data') or {}
+
+        knowledge = []
+        if 'playbook_kb_ids' in root._fields:
+            for kb in root.playbook_kb_ids:
+                knowledge.append({
+                    'name': kb.name or '',
+                    'category': kb.category_id.name if kb.category_id else '',
+                    'kb_type': kb.kb_type or '',
+                    'content': kb.content or '',
+                })
+
+        def _kv_block(d, keys):
+            parts = []
+            for k, label in keys:
+                v = d.get(k)
+                if v:
+                    parts.append('%s: %s' % (label, v))
+            return '\n\n'.join(parts)
+
+        charter_text = _kv_block(charter_data, [
+            ('origin', 'Origine'),
+            ('regulatoryContext', 'Contesto normativo'),
+            ('requirements', 'Requisiti'),
+            ('commercialTerms', 'Termini commerciali'),
+            ('currentPhase', 'Fase attuale'),
+        ])
+
+        scouting_text = ''
+        if scouting_data:
+            lines = []
+            for k, v in scouting_data.items():
+                if isinstance(v, dict):
+                    lines.append('%s:' % k)
+                    for k2, v2 in v.items():
+                        lines.append('  - %s: %s' % (k2, v2))
+                else:
+                    lines.append('%s: %s' % (k, v))
+            scouting_text = '\n'.join(lines)
+
+        user = request.env.user
+        return {
+            'project_name': root.name or '',
+            'phase': root.state or '',
+            'email_alias': root.email_alias or '',
+            'export_date': _date.today().strftime('%d/%m/%Y'),
+            'exported_by': user.partner_id.name or user.name or '',
+            'charter': charter_text,
+            'pitch_cosa_cerchiamo': charter_data.get('pitchCosaCerchiamo', ''),
+            'pitch_tipologie_target': charter_data.get('pitchTipologieTarget', ''),
+            'pitch_cosa_offriamo': charter_data.get('pitchCosaOffriamo', ''),
+            'scouting': scouting_text,
+            'knowledge': knowledge,
+        }
+
+    def _build_playbook_pdf_bytes(self, root, payload=None):
+        """Compila il PDF. Ritorna (pdf_bytes, error_str)."""
+        import os
+        if payload is None:
+            payload = self._build_playbook_data(root)
+
+        # Trova template
+        candidates = [
+            '/mnt/custom-addons/erpv6_typst/templates/playbook.typ',
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(
+                    os.path.abspath(__file__)))),
+                'erpv6_typst', 'templates', 'playbook.typ'),
+        ]
+        source = None
+        for path in candidates:
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        source = f.read()
+                    break
+                except Exception:
+                    continue
+        if not source:
+            return None, 'Template PDF non disponibile'
+
+        engine = request.env['erpv6.typst.engine'].sudo()
+        result = engine.preview_source(source, data=payload)
+        if not result.get('ok'):
+            errs = result.get('errors') or []
+            msg = errs[0].get('message') if errs else 'Errore compilazione Typst'
+            return None, msg
+        return result['pdf'], None
+
+    def _playbook_filename(self, root):
+        from datetime import date as _date
+        slug = ''.join(c if c.isalnum() else '_' for c in (root.email_alias or str(root.id)))
+        return 'playbook_%s_%s.pdf' % (slug, _date.today().strftime('%Y%m%d'))
+
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/playbook/pdf',
+                type='http', auth='none', methods=['GET', 'OPTIONS'],
+                csrf=False)
+    def get_playbook_pdf(self, relation_id, **kwargs):
+        """05/10/2026 (C-playbook-3a): export PDF del playbook."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        root = Relation.browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            in_access = user.id in (root.access_user_ids.ids or [])
+            is_owner = root.owner_user_id.id == user.id
+            if not (is_owner or in_access):
+                return self._json_response({'error': 'Non hai accesso'}, 403)
+
+        pdf_bytes, error = self._build_playbook_pdf_bytes(root)
+        if error:
+            _logger.warning('playbook pdf: %s', error)
+            return self._json_response({'error': error}, 500)
+
+        filename = self._playbook_filename(root)
+        return request.make_response(
+            pdf_bytes,
+            headers=[
+                ('Content-Type', 'application/pdf'),
+                ('Content-Disposition', 'inline; filename="%s"' % filename),
+                ('Content-Length', str(len(pdf_bytes))),
+            ],
+        )
+
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/playbook/send',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def post_playbook_send(self, relation_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        root = Relation.browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            in_access = user.id in (root.access_user_ids.ids or [])
+            is_owner = root.owner_user_id.id == user.id
+            if not (is_owner or in_access):
+                return self._json_response({'error': 'Non hai accesso'}, 403)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+
+        import re as _re
+        raw_recipients = body.get('recipients') or []
+        if isinstance(raw_recipients, str):
+            raw_recipients = [raw_recipients]
+        recipients = []
+        invalid = []
+        for r in raw_recipients:
+            r = (r or '').strip().lower()
+            if not r:
+                continue
+            if not _re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', r):
+                invalid.append(r)
+                continue
+            if not r.endswith('@v6impresa.it'):
+                invalid.append(r)
+                continue
+            recipients.append(r)
+        if invalid:
+            return self._json_response({
+                'error': 'Il playbook e riservato ai consulenti V6. Non validi: %s'
+                         % ', '.join(invalid)
+            }, 400)
+        if not recipients:
+            return self._json_response({'error': 'Nessun destinatario valido'}, 400)
+
+        pdf_bytes, error = self._build_playbook_pdf_bytes(root)
+        if error:
+            return self._json_response({'error': 'PDF: %s' % error}, 500)
+
+        filename = self._playbook_filename(root)
+        import base64 as _b64
+
+        user_name = user.partner_id.name or user.name or 'Consulente V6'
+        user_slug = getattr(user, 'email_slug', None) or ''
+        firma_email = '%s@v6impresa.it' % user_slug if user_slug else ''
+
+        custom_message = (body.get('message') or '').strip()
+        custom_html = ''
+        if custom_message:
+            custom_html = '<p style="white-space:pre-wrap;">%s</p>' % custom_message.replace('<', '&lt;')
+
+        subject = (body.get('subject') or '').strip() or (
+            'Playbook %s - V6 Impresa' % (root.name or ''))
+
+        body_html = (
+            '<div style="font-family:sans-serif;font-size:14px;color:#333;">'
+            '<p>Buongiorno,</p>'
+            '<p>ti condivido il playbook del progetto <strong>%s</strong>.</p>'
+            '%s'
+            '<p>Lo trovi in allegato come PDF.</p>'
+            '<p style="color:#666;font-size:13px;margin-top:24px;">'
+            '<strong>%s</strong><br/>V6 Impresa - Consulente<br/>%s</p>'
+            '</div>'
+        ) % (root.name or '', custom_html, user_name, firma_email)
+
+        Mail = request.env['mail.mail'].sudo()
+        attach = request.env['ir.attachment'].sudo().create({
+            'name': filename,
+            'type': 'binary',
+            'datas': _b64.b64encode(pdf_bytes),
+            'mimetype': 'application/pdf',
+            'res_model': 'erpv6.tracking.relation',
+            'res_id': root.id,
+        })
+
+        mail = Mail.create({
+            'subject': subject,
+            'body_html': body_html,
+            'email_from': firma_email or 'noreply@v6impresa.it',
+            'email_to': ', '.join(recipients),
+            'attachment_ids': [(4, attach.id)],
+            'state': 'outgoing',
+            'reply_to': firma_email or False,
+        })
+
+        try:
+            mail.with_context(mail_transactional_approved=True).send()
+        except Exception as e:
+            _logger.exception('playbook send: errore invio email')
+            return self._json_response({'error': 'Invio fallito: %s' % e}, 500)
+
+        return self._json_response({
+            'ok': True,
+            'message_id': mail.id,
+            'recipients': recipients,
+            'subject': subject,
+        })
+

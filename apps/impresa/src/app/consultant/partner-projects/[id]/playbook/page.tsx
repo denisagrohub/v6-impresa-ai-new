@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Printer, Building2, Target, BookOpen, Mail } from "lucide-react";
+import { ArrowLeft, Loader2, Printer, Building2, Target, BookOpen, Mail, Send } from "lucide-react";
+import SendPlaybookModal from "@/components/admin/playbook/SendPlaybookModal";
 
 export default function PlaybookPage() {
     const router = useRouter();
@@ -12,6 +13,8 @@ export default function PlaybookPage() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [exporting, setExporting] = useState(false);
+    const [showSendModal, setShowSendModal] = useState(false);
 
     useEffect(() => {
         const s = localStorage.getItem("pi_session");
@@ -31,6 +34,33 @@ export default function PlaybookPage() {
     }, [user, id]);
 
     if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 size={32} className="animate-spin text-blue-600" /></div>;
+
+    const handleExportPdf = async () => {
+        if (!user?.token) return;
+        setExporting(true);
+        try {
+            const r = await fetch(`/api/consultant/partner-projects/${id}/playbook/pdf`, {
+                headers: { Authorization: `JWT ${user.token}` },
+            });
+            if (!r.ok) {
+                const j = await r.json().catch(() => ({ error: 'Errore export' }));
+                throw new Error(j.error || `HTTP ${r.status}`);
+            }
+            const blob = await r.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `playbook_${data?.email_alias || id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (e: any) {
+            setError(e.message || 'Errore export PDF');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const copyLink = () => {
         if (data?.email_alias) {
@@ -52,8 +82,15 @@ export default function PlaybookPage() {
                                 <Mail size={14} /> Copia link pitch
                             </button>
                         )}
-                        <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#1a2744] text-white text-sm hover:bg-[#0f3460]">
-                            <Printer size={14} /> Stampa / PDF
+                        <button
+                            onClick={() => setShowSendModal(true)}
+                            disabled={!data}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#1a2744] text-white text-sm hover:bg-[#0f3460] disabled:opacity-50"
+                        >
+                            <Send size={14} /> Invia playbook
+                        </button>
+                        <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm hover:bg-gray-50">
+                            <Printer size={14} /> Stampa browser
                         </button>
                     </div>
                 </div>
@@ -209,6 +246,14 @@ export default function PlaybookPage() {
                     </article>
                 )}
             </div>
+
+            {showSendModal && data && (
+                <SendPlaybookModal
+                    projectId={parseInt(id, 10)}
+                    projectName={data.name || ''}
+                    onClose={() => setShowSendModal(false)}
+                />
+            )}
         </div>
     );
 }
