@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_attribution_co_signer_admin,attribution.co_signer admin,model_erpv6_attribution_co_signer,base.group_system,1,1,1,1
+access_attribution_co_signer_chief,attribution.co_signer chief,model_erpv6_attribution_co_signer,erpv6_core.group_chief_projects,1,1,1,0
+access_attribution_co_signer_consultant,attribution.co_signer consultant,model_erpv6_attribution_co_signer,erpv6_core.group_consulente,1,0,0,0

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_credit_portfolio_attribution" model="ir.ui.view">
+            <field name="name">erpv6.credit.portfolio.attribution</field>
+            <field name="model">erpv6.credit.portfolio</field>
+            <field name="inherit_id" ref="erpv6_crediti.view_credit_portfolio_form"/>
+            <field name="arch" type="xml">
+
+                <xpath expr="//notebook" position="inside">
+                    <page string="Attribuzione" name="page_attribution">
+                        <group>
+                            <group string="Portatore">
+                                <field name="brought_by_partner_id"
+                                       domain="[('is_company','in',[True,False])]"/>
+                                <field name="attribution_confirmed" readonly="1"/>
+                            </group>
+                            <group string="Referral">
+                                <field name="referral_id"
+                                       domain="[('state','!=','rifiutato')]"/>
+                                <field name="co_segnalatore_count"/>
+                            </group>
+                        </group>
+                        <separator string="Co-segnalatori"/>
+                        <field name="co_segnalatore_ids">
+                            <list editable="bottom">
+                                <field name="partner_id"/>
+                                <field name="pct"/>
+                                <field name="notes"/>
+                            </list>
+                        </field>
+                    </page>
+                </xpath>
+
+            </field>
+        </record>
+
+    </data>
+</odoo>

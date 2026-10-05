@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_partner_attribution" model="ir.ui.view">
+            <field name="name">res.partner.attribution</field>
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+
+                <xpath expr="//notebook" position="inside">
+                    <page string="Attribuzione V6" name="page_attribution_v6">
+                        <group>
+                            <field name="brought_by_default_partner_id"/>
+                            <field name="referral_default_id"/>
+                        </group>
+                        <div class="text-muted mt-2" colspan="2">
+                            Compilare per avere i default quando si crea
+                            un portfolio crediti o un deal collegato a
+                            questo contatto.
+                        </div>
+                    </page>
+                </xpath>
+
+            </field>
+        </record>
+
+    </data>
+</odoo>
