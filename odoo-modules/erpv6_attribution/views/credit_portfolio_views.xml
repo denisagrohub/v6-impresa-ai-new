@@ -8,6 +8,15 @@
             <field name="inherit_id" ref="erpv6_crediti.view_credit_portfolio_form"/>
             <field name="arch" type="xml">
 
+                <!-- 05/10/2026 (C-attribution-1b): bottone wizard -->
+                <xpath expr="//header" position="inside">
+                    <button name="action_open_attribution_wizard"
+                            type="object"
+                            string="Conferma attribuzione"
+                            class="btn-primary"
+                            invisible="attribution_confirmed == True"/>
+                </xpath>
+
                 <xpath expr="//notebook" position="inside">
                     <page string="Attribuzione" name="page_attribution">
                         <group>

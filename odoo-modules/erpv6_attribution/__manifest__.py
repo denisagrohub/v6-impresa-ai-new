@@ -16,6 +16,7 @@
         'data/ir_config_parameter.xml',
         'views/credit_portfolio_views.xml',
         'views/res_partner_views.xml',
+        'views/attribution_wizard_views.xml',
     ],
     'installable': True,
     'application': False,

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_attribution_wizard_form" model="ir.ui.view">
+            <field name="name">erpv6.attribution.wizard.form</field>
+            <field name="model">erpv6.attribution.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Conferma attribuzione">
+                    <group>
+                        <group string="1. Verifica estrazione">
+                            <field name="portfolio_id" readonly="1"/>
+                            <field name="verificato_righe"/>
+                            <field name="note_verifica"
+                                   placeholder="Annotazioni sulla verifica..."/>
+                        </group>
+                        <group string="2. Attribuzione">
+                            <field name="brought_by_partner_id"
+                                   options="{'no_create': False}"/>
+                            <field name="referral_id"
+                                   options="{'no_create': False}"/>
+                        </group>
+                    </group>
+
+                    <separator string="3. Co-segnalatori"/>
+
+                    <field name="co_signer_ids">
+                        <list editable="bottom">
+                            <field name="partner_id"
+                                   options="{'no_create': False}"/>
+                            <field name="pct"/>
+                            <field name="notes"/>
+                        </list>
+                    </field>
+
+                    <separator string="4. Split proposto (informativo)"/>
+
+                    <field name="split_preview_json"
+                           widget="text" readonly="1"
+                           style="font-family: monospace; font-size: 11px;"/>
+
+                    <footer>
+                        <button name="action_confirm" type="object"
+                                string="Conferma attribuzione"
+                                class="btn-primary"/>
+                        <button string="Annulla" class="btn-secondary"
+                                special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+    </data>
+</odoo>
