@@ -155,7 +155,16 @@ class Erpv6CreditPortfolioWatcherOverride(models.Model):
             Event = self.env['erpv6.deal.event'].sudo()
             cedente = portfolio.cedente_id.name if portfolio.cedente_id else portfolio.name
             tot = portfolio.total_amount or 0.0
-            title = '\U0001F4C1 Cassetto ricevuto: %s' % (cedente or 'Sconosciuto')
+            # 05/10/2026 (C-attribution-1c): se il portfolio ha un
+            # portatore, lo mostro nel titolo dell'evento timeline.
+            portatore = None
+            if 'brought_by_partner_id' in portfolio._fields and portfolio.brought_by_partner_id:
+                portatore = portfolio.brought_by_partner_id.name
+            if portatore:
+                title = '\U0001F4C1 Cassetto %s — portato da %s' % (
+                    cedente or 'Sconosciuto', portatore)
+            else:
+                title = '\U0001F4C1 Cassetto ricevuto: %s' % (cedente or 'Sconosciuto')
             desc_lines = [
                 '%d righe  |  EUR %s' % (
                     len(portfolio.line_ids),

@@ -38,6 +38,13 @@ type Portfolio = {
   file_pdf_name: string;
   notes: string;
   lines?: Line[];
+  attribution?: {
+    brought_by: { id: number; name: string } | null;
+    referral: { id: number; name: string } | null;
+    co_segnalatori: Array<{ id: number; name: string; pct: number; notes: string }>;
+    co_segnalatori_count: number;
+    confirmed: boolean;
+  };
 };
 
 const STATE_LABELS: Record<string, { label: string; cls: string }> = {
@@ -346,6 +353,51 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
               </tr>
             </tfoot>
           </table>
+        </div>
+      )}
+
+      {p.attribution && (
+        <div className="border border-slate-200 rounded-lg p-4 bg-white mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-medium text-slate-500 uppercase">Attribuzione</h3>
+            <span className={
+              p.attribution.confirmed
+                ? 'inline-block px-2 py-0.5 text-xs rounded bg-emerald-100 text-emerald-800'
+                : 'inline-block px-2 py-0.5 text-xs rounded bg-amber-100 text-amber-800'
+            }>
+              {p.attribution.confirmed ? 'Confermata' : 'Da confermare'}
+            </span>
+          </div>
+          <dl className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Portatore</dt>
+              <dd className="text-slate-900">
+                {p.attribution.brought_by ? p.attribution.brought_by.name : <span className="text-amber-700 italic">Da assegnare</span>}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Referral</dt>
+              <dd className="text-slate-900">{p.attribution.referral ? p.attribution.referral.name : '—'}</dd>
+            </div>
+            <div className="flex justify-between items-start">
+              <dt className="text-slate-500">Co-segnalatori</dt>
+              <dd className="text-slate-900 text-right">
+                {p.attribution.co_segnalatori.length === 0 ? '—' : (
+                  <ul className="space-y-0.5">
+                    {p.attribution.co_segnalatori.map((cs) => (
+                      <li key={cs.id}>{cs.name} <span className="text-slate-500">— {cs.pct}%</span></li>
+                    ))}
+                  </ul>
+                )}
+              </dd>
+            </div>
+          </dl>
+          {!p.attribution.confirmed && (
+            <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-600">
+              Per confermare l&apos;attribuzione apri il portfolio in Odoo
+              e usa il bottone <strong>Conferma attribuzione</strong> (wizard).
+            </div>
+          )}
         </div>
       )}
 

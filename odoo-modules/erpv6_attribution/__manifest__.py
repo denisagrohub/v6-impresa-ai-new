@@ -10,6 +10,7 @@
         'aeosv6_relation',
         'erpv6_crediti',
         'erpv6_referral',
+        'erpv6_winwin_renderdata',
     ],
     'data': [
         'security/ir.model.access.csv',

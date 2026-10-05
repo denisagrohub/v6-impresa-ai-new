@@ -47,6 +47,28 @@ class AdminCreditsAPIController(ConsultantAPIController):
         }
         if with_lines:
             d['lines'] = [self._line_to_dict(l) for l in p.line_ids]
+        # 05/10/2026 (C-attribution-1c): attribuzione portatore + co-segn
+        # (presente solo se modulo erpv6_attribution installato)
+        if 'brought_by_partner_id' in p._fields:
+            d['attribution'] = {
+                'brought_by': {
+                    'id': p.brought_by_partner_id.id,
+                    'name': p.brought_by_partner_id.name,
+                } if p.brought_by_partner_id else None,
+                'referral': {
+                    'id': p.referral_id.id,
+                    'name': p.referral_id.display_name,
+                } if p.referral_id else None,
+                'co_segnalatori': [
+                    {'id': cs.partner_id.id,
+                     'name': cs.partner_id.name,
+                     'pct': cs.pct,
+                     'notes': cs.notes or ''}
+                    for cs in p.co_segnalatore_ids
+                ],
+                'co_segnalatori_count': len(p.co_segnalatore_ids),
+                'confirmed': bool(p.attribution_confirmed),
+            }
         return d
 
     def _line_to_dict(self, l):
