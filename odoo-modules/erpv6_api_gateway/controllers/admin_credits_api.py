@@ -295,3 +295,131 @@ class AdminCreditsAPIController(ConsultantAPIController):
                 ('Content-Length', str(len(pdf_bytes))),
             ],
         )
+
+    # ═══════════════════════════════════════════════════════════════
+    # GET /api/v1/admin/credit-portfolios/<id>/attribution-wizard
+    # Ritorna i default per la modale Next (portatore proposto,
+    # co-signer copiati, preview split).
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/credit-portfolios/<int:pid>/attribution-wizard',
+                type='http', auth='none', methods=['GET', 'OPTIONS'],
+                csrf=False)
+    def get_attribution_wizard(self, pid, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
+        if not P.exists():
+            return self._json_response({'error': 'Portfolio non trovato'}, 404)
+
+        portatore = None
+        if P.brought_by_partner_id:
+            portatore = P.brought_by_partner_id
+        elif P.cedente_id and P.cedente_id.brought_by_default_partner_id:
+            portatore = P.cedente_id.brought_by_default_partner_id
+
+        try:
+            split = P._propose_split(P)
+        except Exception as e:
+            _logger.warning('attribution-wizard GET: _propose_split fail: %s', e)
+            split = {'error': str(e)}
+
+        return self._json_response({
+            'portfolio': {
+                'id': P.id,
+                'name': P.name,
+                'cedente_name': P.cedente_id.name if P.cedente_id else None,
+                'attribution_confirmed': bool(P.attribution_confirmed),
+            },
+            'defaults': {
+                'verificato_righe': False,
+                'note_verifica': '',
+                'brought_by_partner_id': portatore.id if portatore else None,
+                'brought_by_partner_name': portatore.name if portatore else None,
+                'referral_id': P.referral_id.id if P.referral_id else None,
+                'referral_name': P.referral_id.display_name if P.referral_id else None,
+                'co_signer_lines': [
+                    {'partner_id': cs.partner_id.id,
+                     'partner_name': cs.partner_id.name,
+                     'pct': cs.pct,
+                     'notes': cs.notes or ''}
+                    for cs in P.co_segnalatore_ids
+                ],
+            },
+            'split_preview': split,
+        })
+
+    # ═══════════════════════════════════════════════════════════════
+    # POST /api/v1/admin/credit-portfolios/<id>/attribution-wizard
+    # Applica i dati della modale Next: scrive su portfolio,
+    # setta attribution_confirmed + state reviewed.
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/credit-portfolios/<int:pid>/attribution-wizard',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def post_attribution_wizard(self, pid, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
+        if not P.exists():
+            return self._json_response({'error': 'Portfolio non trovato'}, 404)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+
+        if not body.get('verificato_righe'):
+            return self._json_response(
+                {'error': 'Devi confermare di aver verificato le righe.'}, 400)
+        if not body.get('brought_by_partner_id'):
+            return self._json_response(
+                {'error': 'Il portatore e\' obbligatorio.'}, 400)
+
+        vals = {
+            'brought_by_partner_id': int(body['brought_by_partner_id']),
+            'referral_id': int(body['referral_id']) if body.get('referral_id') else False,
+        }
+        try:
+            P.write(vals)
+        except Exception as e:
+            return self._json_response({'error': str(e)}, 400)
+
+        P.co_segnalatore_ids.unlink()
+        for cs in (body.get('co_signer_lines') or []):
+            pid_cs = cs.get('partner_id')
+            if not pid_cs:
+                continue
+            try:
+                request.env['erpv6.attribution.co_signer'].sudo().create({
+                    'portfolio_id': P.id,
+                    'partner_id': int(pid_cs),
+                    'pct': float(cs.get('pct') or 3.0),
+                    'notes': (cs.get('notes') or '')[:200],
+                })
+            except Exception as e:
+                _logger.warning('co_signer create fail: %s', e)
+
+        note_verifica = (body.get('note_verifica') or '').strip()
+        if note_verifica:
+            P.notes = (P.notes or '') + '\n[Verifica] ' + note_verifica
+
+        P.attribution_confirmed = True
+        if P.state == 'draft':
+            P.state = 'parsed'
+        if P.state == 'parsed':
+            P.state = 'reviewed'
+
+        return self._json_response({
+            'ok': True,
+            'portfolio': self._portfolio_to_dict(P, with_lines=False),
+        })

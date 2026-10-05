@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, AlertCircle, RefreshCw, CheckCircle2, ArrowLeft, RotateCw } from 'lucide-react';
 import Link from 'next/link';
-import { openOdooAction } from '@/lib/odoo-actions';
+import AttributionWizardModal from './AttributionWizardModal';
 
 type Line = {
   id: number;
@@ -98,6 +98,7 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
   const [notesDraft, setNotesDraft] = useState('');
   const [notesDirty, setNotesDirty] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   async function load() {
     setLoading(true); setError(null);
@@ -397,10 +398,7 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end">
               <button
                 type="button"
-                onClick={() => openOdooAction(
-                  'erpv6_attribution.action_attribution_wizard',
-                  { default_portfolio_id: p.id },
-                )}
+                onClick={() => setShowModal(true)}
                 className="px-3 py-1.5 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700"
               >
                 Conferma attribuzione
@@ -431,6 +429,18 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
           </div>
         )}
       </div>
+
+      {showModal && (
+        <AttributionWizardModal
+          portfolioId={parseInt(portfolioId, 10)}
+          onClose={() => setShowModal(false)}
+          onSuccess={() => {
+            setShowModal(false);
+            setNotice('Attribuzione confermata.');
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }
