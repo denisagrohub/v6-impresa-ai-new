@@ -25,6 +25,9 @@ class KBAPIController(APIBaseController):
         domain = [('is_active', '=', True)]
         if kwargs.get('type'):
             domain.append(('kb_type', '=', kwargs['type']))
+        # 06/10/2026 (C-kb-2): filtro per nome categoria
+        if kwargs.get('category'):
+            domain.append(('category_id.name', '=', kwargs['category']))
         if kwargs.get('search'):
             domain.extend(['|', ('name', 'ilike', kwargs['search']), ('description', 'ilike', kwargs['search'])])
 
@@ -57,3 +60,41 @@ class KBAPIController(APIBaseController):
 
         self._log_api_call(f'/api/v1/kb/articles/{article_id}', 'GET', user.id, 200, start_time)
         return self._json_response({'id': article.id, 'name': article.name, 'content': content, 'kb_type': article.kb_type})
+
+    @http.route('/api/v1/kb/bundle', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def get_bundle(self, **kwargs):
+        """06/10/2026 (C-kb-2): bundle KB per contesto AI."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+        user, error = self._authenticate()
+        if error:
+            return error
+
+        domain = [('is_active', '=', True)]
+        if kwargs.get('type'):
+            domain.append(('kb_type', '=', kwargs['type']))
+        if kwargs.get('category'):
+            domain.append(('category_id.name', '=', kwargs['category']))
+
+        limit = min(int(kwargs.get('limit', 30)), 100)
+        articles = request.env['erpv6.kb'].sudo().search(domain, limit=limit)
+
+        data = []
+        for a in articles:
+            content = a.content or ''
+            if a.is_encrypted:
+                try:
+                    content = a.get_content_for_ai(ai_name='api_user_%d' % user.id)
+                except Exception:
+                    content = ''
+            data.append({
+                'id': a.id,
+                'name': a.name,
+                'content': content,
+                'category': a.category_id.name if a.category_id else '',
+                'kb_type': a.kb_type or '',
+            })
+
+        self._log_api_call('/api/v1/kb/bundle', 'GET', user.id, 200, start_time)
+        return self._json_response({'bundle': data, 'count': len(data)})
