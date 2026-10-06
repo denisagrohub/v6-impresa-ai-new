@@ -117,6 +117,16 @@ class Erpv6AgentTelegramConfig(models.Model):
     # 🔐 CAMPO CIFRATO: stesso trattamento di erpv6.omni.provider.api_key --
     # cifrato in create/write, mai leggibile in chiaro se non tramite
     # get_decrypted_bot_token().
+    # 07/10/2026 (C-telegram-otp-bot-1): distingue bot operativo
+    # (Susanna/Claudio) da bot OTP dedicato (V6 Auth). Il polling
+    # e _process_update diramano su mode.
+    mode = fields.Selection([
+        ('operativo', 'Operativo (Susanna/Claudio)'),
+        ('otp', 'Solo OTP (V6 Auth)'),
+    ], string='Modalita', default='operativo', required=True,
+       help='Operativo: riceve messaggi agenti, comandi, callback. '
+            'OTP: accetta solo /start <token> per mappare chat a utente.')
+
     bot_token = fields.Char(
         string='Bot Token (Cifrato)',
         help="Token del bot Telegram (da @BotFather). VUOTO OGGI -- Denis non ha ancora fornito "
@@ -732,6 +742,13 @@ class Erpv6AgentTelegramConfig(models.Model):
         comando/click esplicito) -- mai un'azione dedotta dal testo libero,
         stesso vincolo non negoziabile gia' applicato ai canali Discuss."""
         self.ensure_one()
+        # 07/10/2026 (C-telegram-otp-bot-1): dirama su handler OTP se
+        # questa config e' un bot OTP (V6 Auth). Il bot OTP accetta
+        # /start <token> anche da chat sconosciute: e' il flusso di
+        # prima mappatura.
+        if getattr(self, 'mode', 'operativo') == 'otp':
+            return self._process_otp_update(update)
+
         reaction_update = update.get('message_reaction')
         if reaction_update:
             self._process_reaction_update(reaction_update)
@@ -1156,6 +1173,221 @@ class Erpv6AgentTelegramConfig(models.Model):
         self.send_message(ack_text)
 
     @api.model
+    # ═══════════════════════════════════════════════════════════════
+    # 07/10/2026 (C-telegram-otp-bot-1): metodi bot OTP.
+    # ═══════════════════════════════════════════════════════════════
+
+    def _send_otp_message(self, chat_id, text):
+        """Wrapper a send_message per il bot OTP."""
+        return self.send_message(text, chat_id_override=str(chat_id))
+
+    def _process_otp_update(self, update):
+        """Processa un update del bot OTP (V6 Auth).
+        Accetta SOLO messaggi /start <token>. Ignora tutto il resto
+        con messaggio di aiuto."""
+        message = update.get('message') or update.get('edited_message')
+        if not message:
+            return
+        chat = message.get('chat') or {}
+        chat_id = str(chat.get('id') or '')
+        if not chat_id:
+            return
+        text = html2plaintext(message.get('text') or '').strip()
+
+        # Non-command: risposta informativa (utente ha scritto senza /start)
+        if not text.startswith('/start'):
+            self._send_otp_message(
+                chat_id,
+                "Ciao! Per certificare questa chat, apri l'app V6 e "
+                "clicca 'Installa bot OTP' (genera un link monouso). "
+                "Poi torna qui.")
+            return
+
+        parts = text.split(maxsplit=1)
+        if len(parts) < 2 or not parts[1].strip():
+            self._send_otp_message(
+                chat_id,
+                "Ciao! Per certificare questa chat, apri l'app V6 e "
+                "clicca 'Installa bot OTP' (genera un link monouso). "
+                "Poi torna qui.")
+            return
+
+        token = parts[1].strip()
+        Token = self.env['erpv6.otp.bot.token'].sudo()
+        t = Token.search([
+            ('token', '=', token),
+            ('used', '=', False),
+            ('expires_at', '>', fields.Datetime.now()),
+        ], limit=1)
+        if not t:
+            self._send_otp_message(
+                chat_id,
+                "Codice non valido o scaduto. Rigenera il link dalla "
+                "app V6.")
+            return
+
+        # Mappa (verifica unicità: un utente = una chat)
+        Link = self.env['erpv6.otp.bot.link'].sudo()
+        # Rimuovi eventuali mapping precedenti per questo utente/chat
+        Link.search(['|', ('user_id', '=', t.user_id.id),
+                     ('chat_id', '=', chat_id)]).unlink()
+        Link.create({
+            'user_id': t.user_id.id,
+            'chat_id': chat_id,
+            'linked_at': fields.Datetime.now(),
+        })
+        t.write({'used': True, 'used_at': fields.Datetime.now()})
+
+        _logger.info(
+            'OTP bot: chat %s mappata a user %s',
+            chat_id, t.user_id.name)
+        self._send_otp_message(
+            chat_id,
+            "Ciao %s! Chat certificata. Ora riceverai qui i codici "
+            "di accesso KB (V6 Auth)." % t.user_id.name)
+
+    @api.model
+    def generate_otp_deep_link(self, user, bot_username='v6auth_bot'):
+        """Genera token monouso + deep link t.me/<bot>?start=<token>.
+        Invalida i token precedenti dello stesso utente.
+        Ritorna {token, deep_link, expires_at}."""
+        import secrets as _secrets
+        from datetime import timedelta as _td
+
+        Token = self.env['erpv6.otp.bot.token'].sudo()
+        # Invalida i token pendenti dello stesso utente
+        Token.search([
+            ('user_id', '=', user.id),
+            ('used', '=', False),
+        ]).write({'used': True, 'used_at': fields.Datetime.now()})
+
+        token_value = _secrets.token_urlsafe(16)
+        # 07/10/2026 (C-telegram-otp-bot-2): TTL 15 -> 30 min. Il master
+        # ha tempo per i test manuali senza fretta. Token monouso,
+        # sicurezza invariata.
+        expires_at = fields.Datetime.now() + _td(minutes=30)
+        Token.create({
+            'user_id': user.id,
+            'token': token_value,
+            'expires_at': expires_at,
+        })
+
+        # 07/10/2026 (C-telegram-otp-bot-2): 3 varianti di link per
+        # coprire tutti i canali senza attrito:
+        #   - tg_link: protocollo nativo tg://, apre l'app (mobile
+        #     e desktop) direttamente, no browser, no loop
+        #   - web_link: Telegram Web per desktop senza app
+        #   - manual_command: fallback universale (copia+incolla)
+        tg_link = 'tg://resolve?domain=%s&start=%s' % (
+            bot_username, token_value)
+        web_link = 'https://t.me/%s?start=%s' % (
+            bot_username, token_value)
+        manual_command = '/start %s' % token_value
+
+        return {
+            'token': token_value,
+            # Backward-compat: deep_link = web_link (link pubblico)
+            'deep_link': web_link,
+            # Nuovi campi
+            'tg_link': tg_link,
+            'tg_desktop_link': tg_link,
+            'web_link': web_link,
+            'manual_command': manual_command,
+            'bot_username': bot_username,
+            # qr_data = tg_link (per QR)
+            'qr_data': tg_link,
+            'expires_at': expires_at,
+        }
+
+    @api.model
+    def get_otp_link_status(self, user):
+        """Ritorna stato mappatura chat OTP dell'utente."""
+        Link = self.env['erpv6.otp.bot.link'].sudo()
+        link = Link.search([
+            ('user_id', '=', user.id),
+            ('revoked', '=', False),
+        ], limit=1)
+        if not link:
+            return {'linked': False}
+        # Masca chat_id: mostra solo ultime 4 cifre
+        cid = link.chat_id or ''
+        masked = ('*' * max(0, len(cid) - 4)) + cid[-4:]
+        return {
+            'linked': True,
+            'chat_id_masked': masked,
+            'linked_at': link.linked_at.isoformat() if link.linked_at else None,
+        }
+
+    @api.model
+    def _cron_poll_otp_updates(self):
+        """Polling dedicato SOLO per bot OTP (mode='otp').
+        Isolato da _cron_poll_telegram_updates (id=80) che gestisce
+        i bot operativi. Chiamato da cron ogni 10s con long polling
+        timeout=10."""
+        # Cleanup token scaduti da >1 giorno (evita accumulo)
+        try:
+            self.env['erpv6.otp.bot.token'].sudo()._cleanup_expired()
+        except Exception:
+            _logger.exception('OTP token cleanup fallito')
+
+        configs = self.search([
+            ('is_active', '=', True),
+            ('bot_token', '!=', False),
+            ('mode', '=', 'otp'),
+        ])
+        if not configs:
+            return
+        for config in configs:
+            try:
+                config._poll_updates_otp()
+            except Exception:
+                _logger.exception(
+                    'Polling OTP fallito per configurazione %s',
+                    config.name)
+
+    def _poll_updates_otp(self):
+        """Un giro di getUpdates con long polling timeout=10s per
+        il bot OTP. Elabora ogni update tramite _process_otp_update."""
+        self.ensure_one()
+        if not self.bot_token:
+            return
+        token = self.get_decrypted_bot_token()
+        if not token:
+            return
+        offset = self.last_update_id or 0
+        try:
+            response = requests.get(
+                (TELEGRAM_API_BASE % token) + '/getUpdates',
+                params={
+                    'offset': offset + 1,
+                    # Odoo non permette cron <1 min. Long polling
+                    # timeout=50s: cron gira ogni 60s, aspetta 50s
+                    # in ascolto, elabora. Latenza reale <1s per 83%
+                    # del tempo (gap tra cron ~10s).
+                    'timeout': 50,
+                    'allowed_updates': '["message","edited_message"]',
+                },
+                timeout=60,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as e:
+            _logger.error('OTP getUpdates fallito per %s: %s', self.name, e)
+            return
+        if not payload.get('ok'):
+            _logger.error('OTP getUpdates non ok per %s: %s',
+                          self.name, payload)
+            return
+        updates = payload.get('result') or []
+        for u in updates:
+            try:
+                self._process_otp_update(u)
+                upd_id = u.get('update_id')
+                if upd_id:
+                    self.last_update_id = max(self.last_update_id or 0, upd_id)
+            except Exception:
+                _logger.exception('OTP process update fallito: %s', u)
+
     def _cron_poll_telegram_updates(self):
         """Cron condiviso (stesso principio di _cron_check_agent_direct_messages
         in agent_config.py): scansiona TUTTE le configurazioni attive con un
