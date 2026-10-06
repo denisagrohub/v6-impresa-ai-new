@@ -1,5 +1,6 @@
 from . import main
 from . import kb_api
+from . import kb_otp_bot_api  # 07/10/2026 (C-telegram-otp-bot-1)
 from . import booking_api
 from . import ai_api  # 🔗 Aggiunto per integrazione AI
 from . import lead_api

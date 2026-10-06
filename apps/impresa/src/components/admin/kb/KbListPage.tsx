@@ -5,6 +5,7 @@
 // vede solo le KB che può leggere.
 
 import { useEffect, useState, useCallback } from 'react';
+import OtpBotInstallModal from './OtpBotInstallModal';
 import Link from 'next/link';
 import { Loader2, AlertCircle, Search, RefreshCw, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -64,6 +65,8 @@ export default function KbListPage() {
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
+  const [otpLinked, setOtpLinked] = useState<boolean | null>(null);
+  const [showInstall, setShowInstall] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -87,12 +90,39 @@ export default function KbListPage() {
     }
   }, [kbType, category, search, page]);
 
-  useEffect(() => { load(); }, [load]);
+  // Check OTP status all'avvio
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/users/telegram-otp/status', { headers: authHeaders() });
+        const j = await r.json();
+        const payload = j.data || j;
+        const linked = !!payload.linked;
+        setOtpLinked(linked);
+        if (!linked) setShowInstall(true);
+      } catch {
+        // Se il check fallisce, non blocchiamo la pagina
+        setOtpLinked(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => { if (otpLinked) load(); }, [load, otpLinked]);
 
   // Reset page quando cambiano i filtri
   useEffect(() => { setPage(0); }, [kbType, category, search]);
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+
+  // Se OTP non ancora verificato, mostra solo la modale di installazione
+  if (showInstall) {
+    return (
+      <OtpBotInstallModal
+        onLinked={() => { setShowInstall(false); setOtpLinked(true); }}
+        onClose={() => setShowInstall(false)}
+      />
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
