@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Loader2, AlertCircle, Search, RefreshCw, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import OtpBotInstallModal from './OtpBotInstallModal';
 // 07/10/2026 (C-kb-3b-fix2): helpers sessione unificati in lib.
-import { saveKbSession, clearKbSession, kbSessionHeader } from '@/lib/kb-session';
+import { saveKbSession, clearKbSession, kbSessionHeader, getKbSessionToken } from '@/lib/kb-session';
 import OtpVerifyModal from './OtpVerifyModal';
 
 type Kb = {
@@ -149,6 +149,28 @@ export default function KbListPage() {
     load();
   }
 
+  // 07/10/2026 (C-kb-3b-fix3): logout revoca sessione su Odoo
+  // (DELETE /otp/session), poi pulisce localStorage e riapre OTP.
+  async function handleLogout() {
+    const token = getKbSessionToken();
+    if (token) {
+      try {
+        await fetch('/api/kb/otp/session', {
+          method: 'DELETE',
+          headers: kbSessionHeader(),
+        });
+      } catch (e) {
+        // Non blocco il logout se la revoca fallisce (es. offline)
+        console.warn('[kb-logout] revoca sessione fallita', e);
+      }
+    }
+    clearKbSession();
+    setItems([]);
+    setTotal(0);
+    setShowOtpVerify(true);
+    setOtpMessage('Sessione chiusa. Accedi con un nuovo codice OTP.');
+  }
+
   // Reset page quando cambiano i filtri
   useEffect(() => { setPage(0); }, [kbType, category, search]);
 
@@ -193,7 +215,7 @@ export default function KbListPage() {
             Aggiorna
           </button>
           <button
-            onClick={() => { clearKbSession(); window.location.reload(); }}
+            onClick={handleLogout}
             className="text-xs text-slate-500 hover:text-slate-700"
           >
             Esci
