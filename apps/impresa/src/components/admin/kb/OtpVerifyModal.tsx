@@ -8,6 +8,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle2, Shield, Send } from 'lucide-react';
+// 07/10/2026 (C-kb-3b-fix2): salva token direttamente. No delega
+// a onVerified (setTimeout -> smontaggio -> perdita token).
+import { saveKbSession } from '@/lib/kb-session';
 
 type Props = {
   onVerified: (sessionToken: string) => void;
@@ -95,9 +98,14 @@ export default function OtpVerifyModal({ onVerified, onClose, initialMessage }: 
       const j = await r.json();
       const payload = j.data || j;
       if (!r.ok || payload.error) throw new Error(payload.error || `HTTP ${r.status}`);
+      if (!payload.session_token) {
+        throw new Error('Nessun token ricevuto dal server');
+      }
+      // 07/10/2026 (C-kb-3b-fix2): salva ORA, sincrono. Non delegare.
+      saveKbSession(payload.session_token, payload.expires_at || null);
       setPhase('done');
       setInfo('Accesso autorizzato.');
-      setTimeout(() => { onVerified(payload.session_token); }, 800);
+      onVerified(payload.session_token);
     } catch (e: any) {
       setError(e.message || 'Codice errato');
       setCode('');
@@ -125,9 +133,10 @@ export default function OtpVerifyModal({ onVerified, onClose, initialMessage }: 
         return;
       }
       if (payload.ok && payload.session_token) {
+        saveKbSession(payload.session_token, payload.expires_at || null);
         setPhase('done');
         setInfo('Bypass concesso (registrato nel log).');
-        setTimeout(() => { onVerified(payload.session_token); }, 800);
+        onVerified(payload.session_token);
       }
     } catch (e: any) {
       setError(e.message || 'Errore bypass');

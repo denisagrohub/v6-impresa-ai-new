@@ -10,6 +10,8 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Loader2, AlertCircle, Search, RefreshCw, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import OtpBotInstallModal from './OtpBotInstallModal';
+// 07/10/2026 (C-kb-3b-fix2): helpers sessione unificati in lib.
+import { saveKbSession, clearKbSession, kbSessionHeader } from '@/lib/kb-session';
 import OtpVerifyModal from './OtpVerifyModal';
 
 type Kb = {
@@ -48,39 +50,12 @@ const ACCESS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 const LIMIT = 30;
-const KB_SESSION_KEY = 'kb_session_token';
-const KB_SESSION_EXP_KEY = 'kb_session_expires';
-
 function authHeaders(): Record<string, string> {
   try {
     const raw = localStorage.getItem('pi_session');
     const s = raw ? JSON.parse(raw) : null;
     return s?.token ? { Authorization: `JWT ${s.token}` } : {};
   } catch { return {}; }
-}
-
-function kbSessionHeader(): Record<string, string> {
-  try {
-    const token = localStorage.getItem(KB_SESSION_KEY);
-    const exp = localStorage.getItem(KB_SESSION_EXP_KEY);
-    if (!token) return {};
-    if (exp && new Date(exp) < new Date()) {
-      localStorage.removeItem(KB_SESSION_KEY);
-      localStorage.removeItem(KB_SESSION_EXP_KEY);
-      return {};
-    }
-    return { 'X-Kb-Session': token };
-  } catch { return {}; }
-}
-
-function saveKbSession(token: string, expiresAt: string | null) {
-  localStorage.setItem(KB_SESSION_KEY, token);
-  if (expiresAt) localStorage.setItem(KB_SESSION_EXP_KEY, expiresAt);
-}
-
-function clearKbSession() {
-  localStorage.removeItem(KB_SESSION_KEY);
-  localStorage.removeItem(KB_SESSION_EXP_KEY);
 }
 
 export default function KbListPage() {
