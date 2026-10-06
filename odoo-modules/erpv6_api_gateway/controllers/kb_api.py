@@ -54,7 +54,7 @@ class KBAPIController(APIBaseController):
     def _require_kb_session(self):
         """Ritorna None se sessione valida, altrimenti errore JSON."""
         # Bypass admin Denis (user_id=2) — hardcoded
-        if self.env.user.id == 2:
+        if request.env.user.id == 2:
             return None
 
         token = request.httprequest.headers.get('X-Kb-Session')
@@ -68,7 +68,7 @@ class KBAPIController(APIBaseController):
         Session = request.env['erpv6.kb.session'].sudo()
         s = Session.search([
             ('token', '=', token),
-            ('user_id', '=', self.env.user.id),
+            ('user_id', '=', request.env.user.id),
             ('revoked', '=', False),
             ('expires_at', '>', _fields.Datetime.now()),
         ], limit=1)
