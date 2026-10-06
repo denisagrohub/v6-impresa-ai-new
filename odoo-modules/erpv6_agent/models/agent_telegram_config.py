@@ -1262,18 +1262,40 @@ class Erpv6AgentTelegramConfig(models.Model):
         ]).write({'used': True, 'used_at': fields.Datetime.now()})
 
         token_value = _secrets.token_urlsafe(16)
-        expires_at = fields.Datetime.now() + _td(minutes=15)
+        # 07/10/2026 (C-telegram-otp-bot-2): TTL 15 -> 30 min. Il master
+        # ha tempo per i test manuali senza fretta. Token monouso,
+        # sicurezza invariata.
+        expires_at = fields.Datetime.now() + _td(minutes=30)
         Token.create({
             'user_id': user.id,
             'token': token_value,
             'expires_at': expires_at,
         })
 
-        deep_link = 'https://t.me/%s?start=%s' % (bot_username, token_value)
+        # 07/10/2026 (C-telegram-otp-bot-2): 3 varianti di link per
+        # coprire tutti i canali senza attrito:
+        #   - tg_link: protocollo nativo tg://, apre l'app (mobile
+        #     e desktop) direttamente, no browser, no loop
+        #   - web_link: Telegram Web per desktop senza app
+        #   - manual_command: fallback universale (copia+incolla)
+        tg_link = 'tg://resolve?domain=%s&start=%s' % (
+            bot_username, token_value)
+        web_link = 'https://t.me/%s?start=%s' % (
+            bot_username, token_value)
+        manual_command = '/start %s' % token_value
+
         return {
             'token': token_value,
-            'deep_link': deep_link,
-            'qr_data': deep_link,
+            # Backward-compat: deep_link = web_link (link pubblico)
+            'deep_link': web_link,
+            # Nuovi campi
+            'tg_link': tg_link,
+            'tg_desktop_link': tg_link,
+            'web_link': web_link,
+            'manual_command': manual_command,
+            'bot_username': bot_username,
+            # qr_data = tg_link (per QR)
+            'qr_data': tg_link,
             'expires_at': expires_at,
         }
 

@@ -71,8 +71,13 @@ class KbOtpBotAPIController(ConsultantAPIController):
 
         return self._json_response({
             'ok': True,
-            'deep_link': data['deep_link'],
-            'qr_data': data['qr_data'],
+            'deep_link': data.get('deep_link'),
+            'tg_link': data.get('tg_link'),
+            'tg_desktop_link': data.get('tg_desktop_link'),
+            'web_link': data.get('web_link'),
+            'manual_command': data.get('manual_command'),
+            'bot_username': data.get('bot_username', 'v6auth_bot'),
+            'qr_data': data.get('qr_data'),
             'expires_at': data['expires_at'].isoformat()
                 if data.get('expires_at') else None,
         })
