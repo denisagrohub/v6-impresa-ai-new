@@ -923,7 +923,12 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             user_name, firma_email)
         signature = 'Un saluto,\n' + firma_completa
 
-        body_text = '\n\n'.join(parts) + '\n\n' + signature
+        # 06/10/2026 (fix sign dup): body_for_typst = senza firma,
+        # perche' il template lettera.typ stampa body + signature
+        # separatamente. body_text = con firma, per UI preview /
+        # copia testo / email body_text.
+        body_for_typst = '\n\n'.join(parts)
+        body_text = body_for_typst + '\n\n' + signature
 
         def _h(t):
             return t.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
@@ -955,7 +960,7 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
                 'place_date': place_date,
                 'recipient_block': recipient_block,
                 'subject': v['subject'],
-                'body': body_text,
+                'body': body_for_typst,
                 'signature': signature,
             },
         }
