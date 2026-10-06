@@ -97,8 +97,21 @@ class KBAPIController(APIBaseController):
         total = len(articles_filtered)
         articles = articles_filtered[offset:offset + limit]
 
-        data = [{'id': a.id, 'name': a.name, 'description': a.description, 'kb_type': a.kb_type,
-                 'priority': a.priority, 'use_count': a.use_count, 'version': a.version} for a in articles]
+        # 06/10/2026 (C-kb-4): aggiunti category_name + access_level
+        # per UI lista (filtro + badge).
+        data = [{
+            'id': a.id,
+            'name': a.name,
+            'description': a.description or '',
+            'kb_type': a.kb_type or '',
+            'category_id': a.category_id.id if a.category_id else None,
+            'category_name': a.category_id.name if a.category_id else '',
+            'access_level': a.access_level or 'public',
+            'is_active': a.is_active,
+            'priority': a.priority,
+            'use_count': a.use_count,
+            'version': a.version or 1,
+        } for a in articles]
 
         self._log_api_call('/api/v1/kb/articles', 'GET', user.id, 200, start_time)
         # 06/10/2026 (C-kb-3a Blocco C): audit
