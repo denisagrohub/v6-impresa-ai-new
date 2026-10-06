@@ -45,6 +45,29 @@ class KBAPIController(APIBaseController):
             return False  # solo via get_content_for_ai (mai in API)
         return False
 
+    def _log_kb_access(self, action, user, kb=None, details=None):
+        """06/10/2026 (C-kb-3a Blocco C): audit log accessi KB.
+        Best-effort: un errore nel log non deve mai rompere
+        l'accesso vero. Riceve 'user' esplicito (gia' disponibile
+        in ogni endpoint dopo _authenticate), usa request.env
+        (sempre valido dentro un route handler).
+        """
+        try:
+            ip = ua = None
+            if request and hasattr(request, 'httprequest'):
+                ip = request.httprequest.remote_addr
+                ua = request.httprequest.user_agent.string if request.httprequest.user_agent else None
+            request.env['erpv6.kb.access.log'].sudo().create({
+                'user_id': user.id,
+                'kb_id': kb.id if kb else False,
+                'action': action,
+                'ip_address': ip,
+                'user_agent': (ua or '')[:200],
+                'details': details,
+            })
+        except Exception as e:
+            _logger.warning('kb access log fail: %s', e)
+
     @http.route('/api/v1/kb/articles', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def list_articles(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
@@ -78,6 +101,8 @@ class KBAPIController(APIBaseController):
                  'priority': a.priority, 'use_count': a.use_count, 'version': a.version} for a in articles]
 
         self._log_api_call('/api/v1/kb/articles', 'GET', user.id, 200, start_time)
+        # 06/10/2026 (C-kb-3a Blocco C): audit
+        self._log_kb_access('list', user=user, details='total=%d' % total)
         return self._json_response({'articles': data, 'total': total})
 
     @http.route('/api/v1/kb/articles/<int:article_id>', type='http', auth='none', methods=['GET'], csrf=False)
@@ -101,6 +126,8 @@ class KBAPIController(APIBaseController):
             content = article.get_content_for_ai(ai_name=f'api_user_{user.id}')
 
         self._log_api_call(f'/api/v1/kb/articles/{article_id}', 'GET', user.id, 200, start_time)
+        # 06/10/2026 (C-kb-3a Blocco C): audit
+        self._log_kb_access('read', user=user, kb=article)
         return self._json_response({'id': article.id, 'name': article.name, 'content': content, 'kb_type': article.kb_type})
 
     @http.route('/api/v1/kb/bundle', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
@@ -146,4 +173,6 @@ class KBAPIController(APIBaseController):
             })
 
         self._log_api_call('/api/v1/kb/bundle', 'GET', user.id, 200, start_time)
+        # 06/10/2026 (C-kb-3a Blocco C): audit
+        self._log_kb_access('bundle', user=user, details='count=%d' % len(data))
         return self._json_response({'bundle': data, 'count': len(data)})
