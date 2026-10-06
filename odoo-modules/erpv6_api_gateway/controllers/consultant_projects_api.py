@@ -755,47 +755,114 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             'label': 'Facilitatore',
             'tone': 'tu',
             'subject': 'V6 Impresa - collaborazione su operazioni di cessione crediti',
-            'paragraph': (
-                'Stiamo cercando controparti con partite di crediti '
-                '(o facilitatori che ne seguono), con alcuni criteri '
-                'operativi di base:\n'
-                '  - Mandato scritto del cedente (non dichiarazioni verbali)\n'
-                '  - Catena di facilitatori corta\n'
-                '  - Operazioni recenti, non gia a mercato da settimane\n'
-                '  - Importi di una certa consistenza (> 500k)'
+            # PD-01 Reciprocita: diamo i criteri prima di chiedere.
+            # PD-03 Autorita: metodo esplicito, non "siamo bravi".
+            # PD-11 Timing Kairos: finestra recente.
+            # PD-14 Decisori nascosti: domanda su chi decide.
+            'body': (
+                'Ci occupiamo di intermediazione su crediti fiscali e certificati '
+                'energetici (Superbonus, bonus facciate, ecobonus, TEE) tra aziende '
+                'che hanno crediti da cedere e operatori interessati all\'acquisto.\n\n'
+                'Prima di chiederti qualsiasi cosa, ti mando i criteri che usiamo '
+                'per valutare un\'operazione. Cosi vedi subito se ha senso parlarne:\n\n'
+                '  - Mandato scritto del cedente (non "gliel\'ha detto" o catene verbali)\n'
+                '  - Catena di facilitatori corta (ogni anello carica commissioni senza valore)\n'
+                '  - Operazione recente, meno di 2-3 settimane a mercato\n'
+                '  - Importo sopra 500k (sotto e poco appetibile per i compratori)\n'
+                '  - Cassetto verticale (tutto) o orizzontale (solo alcune annualita)\n\n'
+                'Il metodo che usiamo e Analisi Win-Win (documentato, non a sensazione): '
+                'leggiamo il cassetto, verifichiamo i criteri, e in 48h ti diamo un '
+                'riscontro sull\'interesse.'
+            ),
+            'question': (
+                'Una cosa utile sapere subito: chi e coinvolto nella decisione '
+                'finale del cedente? Se ci sono piu decisori (socio, commercialista), '
+                'organizziamo una call insieme e rispondiamo a tutti.'
             ),
         },
         'buyer': {
             'label': 'Compratore',
             'tone': 'tu',
             'subject': 'V6 Impresa - pacchetti crediti fiscali per acquisto',
-            'paragraph': (
-                'Stiamo cercando operatori interessati a pacchetti di '
-                'crediti fiscali tra 500k e 5M EUR. Componiamo pacchetti '
-                'ottimizzati (omogenei per anno/tipologia) con pricing '
-                'competitivo.'
+            # PD-01: mando come li componiamo prima di proporre.
+            # PD-10 Framing: fascia con motivazione.
+            # PD-03: metodo esplicito.
+            'body': (
+                'Ci occupiamo di intermediazione su crediti fiscali e certificati '
+                'energetici (Superbonus, bonus facciate, ecobonus, TEE).\n\n'
+                'Prima di parlare di pacchetti, ti mando come li componiamo:\n\n'
+                '  - Fascia 500k - 5M EUR (sotto non e efficiente per la valutazione)\n'
+                '  - Pacchetti omogenei per anno e tipologia di credito\n'
+                '  - Cedibilita gia verificata sul cassetto AdE (chiunque / qualificati / intermediari)\n'
+                '  - Con o senza certificazione BIG4, quando c\'e la dichiariamo\n\n'
+                'Il metodo e Analisi Win-Win (documentato): leggiamo cassetto per '
+                'cassetto, verifichiamo la coerenza, proponiamo solo operazioni che '
+                'reggono ai controlli.'
+            ),
+            'question': (
+                'Per comporre il pacchetto giusto, mi serve sapere: nel tuo processo '
+                'di acquisto, chi decide l\'ok finale? Se ci sono piu valutatori '
+                '(risk, compliance), saperlo aiuta.'
             ),
         },
         'seller': {
             'label': 'Cedente',
             'tone': 'lei',
             'subject': 'V6 Impresa - valutazione cessione crediti fiscali',
-            'paragraph': (
-                'Se la Sua azienda ha crediti fiscali da cedere, '
-                'valutiamo insieme la cessione. Il primo passo e il '
-                'cassetto fiscale: analizziamo in 48h e proponiamo '
-                'una offerta.'
+            # PD-08 Loss Aversion: documentata in KB 607 (cassetto fermo perde valore).
+            # PD-03: metodo esplicito, non a sensazione.
+            # PD-14 Decisori nascosti.
+            # OB-05 prevenuta: "5 minuti".
+            'body': (
+                'Ci occupiamo di intermediazione su crediti fiscali e certificati '
+                'energetici (Superbonus, bonus facciate, ecobonus, TEE).\n\n'
+                'Se la Sua azienda ha crediti fiscali da cedere, valutiamo insieme '
+                'la cessione.\n\n'
+                'Un dato documentato dal mercato: un cassetto fermo perde valore nel '
+                'tempo. Il mercato si muove, i compratori cambiano criteri, le '
+                'finestre si chiudono. Piu a lungo resta fermo, piu basso diventa il '
+                'prezzo che riusciamo a spuntare.\n\n'
+                'Il primo passo e semplice e non vincolante:\n'
+                '  1. Ci manda il cassetto fiscale (estratto AdE)\n'
+                '  2. Lo analizziamo con metodo V6 (Analisi Win-Win)\n'
+                '  3. In 48h Le diamo un riscontro: se interessa, con una proposta. '
+                'Se non interessa, glielo diciamo chiaramente'
+            ),
+            'question': (
+                'Se ci sono piu decisori nella Sua azienda (soci, commercialista, '
+                'coniuge per ditte individuali), organizziamo una call insieme: '
+                'rispondiamo alle domande di tutti in una volta.'
             ),
         },
         'studio': {
             'label': 'Studio / commercialista',
             'tone': 'lei',
-            'subject': 'V6 Impresa - collaborazione su cessione crediti dei suoi clienti',
-            'paragraph': (
-                'Lavoriamo con commercialisti e consulenti che seguono '
-                'aziende con crediti. Se ha clienti in questa situazione, '
-                'possiamo strutturare la cessione insieme con split '
-                'commissionale trasparente.'
+            'subject': 'V6 Impresa - collaborazione su cessione crediti dei Suoi clienti',
+            # PD-01 Reciprocita: come strutturiamo prima di proporre.
+            # PD-03 Autorita + trasparenza.
+            # OB-04 prevenuta: nessun vincolo sul cliente.
+            # OB-06 prevenuta: caso pilota abbassa il rischio.
+            'body': (
+                'Ci occupiamo di intermediazione su crediti fiscali e certificati '
+                'energetici (Superbonus, bonus facciate, ecobonus, TEE). Lavoriamo '
+                'con commercialisti e consulenti che seguono aziende con crediti.\n\n'
+                'Prima di proporle una collaborazione, Le mando come la strutturiamo:\n\n'
+                '  1. Split commissionale trasparente, concordato per scritto prima '
+                'dell\'operazione. Nessuna sorpresa a chiusura.\n'
+                '  2. Il Suo ruolo e di garanzia, non di vendita. Le chiediamo di '
+                'metterci in contatto con il cliente; analisi, valutazione e '
+                'negoziazione le facciamo noi.\n'
+                '  3. Nessun vincolo sul cliente. Se preferisce un altro '
+                'intermediario, il rapporto con Lei resta intatto.\n\n'
+                'Il metodo e Analisi Win-Win (documentato, non a sensazione): '
+                'leggiamo il cassetto, verifichiamo la cedibilita, proponiamo solo '
+                'operazioni che reggono ai controlli.'
+            ),
+            'question': (
+                'Se ha clienti nella situazione - con crediti fiscali da cedere o '
+                'da valutare - proviamo un caso pilota. Un cliente, un cassetto, '
+                'uno split concordato. Se funziona, continuiamo. Se non funziona, '
+                'non ci perdiamo nulla.'
             ),
         },
     }
@@ -816,8 +883,8 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
 
         alias_full = '%s@v6impresa.it' % (root.email_alias or '')
         tone = v.get('tone', 'tu')
-        # Saluto coerente col tono. In "Lei" il consulente puo'
-        # scrivere titolo nel campo destinatario (Dott./Sig.).
+        # Il nome del destinatario e' testo libero: chi invia puo'
+        # scrivere "Dott. Rossi" o solo "Marco" a seconda del tono.
         nome = (recipient_name or '').strip() or (
             'Gentile controparte' if tone == 'lei' else 'Ciao')
 
@@ -828,48 +895,35 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
 
         intro = (
             'Buongiorno %s,\n\n'
-            'sono %s, referente di V6 Impresa per il progetto %s.\n\n'
-            'Ci occupiamo di intermediazione su crediti fiscali e certificati '
-            'energetici (Superbonus, bonus facciate, ecobonus, TEE) tra aziende '
-            'che hanno crediti da cedere e operatori interessati all\'acquisto.'
+            'sono %s, referente di V6 Impresa per il progetto %s.'
         ) % (nome, user_name, root.name or '')
 
-        para = v['paragraph']
+        # Body della variante (include reciprocita', criteri, loss aversion).
+        body = v['body']
+        # Domanda diretta (varia per variante, evita ripetizione).
+        question = v.get('question', '')
 
-        # Closing differenziato per tono (coerenza totale tu/Lei).
-        if tone == 'lei':
-            closing = (
-                'Se Lei riconosce queste caratteristiche nella Sua realta '
-                'o ha contatti interessati, possiamo valutare insieme '
-                'l\'operazione.\n\n'
-                'Il primo passo e semplice: ci manda il cassetto fiscale (o ci '
-                'mette in contatto con il cedente) e in 48h Le diamo un '
-                'riscontro sull\'interesse.\n\n'
-                'Per informazioni o per aprire un dialogo:\n'
-                '  %s\n  %s'
-            ) % (alias_full, firma_email)
-        else:
-            closing = (
-                'Se ti riconosci in queste caratteristiche o hai contatti '
-                'interessati, possiamo valutare insieme l\'operazione.\n\n'
-                'Il primo passo e semplice: ci mandi il cassetto fiscale (o ci '
-                'metti in contatto con il cedente) e in 48h ti diamo un '
-                'riscontro sull\'interesse.\n\n'
-                'Per info o per aprire un dialogo:\n'
-                '  %s\n  %s'
-            ) % (alias_full, firma_email)
+        # Closing: contatti.
+        closing = (
+            'Per info o per aprire un dialogo:\n'
+            '  %s\n  %s'
+        ) % (alias_full, firma_email)
 
         custom = (personalization or '').strip()
-        custom_block = ('\n\n' + custom) if custom else ''
 
-        body_text = '\n\n'.join([intro, para, closing]) + custom_block
+        parts = [intro, body]
+        if question:
+            parts.append(question)
+        parts.append(closing)
+        if custom:
+            parts.append(custom)
 
-        signature = (
-            'Un saluto,\n'
-            '%s\n'
-            'V6 Impresa - Consulente\n'
-            '%s'
-        ) % (user_name, firma_email)
+        # Firma: nome + ruolo specifico (non generico "Consulente").
+        firma_completa = '%s\nV6 Impresa - Acquisizione Controparti - Certificati\n%s' % (
+            user_name, firma_email)
+        signature = 'Un saluto,\n' + firma_completa
+
+        body_text = '\n\n'.join(parts) + '\n\n' + signature
 
         def _h(t):
             return t.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
@@ -881,7 +935,8 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
             '<p>' + _h(closing).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>'
             + ('<p>' + _h(custom).replace('\n', '<br/>') + '</p>' if custom else '')
             + '<p style="color:#666;font-size:13px;margin-top:24px;">'
-            '<strong>' + _h(user_name) + '</strong><br/>V6 Impresa - Consulente<br/>'
+            '<strong>' + _h(user_name) + '</strong><br/>'
+            'V6 Impresa - Acquisizione Controparti - Certificati<br/>'
             + _h(firma_email) + '</p></div>'
         )
 
