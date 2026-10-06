@@ -141,9 +141,9 @@ export default function OtpBotInstallModal({ onLinked, onClose }: Props) {
                   <h3 className="text-sm font-semibold text-slate-800">Da telefono</h3>
                 </div>
                 <div className="flex items-start gap-4">
-                  {link.qr_data && (
+                  {link.web_link && (
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(link.qr_data)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(link.web_link)}`}
                       alt="QR V6 Auth"
                       className="border border-slate-200 rounded flex-shrink-0"
                       width={160}
@@ -152,7 +152,7 @@ export default function OtpBotInstallModal({ onLinked, onClose }: Props) {
                   )}
                   <div className="text-xs text-slate-600 space-y-1">
                     <p>Inquadra il QR con la fotocamera del telefono.</p>
-                    <p className="text-slate-400">Il QR usa il protocollo nativo <code className="bg-slate-100 px-1 rounded">tg://</code>: apre l&apos;app Telegram direttamente, non il browser.</p>
+                    <p className="text-slate-400">Inquadrando il QR, il telefono apre l&apos;app Telegram direttamente. Se compare &quot;Apri in app&quot;, conferma.</p>
                     <p className="pt-1">Poi premi <strong>START</strong> nel bot.</p>
                   </div>
                 </div>
