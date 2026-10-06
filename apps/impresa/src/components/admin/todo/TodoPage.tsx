@@ -33,6 +33,10 @@ type Todo = {
   done_at: string | null;
   create_date: string | null;
   is_overdue: boolean;
+  // 07/10/2026 (C-todo-1): sync calendar
+  scheduled_at: string | null;
+  duration_minutes: number | null;
+  calendar_event_id: number | null;
 };
 
 function authHeaders(): Record<string, string> {
@@ -61,6 +65,15 @@ function isToday(iso: string | null): boolean {
     && d.getDate() === t.getDate();
 }
 
+// 07/10/2026 (C-todo-1): combina due_date (YYYY-MM-DD) + time (HH:MM)
+// in scheduled_at Datetime (YYYY-MM-DD HH:MM:SS). Se time vuoto,
+// ritorna null (TODO senza blocco calendario).
+function combineDateTime(date: string, time: string): string | null {
+  if (!date || !time) return null;
+  // Odoo accetta formato 'YYYY-MM-DD HH:MM:SS'
+  return `${date} ${time}:00`;
+}
+
 const STATE_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'Tutti gli stati' },
   { value: 'open', label: 'Aperti' },
@@ -85,6 +98,9 @@ export default function TodoPage() {
 
   const [newName, setNewName] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
+  // 07/10/2026 (C-todo-1): ora + durata per sync calendar
+  const [newTime, setNewTime] = useState('');
+  const [newDuration, setNewDuration] = useState('30');
   const [newUserId, setNewUserId] = useState<string>('');
   // 02/10/2026 (C1a-BIS-2): associazioni progetto/deal nel form
   const [newProjectId, setNewProjectId] = useState<string>('');
@@ -97,6 +113,9 @@ export default function TodoPage() {
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
+  // 07/10/2026 (C-todo-1): ora + durata in edit
+  const [editTime, setEditTime] = useState('');
+  const [editDuration, setEditDuration] = useState('30');
   const [editUserId, setEditUserId] = useState<string>('');
   const [editProjectId, setEditProjectId] = useState<string>('');
   const [editDealId, setEditDealId] = useState<string>('');
@@ -253,6 +272,12 @@ export default function TodoPage() {
       if (newUserId) payload.user_id = parseInt(newUserId, 10);
       if (newProjectId) payload.project_id = parseInt(newProjectId, 10);
       if (newDealId) payload.deal_id = parseInt(newDealId, 10);
+      // 07/10/2026 (C-todo-1): se data + ora -> scheduled_at
+      const sched = combineDateTime(newDueDate, newTime);
+      if (sched) {
+        payload.scheduled_at = sched;
+        payload.duration_minutes = parseInt(newDuration || '30', 10);
+      }
       const r = await fetch('/api/admin/todos', {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
@@ -262,6 +287,8 @@ export default function TodoPage() {
       if (!r.ok) throw new Error(d?.error || 'Errore creazione');
       setNewName('');
       setNewDueDate('');
+      setNewTime('');
+      setNewDuration('30');
       setNewUserId('');
       setNewProjectId('');
       setNewDealId('');
@@ -306,6 +333,16 @@ export default function TodoPage() {
     setEditName(t.name);
     setEditDescription(t.description || '');
     setEditDueDate(t.due_date || '');
+    // 07/10/2026 (C-todo-1): estrai ora da scheduled_at se presente
+    if (t.scheduled_at) {
+      // scheduled_at: "YYYY-MM-DD HH:MM:SS" o ISO
+      const raw = t.scheduled_at.replace('T', ' ').slice(0, 19);
+      const hhmm = raw.slice(11, 16); // "HH:MM"
+      setEditTime(hhmm);
+    } else {
+      setEditTime('');
+    }
+    setEditDuration(t.duration_minutes ? String(t.duration_minutes) : '30');
     setEditUserId(t.user_id ? String(t.user_id) : '');
     setEditProjectId(t.project_id ? String(t.project_id) : '');
     setEditDealId(t.deal_id ? String(t.deal_id) : '');
@@ -316,6 +353,8 @@ export default function TodoPage() {
     setEditName('');
     setEditDescription('');
     setEditDueDate('');
+    setEditTime('');
+    setEditDuration('30');
     setEditUserId('');
     setEditProjectId('');
     setEditDealId('');
@@ -338,6 +377,12 @@ export default function TodoPage() {
         project_id: editProjectId ? parseInt(editProjectId, 10) : null,
         deal_id: editDealId ? parseInt(editDealId, 10) : null,
       };
+      // 07/10/2026 (C-todo-1): sync calendar
+      const sched = combineDateTime(editDueDate, editTime);
+      payload.scheduled_at = sched;  // null se no time -> cancella evento
+      if (sched) {
+        payload.duration_minutes = parseInt(editDuration || '30', 10);
+      }
       if (isAdmin && editUserId) {
         payload.user_id = parseInt(editUserId, 10);
       }
@@ -500,6 +545,33 @@ export default function TodoPage() {
             className="text-[11px] text-gray-600 bg-transparent outline-none border border-gray-100 rounded px-1.5 py-0.5 hover:border-gray-200"
             title="Scadenza"
           />
+          {newDueDate && (
+            <>
+              <input
+                type="time"
+                value={newTime}
+                onChange={(e) => setNewTime(e.target.value)}
+                disabled={submitting}
+                className="text-[11px] text-gray-600 bg-transparent outline-none border border-gray-100 rounded px-1.5 py-0.5 hover:border-gray-200"
+                title="Ora (crea blocco calendario)"
+              />
+              {newTime && (
+                <select
+                  value={newDuration}
+                  onChange={(e) => setNewDuration(e.target.value)}
+                  disabled={submitting}
+                  className="text-[11px] text-gray-600 bg-transparent outline-none border border-gray-100 rounded px-1.5 py-0.5 hover:border-gray-200"
+                  title="Durata"
+                >
+                  <option value="15">15 min</option>
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">1 ora</option>
+                  <option value="90">1h30</option>
+                </select>
+              )}
+            </>
+          )}
           {isAdmin && users.length > 0 && (
             <select
               value={newUserId}
@@ -602,6 +674,32 @@ export default function TodoPage() {
                           onChange={(e) => setEditDueDate(e.target.value)}
                           className="px-2 py-1.5 rounded border border-gray-200 bg-white text-xs text-[#0F1E3C] outline-none focus:border-[#0F1E3C]"
                         />
+                        {/* 07/10/2026 (C-todo-1): ora + durata in edit */}
+                        {editDueDate && (
+                          <>
+                            <input
+                              type="time"
+                              value={editTime}
+                              onChange={(e) => setEditTime(e.target.value)}
+                              className="px-2 py-1.5 rounded border border-gray-200 bg-white text-xs text-[#0F1E3C] outline-none focus:border-[#0F1E3C]"
+                              title="Ora (blocco calendario)"
+                            />
+                            {editTime && (
+                              <select
+                                value={editDuration}
+                                onChange={(e) => setEditDuration(e.target.value)}
+                                className="px-2 py-1.5 rounded border border-gray-200 bg-white text-xs text-[#0F1E3C] outline-none focus:border-[#0F1E3C]"
+                                title="Durata"
+                              >
+                                <option value="15">15 min</option>
+                                <option value="30">30 min</option>
+                                <option value="45">45 min</option>
+                                <option value="60">1 ora</option>
+                                <option value="90">1h30</option>
+                              </select>
+                            )}
+                          </>
+                        )}
                         {isAdmin && users.length > 0 && (
                           <select
                             value={editUserId}

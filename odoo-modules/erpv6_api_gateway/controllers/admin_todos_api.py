@@ -45,6 +45,9 @@ class AdminTodosAPIController(ConsultantAPIController):
             'deal_id': t.deal_id.id if t.deal_id else None,
             'deal_name': t.deal_id.name if t.deal_id else None,
             'due_date': t.due_date.isoformat() if t.due_date else None,
+            'scheduled_at': t.scheduled_at.isoformat() if 'scheduled_at' in t._fields and t.scheduled_at else None,
+            'duration_minutes': t.duration_minutes if 'duration_minutes' in t._fields else None,
+            'calendar_event_id': t.calendar_event_id.id if 'calendar_event_id' in t._fields and t.calendar_event_id else None,
             'state': t.state,
             'is_auto': t.is_auto,
             'source': t.source or None,
@@ -223,6 +226,14 @@ class AdminTodosAPIController(ConsultantAPIController):
                 return self._json_response({'error': 'deal_id non valido'}, 400)
         if body.get('due_date'):
             vals['due_date'] = body['due_date']
+        # 07/10/2026 (C-todo-1)
+        if body.get('scheduled_at'):
+            vals['scheduled_at'] = body['scheduled_at']
+        if body.get('duration_minutes') is not None:
+            try:
+                vals['duration_minutes'] = int(body['duration_minutes'])
+            except (ValueError, TypeError):
+                pass
 
         try:
             todo = request.env['erpv6.todo'].sudo().create(vals)
@@ -350,3 +361,74 @@ class AdminTodosAPIController(ConsultantAPIController):
             return self._json_response({'error': str(e)}, 400)
 
         return self._json_response({'deleted': True, 'id': todo_id})
+
+    # ═══════════════════════════════════════════════════════════════
+    # POST /api/v1/admin/todos/check-conflict
+    # 07/10/2026 (C-todo-1): warning non bloccante su sovrapposizione
+    # con altri calendar.event.
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/todos/check-conflict', type='http',
+                auth='none', methods=['POST', 'OPTIONS'], csrf=False)
+    def check_todo_conflict(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        try:
+            body = json.loads(request.httprequest.data or b'{}')
+        except (ValueError, TypeError):
+            return self._json_response({'error': 'JSON non valido'}, 400)
+
+        scheduled = body.get('scheduled_at')
+        durata = int(body.get('duration_minutes') or 30)
+        exclude_id = body.get('exclude_event_id')
+        if not scheduled:
+            return self._json_response({'conflicts': []})
+
+        # Parse scheduled (accetta ISO con Z o con spazio)
+        from datetime import datetime as _dt, timedelta as _td
+        try:
+            if 'T' in scheduled:
+                s = scheduled.replace('Z', '+00:00')
+                start = _dt.fromisoformat(s)
+                start = start.replace(tzinfo=None)
+            else:
+                start = _dt.strptime(scheduled[:19], '%Y-%m-%d %H:%M:%S')
+        except Exception:
+            return self._json_response({'error': 'scheduled_at non valido'}, 400)
+        stop = start + _td(minutes=durata)
+
+        Event = request.env['calendar.event'].sudo()
+        domain = [
+            ('start', '<', stop),
+            ('stop', '>', start),
+        ]
+        # Solo eventi dell'utente corrente (o dove e' attendee)
+        partner = user.partner_id
+        domain_scope = ['|', ('user_id', '=', user.id),
+                        ('partner_ids', 'in', [partner.id])]
+        events = Event.search(domain + domain_scope)
+        if exclude_id:
+            try:
+                events = events.filtered(lambda e: e.id != int(exclude_id))
+            except Exception:
+                pass
+
+        def _iso(dt):
+            if not dt: return None
+            return dt.isoformat() + 'Z'
+
+        conflicts = []
+        for e in events[:10]:
+            conflicts.append({
+                'id': e.id,
+                'name': e.name or '',
+                'start': _iso(e.start),
+                'stop': _iso(e.stop),
+                'is_from_todo': bool(e.is_from_todo),
+                'todo_id': e.todo_id.id if e.todo_id else None,
+            })
+        return self._json_response({'conflicts': conflicts})

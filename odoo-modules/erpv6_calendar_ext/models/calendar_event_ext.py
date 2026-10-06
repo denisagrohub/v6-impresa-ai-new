@@ -58,6 +58,53 @@ class CalendarEvent(models.Model):
     )
 
 
+    # 07/10/2026 (C-todo-1): link a erpv6.todo.
+    # Un calendar.event con is_from_todo=True nasce da un TODO
+    # (scheduled_at compilato). Modifiche a start/stop dell'evento
+    # aggiornano todo.scheduled_at (sync bidirezionale, context
+    # skip_todo_sync previene loop).
+    todo_id = fields.Many2one(
+        'erpv6.todo',
+        string='TODO origine',
+        ondelete='set null', index=True,
+    )
+    is_from_todo = fields.Boolean(
+        string='Da TODO',
+        default=False, index=True,
+        help='True se generato automaticamente da un erpv6.todo.',
+    )
+
+    # 07/10/2026 (C-todo-1): sync inversa. Se l'evento e' da TODO
+    # e cambia start/stop/name, aggiorna il TODO collegato.
+    # context skip_todo_sync previene loop (il TODO scrive l'evento
+    # con skip_todo_sync=True, cosi' non ritorna al TODO).
+    def write(self, vals):
+        res = super().write(vals)
+        if self.env.context.get('skip_todo_sync'):
+            return res
+        if not any(k in vals for k in ('start', 'stop', 'name')):
+            return res
+        for e in self.filtered(lambda x: x.is_from_todo and x.todo_id):
+            try:
+                todo_vals = {}
+                if 'start' in vals and e.start:
+                    todo_vals['scheduled_at'] = e.start
+                if 'stop' in vals and e.start and e.stop:
+                    delta = e.stop - e.start
+                    todo_vals['duration_minutes'] = int(delta.total_seconds() / 60)
+                if 'name' in vals and e.name:
+                    # Rimuovi marker [FATTO] se presente
+                    nm = (e.name or '').replace(' [FATTO]', '').strip()
+                    if nm:
+                        todo_vals['name'] = nm
+                if todo_vals:
+                    e.todo_id.sudo().with_context(
+                        skip_todo_sync=True).write(todo_vals)
+            except Exception:
+                _logger.exception(
+                    'calendar.event write: sync inversa TODO fallita per e=%s', e.id)
+        return res
+
     # ═══════════════════════════════════════════════════════════════
     # 03/10/2026 (C1b-agenda-COMPLETE-B): notifica immediata al create
     # ═══════════════════════════════════════════════════════════════
