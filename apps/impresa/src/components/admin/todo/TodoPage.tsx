@@ -9,11 +9,11 @@
 // AdminLayout interno — /admin/todo NON è in SKIP_PREFIXES.
 // ═══════════════════════════════════════════════════════════════════
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Check, Plus, Loader2, AlertCircle, Pencil, Trash2, X,
-  ArrowLeft, Search,
+  ArrowLeft, Search, AlertTriangle,
 } from 'lucide-react';
 
 type Todo = {
@@ -37,6 +37,16 @@ type Todo = {
   scheduled_at: string | null;
   duration_minutes: number | null;
   calendar_event_id: number | null;
+};
+
+// 07/10/2026 (C-todo-1-fix): conflitto calendar su scheduled_at
+type ConflictItem = {
+  id: number;
+  name: string;
+  start: string;
+  stop: string;
+  is_from_todo: boolean;
+  todo_id: number | null;
 };
 
 function authHeaders(): Record<string, string> {
@@ -72,6 +82,14 @@ function combineDateTime(date: string, time: string): string | null {
   if (!date || !time) return null;
   // Odoo accetta formato 'YYYY-MM-DD HH:MM:SS'
   return `${date} ${time}:00`;
+}
+
+// 07/10/2026 (C-todo-1-fix): estrae HH:MM da ISO o 'YYYY-MM-DD HH:MM:SS'.
+// Non converte timezone (coerente con quello che l'utente ha digitato).
+function extractHHMM(s: string | null | undefined): string {
+  if (!s) return '';
+  if (s.length >= 16) return s.slice(11, 16);
+  return s;
 }
 
 const STATE_OPTIONS: { value: string; label: string }[] = [
@@ -122,6 +140,48 @@ export default function TodoPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
+  // 07/10/2026 (C-todo-1-fix): dialog warning conflitto calendar
+  const [conflictDialog, setConflictDialog] = useState<{
+    items: ConflictItem[];
+    onConfirm: () => void;
+  } | null>(null);
+  const [checkingConflict, setCheckingConflict] = useState(false);
+
+  // Ritorna lista conflitti (vuota se nessuno o errore). Non bloccante.
+  const fetchConflicts = useCallback(
+    async (
+      scheduledAt: string,
+      durationMinutes: number,
+      excludeEventId?: number | null,
+    ): Promise<ConflictItem[]> => {
+      try {
+        setCheckingConflict(true);
+        const body: any = {
+          scheduled_at: scheduledAt,
+          duration_minutes: durationMinutes,
+        };
+        if (excludeEventId) body.exclude_event_id = excludeEventId;
+        const r = await fetch('/api/admin/todos/check-conflict', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          // Non bloccare il salvataggio per un errore di check
+          console.warn('[check-conflict]', d?.error || r.status);
+          return [];
+        }
+        return (d?.conflicts || []) as ConflictItem[];
+      } catch (e: any) {
+        console.warn('[check-conflict] network', e?.message);
+        return [];
+      } finally {
+        setCheckingConflict(false);
+      }
+    },
+    [],
+  );
 
   const load = async () => {
     setLoading(true);
@@ -261,23 +321,10 @@ export default function TodoPage() {
   const overdueCount = todos.filter((t) => t.state === 'open' && t.is_overdue).length;
   const doneTodayCount = todos.filter((t) => t.state === 'done' && isToday(t.done_at)).length;
 
-  const create = async () => {
-    const name = newName.trim();
-    if (!name || submitting) return;
+  const doCreate = async (payload: any) => {
     setSubmitting(true);
     setError(null);
     try {
-      const payload: any = { name };
-      if (newDueDate) payload.due_date = newDueDate;
-      if (newUserId) payload.user_id = parseInt(newUserId, 10);
-      if (newProjectId) payload.project_id = parseInt(newProjectId, 10);
-      if (newDealId) payload.deal_id = parseInt(newDealId, 10);
-      // 07/10/2026 (C-todo-1): se data + ora -> scheduled_at
-      const sched = combineDateTime(newDueDate, newTime);
-      if (sched) {
-        payload.scheduled_at = sched;
-        payload.duration_minutes = parseInt(newDuration || '30', 10);
-      }
       const r = await fetch('/api/admin/todos', {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
@@ -298,6 +345,39 @@ export default function TodoPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const create = async () => {
+    const name = newName.trim();
+    if (!name || submitting) return;
+    const payload: any = { name };
+    if (newDueDate) payload.due_date = newDueDate;
+    if (newUserId) payload.user_id = parseInt(newUserId, 10);
+    if (newProjectId) payload.project_id = parseInt(newProjectId, 10);
+    if (newDealId) payload.deal_id = parseInt(newDealId, 10);
+    // 07/10/2026 (C-todo-1): se data + ora -> scheduled_at
+    const sched = combineDateTime(newDueDate, newTime);
+    let durata = 30;
+    if (sched) {
+      durata = parseInt(newDuration || '30', 10);
+      payload.scheduled_at = sched;
+      payload.duration_minutes = durata;
+    }
+    // 07/10/2026 (C-todo-1-fix): check conflitto prima di POST
+    if (sched) {
+      const items = await fetchConflicts(sched, durata);
+      if (items.length > 0) {
+        setConflictDialog({
+          items,
+          onConfirm: () => {
+            setConflictDialog(null);
+            doCreate(payload);
+          },
+        });
+        return;
+      }
+    }
+    await doCreate(payload);
   };
 
   const toggleDone = async (t: Todo) => {
@@ -360,6 +440,26 @@ export default function TodoPage() {
     setEditDealId('');
   };
 
+  const doSaveEdit = async (todoId: number, payload: any) => {
+    setSavingEdit(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/admin/todos/${todoId}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.error || 'Errore salvataggio');
+      setTodos((prev) => prev.map((x) => (x.id === todoId ? d.todo : x)));
+      cancelEdit();
+    } catch (e: any) {
+      setError(e.message || 'Errore');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const saveEdit = async () => {
     if (!editingId) return;
     const name = editName.trim();
@@ -367,39 +467,42 @@ export default function TodoPage() {
       setError('Il nome non può essere vuoto');
       return;
     }
-    setSavingEdit(true);
-    setError(null);
-    try {
-      const payload: any = {
-        name,
-        description: editDescription,
-        due_date: editDueDate || null,
-        project_id: editProjectId ? parseInt(editProjectId, 10) : null,
-        deal_id: editDealId ? parseInt(editDealId, 10) : null,
-      };
-      // 07/10/2026 (C-todo-1): sync calendar
-      const sched = combineDateTime(editDueDate, editTime);
-      payload.scheduled_at = sched;  // null se no time -> cancella evento
-      if (sched) {
-        payload.duration_minutes = parseInt(editDuration || '30', 10);
-      }
-      if (isAdmin && editUserId) {
-        payload.user_id = parseInt(editUserId, 10);
-      }
-      const r = await fetch(`/api/admin/todos/${editingId}`, {
-        method: 'PATCH',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d?.error || 'Errore salvataggio');
-      setTodos((prev) => prev.map((x) => (x.id === editingId ? d.todo : x)));
-      cancelEdit();
-    } catch (e: any) {
-      setError(e.message || 'Errore');
-    } finally {
-      setSavingEdit(false);
+    const payload: any = {
+      name,
+      description: editDescription,
+      due_date: editDueDate || null,
+      project_id: editProjectId ? parseInt(editProjectId, 10) : null,
+      deal_id: editDealId ? parseInt(editDealId, 10) : null,
+    };
+    // 07/10/2026 (C-todo-1): sync calendar
+    const sched = combineDateTime(editDueDate, editTime);
+    payload.scheduled_at = sched;  // null se no time -> cancella evento
+    let durata = 30;
+    if (sched) {
+      durata = parseInt(editDuration || '30', 10);
+      payload.duration_minutes = durata;
     }
+    if (isAdmin && editUserId) {
+      payload.user_id = parseInt(editUserId, 10);
+    }
+    // 07/10/2026 (C-todo-1-fix): check conflitto, esclude evento del TODO
+    if (sched) {
+      const current = todos.find((t) => t.id === editingId);
+      const excludeId = current?.calendar_event_id ?? null;
+      const items = await fetchConflicts(sched, durata, excludeId);
+      if (items.length > 0) {
+        const tid = editingId;
+        setConflictDialog({
+          items,
+          onConfirm: () => {
+            setConflictDialog(null);
+            doSaveEdit(tid, payload);
+          },
+        });
+        return;
+      }
+    }
+    await doSaveEdit(editingId, payload);
   };
 
   const remove = async (t: Todo) => {
@@ -829,6 +932,62 @@ export default function TodoPage() {
           </div>
         ))}
       </div>
+
+      {/* 07/10/2026 (C-todo-1-fix): warning sovrapposizione calendar */}
+      {conflictDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setConflictDialog(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-200">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <h2 className="text-sm font-semibold text-[#0F1E3C]">
+                Sovrapposizione rilevata
+              </h2>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-gray-600">Hai gia&#39; in agenda:</p>
+              <ul className="space-y-1.5">
+                {conflictDialog.items.map((c) => (
+                  <li
+                    key={c.id}
+                    className="text-xs bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-amber-900"
+                  >
+                    <span className="font-mono">
+                      {extractHHMM(c.start)}-{extractHHMM(c.stop)}
+                    </span>{' '}
+                    <span className="font-medium">{c.name}</span>
+                    {c.is_from_todo && (
+                      <span className="ml-1 text-[10px] text-amber-700">(da TODO)</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-600 pt-1">
+                Vuoi procedere comunque?
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setConflictDialog(null)}
+                className="px-3 py-1.5 text-xs rounded border border-gray-300 hover:bg-white"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => conflictDialog.onConfirm()}
+                className="px-3 py-1.5 text-xs rounded bg-amber-600 text-white hover:bg-amber-700"
+              >
+                Procedi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

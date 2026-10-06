@@ -74,6 +74,26 @@ class CalendarEvent(models.Model):
         help='True se generato automaticamente da un erpv6.todo.',
     )
 
+    # 07/10/2026 (C-todo-1-fix): se l'evento e' da TODO ed e' stato
+    # cancellato dall'utente (non dal TODO stesso, che passa
+    # skip_todo_sync), resetta scheduled_at del TODO collegato.
+    # Senza questo, scheduled_at resta compilato e al prossimo write
+    # del TODO l'evento viene ricreato.
+    def unlink(self):
+        if not self.env.context.get('skip_todo_sync'):
+            for e in self.filtered(lambda x: x.is_from_todo and x.todo_id):
+                try:
+                    e.todo_id.sudo().with_context(
+                        skip_todo_sync=True).write({
+                            'scheduled_at': False,
+                            'calendar_event_id': False,
+                        })
+                except Exception:
+                    _logger.exception(
+                        'calendar.event unlink: reset TODO %s fallito',
+                        e.todo_id.id)
+        return super().unlink()
+
     # 07/10/2026 (C-todo-1): sync inversa. Se l'evento e' da TODO
     # e cambia start/stop/name, aggiorna il TODO collegato.
     # context skip_todo_sync previene loop (il TODO scrive l'evento
