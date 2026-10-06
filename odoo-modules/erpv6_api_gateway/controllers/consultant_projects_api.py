@@ -930,13 +930,14 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
 
         body_html = (
             '<div style="font-family:sans-serif;font-size:14px;color:#333;line-height:1.6;">'
-            '<p>' + _h(intro).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>'
-            '<p>' + _h(para).replace('\n', '<br/>') + '</p>'
-            '<p>' + _h(closing).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>'
+            + '<p>' + _h(intro).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>'
+            + '<p>' + _h(body).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>'
+            + ('<p>' + _h(question).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>' if question else '')
+            + '<p>' + _h(closing).replace('\n\n', '</p><p>').replace('\n', '<br/>') + '</p>'
             + ('<p>' + _h(custom).replace('\n', '<br/>') + '</p>' if custom else '')
             + '<p style="color:#666;font-size:13px;margin-top:24px;">'
-            '<strong>' + _h(user_name) + '</strong><br/>'
-            'V6 Impresa - Acquisizione Controparti - Certificati<br/>'
+            + '<strong>' + _h(user_name) + '</strong><br/>'
+            + 'V6 Impresa - Acquisizione Controparti - Certificati<br/>'
             + _h(firma_email) + '</p></div>'
         )
 
