@@ -6,3 +6,4 @@ from . import kb_request
 from . import kb_engine
 from . import kb_normalizer
 from . import kb_access_log
+from . import kb_otp

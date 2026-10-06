@@ -1,12 +1,16 @@
 'use client';
 
 // 06/10/2026 (C-kb-4): lista KB read-only con filtri.
-// Enforcement access_level già a valle (C-kb-3a): l'utente
-// vede solo le KB che può leggere.
+// 07/10/2026 (C-kb-3b): gate OTP Telegram + sessione X-Kb-Session.
+// Enforcement access_level + OTP a valle (C-kb-3a + C-kb-3b):
+// l'utente vede solo le KB che può leggere, e solo dopo aver
+// verificato un OTP via bot V6 Auth.
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Loader2, AlertCircle, Search, RefreshCw, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import OtpBotInstallModal from './OtpBotInstallModal';
+import OtpVerifyModal from './OtpVerifyModal';
 
 type Kb = {
   id: number;
@@ -44,6 +48,8 @@ const ACCESS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 const LIMIT = 30;
+const KB_SESSION_KEY = 'kb_session_token';
+const KB_SESSION_EXP_KEY = 'kb_session_expires';
 
 function authHeaders(): Record<string, string> {
   try {
@@ -51,6 +57,30 @@ function authHeaders(): Record<string, string> {
     const s = raw ? JSON.parse(raw) : null;
     return s?.token ? { Authorization: `JWT ${s.token}` } : {};
   } catch { return {}; }
+}
+
+function kbSessionHeader(): Record<string, string> {
+  try {
+    const token = localStorage.getItem(KB_SESSION_KEY);
+    const exp = localStorage.getItem(KB_SESSION_EXP_KEY);
+    if (!token) return {};
+    if (exp && new Date(exp) < new Date()) {
+      localStorage.removeItem(KB_SESSION_KEY);
+      localStorage.removeItem(KB_SESSION_EXP_KEY);
+      return {};
+    }
+    return { 'X-Kb-Session': token };
+  } catch { return {}; }
+}
+
+function saveKbSession(token: string, expiresAt: string | null) {
+  localStorage.setItem(KB_SESSION_KEY, token);
+  if (expiresAt) localStorage.setItem(KB_SESSION_EXP_KEY, expiresAt);
+}
+
+function clearKbSession() {
+  localStorage.removeItem(KB_SESSION_KEY);
+  localStorage.removeItem(KB_SESSION_EXP_KEY);
 }
 
 export default function KbListPage() {
@@ -65,6 +95,29 @@ export default function KbListPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
 
+  // Gate: chat certificata + OTP verificato
+  const [otpLinked, setOtpLinked] = useState<boolean | null>(null);
+  const [showInstall, setShowInstall] = useState(false);
+  const [showOtpVerify, setShowOtpVerify] = useState(false);
+  const [otpMessage, setOtpMessage] = useState<string | null>(null);
+
+  // ─── Check certificazione chat all'avvio ───
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/users/telegram-otp/status', { headers: authHeaders() });
+        const j = await r.json();
+        const payload = j.data || j;
+        const linked = !!payload.linked;
+        setOtpLinked(linked);
+        if (!linked) setShowInstall(true);
+      } catch {
+        setOtpLinked(true); // in dubbio, non bloccare
+      }
+    })();
+  }, []);
+
+  // ─── load lista (solo dopo OTP gate) ───
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
@@ -74,9 +127,24 @@ export default function KbListPage() {
       if (search) params.set('search', search);
       params.set('limit', String(LIMIT));
       params.set('offset', String(page * LIMIT));
-      const r = await fetch(`/api/kb/list?${params.toString()}`, { headers: authHeaders() });
+      const headers = { ...authHeaders(), ...kbSessionHeader() };
+      const r = await fetch(`/api/kb/list?${params.toString()}`, { headers });
       const j = await r.json();
       const payload = j.data || j;
+      // 401 kb_session_* -> apri modale OTP
+      if (r.status === 401 && (payload.error === 'kb_session_expired' || payload.error === 'kb_session_required')) {
+        clearKbSession();
+        setOtpMessage(
+          payload.error === 'kb_session_expired'
+            ? 'Sessione scaduta. Richiedi un nuovo codice OTP.'
+            : 'Serve un codice OTP per accedere alla Knowledge Base.',
+        );
+        setShowOtpVerify(true);
+        setItems([]);
+        setTotal(0);
+        setLoading(false);
+        return;
+      }
       if (!r.ok || payload.error) throw new Error(payload.error || `HTTP ${r.status}`);
       setItems(payload.articles || []);
       setTotal(payload.total || 0);
@@ -87,12 +155,49 @@ export default function KbListPage() {
     }
   }, [kbType, category, search, page]);
 
-  useEffect(() => { load(); }, [load]);
+  // ─── Gate: se chat certificata ma nessuna sessione, apri OTP ───
+  useEffect(() => {
+    if (!otpLinked) return;
+    const token = kbSessionHeader()['X-Kb-Session'];
+    if (!token) {
+      setOtpMessage('Per accedere alla Knowledge Base serve il codice OTP.');
+      setShowOtpVerify(true);
+      return;
+    }
+    load();
+  }, [load, otpLinked]);
+
+  function handleOtpVerified(sessionToken: string) {
+    saveKbSession(sessionToken, null);
+    setShowOtpVerify(false);
+    setOtpMessage(null);
+    load();
+  }
 
   // Reset page quando cambiano i filtri
   useEffect(() => { setPage(0); }, [kbType, category, search]);
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+
+  // ─── Gate modali ───
+  if (showInstall) {
+    return (
+      <OtpBotInstallModal
+        onLinked={() => { setShowInstall(false); setOtpLinked(true); }}
+        onClose={() => setShowInstall(false)}
+      />
+    );
+  }
+
+  if (showOtpVerify) {
+    return (
+      <OtpVerifyModal
+        initialMessage={otpMessage}
+        onVerified={handleOtpVerified}
+        onClose={() => setShowOtpVerify(false)}
+      />
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -106,11 +211,19 @@ export default function KbListPage() {
             </p>
           </div>
         </div>
-        <button onClick={load} disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 text-sm rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Aggiorna
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={load} disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 text-sm rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Aggiorna
+          </button>
+          <button
+            onClick={() => { clearKbSession(); window.location.reload(); }}
+            className="text-xs text-slate-500 hover:text-slate-700"
+          >
+            Esci
+          </button>
+        </div>
       </div>
 
       {/* Filtri */}

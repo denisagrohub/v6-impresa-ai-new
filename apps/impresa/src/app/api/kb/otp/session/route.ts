@@ -8,7 +8,7 @@ function fwError(e: any) {
   return NextResponse.json({ error: msg }, { status: m ? parseInt(m[1], 10) : 502 });
 }
 
-export async function GET(request: NextRequest, ctx: { params: { id: string } }) {
+export async function DELETE(request: NextRequest) {
   if (!isOdooEnabled()) return NextResponse.json({ error: 'Odoo non configurato' }, { status: 503 });
   const auth = request.headers.get('authorization');
   if (!auth) return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
@@ -16,8 +16,8 @@ export async function GET(request: NextRequest, ctx: { params: { id: string } })
     const kbSession = request.headers.get('x-kb-session');
     const headers: Record<string, string> = { Authorization: auth };
     if (kbSession) headers['X-Kb-Session'] = kbSession;
-    const r = await callOdooAPI(`/api/v1/kb/articles/${ctx.params.id}`, {
-      method: 'GET', headers,
+    const r = await callOdooAPI('/api/v1/kb/otp/session', {
+      method: 'DELETE', headers,
     });
     return NextResponse.json(r);
   } catch (e: any) { return fwError(e); }

@@ -8,3 +8,5 @@ access_tag_admin,erpv6.kb.tag admin,model_erpv6_kb_tag,base.group_system,1,1,1,1
 access_kb_request_user,erpv6.kb.request user,model_erpv6_kb_request,base.group_user,1,1,1,0
 access_kb_request_admin,erpv6.kb.request admin,model_erpv6_kb_request,base.group_system,1,1,1,1
 access_kb_access_log_system,kb.access.log system,model_erpv6_kb_access_log,base.group_system,1,1,1,1
+access_kb_otp_system,kb.otp system,model_erpv6_kb_otp,base.group_system,1,1,1,1
+access_kb_session_system,kb.session system,model_erpv6_kb_session,base.group_system,1,1,1,1

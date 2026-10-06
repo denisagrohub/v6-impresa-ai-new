@@ -45,6 +45,40 @@ class KBAPIController(APIBaseController):
             return False  # solo via get_content_for_ai (mai in API)
         return False
 
+    # ═══════════════════════════════════════════════════════════════
+    # 07/10/2026 (C-kb-3b): enforcement X-Kb-Session.
+    # Dopo JWT + access_level, serve un OTP valido che ha generato
+    # una sessione erpv6.kb.session. Header X-Kb-Session obbligatorio.
+    # BYPASS: user_id=2 (Denis) hardcoded, con log rinforzato.
+    # ═══════════════════════════════════════════════════════════════
+    def _require_kb_session(self):
+        """Ritorna None se sessione valida, altrimenti errore JSON."""
+        # Bypass admin Denis (user_id=2) — hardcoded
+        if self.env.user.id == 2:
+            return None
+
+        token = request.httprequest.headers.get('X-Kb-Session')
+        if not token:
+            return self._json_response({
+                'error': 'kb_session_required',
+                'message': 'Serve OTP. Apri /admin/kb.',
+            }, 401)
+
+        from odoo import fields as _fields
+        Session = request.env['erpv6.kb.session'].sudo()
+        s = Session.search([
+            ('token', '=', token),
+            ('user_id', '=', self.env.user.id),
+            ('revoked', '=', False),
+            ('expires_at', '>', _fields.Datetime.now()),
+        ], limit=1)
+        if not s:
+            return self._json_response({
+                'error': 'kb_session_expired',
+                'message': 'Sessione scaduta. Riapri /admin/kb.',
+            }, 401)
+        return None
+
     def _log_kb_access(self, action, user, kb=None, details=None):
         """06/10/2026 (C-kb-3a Blocco C): audit log accessi KB.
         Best-effort: un errore nel log non deve mai rompere
@@ -76,6 +110,10 @@ class KBAPIController(APIBaseController):
         user, error = self._authenticate()
         if error:
             return error
+        # 07/10/2026 (C-kb-3b): enforcement sessione OTP
+        sess_err = self._require_kb_session()
+        if sess_err:
+            return sess_err
 
         domain = [('is_active', '=', True)]
         if kwargs.get('type'):
@@ -124,6 +162,10 @@ class KBAPIController(APIBaseController):
         user, error = self._authenticate()
         if error:
             return error
+        # 07/10/2026 (C-kb-3b): enforcement sessione OTP
+        sess_err = self._require_kb_session()
+        if sess_err:
+            return sess_err
 
         article = request.env['erpv6.kb'].sudo().browse(article_id)
         if not article.exists():
@@ -152,6 +194,10 @@ class KBAPIController(APIBaseController):
         user, error = self._authenticate()
         if error:
             return error
+        # 07/10/2026 (C-kb-3b): enforcement sessione OTP
+        sess_err = self._require_kb_session()
+        if sess_err:
+            return sess_err
 
         domain = [('is_active', '=', True)]
         if kwargs.get('type'):
@@ -189,3 +235,160 @@ class KBAPIController(APIBaseController):
         # 06/10/2026 (C-kb-3a Blocco C): audit
         self._log_kb_access('bundle', user=user, details='count=%d' % len(data))
         return self._json_response({'bundle': data, 'count': len(data)})
+
+    # ═══════════════════════════════════════════════════════════════
+    # 07/10/2026 (C-kb-3b): endpoint OTP + sessione.
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/kb/otp/request',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def otp_request(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        # Verifica access_level minimo
+        if not user.has_group('base.group_system') and \
+                not user.has_group('erpv6_core.group_chief_projects') and \
+                not user.has_group('erpv6_core.group_chief_kb') and \
+                not user.has_group('erpv6_core.group_consulente'):
+            return self._json_response(
+                {'error': 'Non hai accesso alla Knowledge Base'}, 403)
+
+        # Verifica chat certificata
+        Link = request.env['erpv6.otp.bot.link'].sudo()
+        link = Link.search([
+            ('user_id', '=', user.id),
+            ('revoked', '=', False),
+        ], limit=1)
+        if not link:
+            return self._json_response({
+                'error': 'kb_telegram_not_certified',
+                'message': 'Installa il bot V6 Auth prima di procedere.',
+            }, 428)  # Precondition Required
+
+        try:
+            otp = request.env['erpv6.kb.otp'].sudo()._generate_otp(user, 'read')
+        except Exception as e:
+            _logger.exception('OTP request fallito')
+            return self._json_response({'error': str(e)}, 500)
+
+        return self._json_response({
+            'ok': True,
+            'otp_id': otp.id,
+            'expires_at': otp.expires_at.isoformat(),
+        })
+
+    @http.route('/api/v1/kb/otp/verify',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def otp_verify(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+        otp_id = body.get('otp_id')
+        code = (body.get('code') or '').strip()
+        if not otp_id or not code:
+            return self._json_response(
+                {'error': 'otp_id e code obbligatori'}, 400)
+
+        ip = request.httprequest.remote_addr
+        ua = request.httprequest.user_agent.string if request.httprequest.user_agent else None
+        result = request.env['erpv6.kb.otp'].sudo()._verify_otp(
+            otp_id, code, ip, ua)
+        if not result.get('ok'):
+            return self._json_response(result, 400)
+        return self._json_response(result)
+
+    @http.route('/api/v1/kb/otp/bypass',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def otp_bypass(self, **kwargs):
+        """Bypass OTP solo per Denis (user_id=2), doppia conferma."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        # Hardcoded user_id=2. Da generalizzare con campo bypass_enabled
+        # su res.users se in futuro serve per altri admin.
+        if user.id != 2:
+            return self._json_response(
+                {'error': 'Bypass non autorizzato'}, 403)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+        confirm = bool(body.get('confirm'))
+
+        if not confirm:
+            return self._json_response({
+                'warning': 'Bypass OTP registrato nel log. Confermi?',
+                'confirm_required': True,
+            })
+
+        # Crea sessione
+        import secrets as _secrets
+        from datetime import timedelta as _td
+        from odoo import fields as _fields
+        Session = request.env['erpv6.kb.session'].sudo()
+        token = _secrets.token_urlsafe(32)
+        expires = _fields.Datetime.now() + _td(hours=1)
+        session = Session.create({
+            'user_id': 2,
+            'token': token,
+            'purpose': 'read',
+            'expires_at': expires,
+            'ip_address': request.httprequest.remote_addr,
+            'user_agent': (request.httprequest.user_agent.string or '')[:200] if request.httprequest.user_agent else None,
+        })
+
+        # Log rinforzato
+        request.env['erpv6.kb.access.log'].sudo().create({
+            'user_id': 2,
+            'action': 'otp_bypass_admin',
+            'details': 'BYPASS concesso. session_id=%s' % session.id,
+            'ip_address': request.httprequest.remote_addr,
+        })
+        _logger.warning(
+            'KB OTP BYPASS concesso a user 2 (Denis) da IP %s',
+            request.httprequest.remote_addr)
+
+        return self._json_response({
+            'ok': True,
+            'session_token': token,
+            'expires_at': expires.isoformat(),
+        })
+
+    @http.route('/api/v1/kb/otp/session',
+                type='http', auth='none', methods=['DELETE', 'POST', 'OPTIONS'],
+                csrf=False)
+    def session_revoke(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        token = request.httprequest.headers.get('X-Kb-Session')
+        if token:
+            request.env['erpv6.kb.session'].sudo().search([
+                ('token', '=', token),
+                ('user_id', '=', user.id),
+            ]).write({'revoked': True})
+        return self._json_response({'ok': True})
