@@ -51,10 +51,12 @@ class KBAPIController(APIBaseController):
     # una sessione erpv6.kb.session. Header X-Kb-Session obbligatorio.
     # BYPASS: user_id=2 (Denis) hardcoded, con log rinforzato.
     # ═══════════════════════════════════════════════════════════════
-    def _require_kb_session(self):
+    def _require_kb_session(self, user=None):
         """Ritorna None se sessione valida, altrimenti errore JSON."""
         # Bypass admin Denis (user_id=2) — hardcoded
-        if request.env.user.id == 2:
+        if user is None:
+            user = request.env.user
+        if user.id == 2:
             return None
 
         token = request.httprequest.headers.get('X-Kb-Session')
@@ -68,7 +70,7 @@ class KBAPIController(APIBaseController):
         Session = request.env['erpv6.kb.session'].sudo()
         s = Session.search([
             ('token', '=', token),
-            ('user_id', '=', request.env.user.id),
+            ('user_id', '=', user.id),
             ('revoked', '=', False),
             ('expires_at', '>', _fields.Datetime.now()),
         ], limit=1)
@@ -111,7 +113,7 @@ class KBAPIController(APIBaseController):
         if error:
             return error
         # 07/10/2026 (C-kb-3b): enforcement sessione OTP
-        sess_err = self._require_kb_session()
+        sess_err = self._require_kb_session(user=user)
         if sess_err:
             return sess_err
 
@@ -163,7 +165,7 @@ class KBAPIController(APIBaseController):
         if error:
             return error
         # 07/10/2026 (C-kb-3b): enforcement sessione OTP
-        sess_err = self._require_kb_session()
+        sess_err = self._require_kb_session(user=user)
         if sess_err:
             return sess_err
 
@@ -195,7 +197,7 @@ class KBAPIController(APIBaseController):
         if error:
             return error
         # 07/10/2026 (C-kb-3b): enforcement sessione OTP
-        sess_err = self._require_kb_session()
+        sess_err = self._require_kb_session(user=user)
         if sess_err:
             return sess_err
 
