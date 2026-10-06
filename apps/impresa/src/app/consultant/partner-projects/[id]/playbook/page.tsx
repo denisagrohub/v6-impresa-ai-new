@@ -4,6 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Printer, Building2, Target, BookOpen, Mail, Send } from "lucide-react";
 import SendPlaybookModal from "@/components/admin/playbook/SendPlaybookModal";
+import LetterModal from "@/components/consultant/LetterModal";
 
 export default function PlaybookPage() {
     const router = useRouter();
@@ -15,6 +16,7 @@ export default function PlaybookPage() {
     const [error, setError] = useState<string | null>(null);
     const [exporting, setExporting] = useState(false);
     const [showSendModal, setShowSendModal] = useState(false);
+    const [showLetterModal, setShowLetterModal] = useState(false);
 
     useEffect(() => {
         const s = localStorage.getItem("pi_session");
@@ -88,6 +90,13 @@ export default function PlaybookPage() {
                             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#1a2744] text-white text-sm hover:bg-[#0f3460] disabled:opacity-50"
                         >
                             <Send size={14} /> Invia playbook
+                        </button>
+                        <button
+                            onClick={() => setShowLetterModal(true)}
+                            disabled={!data}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 text-sm hover:bg-gray-50 disabled:opacity-50"
+                        >
+                            <Mail size={14} /> Genera lettera
                         </button>
                         <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm hover:bg-gray-50">
                             <Printer size={14} /> Stampa browser
@@ -252,6 +261,14 @@ export default function PlaybookPage() {
                     projectId={parseInt(id, 10)}
                     projectName={data.name || ''}
                     onClose={() => setShowSendModal(false)}
+                />
+            )}
+
+            {showLetterModal && data && (
+                <LetterModal
+                    projectId={parseInt(id, 10)}
+                    projectName={data.name || ''}
+                    onClose={() => setShowLetterModal(false)}
                 />
             )}
         </div>
