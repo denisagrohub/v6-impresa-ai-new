@@ -1,21 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callOdooAPI } from '@/lib/odoo-adapter';
-import { isOdooEnabled } from '@/config/system';
-
-function fwError(e: any) {
-  const msg = String(e?.message || 'Odoo non raggiungibile');
-  const m = msg.match(/ha risposto (\d{3})/);
-  return NextResponse.json({ error: msg }, { status: m ? parseInt(m[1], 10) : 502 });
-}
+import { isOdooEnabled, SYSTEM_CONFIG } from '@/config/system';
 
 export async function GET(request: NextRequest) {
-  if (!isOdooEnabled()) return NextResponse.json({ error: 'Odoo non configurato' }, { status: 503 });
+  if (!isOdooEnabled()) {
+    return NextResponse.json({ error: 'Odoo non configurato' }, { status: 503 });
+  }
   const auth = request.headers.get('authorization');
-  if (!auth) return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
+  if (!auth) {
+    return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
+  }
+
   try {
-    const r = await callOdooAPI('/api/v1/users/telegram-otp/status', {
-      method: 'GET', headers: { Authorization: auth },
-    });
-    return NextResponse.json(r);
-  } catch (e: any) { return fwError(e); }
+    const url = SYSTEM_CONFIG.ODOO.URL.replace(/\/$/, '');
+    const apiKey = SYSTEM_CONFIG.ODOO.API_KEY;
+    const target = `${url}/api/v1/users/telegram-otp/status`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+      'Authorization': auth,
+    };
+
+    const r = await fetch(target, { method: 'GET', headers });
+    const data = await r.json().catch(() => ({ error: 'Risposta non JSON' }));
+    return NextResponse.json(data, { status: r.status });
+  } catch (e: any) {
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 502 });
+  }
 }
