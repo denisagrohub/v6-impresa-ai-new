@@ -1247,7 +1247,7 @@ class Erpv6AgentTelegramConfig(models.Model):
             "di accesso KB (V6 Auth)." % t.user_id.name)
 
     @api.model
-    def generate_otp_deep_link(self, user, bot_username='V6AuthBot'):
+    def generate_otp_deep_link(self, user, bot_username='v6auth_bot'):
         """Genera token monouso + deep link t.me/<bot>?start=<token>.
         Invalida i token precedenti dello stesso utente.
         Ritorna {token, deep_link, expires_at}."""
@@ -1302,6 +1302,12 @@ class Erpv6AgentTelegramConfig(models.Model):
         Isolato da _cron_poll_telegram_updates (id=80) che gestisce
         i bot operativi. Chiamato da cron ogni 10s con long polling
         timeout=10."""
+        # Cleanup token scaduti da >1 giorno (evita accumulo)
+        try:
+            self.env['erpv6.otp.bot.token'].sudo()._cleanup_expired()
+        except Exception:
+            _logger.exception('OTP token cleanup fallito')
+
         configs = self.search([
             ('is_active', '=', True),
             ('bot_token', '!=', False),
