@@ -5,7 +5,7 @@
 // Template puro backend, zero AI.
 
 import { useEffect, useState } from 'react';
-import { X, Loader2, AlertCircle, Download, Copy, CheckCircle2, FileText } from 'lucide-react';
+import { X, Loader2, AlertCircle, Download, Copy, CheckCircle2, FileText, Send } from 'lucide-react';
 
 type Variant = 'facilitator' | 'buyer' | 'seller' | 'studio';
 
@@ -39,6 +39,8 @@ export default function LetterModal({ projectId, projectName, onClose }: Props) 
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Preview: fetch su cambio (debounce 500ms)
@@ -120,6 +122,38 @@ export default function LetterModal({ projectId, projectName, onClose }: Props) 
       setTimeout(() => setCopied(false), 2000);
     } catch (e: any) {
       setError('Impossibile copiare: ' + (e.message || ''));
+    }
+  }
+
+  async function handleSend() {
+    if (!recipientEmail.trim()) {
+      setError('Inserisci email destinatario per inviare.');
+      return;
+    }
+    setSending(true); setError(null); setSent(null);
+    try {
+      const r = await fetch(
+        `/api/consultant/partner-projects/${projectId}/playbook/letter/send`,
+        {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            variant,
+            recipient_name: recipientName,
+            recipient_email: recipientEmail,
+            personalization,
+          }),
+        },
+      );
+      const j = await r.json();
+      const payload = j.data || j;
+      if (!r.ok || payload.error) throw new Error(payload.error || `HTTP ${r.status}`);
+      setSent('Lettera inviata a ' + recipientEmail);
+      setTimeout(() => { onClose(); }, 1800);
+    } catch (e: any) {
+      setError(e.message || 'Errore invio');
+    } finally {
+      setSending(false);
     }
   }
 
@@ -229,6 +263,13 @@ export default function LetterModal({ projectId, projectName, onClose }: Props) 
                   <div>{error}</div>
                 </div>
               )}
+
+              {sent && (
+                <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded text-emerald-800 text-sm">
+                  <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div>{sent}</div>
+                </div>
+              )}
             </div>
 
             {/* Colonna destra: preview */}
@@ -278,10 +319,19 @@ export default function LetterModal({ projectId, projectName, onClose }: Props) 
             <button
               onClick={handleDownloadPdf}
               disabled={!preview || downloading || loading}
-              className="px-4 py-2 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 py-2 text-sm rounded border border-slate-300 hover:bg-slate-100 disabled:opacity-50 flex items-center gap-1.5"
             >
               {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               {downloading ? 'Generazione…' : 'Scarica PDF'}
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={!preview || !recipientEmail.trim() || sending || loading}
+              className="px-4 py-2 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
+              title={!recipientEmail.trim() ? 'Inserisci email destinatario' : 'Invia lettera per email'}
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {sending ? 'Invio…' : 'Invia email'}
             </button>
           </div>
         </div>

@@ -1033,3 +1033,163 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
                 ('Content-Length', str(len(pdf_bytes))),
             ],
         )
+
+    # ═══════════════════════════════════════════════════════════════
+    # POST /api/v1/consultant/projects/<id>/playbook/letter/send
+    # 05/10/2026 (C-playbook-3e): invia la lettera via email,
+    # crea evento timeline + log in winwin.email.log.
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/playbook/letter/send',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def post_playbook_letter_send(self, relation_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        root = Relation.browse(relation_id)
+        if not root.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+
+        is_admin = self._is_responsabile_o_admin(user)
+        if not is_admin:
+            in_access = user.id in (root.access_user_ids.ids or [])
+            is_owner = root.owner_user_id.id == user.id
+            if not (is_owner or in_access):
+                return self._json_response({'error': 'Non hai accesso'}, 403)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+
+        variant = (body.get('variant') or 'facilitator').strip()
+        recipient_name = (body.get('recipient_name') or '').strip()
+        recipient_email = (body.get('recipient_email') or '').strip().lower()
+        personalization = (body.get('personalization') or '').strip()
+
+        # Valida email
+        import re as _re
+        if not recipient_email or not _re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', recipient_email):
+            return self._json_response({'error': 'Email destinatario non valida'}, 400)
+
+        data = self._build_letter_data(
+            root, variant, recipient_name, recipient_email, personalization)
+        if not data:
+            return self._json_response({'error': 'Variante non valida'}, 400)
+
+        # Compila PDF lettera
+        import os
+        candidates = [
+            '/mnt/custom-addons/erpv6_typst/templates/lettera.typ',
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(
+                    os.path.abspath(__file__)))),
+                'erpv6_typst', 'templates', 'lettera.typ'),
+        ]
+        source = None
+        for path in candidates:
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        source = f.read()
+                    break
+                except Exception:
+                    continue
+        if not source:
+            return self._json_response({'error': 'Template lettera non disponibile'}, 500)
+
+        engine = request.env['erpv6.typst.engine'].sudo()
+        result = engine.preview_source(source, data=data['typst_payload'])
+        if not result.get('ok'):
+            errs = result.get('errors') or []
+            msg = errs[0].get('message') if errs else 'Errore compilazione'
+            return self._json_response({'error': msg}, 500)
+
+        pdf_bytes = result['pdf']
+
+        # Filename
+        import base64 as _b64
+        from datetime import date as _date
+        slug = ''.join(c if c.isalnum() else '_' for c in (root.email_alias or str(root.id)))
+        filename = 'lettera_%s_%s_%s.pdf' % (
+            variant, slug, _date.today().strftime('%Y%m%d'))
+
+        # Mittente = consulente
+        user_slug = getattr(user, 'email_slug', None) or ''
+        from_email = '%s@v6impresa.it' % user_slug if user_slug else 'noreply@v6impresa.it'
+
+        # Attachment
+        attach = request.env['ir.attachment'].sudo().create({
+            'name': filename,
+            'type': 'binary',
+            'datas': _b64.b64encode(pdf_bytes),
+            'mimetype': 'application/pdf',
+            'res_model': 'erpv6.tracking.relation',
+            'res_id': root.id,
+        })
+
+        # mail.mail
+        Mail = request.env['mail.mail'].sudo()
+        mail = Mail.create({
+            'subject': data['subject'],
+            'body_html': data['body_html'],
+            'email_from': from_email,
+            'email_to': recipient_email,
+            'reply_to': from_email,
+            'attachment_ids': [(4, attach.id)],
+            'state': 'outgoing',
+        })
+        try:
+            mail.with_context(mail_transactional_approved=True).send()
+        except Exception as e:
+            _logger.exception('letter send: errore invio email')
+            return self._json_response({'error': 'Invio fallito: %s' % e}, 500)
+
+        # Evento timeline
+        variant_label = data['variant_label']
+        title = '\U0001F4E4 Lettera inviata a %s (%s)' % (
+            recipient_name or recipient_email, variant_label)
+        descr_lines = [
+            'Oggetto: %s' % data['subject'],
+            'PDF: %s' % filename,
+            'A: %s' % recipient_email,
+        ]
+        try:
+            request.env['erpv6.deal.event'].sudo().create({
+                'relation_id': root.id,
+                'event_type': 'email_rilevante',
+                'title': title[:200],
+                'description': '\n'.join(descr_lines),
+                'event_date': fields.Datetime.now(),
+                'visibility': 'consultant',
+                'is_auto': True,
+                'source_attachment_id': attach.id,
+                'created_by_id': user.partner_id.id,
+            })
+        except Exception as e:
+            _logger.warning('letter send: errore creazione evento: %s', e)
+
+        # Log in winwin.email.log (compare in /admin/mia-email)
+        try:
+            request.env['erpv6.winwin.email.log'].sudo().create({
+                'name': data['subject'],
+                'direction': 'inviata',
+                'sender_email': from_email,
+                'recipient_emails': recipient_email,
+                'matched_alias': root.email_alias or '',
+                'relation_id': root.id,
+            })
+        except Exception as e:
+            _logger.warning('letter send: errore log email: %s', e)
+
+        return self._json_response({
+            'ok': True,
+            'message_id': mail.id,
+            'recipient': recipient_email,
+            'subject': data['subject'],
+        })
