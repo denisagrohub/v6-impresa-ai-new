@@ -206,7 +206,6 @@ class KBAPIController(APIBaseController):
             'description': article.description or '',
             'category_id': article.category_id.id if article.category_id else None,
             'access_level': article.access_level or 'consultant',
-            'is_final': bool(article.is_final),
             'version': article.version or 0,
         })
 
@@ -314,7 +313,7 @@ class KBAPIController(APIBaseController):
             'ok': True,
             'otp_id': otp.id,
             'purpose': purpose,
-            'expires_at': otp.expires_at.isoformat(),
+            'expires_at': otp.expires_at.isoformat() + 'Z',
         })
 
     @http.route('/api/v1/kb/otp/verify',
@@ -395,7 +394,7 @@ class KBAPIController(APIBaseController):
             'user_id': 2,
             'token': token,
             'purpose': 'read',
-            'expires_at': expires,
+            'expires_at': expires.isoformat() + 'Z' if hasattr(expires, 'isoformat') else str(expires) + 'Z',
             'ip_address': request.httprequest.remote_addr,
             'user_agent': (request.httprequest.user_agent.string or '')[:200] if request.httprequest.user_agent else None,
         })
@@ -414,7 +413,7 @@ class KBAPIController(APIBaseController):
         return self._json_response({
             'ok': True,
             'session_token': token,
-            'expires_at': expires.isoformat(),
+            'expires_at': expires.isoformat() + 'Z',
         })
 
     @http.route('/api/v1/kb/otp/session',
@@ -500,7 +499,6 @@ class KBAPIController(APIBaseController):
             'ok': True,
             'id': kb.id,
             'version': kb.version,
-            'is_final': kb.is_final,
             'diff': diff,
         })
 
@@ -519,7 +517,7 @@ class KBAPIController(APIBaseController):
             return sess_err
 
         body = request.httprequest.get_json(force=True, silent=True) or {}
-        for f in ('name', 'kb_type', 'content'):
+        for f in ('name', 'kb_type', 'content', 'category_id'):
             if not body.get(f):
                 return self._json_response(
                     {'error': '%s obbligatorio' % f}, 400)
@@ -533,7 +531,6 @@ class KBAPIController(APIBaseController):
             'content_format': body.get('content_format', 'markdown'),
             # Q3: cifra al publish, non ora
             'is_encrypted': False,
-            'is_final': False,
             'author_id': user.id,
         }
         if body.get('category_id'):
@@ -559,7 +556,6 @@ class KBAPIController(APIBaseController):
             'ok': True,
             'id': kb.id,
             'name': kb.name,
-            'is_final': kb.is_final,
         }, 201)
 
     @http.route('/api/v1/kb/articles/<int:kb_id>/publish',
@@ -580,12 +576,8 @@ class KBAPIController(APIBaseController):
         kb = Kb.browse(kb_id)
         if not kb.exists():
             return self._json_response({'error': 'KB non trovata'}, 404)
-        if kb.is_final:
-            return self._json_response(
-                {'error': 'KB gia pubblicata'}, 400)
-
         body = request.httprequest.get_json(force=True, silent=True) or {}
-        vals = {'is_final': True}
+        vals = {}
         if body.get('change_notes'):
             vals['change_notes'] = body['change_notes']
         # Q3: cifra al publish se richiesto
@@ -593,11 +585,13 @@ class KBAPIController(APIBaseController):
             vals['is_encrypted'] = True
 
         kb.write(vals)
+        # v1: publish = bump version manuale (no is_final sul modello)
+        kb.write({'version': (kb.version or 1) + 1})
         kb.invalidate_recordset()
 
         self._log_kb_access(
             action='publish', user=user, kb=kb,
-            details='is_final=True version=%s encrypted=%s' % (
+            details='publish version=%s encrypted=%s' % (
                 kb.version, kb.is_encrypted),
         )
 
@@ -605,6 +599,5 @@ class KBAPIController(APIBaseController):
             'ok': True,
             'id': kb.id,
             'version': kb.version,
-            'is_final': kb.is_final,
             'is_encrypted': kb.is_encrypted,
         })

@@ -9,6 +9,15 @@
 
 export type KbPurpose = 'read' | 'write' | 'critical';
 
+
+function normalizeExp(s: string | null): string | null {
+  if (!s) return null;
+  // Odoo serializza datetime naive UTC. Aggiungi Z se manca
+  // offset/Z, altrimenti JS interpreta come ora locale (bug).
+  if (s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) return s;
+  return s + 'Z';
+}
+
 function keysFor(purpose: KbPurpose): { token: string; exp: string } {
   if (purpose === 'write') {
     return { token: 'kb_session_token_write', exp: 'kb_session_expires_write' };
@@ -29,7 +38,7 @@ export function saveKbSession(
     const k = keysFor(purpose);
     localStorage.setItem(k.token, token);
     if (expiresAt) {
-      localStorage.setItem(k.exp, expiresAt);
+      localStorage.setItem(k.exp, normalizeExp(expiresAt)!);
     } else {
       // Rimuovi exp vecchio: altrimenti un exp scaduto cancella il
       // token appena salvato al primo kbSessionHeader().
@@ -52,7 +61,7 @@ export function kbSessionHeader(purpose: KbPurpose = 'read'): Record<string, str
   try {
     const k = keysFor(purpose);
     const token = localStorage.getItem(k.token);
-    const exp = localStorage.getItem(k.exp);
+    const exp = normalizeExp(localStorage.getItem(k.exp));
     if (!token) return {};
     if (exp && new Date(exp) < new Date()) {
       clearKbSession(purpose);

@@ -664,6 +664,19 @@ class AdminEmailsAPIController(ConsultantAPIController):
                 full_body += f'<br/><br/><hr/><p style="color:#999;font-size:11px;">Progetto: <b>{Relation.name}</b></p>'
 
             Mail = request.env['mail.mail'].sudo()
+            # Trova/crea partner per popolare recipient_ids
+            # (Odoo 18 richiede partner per finalizzare lo stato sent)
+            Partner = request.env['res.partner'].sudo()
+            recipient_partner_ids = []
+            for em in to_list + cc_list:
+                p = Partner.search([('email', '=', em)], limit=1)
+                if not p:
+                    p = Partner.create({
+                        'name': em.split('@')[0],
+                        'email': em,
+                    })
+                recipient_partner_ids.append(p.id)
+
             vals = {
                 'subject': subject,
                 'body_html': full_body,
@@ -671,6 +684,7 @@ class AdminEmailsAPIController(ConsultantAPIController):
                 'email_to': ', '.join(to_list),
                 'email_cc': ', '.join(cc_list) if cc_list else False,
                 'reply_to': reply_to_addr,
+                'recipient_ids': [(6, 0, recipient_partner_ids)],
                 'state': 'outgoing',
             }
             if attachment_ids:

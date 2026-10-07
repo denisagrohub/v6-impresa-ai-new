@@ -159,7 +159,7 @@ class Erpv6KbOtp(models.Model):
         _ttl = {
             'read': timedelta(hours=1),
             'write': timedelta(minutes=15),
-            'critical': timedelta(minutes=5),
+            'critical': timedelta(minutes=15),
         }
         expires = fields.Datetime.now() + _ttl.get(otp.purpose, timedelta(hours=1))
         session = Session.create({
