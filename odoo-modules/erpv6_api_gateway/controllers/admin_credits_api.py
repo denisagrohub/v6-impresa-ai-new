@@ -11,11 +11,30 @@ from odoo import http
 from odoo.http import request
 
 from .consultant_api import ConsultantAPIController
+from .lib.security import check_record_access
 
 _logger = logging.getLogger(__name__)
 
 
 class AdminCreditsAPIController(ConsultantAPIController):
+
+    def _require_portfolio_access(self, user, portfolio, mode='read'):
+        """07/10/2026 (C-security-audit FASE 3): check record-level
+        + audit log. Ritorna None se OK, altrimenti Response 403.
+        """
+        from odoo.http import request as _r
+        route = _r.httprequest.path
+        method = _r.httprequest.method
+        granted = check_record_access(user, portfolio, mode)
+        _r.env['erpv6.api.access.log'].sudo().log_access(
+            user=user, route=route, method=method,
+            model='erpv6.credit.portfolio', record_id=portfolio.id,
+            granted=granted,
+            reason='ok' if granted else 'denied_no_ownership',
+        )
+        if not granted:
+            return self._json_response({'error': 'Accesso negato'}, 403)
+        return None
 
     def _portfolio_to_dict(self, p, with_lines=False):
         d = {
@@ -140,6 +159,10 @@ class AdminCreditsAPIController(ConsultantAPIController):
         P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
         if not P.exists():
             return self._json_response({'error': 'Portfolio non trovato'}, 404)
+        # 07/10/2026 (C-security-audit FASE 3): check record-level
+        err403 = self._require_portfolio_access(user, P, mode='read')
+        if err403:
+            return err403
         return self._json_response(self._portfolio_to_dict(P, with_lines=True))
 
     # ═══════════════════════════════════════════════════════════════
@@ -159,6 +182,10 @@ class AdminCreditsAPIController(ConsultantAPIController):
         P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
         if not P.exists():
             return self._json_response({'error': 'Portfolio non trovato'}, 404)
+        # 07/10/2026 (C-security-audit FASE 3): check record-level
+        err403 = self._require_portfolio_access(user, P, mode='write')
+        if err403:
+            return err403
         try:
             ok = P.action_reprocess()
         except Exception as e:
@@ -186,6 +213,10 @@ class AdminCreditsAPIController(ConsultantAPIController):
         P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
         if not P.exists():
             return self._json_response({'error': 'Portfolio non trovato'}, 404)
+        # 07/10/2026 (C-security-audit FASE 3): check record-level
+        err403 = self._require_portfolio_access(user, P, mode='write')
+        if err403:
+            return err403
         P.action_confirm()
         return self._json_response({
             'ok': True,
@@ -212,6 +243,14 @@ class AdminCreditsAPIController(ConsultantAPIController):
             body = request.httprequest.get_json(force=True, silent=True) or {}
         except Exception:
             body = {}
+
+        # 07/10/2026 (C-security-audit FASE 3): check portfolio access
+        P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
+        if not P.exists():
+            return self._json_response({'error': 'Portfolio non trovato'}, 404)
+        err403 = self._require_portfolio_access(user, P, mode='write')
+        if err403:
+            return err403
 
         L = request.env['erpv6.credit.line'].sudo().browse(line_id)
         if not L.exists() or L.portfolio_id.id != pid:
@@ -250,6 +289,9 @@ class AdminCreditsAPIController(ConsultantAPIController):
         P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
         if not P.exists():
             return self._json_response({'error': 'Portfolio non trovato'}, 404)
+        err403 = self._require_portfolio_access(user, P, mode='write')
+        if err403:
+            return err403
 
         try:
             body = request.httprequest.get_json(force=True, silent=True) or {}
@@ -287,6 +329,9 @@ class AdminCreditsAPIController(ConsultantAPIController):
         P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
         if not P.exists() or not P.file_pdf:
             return self._json_response({'error': 'PDF non disponibile'}, 404)
+        err403 = self._require_portfolio_access(user, P, mode='read')
+        if err403:
+            return err403
 
         pdf_bytes = base64.b64decode(P.file_pdf)
         filename = (P.file_pdf_name or 'cassetto.pdf').replace('"', '')
@@ -319,6 +364,9 @@ class AdminCreditsAPIController(ConsultantAPIController):
         P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
         if not P.exists():
             return self._json_response({'error': 'Portfolio non trovato'}, 404)
+        err403 = self._require_portfolio_access(user, P, mode='read')
+        if err403:
+            return err403
 
         portatore = None
         if P.brought_by_partner_id:
@@ -376,6 +424,9 @@ class AdminCreditsAPIController(ConsultantAPIController):
         P = request.env['erpv6.credit.portfolio'].sudo().browse(pid)
         if not P.exists():
             return self._json_response({'error': 'Portfolio non trovato'}, 404)
+        err403 = self._require_portfolio_access(user, P, mode='write')
+        if err403:
+            return err403
 
         try:
             body = request.httprequest.get_json(force=True, silent=True) or {}
