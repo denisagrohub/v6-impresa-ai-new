@@ -64,6 +64,16 @@ class Erpv6Deal(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'create_date desc'
 
+    # 07/10/2026 (C-security-audit FASE 2): ownership record-level.
+    # Popolato da backfill (relation_id.owner_user_id) o da create().
+    # Usato da check_record_access per autorizzare read/write/delete.
+    owner_user_id = fields.Many2one(
+        'res.users', string='Responsabile',
+        index=True, ondelete='set null',
+        help='Utente a cui appartiene il deal. Backfill da '
+             'relation_id.owner_user_id. Usato per record-level '
+             'authorization (C-security-audit).')
+
     name = fields.Char(required=True, tracking=True)
     relation_id = fields.Many2one('erpv6.tracking.relation', required=True,
                                    ondelete='restrict', index=True,
