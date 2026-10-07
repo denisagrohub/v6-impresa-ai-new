@@ -10,12 +10,14 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Loader2, AlertCircle, CheckCircle2, Shield, Send } from 'lucide-react';
 // 07/10/2026 (C-kb-3b-fix2): salva token direttamente. No delega
 // a onVerified (setTimeout -> smontaggio -> perdita token).
-import { saveKbSession } from '@/lib/kb-session';
+import { saveKbSession, type KbPurpose } from '@/lib/kb-session';
 
 type Props = {
   onVerified: (sessionToken: string) => void;
   onClose: () => void;
   initialMessage?: string | null;
+  // 07/10/2026 (C-kb-3c): purpose OTP -> TTL sessione + chiave storage
+  purpose?: KbPurpose;
 };
 
 function authHeaders(): Record<string, string> {
@@ -34,7 +36,7 @@ function isAdmin(): boolean {
   } catch { return false; }
 }
 
-export default function OtpVerifyModal({ onVerified, onClose, initialMessage }: Props) {
+export default function OtpVerifyModal({ onVerified, onClose, initialMessage, purpose = 'read' }: Props) {
   const [phase, setPhase] = useState<'idle' | 'sent' | 'verifying' | 'done'>('idle');
   const [otpId, setOtpId] = useState<number | null>(null);
   const [code, setCode] = useState('');
@@ -61,7 +63,7 @@ export default function OtpVerifyModal({ onVerified, onClose, initialMessage }: 
       const r = await fetch('/api/kb/otp/request', {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ purpose }),
       });
       const j = await r.json();
       const payload = j.data || j;
@@ -101,8 +103,9 @@ export default function OtpVerifyModal({ onVerified, onClose, initialMessage }: 
       if (!payload.session_token) {
         throw new Error('Nessun token ricevuto dal server');
       }
-      // 07/10/2026 (C-kb-3b-fix2): salva ORA, sincrono. Non delegare.
-      saveKbSession(payload.session_token, payload.expires_at || null);
+      // 07/10/2026 (C-kb-3b-fix2 + C-kb-3c): salva ORA, sincrono.
+      // purpose determina la chiave localStorage (read/write/critical).
+      saveKbSession(payload.session_token, payload.expires_at || null, purpose);
       setPhase('done');
       setInfo('Accesso autorizzato.');
       onVerified(payload.session_token);
@@ -173,7 +176,7 @@ export default function OtpVerifyModal({ onVerified, onClose, initialMessage }: 
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 {loading ? 'Invio…' : 'Invia codice'}
               </button>
-              {admin && (
+              {admin && purpose === 'read' && (
                 <button
                   onClick={() => requestBypass(false)}
                   disabled={loading}
@@ -223,7 +226,7 @@ export default function OtpVerifyModal({ onVerified, onClose, initialMessage }: 
                 >
                   {resendIn > 0 ? `Reinvia tra ${resendIn}s` : 'Reinvia codice'}
                 </button>
-                {admin && (
+                {admin && purpose === 'read' && (
                   <button
                     onClick={() => requestBypass(true)}
                     disabled={loading}

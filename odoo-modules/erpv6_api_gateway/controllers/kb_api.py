@@ -51,12 +51,21 @@ class KBAPIController(APIBaseController):
     # una sessione erpv6.kb.session. Header X-Kb-Session obbligatorio.
     # BYPASS: user_id=2 (Denis) hardcoded, con log rinforzato.
     # ═══════════════════════════════════════════════════════════════
-    def _require_kb_session(self, user=None):
-        """Ritorna None se sessione valida, altrimenti errore JSON."""
-        # Bypass admin Denis (user_id=2) — hardcoded
+    def _require_kb_session(self, user=None, purpose='read'):
+        """Ritorna None se sessione valida, altrimenti errore JSON.
+
+        07/10/2026 (C-kb-3c): parametrizzato su purpose.
+          - purpose='read': bypass admin Denis (user_id=2) come prima
+          - purpose='write':  serve sessione write (15 min TTL)
+          - purpose='critical': serve sessione critical (5 min TTL)
+        Le sessioni NON sono intercambiabili: una sessione read non
+        autorizza write.
+        """
         if user is None:
             user = request.env.user
-        if user.id == 2:
+        # Bypass admin Denis SOLO per la lettura. Write e critical
+        # richiedono sempre OTP, anche per Denis.
+        if user.id == 2 and purpose == 'read':
             return None
 
         token = request.httprequest.headers.get('X-Kb-Session')
@@ -64,6 +73,7 @@ class KBAPIController(APIBaseController):
             return self._json_response({
                 'error': 'kb_session_required',
                 'message': 'Serve OTP. Apri /admin/kb.',
+                'purpose': purpose,
             }, 401)
 
         from odoo import fields as _fields
@@ -71,13 +81,15 @@ class KBAPIController(APIBaseController):
         s = Session.search([
             ('token', '=', token),
             ('user_id', '=', user.id),
+            ('purpose', '=', purpose),
             ('revoked', '=', False),
             ('expires_at', '>', _fields.Datetime.now()),
         ], limit=1)
         if not s:
             return self._json_response({
                 'error': 'kb_session_expired',
-                'message': 'Sessione scaduta. Riapri /admin/kb.',
+                'message': 'Sessione %s scaduta o mancante. Riapri /admin/kb.' % purpose,
+                'purpose': purpose,
             }, 401)
         return None
 
@@ -185,7 +197,18 @@ class KBAPIController(APIBaseController):
         self._log_api_call(f'/api/v1/kb/articles/{article_id}', 'GET', user.id, 200, start_time)
         # 06/10/2026 (C-kb-3a Blocco C): audit
         self._log_kb_access('read', user=user, kb=article)
-        return self._json_response({'id': article.id, 'name': article.name, 'content': content, 'kb_type': article.kb_type})
+        # 07/10/2026 (C-kb-3c): esteso per editor UI (modifica KB).
+        return self._json_response({
+            'id': article.id,
+            'name': article.name,
+            'content': content,
+            'kb_type': article.kb_type,
+            'description': article.description or '',
+            'category_id': article.category_id.id if article.category_id else None,
+            'access_level': article.access_level or 'consultant',
+            'is_final': bool(article.is_final),
+            'version': article.version or 0,
+        })
 
     @http.route('/api/v1/kb/bundle', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_bundle(self, **kwargs):
@@ -272,8 +295,17 @@ class KBAPIController(APIBaseController):
                 'message': 'Installa il bot V6 Auth prima di procedere.',
             }, 428)  # Precondition Required
 
+        # 07/10/2026 (C-kb-3c): purpose parametrico (read/write/critical).
         try:
-            otp = request.env['erpv6.kb.otp'].sudo()._generate_otp(user, 'read')
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+        purpose = (body.get('purpose') or 'read').strip()
+        if purpose not in ('read', 'write', 'critical'):
+            purpose = 'read'
+
+        try:
+            otp = request.env['erpv6.kb.otp'].sudo()._generate_otp(user, purpose)
         except Exception as e:
             _logger.exception('OTP request fallito')
             return self._json_response({'error': str(e)}, 500)
@@ -281,6 +313,7 @@ class KBAPIController(APIBaseController):
         return self._json_response({
             'ok': True,
             'otp_id': otp.id,
+            'purpose': purpose,
             'expires_at': otp.expires_at.isoformat(),
         })
 
@@ -311,6 +344,14 @@ class KBAPIController(APIBaseController):
             otp_id, code, ip, ua)
         if not result.get('ok'):
             return self._json_response(result, 400)
+        # Aggiungo purpose alla risposta (il frontend lo usa per la
+        # chiave localStorage corretta)
+        try:
+            otp_rec = request.env['erpv6.kb.otp'].sudo().browse(int(otp_id))
+            if otp_rec.exists():
+                result['purpose'] = otp_rec.purpose
+        except Exception:
+            result['purpose'] = 'read'
         return self._json_response(result)
 
     @http.route('/api/v1/kb/otp/bypass',
@@ -394,3 +435,176 @@ class KBAPIController(APIBaseController):
                 ('user_id', '=', user.id),
             ]).write({'revoked': True})
         return self._json_response({'ok': True})
+
+    # ═══════════════════════════════════════════════════════════════
+    # 07/10/2026 (C-kb-3c): endpoint scrittura KB.
+    # Sicurezza: OTP write (15 min) per modifica, critical (5 min)
+    # per creazione + publish. Il modello erpv6.kb gestisce
+    # internamente crypto + versioning + gate prompt AI: l'endpoint
+    # passa content in chiaro, NON cifra (decisione Q3: no crypto
+    # di default, cifra al publish).
+    # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/kb/articles/<int:kb_id>',
+                type='http', auth='none',
+                methods=['PATCH', 'OPTIONS'], csrf=False)
+    def update_article(self, kb_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+        sess_err = self._require_kb_session(user=user, purpose='write')
+        if sess_err:
+            return sess_err
+
+        body = request.httprequest.get_json(force=True, silent=True) or {}
+        Kb = request.env['erpv6.kb'].sudo()
+        kb = Kb.browse(kb_id)
+        if not kb.exists():
+            return self._json_response({'error': 'KB non trovata'}, 404)
+
+        # Whitelist campi editabili via API
+        allowed = {
+            'name', 'description', 'kb_type', 'category_id',
+            'access_level', 'content', 'content_format',
+            'change_notes',
+        }
+        vals = {k: v for k, v in body.items() if k in allowed}
+        if not vals:
+            return self._json_response(
+                {'error': 'Nessun campo editabile nel payload'}, 400)
+
+        # Diff per audit (best-effort, tronco a 200 char)
+        def _s(v):
+            if v in (False, None):
+                return None
+            return str(v)[:200]
+        diff = {}
+        for f, new in vals.items():
+            old = getattr(kb, f, None)
+            if _s(old) != _s(new):
+                diff[f] = {'old': _s(old), 'new': _s(new)}
+
+        # Il write() del modello gestisce crypto + versioning + gate prompt
+        kb.write(vals)
+
+        if diff:
+            self._log_kb_access(
+                action='write', user=user, kb=kb,
+                details=json.dumps(diff, ensure_ascii=False)[:2000],
+            )
+
+        kb.invalidate_recordset()
+        return self._json_response({
+            'ok': True,
+            'id': kb.id,
+            'version': kb.version,
+            'is_final': kb.is_final,
+            'diff': diff,
+        })
+
+    @http.route('/api/v1/kb/articles',
+                type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def create_article(self, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+        sess_err = self._require_kb_session(user=user, purpose='critical')
+        if sess_err:
+            return sess_err
+
+        body = request.httprequest.get_json(force=True, silent=True) or {}
+        for f in ('name', 'kb_type', 'content'):
+            if not body.get(f):
+                return self._json_response(
+                    {'error': '%s obbligatorio' % f}, 400)
+
+        vals = {
+            'name': body['name'],
+            'kb_type': body['kb_type'],
+            'content': body['content'],
+            'description': body.get('description', ''),
+            'access_level': body.get('access_level', 'consultant'),
+            'content_format': body.get('content_format', 'markdown'),
+            # Q3: cifra al publish, non ora
+            'is_encrypted': False,
+            'is_final': False,
+            'author_id': user.id,
+        }
+        if body.get('category_id'):
+            try:
+                vals['category_id'] = int(body['category_id'])
+            except (ValueError, TypeError):
+                pass
+        if body.get('tag_ids'):
+            try:
+                vals['tag_ids'] = [(6, 0, [int(x) for x in body['tag_ids']])]
+            except (ValueError, TypeError):
+                pass
+
+        Kb = request.env['erpv6.kb'].sudo()
+        kb = Kb.create(vals)
+
+        self._log_kb_access(
+            action='create', user=user, kb=kb,
+            details='name=%s kb_type=%s' % (kb.name[:80], kb.kb_type),
+        )
+
+        return self._json_response({
+            'ok': True,
+            'id': kb.id,
+            'name': kb.name,
+            'is_final': kb.is_final,
+        }, 201)
+
+    @http.route('/api/v1/kb/articles/<int:kb_id>/publish',
+                type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def publish_article(self, kb_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+        sess_err = self._require_kb_session(user=user, purpose='critical')
+        if sess_err:
+            return sess_err
+
+        Kb = request.env['erpv6.kb'].sudo()
+        kb = Kb.browse(kb_id)
+        if not kb.exists():
+            return self._json_response({'error': 'KB non trovata'}, 404)
+        if kb.is_final:
+            return self._json_response(
+                {'error': 'KB gia pubblicata'}, 400)
+
+        body = request.httprequest.get_json(force=True, silent=True) or {}
+        vals = {'is_final': True}
+        if body.get('change_notes'):
+            vals['change_notes'] = body['change_notes']
+        # Q3: cifra al publish se richiesto
+        if body.get('encrypt') is True or body.get('is_encrypted') is True:
+            vals['is_encrypted'] = True
+
+        kb.write(vals)
+        kb.invalidate_recordset()
+
+        self._log_kb_access(
+            action='publish', user=user, kb=kb,
+            details='is_final=True version=%s encrypted=%s' % (
+                kb.version, kb.is_encrypted),
+        )
+
+        return self._json_response({
+            'ok': True,
+            'id': kb.id,
+            'version': kb.version,
+            'is_final': kb.is_final,
+            'is_encrypted': kb.is_encrypted,
+        })

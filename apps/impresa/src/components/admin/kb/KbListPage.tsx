@@ -8,11 +8,12 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Loader2, AlertCircle, Search, RefreshCw, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import {Loader2, AlertCircle, Search, RefreshCw, BookOpen, ChevronLeft, ChevronRight, Plus} from 'lucide-react';
 import OtpBotInstallModal from './OtpBotInstallModal';
 // 07/10/2026 (C-kb-3b-fix2): helpers sessione unificati in lib.
 import { saveKbSession, clearKbSession, kbSessionHeader, getKbSessionToken } from '@/lib/kb-session';
 import OtpVerifyModal from './OtpVerifyModal';
+import KbEditModal from './KbEditModal';
 
 type Kb = {
   id: number;
@@ -75,6 +76,9 @@ export default function KbListPage() {
   const [showInstall, setShowInstall] = useState(false);
   const [showOtpVerify, setShowOtpVerify] = useState(false);
   const [otpMessage, setOtpMessage] = useState<string | null>(null);
+  // 07/10/2026 (C-kb-3c): creazione KB con OTP critical
+  const [showCreate, setShowCreate] = useState(false);
+  const [showOtpCreate, setShowOtpCreate] = useState(false);
 
   // ─── Check certificazione chat all'avvio ───
   useEffect(() => {
@@ -196,6 +200,39 @@ export default function KbListPage() {
     );
   }
 
+  // 07/10/2026 (C-kb-3c): modale OTP critical per creazione
+  if (showOtpCreate) {
+    return (
+      <OtpVerifyModal
+        purpose="critical"
+        initialMessage="Creazione KB: serve un codice OTP (valido 5 min)."
+        onVerified={() => {
+          setShowOtpCreate(false);
+          setShowCreate(true);
+        }}
+        onClose={() => setShowOtpCreate(false)}
+      />
+    );
+  }
+
+  // 07/10/2026 (C-kb-3c): editor creazione
+  if (showCreate) {
+    return (
+      <KbEditModal
+        mode="create"
+        onSaved={() => {
+          setShowCreate(false);
+          load();
+        }}
+        onCancel={() => setShowCreate(false)}
+        onNeedOtp={() => {
+          setShowCreate(false);
+          setShowOtpCreate(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -209,6 +246,20 @@ export default function KbListPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* 07/10/2026 (C-kb-3c): creazione KB (OTP critical) */}
+          <button
+            onClick={() => {
+              if (getKbSessionToken('critical')) {
+                setShowCreate(true);
+              } else {
+                setShowOtpCreate(true);
+              }
+            }}
+            className="flex items-center gap-2 px-3 py-2 text-sm rounded bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            <Plus className="w-4 h-4" />
+            Nuova KB
+          </button>
           <button onClick={load} disabled={loading}
             className="flex items-center gap-2 px-3 py-2 text-sm rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />

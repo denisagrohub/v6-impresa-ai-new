@@ -1,5 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_kb_user,erpv6.kb user,model_erpv6_kb,base.group_user,1,1,1,0
+access_kb_user,erpv6.kb user read,model_erpv6_kb,base.group_user,1,0,0,0
+access_kb_editor,erpv6.kb editor,model_erpv6_kb,erpv6_kb.group_kb_editor,1,1,1,0
 access_kb_admin,erpv6.kb admin,model_erpv6_kb,base.group_system,1,1,1,1
 access_cat_user,erpv6.kb.category user,model_erpv6_kb_category,base.group_user,1,1,1,0
 access_cat_admin,erpv6.kb.category admin,model_erpv6_kb_category,base.group_system,1,1,1,1

@@ -7,6 +7,7 @@
     'license': 'LGPL-3',
     'depends': ['base', 'mail', 'erpv6_core', 'erpv6_crypto', 'erpv6_consulting'],
     'data': [
+        'security/kb_security.xml',
         'security/ir.model.access.csv',
         'data/kb_category_data.xml',
         'views/kb_views.xml',

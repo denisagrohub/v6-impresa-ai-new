@@ -1,40 +1,61 @@
-// 07/10/2026 (C-kb-3b-fix2): storage sessione KB unificato.
-// Usato da OtpVerifyModal (write) e KbListPage (read).
-// Chiavi: 'kb_session_token' + 'kb_session_expires'.
+// 07/10/2026 (C-kb-3b-fix2 + C-kb-3c): storage sessione KB multi-purpose.
+// Le sessioni read/write/critical sono SEPARATE (backend le isola):
+// una sessione read NON autorizza write.
+//
+// Chiavi (retrocompatibili):
+//   read     -> 'kb_session_token'           (invariato da fix2)
+//   write    -> 'kb_session_token_write'
+//   critical -> 'kb_session_token_critical'
 
-export const KB_SESSION_KEY = 'kb_session_token';
-export const KB_SESSION_EXP_KEY = 'kb_session_expires';
+export type KbPurpose = 'read' | 'write' | 'critical';
 
-export function saveKbSession(token: string, expiresAt: string | null): void {
+function keysFor(purpose: KbPurpose): { token: string; exp: string } {
+  if (purpose === 'write') {
+    return { token: 'kb_session_token_write', exp: 'kb_session_expires_write' };
+  }
+  if (purpose === 'critical') {
+    return { token: 'kb_session_token_critical', exp: 'kb_session_expires_critical' };
+  }
+  return { token: 'kb_session_token', exp: 'kb_session_expires' };
+}
+
+export function saveKbSession(
+  token: string,
+  expiresAt: string | null,
+  purpose: KbPurpose = 'read',
+): void {
   if (!token) return;
   try {
-    localStorage.setItem(KB_SESSION_KEY, token);
+    const k = keysFor(purpose);
+    localStorage.setItem(k.token, token);
     if (expiresAt) {
-      localStorage.setItem(KB_SESSION_EXP_KEY, expiresAt);
+      localStorage.setItem(k.exp, expiresAt);
     } else {
-      // FIX: rimuovi exp vecchio, altrimenti un exp scaduto
-      // cancella il token appena salvato al primo kbSessionHeader().
-      localStorage.removeItem(KB_SESSION_EXP_KEY);
+      // Rimuovi exp vecchio: altrimenti un exp scaduto cancella il
+      // token appena salvato al primo kbSessionHeader().
+      localStorage.removeItem(k.exp);
     }
   } catch (e) {
     console.warn('[kb-session] setItem fallito', e);
   }
 }
 
-export function clearKbSession(): void {
+export function clearKbSession(purpose: KbPurpose = 'read'): void {
   try {
-    localStorage.removeItem(KB_SESSION_KEY);
-    localStorage.removeItem(KB_SESSION_EXP_KEY);
+    const k = keysFor(purpose);
+    localStorage.removeItem(k.token);
+    localStorage.removeItem(k.exp);
   } catch {}
 }
 
-export function kbSessionHeader(): Record<string, string> {
+export function kbSessionHeader(purpose: KbPurpose = 'read'): Record<string, string> {
   try {
-    const token = localStorage.getItem(KB_SESSION_KEY);
-    const exp = localStorage.getItem(KB_SESSION_EXP_KEY);
+    const k = keysFor(purpose);
+    const token = localStorage.getItem(k.token);
+    const exp = localStorage.getItem(k.exp);
     if (!token) return {};
     if (exp && new Date(exp) < new Date()) {
-      clearKbSession();
+      clearKbSession(purpose);
       return {};
     }
     return { 'X-Kb-Session': token };
@@ -43,10 +64,17 @@ export function kbSessionHeader(): Record<string, string> {
   }
 }
 
-export function getKbSessionToken(): string | null {
+export function getKbSessionToken(purpose: KbPurpose = 'read'): string | null {
   try {
-    return localStorage.getItem(KB_SESSION_KEY);
+    return localStorage.getItem(keysFor(purpose).token);
   } catch {
     return null;
   }
+}
+
+// Utility: pulisce tutte le sessioni (logout totale).
+export function clearAllKbSessions(): void {
+  clearKbSession('read');
+  clearKbSession('write');
+  clearKbSession('critical');
 }

@@ -4,13 +4,20 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, AlertCircle, ArrowLeft, BookOpen } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, BookOpen, Pencil } from 'lucide-react';
+import KbEditModal from './KbEditModal';
+import OtpVerifyModal from './OtpVerifyModal';
+import { kbSessionHeader, type KbPurpose } from '@/lib/kb-session';
 
 type KbDetail = {
   id: number;
   name: string;
   content: string;
   kb_type: string;
+  description?: string;
+  category_id?: number | null;
+  access_level?: string;
+  is_final?: boolean;
 };
 
 function authHeaders(): Record<string, string> {
@@ -25,6 +32,11 @@ export default function KbDetailPage({ kbId }: { kbId: string }) {
   const [data, setData] = useState<KbDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 07/10/2026 (C-kb-3c): modale edit + OTP write
+  const [showEdit, setShowEdit] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
+  const [pendingPurpose, setPendingPurpose] = useState<KbPurpose>('write');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -45,7 +57,7 @@ export default function KbDetailPage({ kbId }: { kbId: string }) {
         setLoading(false);
       }
     })();
-  }, [kbId]);
+  }, [kbId, reloadKey]);
 
   if (loading) return (
     <div className="p-6 flex items-center justify-center text-slate-500">
@@ -80,8 +92,32 @@ export default function KbDetailPage({ kbId }: { kbId: string }) {
           <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="text-slate-500">#{data.id}</span>
             <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">{data.kb_type}</span>
+            {typeof data.is_final === 'boolean' && (
+              <span className={`px-2 py-0.5 rounded ${
+                data.is_final
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-amber-100 text-amber-800'
+              }`}>
+                {data.is_final ? 'Pubblicata' : 'Bozza'}
+              </span>
+            )}
           </div>
         </div>
+        {/* 07/10/2026 (C-kb-3c): modifica KB (OTP write) */}
+        <button
+          onClick={() => {
+            if (kbSessionHeader('write')['X-Kb-Session']) {
+              setShowEdit(true);
+            } else {
+              setPendingPurpose('write');
+              setShowOtp(true);
+            }
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-slate-300 hover:bg-slate-50 text-slate-700"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+          Modifica
+        </button>
       </div>
 
       <div className="border border-slate-200 rounded-lg bg-white p-6">
@@ -89,6 +125,49 @@ export default function KbDetailPage({ kbId }: { kbId: string }) {
           {data.content || '(contenuto vuoto)'}
         </pre>
       </div>
+
+      {/* 07/10/2026 (C-kb-3c): modale OTP (apre KbEditModal dopo verify) */}
+      {showOtp && (
+        <OtpVerifyModal
+          purpose={pendingPurpose}
+          initialMessage={
+            pendingPurpose === 'critical'
+              ? 'Operazione critica: serve un nuovo codice OTP.'
+              : 'Modifica KB: serve un codice OTP (valido 15 min).'
+          }
+          onVerified={() => {
+            setShowOtp(false);
+            setShowEdit(true);
+          }}
+          onClose={() => setShowOtp(false)}
+        />
+      )}
+
+      {/* 07/10/2026 (C-kb-3c): editor KB */}
+      {showEdit && data && (
+        <KbEditModal
+          mode="edit"
+          initial={{
+            id: data.id,
+            name: data.name,
+            kb_type: data.kb_type,
+            category_id: data.category_id ?? null,
+            description: data.description || '',
+            content: data.content || '',
+            access_level: data.access_level || 'consultant',
+          }}
+          onSaved={() => {
+            setShowEdit(false);
+            setReloadKey((k) => k + 1);
+          }}
+          onCancel={() => setShowEdit(false)}
+          onNeedOtp={(purpose) => {
+            setPendingPurpose(purpose);
+            setShowEdit(false);
+            setShowOtp(true);
+          }}
+        />
+      )}
     </div>
   );
 }

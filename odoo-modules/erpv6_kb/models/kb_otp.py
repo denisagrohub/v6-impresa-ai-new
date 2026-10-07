@@ -26,6 +26,8 @@ class Erpv6KbOtp(models.Model):
     code = fields.Char(string='Codice', required=True, size=6)
     purpose = fields.Selection([
         ('read', 'Lettura'),
+        ('write', 'Modifica'),          # 07/10/2026 C-kb-3c
+        ('critical', 'Operazione critica'),  # 07/10/2026 C-kb-3c
     ], string='Scopo', required=True, default='read')
     expires_at = fields.Datetime(
         string='Scade il', required=True, index=True)
@@ -151,7 +153,15 @@ class Erpv6KbOtp(models.Model):
 
         Session = self.env['erpv6.kb.session'].sudo()
         token = secrets.token_urlsafe(32)
-        expires = fields.Datetime.now() + timedelta(hours=1)
+        # 07/10/2026 (C-kb-3c): TTL sessione in base al purpose.
+        # read: 1h (lettura tranquilla). write: 15 min (finestra
+        # modifica). critical: 5 min (operazione pericolosa).
+        _ttl = {
+            'read': timedelta(hours=1),
+            'write': timedelta(minutes=15),
+            'critical': timedelta(minutes=5),
+        }
+        expires = fields.Datetime.now() + _ttl.get(otp.purpose, timedelta(hours=1))
         session = Session.create({
             'user_id': self.env.user.id,
             'token': token,
@@ -187,6 +197,8 @@ class Erpv6KbSession(models.Model):
         string='Token', required=True, index=True, size=64)
     purpose = fields.Selection([
         ('read', 'Lettura'),
+        ('write', 'Modifica'),          # 07/10/2026 C-kb-3c
+        ('critical', 'Operazione critica'),  # 07/10/2026 C-kb-3c
     ], string='Scopo', required=True, default='read')
     expires_at = fields.Datetime(
         string='Scade il', required=True, index=True)

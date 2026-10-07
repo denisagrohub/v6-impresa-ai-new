@@ -26,6 +26,8 @@ class Erpv6KbAccessLog(models.Model):
         ('read', 'Lettura'),
         ('bundle', 'Bundle (contesto AI)'),
         ('write', 'Modifica'),
+        ('create', 'Creazione'),          # 07/10/2026 C-kb-3c
+        ('publish', 'Pubblicazione'),     # 07/10/2026 C-kb-3c
         ('delete', 'Eliminazione'),
         ('export', 'Export'),
         ('otp_request', 'Richiesta OTP'),

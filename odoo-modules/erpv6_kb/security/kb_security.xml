@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 07/10/2026 (C-kb-3c): gruppo editor KB.
+         Solo chi ha questo gruppo (o base.group_system) puo'
+         modificare/creare KB. Internal User leggono ma non scrivono. -->
+    <record id="group_kb_editor" model="res.groups">
+        <field name="name">KB Editor</field>
+        <field name="category_id" ref="base.module_category_hidden"/>
+        <field name="comment">Puo' modificare, creare e pubblicare Knowledge Base. Richiede OTP write/critical.</field>
+    </record>
+</odoo>
