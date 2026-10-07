@@ -702,7 +702,10 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             'headers': json.dumps(reply_headers) if reply_headers else False,
         })
         try:
-            mail.send()
+            # 07/10/2026 (C-email-fix-b): invio MANUALE dal composer
+            # consulente -> bypassa la whitelist R2. Cron/agenti
+            # restano whitelisted.
+            mail.with_context(mail_transactional_approved=True).send()
         except Exception as e:
             _logger.exception("Invio email consulente fallito.")
             return self._json_response({'error': str(e)}, 500)

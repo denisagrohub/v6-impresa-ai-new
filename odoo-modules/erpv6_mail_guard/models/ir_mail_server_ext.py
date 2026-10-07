@@ -50,8 +50,11 @@ class IrMailServer(models.Model):
             return super().send_email(message, *args, **kwargs)
 
         if self.env.context.get('mail_transactional_approved'):
+            # 07/10/2026 (C-email-fix-b): log esplicito per audit.
+            # Il context e' settato SOLO dagli endpoint manuali
+            # (composer/forward/reply), mai dai cron/agenti.
             _logger.info(
-                "MAIL transactional approved -> To=%s Cc=%s (bypass whitelist)",
+                "MAIL manual bypass -> To=%s Cc=%s (composer invio manuale)",
                 message.get('To'), message.get('Cc'),
             )
             return super().send_email(message, *args, **kwargs)

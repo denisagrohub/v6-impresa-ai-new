@@ -691,7 +691,10 @@ class AdminEmailsAPIController(ConsultantAPIController):
                 vals['attachment_ids'] = [(4, int(aid)) for aid in attachment_ids]
 
             mail = Mail.create(vals)
-            mail.send()
+            # 07/10/2026 (C-email-fix-b): invio MANUALE dall'utente
+            # (composer) -> bypassa la whitelist R2. Cron/agenti non
+            # passano da qui e restano whitelisted.
+            mail.with_context(mail_transactional_approved=True).send()
 
             if 'erpv6.winwin.email.log' in request.env:
                 request.env['erpv6.winwin.email.log'].sudo().create({
