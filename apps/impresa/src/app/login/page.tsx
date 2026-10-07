@@ -1,10 +1,14 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Lock, Mail, ArrowRight, AlertCircle } from "lucide-react";
 
 export default function UnifiedLoginPage() {
     const router = useRouter();
+    // 07/10/2026 (C-auth-401): se arrivi qui da un redirect del
+    // middleware/apiFetch (JWT scaduto), torna alla pagina originale
+    // dopo il login — ma solo se il ruolo lo consente (anti-open-redirect).
+    const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -66,6 +70,28 @@ export default function UnifiedLoginPage() {
             if (roles.includes('admin')) redirectUrl = "/admin/dashboard";
             else if (CHIEF_PREFIXES.some(c => roles.includes(c))) redirectUrl = "/admin/dashboard";
             else if (roles.includes('consultant')) redirectUrl = "/consultant/dashboard";
+
+            // 07/10/2026 (C-auth-401): preferisci ?redirect= se sicuro.
+            // Validazione anti-open-redirect:
+            //  - deve essere un path relativo (inizia con '/')
+            //  - niente '//' (protocol-relative)
+            //  - se punta a /admin/* o /api/admin/*: solo admin/chief
+            //  - se punta a /consultant/* o /api/consultant/*: admin/chief/consultant
+            // Altrimenti fallback al default multi-ruolo.
+            const requested = searchParams.get('redirect');
+            const isAdminRole = roles.includes('admin') || CHIEF_PREFIXES.some(c => roles.includes(c));
+            const isConsultantRole = isAdminRole || roles.includes('consultant');
+            if (requested && requested.startsWith('/') && !requested.startsWith('//')) {
+                const isAdminPath = requested.startsWith('/admin') || requested.startsWith('/api/admin');
+                const isConsultantPath = requested.startsWith('/consultant') || requested.startsWith('/api/consultant');
+                const allowed =
+                    (!isAdminPath && !isConsultantPath) ||
+                    (isAdminPath && isAdminRole) ||
+                    (isConsultantPath && isConsultantRole);
+                if (allowed) {
+                    redirectUrl = requested;
+                }
+            }
 
             localStorage.setItem("pi_session", sessionData);
 

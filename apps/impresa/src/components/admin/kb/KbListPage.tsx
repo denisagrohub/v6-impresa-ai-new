@@ -14,6 +14,8 @@ import OtpBotInstallModal from './OtpBotInstallModal';
 import { saveKbSession, clearKbSession, kbSessionHeader, getKbSessionToken } from '@/lib/kb-session';
 import OtpVerifyModal from './OtpVerifyModal';
 import KbEditModal from './KbEditModal';
+// 07/10/2026 (C-auth-401): apiFetch gestisce JWT scaduto globalmente.
+import { apiFetch } from '@/lib/api-client';
 
 type Kb = {
   id: number;
@@ -107,7 +109,9 @@ export default function KbListPage() {
       params.set('limit', String(LIMIT));
       params.set('offset', String(page * LIMIT));
       const headers = { ...authHeaders(), ...kbSessionHeader() };
-      const r = await fetch(`/api/kb/list?${params.toString()}`, { headers });
+      // 07/10/2026 (C-auth-401): apiFetch gestisce Invalid JWT
+      // (redirect a /login). Il 401 kb_session_* resta gestito sotto.
+      const r = await apiFetch(`/api/kb/list?${params.toString()}`, { headers });
       const j = await r.json();
       const payload = j.data || j;
       // 401 kb_session_* -> apri modale OTP
