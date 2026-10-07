@@ -49,15 +49,16 @@ def check_record_access(user, record, mode='read'):
     if owner and owner.id == user.id:
         return True
 
-    # 3) Chief projects: via relation.access_user_ids
+    # 3) Chief projects: passa SEMPRE (decisione master Q2 07/10/2026).
+    #
+    # TODO (post-MVP, task separato "team scope"):
+    #   Oggi chief = "quasi admin" per continuita' operativa (access_
+    #   user_ids vuoto su 22/24 relazioni). In futuro: chief vede solo
+    #   i progetti dei propri consulenti (via relation.access_user_ids
+    #   o altro criterio di team). Il backfill access_user_ids e' il
+    #   prerequisito per restringere il perimetro senza rotture.
     if user.has_group('erpv6_core.group_chief_projects'):
-        relation = _resolve_relation(record)
-        if relation is not None:
-            if user.id in (relation.access_user_ids.ids or []):
-                return True
-            # Il chief che è owner della relation ha accesso
-            if relation.owner_user_id and relation.owner_user_id.id == user.id:
-                return True
+        return True
 
     # 4) Consultant: solo owner diretto (già coperto al punto 2)
     # 5) Fallback: NEGATO
