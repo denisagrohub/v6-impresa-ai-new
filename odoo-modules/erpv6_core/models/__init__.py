@@ -4,3 +4,4 @@ from . import tracked_mixin
 from . import base
 from . import frontend_error
 from . import res_users_email_slug
+from . import ir_config_parameter_ext

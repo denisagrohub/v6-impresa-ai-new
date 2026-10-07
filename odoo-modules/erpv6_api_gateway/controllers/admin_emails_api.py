@@ -709,7 +709,12 @@ class AdminEmailsAPIController(ConsultantAPIController):
     # ================================================================
     @http.route('/api/v1/admin/emails/search-partners',
                 type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def search_partners(self, **kwargs):
+    def search_partners_emails(self, **kwargs):
+        # 07/10/2026 (C-email-fix-a B4): rinominato da 'search_partners'.
+        # admin_credits_api.py ha un metodo omonimo; essendo entrambi
+        # mixin di APIBaseController, la MRO composita prendeva quello
+        # di admin_credits e il nostro @http.route veniva perso.
+        # Il path resta invariato.
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
         user, err = self._check_admin_perm()
