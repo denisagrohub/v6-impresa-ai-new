@@ -9,7 +9,13 @@ export function saveKbSession(token: string, expiresAt: string | null): void {
   if (!token) return;
   try {
     localStorage.setItem(KB_SESSION_KEY, token);
-    if (expiresAt) localStorage.setItem(KB_SESSION_EXP_KEY, expiresAt);
+    if (expiresAt) {
+      localStorage.setItem(KB_SESSION_EXP_KEY, expiresAt);
+    } else {
+      // FIX: rimuovi exp vecchio, altrimenti un exp scaduto
+      // cancella il token appena salvato al primo kbSessionHeader().
+      localStorage.removeItem(KB_SESSION_EXP_KEY);
+    }
   } catch (e) {
     console.warn('[kb-session] setItem fallito', e);
   }
