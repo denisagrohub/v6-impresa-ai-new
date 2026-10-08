@@ -54,18 +54,85 @@ class FileAPIController(APIBaseController):
             self._log_api_call('/api/v1/upload', 'POST', user.id if user else None, 500, start_time)
             return self._json_response({'error': str(e)}, status=500)
 
+    def _can_access_attachment(self, user, attachment):
+        """08/10/2026 (C-security-audit-3bis, Q-FILE): dispatcher
+        ownership su ir.attachment.
+
+        Regole:
+          1) admin/responsabile/chief -> True
+          2) create_uid == user -> True
+          3) res_model conosciuto -> risali al record collegato,
+             applica check_record_access / _can_access_email
+          4) res_model sconosciuto o res_id assente -> fallback
+             create_uid (gia' coperto al punto 2); NIENTE accesso
+             su attachment orfani senza create_uid match.
+
+        Mai dare accesso completo su attachment orfani.
+        """
+        if not user or not user.id or not attachment or not attachment.id:
+            return False
+        if self._is_responsabile_o_admin(user):
+            return True
+        if attachment.create_uid and attachment.create_uid.id == user.id:
+            return True
+        # Dispatch per res_model
+        rm = attachment.res_model or ''
+        rid = attachment.res_id
+        if not rm or not rid:
+            return False
+        try:
+            if rm not in request.env:
+                return False
+            Rec = request.env[rm].sudo().browse(int(rid))
+            if not Rec.exists():
+                return False
+            # Email log: usa _can_access_email (ha recipient_user_id)
+            if rm in ('erpv6.winwin.email.log', 'erpv6.project.email.log'):
+                if hasattr(self, '_can_access_email'):
+                    return self._can_access_email(user, Rec)
+                return False
+            # Modelli con ownership diretta/relazione: prova check generico
+            from odoo.addons.erpv6_api_gateway.controllers.lib.security import check_record_access
+            if rm in ('calendar.event', 'erpv6.deal', 'erpv6.credit.portfolio',
+                      'erpv6.credit.line', 'erpv6.tracking.relation'):
+                return check_record_access(user, Rec, 'read')
+            # Fallback generico: create_uid del record collegato
+            if hasattr(Rec, 'create_uid') and Rec.create_uid and Rec.create_uid.id == user.id:
+                return True
+            # Se ha relation_id + access_user_ids, prova via relation
+            if hasattr(Rec, 'relation_id') and Rec.relation_id:
+                if user.id in (Rec.relation_id.access_user_ids.ids or []):
+                    return True
+            # Config/system: admin-only (gia' coperto da step 1)
+            if rm in ('ir.ui.view', 'ir.module.module', 'ir.model', 'ir.model.fields'):
+                return False
+            return False
+        except Exception:
+            return False
+
     @http.route('/api/v1/files/<int:file_id>/download', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def download_file(self, file_id, **kwargs):  # pylint: disable=unused-argument
         start_time = time.time()
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return error_response
+        request.update_env(user=user.id)
         
         try:
             attachment = request.env['ir.attachment'].sudo().browse(file_id)
             if not attachment.exists():
                 self._log_api_call(f'/api/v1/files/{file_id}/download', 'GET', user.id, 404, start_time)
                 return self._json_response({'error': 'File not found'}, status=404)
+            # 08/10/2026 (C-security-audit-3bis): check ownership
+            if not self._can_access_attachment(user, attachment):
+                request.env['erpv6.api.access.log'].sudo().log_access(
+                    user=user, route=request.httprequest.path,
+                    method=request.httprequest.method,
+                    model='ir.attachment', record_id=attachment.id,
+                    granted=False, reason='denied_attachment_no_ownership',
+                )
+                self._log_api_call(f'/api/v1/files/{file_id}/download', 'GET', user.id, 403, start_time)
+                return self._json_response({'error': 'Accesso negato'}, status=403)
             
             file_content = base64.b64decode(attachment.datas) if attachment.datas else b''
             
