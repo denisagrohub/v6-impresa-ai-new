@@ -141,13 +141,19 @@ class AdminContractsAPIController(ConsultantAPIController):
     def get_contract(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         d = request.env['erpv6.contract.draft'].sudo().browse(contract_id)
         if not d.exists():
             return self._json_response({'error': 'Non trovato'}, 404)
+        if not d.project_id or not d.project_id.exists():
+            return self._json_response({'error': 'Contratto senza progetto'}, 403)
+        err403 = self._require_relation_access(user, d.project_id, mode='read')
+        if err403:
+            return err403
         return self._json_response({'success': True, 'contract': self._draft_to_dict(d)})
 
     @http.route('/api/v1/admin/contracts',
@@ -197,13 +203,19 @@ class AdminContractsAPIController(ConsultantAPIController):
     def update_contract(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         d = request.env['erpv6.contract.draft'].sudo().browse(contract_id)
         if not d.exists():
             return self._json_response({'error': 'Non trovato'}, 404)
+        if not d.project_id or not d.project_id.exists():
+            return self._json_response({'error': 'Contratto senza progetto'}, 403)
+        err403 = self._require_relation_access(user, d.project_id, mode='write')
+        if err403:
+            return err403
 
         try:
             body = json.loads(request.httprequest.get_data(as_text=True) or '{}')
@@ -233,13 +245,19 @@ class AdminContractsAPIController(ConsultantAPIController):
     def generate_contract_pdf(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         d = request.env['erpv6.contract.draft'].sudo().browse(contract_id)
         if not d.exists():
             return self._json_response({'error': 'Non trovato'}, 404)
+        if not d.project_id or not d.project_id.exists():
+            return self._json_response({'error': 'Contratto senza progetto'}, 403)
+        err403 = self._require_relation_access(user, d.project_id, mode='write')
+        if err403:
+            return err403
 
         try:
             r = d.action_generate_pdf()
@@ -252,13 +270,19 @@ class AdminContractsAPIController(ConsultantAPIController):
     def edit_contract(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         d = request.env['erpv6.contract.draft'].sudo().browse(contract_id)
         if not d.exists():
             return self._json_response({'error': 'Non trovato'}, 404)
+        if not d.project_id or not d.project_id.exists():
+            return self._json_response({'error': 'Contratto senza progetto'}, 403)
+        err403 = self._require_relation_access(user, d.project_id, mode='write')
+        if err403:
+            return err403
         try:
             d.action_edit()
             return self._json_response({'success': True, 'contract': self._draft_to_dict(d)})
@@ -270,13 +294,19 @@ class AdminContractsAPIController(ConsultantAPIController):
     def send_contract(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         d = request.env['erpv6.contract.draft'].sudo().browse(contract_id)
         if not d.exists():
             return self._json_response({'error': 'Non trovato'}, 404)
+        if not d.project_id or not d.project_id.exists():
+            return self._json_response({'error': 'Contratto senza progetto'}, 403)
+        err403 = self._require_relation_access(user, d.project_id, mode='write')
+        if err403:
+            return err403
 
         try:
             body = json.loads(request.httprequest.get_data(as_text=True) or '{}')
@@ -297,13 +327,19 @@ class AdminContractsAPIController(ConsultantAPIController):
     def download_contract_pdf(self, contract_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         d = request.env['erpv6.contract.draft'].sudo().browse(contract_id)
         if not d.exists() or not d.document_id or not d.document_id.pdf_file:
             return self._json_response({'error': 'PDF non disponibile'}, 404)
+        if not d.project_id or not d.project_id.exists():
+            return self._json_response({'error': 'Contratto senza progetto'}, 403)
+        err403 = self._require_relation_access(user, d.project_id, mode='read')
+        if err403:
+            return err403
 
         pdf_bytes = base64.b64decode(d.document_id.pdf_file)
         filename = f'{d.name}.pdf'.replace('/', '_').replace('—', '-')

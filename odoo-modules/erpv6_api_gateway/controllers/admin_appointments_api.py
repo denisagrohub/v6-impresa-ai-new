@@ -12,11 +12,28 @@ from odoo import fields, http
 from odoo.http import request
 
 from .consultant_api import ConsultantAPIController
+from .lib.security import check_record_access
 
 _logger = logging.getLogger(__name__)
 
 
 class AdminAppointmentsAPIController(ConsultantAPIController):
+
+    def _require_event_access(self, user, event, mode='read'):
+        """08/10/2026 (C-security-audit-3icd): record-level check su
+        calendar.event + audit log. Gate per GET/PATCH/ICS.
+        """
+        granted = check_record_access(user, event, mode)
+        request.env['erpv6.api.access.log'].sudo().log_access(
+            user=user, route=request.httprequest.path,
+            method=request.httprequest.method,
+            model='calendar.event', record_id=event.id,
+            granted=granted,
+            reason='ok' if granted else 'denied_no_ownership',
+        )
+        if not granted:
+            return self._json_response({'error': 'Accesso negato'}, 403)
+        return None
 
     def _event_to_dict(self, e):
         return {
@@ -148,6 +165,9 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         e = E.browse(eid)
         if not e.exists():
             return self._json_response({'error': 'not found'}, 404)
+        err403 = self._require_event_access(user, e, mode='read')
+        if err403:
+            return err403
         return self._json_response(self._event_to_dict(e))
 
     # ═══════════════════════════════════════════════════════════════
@@ -280,6 +300,9 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         e = E.browse(eid)
         if not e.exists():
             return self._json_response({'error': 'not found'}, 404)
+        err403 = self._require_event_access(user, e, mode='write')
+        if err403:
+            return err403
         if not e.is_v6_managed:
             return self._json_response(
                 {'error': 'Solo eventi V6 possono essere modificati'}, 403)
@@ -367,6 +390,9 @@ class AdminAppointmentsAPIController(ConsultantAPIController):
         e = E.browse(eid)
         if not e.exists():
             return self._json_response({'error': 'not found'}, 404)
+        err403 = self._require_event_access(user, e, mode='read')
+        if err403:
+            return err403
 
         try:
             ics_dict = e._get_ics_file() or {}

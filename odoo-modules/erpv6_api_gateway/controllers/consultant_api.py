@@ -21,6 +21,7 @@ from odoo.exceptions import UserError
 from odoo.http import request
 
 from .main import APIBaseController
+from .lib.security import check_record_access
 
 _logger = logging.getLogger(__name__)
 
@@ -35,6 +36,24 @@ class ConsultantAPIController(APIBaseController):
             or user.has_group('sales_team.group_sale_manager')
             or user.has_group('erpv6_core.group_chief_projects')
         )
+
+    def _require_relation_access(self, user, relation, mode='read'):
+        """08/10/2026 (C-security-audit-3icd): record-level check su
+        erpv6.tracking.relation + audit log. Usato da contratti e split.
+
+        Ritorna None se OK, altrimenti Response 403.
+        """
+        granted = check_record_access(user, relation, mode)
+        request.env['erpv6.api.access.log'].sudo().log_access(
+            user=user, route=request.httprequest.path,
+            method=request.httprequest.method,
+            model='erpv6.tracking.relation', record_id=relation.id,
+            granted=granted,
+            reason='ok' if granted else 'denied_no_ownership',
+        )
+        if not granted:
+            return self._json_response({'error': 'Accesso negato'}, 403)
+        return None
 
     def _not_installed(self, path, start_time):
         self._log_api_call(path, 'GET', None, 501, start_time)

@@ -45,9 +45,16 @@ def check_record_access(user, record, mode='read'):
         return True
 
     # 2) Owner diretto
+    # 2a) owner_user_id (deal, portfolio, credit.line, relation)
     owner = getattr(record, 'owner_user_id', None)
     if owner and owner.id == user.id:
         return True
+    # 2b) fallback user_id (calendar.event Organizer - 08/10/2026
+    #     C-security-audit-3icd Q1 a+)
+    if 'user_id' in record._fields:
+        r_user = getattr(record, 'user_id', None)
+        if r_user and r_user.id == user.id:
+            return True
 
     # 3) Chief projects: passa SEMPRE (decisione master Q2 07/10/2026).
     #
@@ -66,7 +73,15 @@ def check_record_access(user, record, mode='read'):
     if _in_access_user_ids(user, record):
         return True
 
-    # 5) Fallback: NEGATO
+    # 5) calendar.event: attendee (partner_ids) -> SOLO read
+    #    (08/10/2026 C-security-audit-3icd Q2+Q3: chi vede = chi modifica
+    #     MA attendee può solo vedere, non modificare.)
+    if mode == 'read' and 'partner_ids' in record._fields:
+        pids = record.partner_ids.ids or []
+        if pids and user.partner_id and user.partner_id.id in pids:
+            return True
+
+    # 6) Fallback: NEGATO
     return False
 
 
@@ -95,6 +110,13 @@ def _in_access_user_ids(user, record):
         if pf and pf.relation_id:
             if user.id in (pf.relation_id.access_user_ids.ids or []):
                 return True
+    # calendar.event: via deal_id -> deal.owner_user_id / relation
+    if 'deal_id' in record._fields and record.deal_id:
+        deal = record.deal_id
+        if deal.owner_user_id and deal.owner_user_id.id == user.id:
+            return True
+        if deal.relation_id and user.id in (deal.relation_id.access_user_ids.ids or []):
+            return True
     return False
 
 
