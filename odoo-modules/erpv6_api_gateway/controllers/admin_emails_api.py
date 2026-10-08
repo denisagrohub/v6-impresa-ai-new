@@ -317,9 +317,10 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def list_emails(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         args = request.httprequest.args
         mailbox = args.get('mailbox', '').strip()
@@ -330,6 +331,19 @@ class AdminEmailsAPIController(ConsultantAPIController):
         limit = int(args.get('limit', 100) or 100)
 
         logs = self._fetch_all_logs(user=user)
+
+        # 08/10/2026 (C-security-audit-3efghj): filtro visibilita'
+        # per consulenti. Admin/chief vedono tutto (None = no filter).
+        visible_rel_ids = self._get_visible_relation_ids(user)
+        if visible_rel_ids is not None:
+            def _allowed(l):
+                rid = l.get('relation_id')
+                # Se log ha relation_id: deve essere in visible
+                if rid:
+                    return rid in visible_rel_ids
+                # Se log NON ha relation_id: nega (fail-closed)
+                return False
+            logs = [l for l in logs if _allowed(l)]
 
         # Filtra consulenti (privacy) — a meno che mailbox specifico
         logs = [l for l in logs
@@ -379,9 +393,10 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def get_email(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         kind = request.httprequest.args.get('kind', 'winwin')
         model = 'erpv6.winwin.email.log' if kind == 'winwin' else 'erpv6.project.email.log'
@@ -391,6 +406,8 @@ class AdminEmailsAPIController(ConsultantAPIController):
         r = request.env[model].sudo().browse(email_id)
         if not r.exists():
             return self._json_response({'error': 'Email non trovata'}, 404)
+        if not self._can_access_email(user, r):
+            return self._json_response({'error': 'Accesso negato'}, 403)
 
         # body: prendi da mail.message collegato (se esiste)
         body_html = ''
@@ -456,9 +473,10 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def email_readers(self, email_id, **kwargs):  # pylint: disable=unused-argument
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         kind = request.httprequest.args.get('kind', 'project')
         if kind != 'project':
@@ -470,6 +488,8 @@ class AdminEmailsAPIController(ConsultantAPIController):
         email = P.browse(email_id)
         if not email.exists():
             return self._json_response({'error': 'not found'}, 404)
+        if not self._can_access_email(user, email):
+            return self._json_response({'error': 'Accesso negato'}, 403)
 
         # Destinatari = utenti V6 con accesso al progetto (owner + access)
         rel = email.relation_id
@@ -515,13 +535,16 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def mark_read(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         kind = request.httprequest.args.get('kind', 'winwin')
         r = self._get_record(email_id, kind)
         if not r:
             return self._json_response({'error': 'not found'}, 404)
+        if not self._can_access_email(user, r):
+            return self._json_response({'error': 'Accesso negato'}, 403)
         # 02/10/2026 (C2-rd): winwin → is_read nativo
         if 'is_read' in r._fields:
             r.write({'is_read': True})
@@ -552,13 +575,16 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def mark_unread(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         kind = request.httprequest.args.get('kind', 'winwin')
         r = self._get_record(email_id, kind)
         if not r:
             return self._json_response({'error': 'not found'}, 404)
+        if not self._can_access_email(user, r):
+            return self._json_response({'error': 'Accesso negato'}, 403)
         if 'is_read' in r._fields:
             r.write({'is_read': False})
         # 02/10/2026 (C2-rd): project → rimuovi read.state per l'utente
@@ -577,13 +603,16 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def archive(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         kind = request.httprequest.args.get('kind', 'winwin')
         r = self._get_record(email_id, kind)
         if not r:
             return self._json_response({'error': 'not found'}, 404)
+        if not self._can_access_email(user, r):
+            return self._json_response({'error': 'Accesso negato'}, 403)
         if 'is_archived' in r._fields:
             r.write({'is_archived': True})
         return self._json_response({'success': True})
@@ -593,13 +622,16 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def unarchive(self, email_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
-            return self._json_response({'error': 'Riservato'}, 403)
+            return err
+        request.update_env(user=user.id)
         kind = request.httprequest.args.get('kind', 'winwin')
         r = self._get_record(email_id, kind)
         if not r:
             return self._json_response({'error': 'not found'}, 404)
+        if not self._can_access_email(user, r):
+            return self._json_response({'error': 'Accesso negato'}, 403)
         if 'is_archived' in r._fields:
             r.write({'is_archived': False})
         return self._json_response({'success': True})
@@ -612,14 +644,32 @@ class AdminEmailsAPIController(ConsultantAPIController):
     def send_email(self, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         try:
             body = json.loads(request.httprequest.get_data(as_text=True) or '{}')
         except json.JSONDecodeError:
             return self._json_response({'error': 'JSON non valido'}, 400)
+
+        # 08/10/2026 (C-security-audit-3efghj, Q-E4):
+        # - send CON relation_id/projectId -> access al progetto
+        # - send SENZA relation_id -> admin-only
+        _rel_id = body.get('relation_id') or body.get('relationId') or body.get('project_id') or body.get('projectId')
+        if _rel_id:
+            Rel = request.env['erpv6.tracking.relation'].sudo().browse(int(_rel_id))
+            if not Rel.exists():
+                return self._json_response({'error': 'Progetto non trovato'}, 404)
+            err403 = self._require_relation_access(user, Rel, mode='write')
+            if err403:
+                return err403
+        else:
+            # Nessun relation_id: solo admin/chief
+            if not self._is_admin_or_chief(user):
+                return self._json_response(
+                    {'error': 'Solo admin/chief possono inviare senza progetto'}, 403)
 
         to_list = body.get('to') or []
         cc_list = body.get('cc') or []

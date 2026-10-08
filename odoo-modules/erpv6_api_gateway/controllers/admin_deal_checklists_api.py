@@ -25,9 +25,10 @@ class AdminDealChecklistsAPIController(APIBaseController):
             return self._json_response({})
 
         start_time = time.time()
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         env = request.env
         if 'erpv6.deal.checklist' not in env:
@@ -40,6 +41,25 @@ class AdminDealChecklistsAPIController(APIBaseController):
             states = [s.strip() for s in state_param.split(',') if s.strip()]
             if states:
                 domain.append(('state', 'in', states))
+
+        # 08/10/2026 (C-security-audit-3efghj, Q-CHECKLISTS):
+        # filtro server-side per consulenti. Admin/chief vedono tutto.
+        is_admin_like = (
+            user.has_group('base.group_system')
+            or user.has_group('erpv6_core.group_chief_projects')
+        )
+        if not is_admin_like:
+            # Consulente: solo deal dove e' owner o in relation.access_user_ids
+            visible_rel_ids = self._get_visible_relation_ids(user) or []
+            domain.append('|')
+            domain.append(('owner_user_id', '=', user.id))
+            if visible_rel_ids:
+                domain.append(('relation_id', 'in', visible_rel_ids))
+            else:
+                # Nessun progetto visibile: solo owner
+                # (rimuovo l'OR pendente)
+                domain = [d for d in domain if d != '|']
+                domain.append(('owner_user_id', '=', user.id))
 
         Deal = env['erpv6.deal'].sudo()
         deals = Deal.search(domain, order='write_date desc', limit=100)

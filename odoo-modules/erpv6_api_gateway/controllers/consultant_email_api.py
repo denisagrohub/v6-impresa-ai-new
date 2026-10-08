@@ -30,43 +30,6 @@ from .consultant_api import ConsultantAPIController
 
 class ConsultantEmailAPIController(ConsultantAPIController):
 
-    def _get_visible_relation_ids(self, user):
-        """30/09/2026 (modello B): ritorna la lista di relation_id le cui
-        email sono visibili al consulente.
-
-        Regola: il consulente vede il progetto padre (dove è parte) +
-        tutti i nodi figli di quel padre (sibling + eventuali deal).
-        Questo copre il caso TEE: Martina (parte del padre 5) vede le
-        email di 5, 6, 10, 15, 23, 29, 30, 38.
-
-        Admin/responsabile: vede tutto (ritorna None per segnalare
-        "no filter").
-        """
-        if self._is_responsabile_o_admin(user):
-            return None  # no filter
-
-        Relation = request.env['erpv6.tracking.relation'].sudo()
-        partner_id = user.partner_id.id
-        if not partner_id:
-            return []
-
-        # Nodi dove l'utente è "parte" (partner_id match)
-        my_nodes = Relation.search([('partner_id', '=', partner_id)])
-        if not my_nodes:
-            return []
-
-        # Per ogni nodo: aggiungi se stesso + parent + figli del parent
-        ids = set()
-        for node in my_nodes:
-            ids.add(node.id)
-            if node.parent_id:
-                parent = node.parent_id
-                ids.add(parent.id)
-                # Aggiungi tutti i figli del parent (sibling)
-                siblings = Relation.search([('parent_id', '=', parent.id)])
-                ids.update(siblings.ids)
-        return sorted(ids)
-
     def _read_state_map(self, user, email_ids):
         """02/10/2026 (C2-rd): {email_id: read_at} per l'utente passato."""
         if not email_ids or 'erpv6.email.read.state' not in request.env:
@@ -77,24 +40,6 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             ('user_id', '=', user.id),
         ])
         return {r.project_email_id.id: r.read_at for r in rows}
-
-    def _can_access_email(self, user, log):
-        """30/09/2026: True se user puo' accedere a questa email
-        (record di erpv6.winwin.email.log o erpv6.project.email.log).
-
-        Regole:
-        - Admin/responsabile: sempre
-        - Destinatario diretto (recipient_user_id = user): sempre
-        - relation_id cade nel perimetro (nodo proprio + parent + sibling): si
-        """
-        if self._is_responsabile_o_admin(user):
-            return True
-        if hasattr(log, 'recipient_user_id') and log.recipient_user_id and log.recipient_user_id.id == user.id:
-            return True
-        visible_ids = self._get_visible_relation_ids(user) or []
-        if hasattr(log, 'relation_id') and log.relation_id and log.relation_id.id in visible_ids:
-            return True
-        return False
 
     def _hide_personal_alias(self, alias, current_user):
         """30/09/2026 (fix privacy): True se l'alias è una casella
