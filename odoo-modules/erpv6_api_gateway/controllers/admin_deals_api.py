@@ -13,11 +13,31 @@ from odoo import fields, http
 from odoo.http import request
 
 from .consultant_api import ConsultantAPIController
+from .lib.security import check_record_access
 
 _logger = logging.getLogger(__name__)
 
 
 class AdminDealsAPIController(ConsultantAPIController):
+
+    def _require_deal_access(self, user, deal, mode='read'):
+        """07/10/2026 (C-security-audit FASE 3b): record-level check
+        su deal + audit log. Ritorna None se OK, altrimenti 403.
+
+        Usato anche per settlement/checklist (D2: ereditano dal deal
+        padre).
+        """
+        granted = check_record_access(user, deal, mode)
+        request.env['erpv6.api.access.log'].sudo().log_access(
+            user=user, route=request.httprequest.path,
+            method=request.httprequest.method,
+            model='erpv6.deal', record_id=deal.id,
+            granted=granted,
+            reason='ok' if granted else 'denied_no_ownership',
+        )
+        if not granted:
+            return self._json_response({'error': 'Accesso negato'}, 403)
+        return None
 
     def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
@@ -596,13 +616,16 @@ class AdminDealsAPIController(ConsultantAPIController):
     def list_settlements(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
         Deal = request.env['erpv6.deal'].sudo()
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='read')
+        if err403:
+            return err403
         return self._json_response({
             'success': True,
             # 28/09/2026: include_lines=True (piccoli, serve UI espansione)
@@ -615,13 +638,16 @@ class AdminDealsAPIController(ConsultantAPIController):
     def create_settlement(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
         Deal = request.env['erpv6.deal'].sudo()
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -657,13 +683,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def freeze_settlement(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
         S = request.env['erpv6.deal.settlement'].sudo()
         s = S.browse(settlement_id)
         if not s.exists():
             return self._json_response({'error': 'Settlement non trovato'}, 404)
+        # 07/10/2026 (FASE 3b, D2): settlement eredita dal deal padre
+        err403 = self._require_deal_access(user, s.deal_id, mode='write')
+        if err403:
+            return err403
         try:
             s.action_freeze()
             s.action_generate_pdf()
@@ -681,13 +711,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def send_settlement_to_sign(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
         S = request.env['erpv6.deal.settlement'].sudo()
         s = S.browse(settlement_id)
         if not s.exists():
             return self._json_response({'error': 'Settlement non trovato'}, 404)
+        # 07/10/2026 (FASE 3b, D2): settlement eredita dal deal padre
+        err403 = self._require_deal_access(user, s.deal_id, mode='write')
+        if err403:
+            return err403
         if not s.pdf_document_id or not s.pdf_document_id.pdf_file:
             return self._json_response(
                 {'error': 'PDF non generato: congela prima il consuntivo'}, 400)
@@ -798,7 +832,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
 
@@ -806,6 +840,9 @@ class AdminDealsAPIController(ConsultantAPIController):
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='read')
+        if err403:
+            return err403
 
         self._log_api_call(
             '/api/v1/admin/deals/%s' % deal_id, 'GET', user.id, 200, start_time)
@@ -825,7 +862,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
 
@@ -833,6 +870,9 @@ class AdminDealsAPIController(ConsultantAPIController):
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='write')
+        if err403:
+            return err403
 
         try:
             body = json.loads(request.httprequest.data or b'{}')
@@ -890,7 +930,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
 
@@ -898,6 +938,9 @@ class AdminDealsAPIController(ConsultantAPIController):
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='write')
+        if err403:
+            return err403
 
         try:
             d.action_freeze()
@@ -925,7 +968,7 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
 
@@ -933,6 +976,9 @@ class AdminDealsAPIController(ConsultantAPIController):
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='write')
+        if err403:
+            return err403
 
         try:
             d.action_recompute()

@@ -55,6 +55,19 @@ class Erpv6Deal(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # 07/10/2026 (C-security-audit FASE 3b, decisione D3):
+        # owner = creatore, con eredita' da relation.owner_user_id
+        # se disponibile (piu' corretto: il deal appartiene al
+        # responsabile del progetto, non a chi materialmente lo crea).
+        for vals in vals_list:
+            if not vals.get('owner_user_id'):
+                owner_id = None
+                if vals.get('relation_id'):
+                    rel = self.env['erpv6.tracking.relation'].sudo().browse(
+                        int(vals['relation_id']))
+                    if rel.exists() and rel.owner_user_id:
+                        owner_id = rel.owner_user_id.id
+                vals['owner_user_id'] = owner_id or self.env.user.id
         records = super().create(vals_list)
         for rec in records:
             if rec.schema_id:

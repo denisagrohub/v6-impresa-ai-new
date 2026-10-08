@@ -55,13 +55,46 @@ def check_record_access(user, record, mode='read'):
     #   Oggi chief = "quasi admin" per continuita' operativa (access_
     #   user_ids vuoto su 22/24 relazioni). In futuro: chief vede solo
     #   i progetti dei propri consulenti (via relation.access_user_ids
-    #   o altro criterio di team). Il backfill access_user_ids e' il
-    #   prerequisito per restringere il perimetro senza rotture.
+    #   o altro criterio di team).
     if user.has_group('erpv6_core.group_chief_projects'):
         return True
 
-    # 4) Consultant: solo owner diretto (già coperto al punto 2)
+    # 4) access_user_ids sul record (se presente) o via relation
+    #    (07/10/2026 C-security-audit 3b, decisione master D3):
+    #    regola AUTONOMA dal ruolo. Se l'utente e' esplicitamente
+    #    in access_user_ids -> accesso garantito.
+    if _in_access_user_ids(user, record):
+        return True
+
     # 5) Fallback: NEGATO
+    return False
+
+
+def _in_access_user_ids(user, record):
+    """True se user e' in record.access_user_ids, o in
+    record.relation_id.access_user_ids (fallback via parent).
+
+    Copre:
+      - erpv6.tracking.relation: ha access_user_ids diretto
+      - erpv6.deal / erpv6.credit.portfolio: via relation_id
+      - erpv6.credit.line: via portfolio_id.relation_id
+    """
+    # Diretto
+    if 'access_user_ids' in record._fields:
+        if user.id in (record.access_user_ids.ids or []):
+            return True
+    # Via relation_id
+    if 'relation_id' in record._fields and record.relation_id:
+        rel = record.relation_id
+        if 'access_user_ids' in rel._fields:
+            if user.id in (rel.access_user_ids.ids or []):
+                return True
+    # credit.line -> portfolio_id.relation_id
+    if record._name == 'erpv6.credit.line':
+        pf = getattr(record, 'portfolio_id', None)
+        if pf and pf.relation_id:
+            if user.id in (pf.relation_id.access_user_ids.ids or []):
+                return True
     return False
 
 
