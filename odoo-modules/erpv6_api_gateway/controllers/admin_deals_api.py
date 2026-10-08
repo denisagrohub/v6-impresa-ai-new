@@ -66,6 +66,24 @@ class AdminDealsAPIController(ConsultantAPIController):
             return self._json_response({'error': 'Deal non trovato'}, 404)
         return self._require_deal_access(user, deal, mode=mode)
 
+    def _require_relation_access(self, user, relation, mode='read',
+                                  target_label='relation'):
+        """07/10/2026 (C-security-audit-3b-bis Step 4): record-level
+        check su erpv6.tracking.relation + audit log. Usato per
+        entita' senza deal padre (es. contract.draft -> project_id).
+        """
+        granted = check_record_access(user, relation, mode)
+        request.env['erpv6.api.access.log'].sudo().log_access(
+            user=user, route=request.httprequest.path,
+            method=request.httprequest.method,
+            model='erpv6.tracking.relation', record_id=relation.id,
+            granted=granted,
+            reason='ok' if granted else 'denied_no_ownership',
+        )
+        if not granted:
+            return self._json_response({'error': 'Accesso negato'}, 403)
+        return None
+
     def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
@@ -1282,12 +1300,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def deal_access_log(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         Deal = request.env['erpv6.deal'].sudo()
-        if not Deal.browse(deal_id).exists():
+        d = Deal.browse(deal_id)
+        if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='read')
+        if err403:
+            return err403
         Log = request.env['erpv6.api.log'].sudo()
         # Endpoint del deal: '/api/v1/admin/deals/<id>' o varianti (variable,
         # freeze, checklist, settlements, send-to-sign). Filtro LIKE esatto
@@ -1355,13 +1378,23 @@ class AdminDealsAPIController(ConsultantAPIController):
     def delete_contract_draft(self, draft_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         Draft = request.env['erpv6.contract.draft'].with_user(user.id).sudo()
         d = Draft.browse(draft_id)
         if not d.exists():
             return self._json_response({'success': True, 'already_gone': True})
+        # 07/10/2026 (C-security-audit-3b-bis Step 4): contract.draft
+        # non ha deal padre, usa project_id -> tracking.relation.
+        if not d.project_id or not d.project_id.exists():
+            return self._json_response(
+                {'error': 'Contratto senza progetto, accesso negato'}, 403)
+        err403 = self._require_relation_access(
+            user, d.project_id, mode='write', target_label='contract_draft')
+        if err403:
+            return err403
         try:
             doc = d.document_id
             d.unlink()
@@ -1483,14 +1516,18 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         Deal = request.env['erpv6.deal'].sudo()
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='write')
+        if err403:
+            return err403
 
         try:
             d.action_send_to_sign()
