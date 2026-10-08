@@ -106,6 +106,7 @@ class SignAPIController(APIBaseController):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return error_response
+        request.update_env(user=user.id)
 
         try:
             if 'erpv6.sign.request' not in request.env:
@@ -123,6 +124,17 @@ class SignAPIController(APIBaseController):
             if not sign_request.exists():
                 self._log_api_call(f'/api/v1/sign/{request_id}/status', 'GET', user.id, 404, start_time)
                 return self._json_response({'error': 'Sign request not found'}, status=404)
+            # 08/10/2026 (C-security-audit-3bis): record-level check.
+            # Owner (create_uid) OR signer (partner_id.user_ids) OR
+            # admin/chief.
+            err403 = self._require_record_access(
+                user, sign_request, 'erpv6.sign.request',
+                relation_field='split_project_id',
+                partner_field='partner_id',
+                mode='read',
+            )
+            if err403:
+                return err403
 
             # Aggiorna lo stato da Documenso prima di rispondere, cosi' il
             # chiamante non deve fare polling separato su action_check_status.

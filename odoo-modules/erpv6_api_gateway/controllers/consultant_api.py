@@ -27,16 +27,6 @@ _logger = logging.getLogger(__name__)
 
 class ConsultantAPIController(APIBaseController):
 
-    def _is_responsabile_o_admin(self, user):
-        # 30/09/2026 (fix): include chief_projects — prima un Chief Projects
-        # V6 non era riconosciuto come 'responsabile' e non vedeva il checkbox
-        # 'Vedi tutti' né poteva decidere le richieste.
-        return (
-            user.has_group('base.group_system')
-            or user.has_group('sales_team.group_sale_manager')
-            or user.has_group('erpv6_core.group_chief_projects')
-        )
-
     def _require_relation_access(self, user, relation, mode='read'):
         """08/10/2026 (C-security-audit-3icd): record-level check su
         erpv6.tracking.relation + audit log. Usato da contratti e split.

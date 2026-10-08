@@ -63,6 +63,7 @@ class TrackingAPIController(APIBaseController):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return error_response
+        request.update_env(user=user.id)
 
         try:
             if 'erpv6.tracking.lot' not in request.env:
@@ -73,6 +74,13 @@ class TrackingAPIController(APIBaseController):
             if not lot.exists():
                 self._log_api_call(f'/api/v1/tracking/lots/{lot_id}', 'GET', user.id, 404, start_time)
                 return self._json_response({'error': 'Lot not found'}, status=404)
+            # 08/10/2026 (C-security-audit-3bis): record-level check.
+            # Owner (create_uid) OR admin/chief.
+            err403 = self._require_record_access(
+                user, lot, 'erpv6.tracking.lot', mode='read',
+            )
+            if err403:
+                return err403
 
             child_lots = []
             for child in lot.child_lot_ids:
