@@ -66,9 +66,10 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
     def list_versions(self, relation_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         env = request.env
         if 'erpv6.revenue.split.version' not in env:
@@ -77,6 +78,9 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
         Relation = env['erpv6.tracking.relation'].sudo().browse(relation_id)
         if not Relation.exists():
             return self._json_response({'error': 'Progetto non trovato'}, 404)
+        err403 = self._require_relation_access(user, Relation, mode='read')
+        if err403:
+            return err403
 
         include = request.httprequest.args.get('includePayload', '') in ('1', 'true')
         versions = env['erpv6.revenue.split.version'].sudo().search(
@@ -96,14 +100,18 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
     def create_version(self, relation_id, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         env = request.env
         Relation = env['erpv6.tracking.relation'].sudo().browse(relation_id)
         if not Relation.exists():
             return self._json_response({'error': 'Progetto non trovato'}, 404)
+        err403 = self._require_relation_access(user, Relation, mode='write')
+        if err403:
+            return err403
 
         try:
             body = json.loads(request.httprequest.get_data(as_text=True) or '{}')
@@ -182,15 +190,19 @@ class AdminSplitVersionsAPIController(ConsultantAPIController):
     def freeze_version(self, relation_id, vid, **kwargs):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         env = request.env
         Version = env['erpv6.revenue.split.version'].sudo()
         v = Version.browse(vid)
         if not v.exists() or v.relation_id.id != relation_id:
             return self._json_response({'error': 'Versione non trovata'}, 404)
+        err403 = self._require_relation_access(user, v.relation_id, mode='write')
+        if err403:
+            return err403
         if v.state != 'bozza':
             return self._json_response({'error': f'Versione in stato {v.state}, non congelabile'}, 400)
 

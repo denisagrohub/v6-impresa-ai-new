@@ -66,24 +66,6 @@ class AdminDealsAPIController(ConsultantAPIController):
             return self._json_response({'error': 'Deal non trovato'}, 404)
         return self._require_deal_access(user, deal, mode=mode)
 
-    def _require_relation_access(self, user, relation, mode='read',
-                                  target_label='relation'):
-        """07/10/2026 (C-security-audit-3b-bis Step 4): record-level
-        check su erpv6.tracking.relation + audit log. Usato per
-        entita' senza deal padre (es. contract.draft -> project_id).
-        """
-        granted = check_record_access(user, relation, mode)
-        request.env['erpv6.api.access.log'].sudo().log_access(
-            user=user, route=request.httprequest.path,
-            method=request.httprequest.method,
-            model='erpv6.tracking.relation', record_id=relation.id,
-            granted=granted,
-            reason='ok' if granted else 'denied_no_ownership',
-        )
-        if not granted:
-            return self._json_response({'error': 'Accesso negato'}, 403)
-        return None
-
     def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
