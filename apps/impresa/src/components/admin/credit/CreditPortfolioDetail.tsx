@@ -107,7 +107,12 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
     setLoading(true); setError(null);
     try {
       const r = await fetch(`/api/admin/credit-portfolios/${portfolioId}`, { headers: authHeaders() });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
+      // 07/10/2026 (C-security-audit 3a-front): 403 -> messaggio
+      // pulito "Accesso negato", niente redirect login.
+      if (r.status === 403) {
+        throw new Error('Accesso negato. Non hai i permessi per questo portfolio.');
+      }
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       setP(j);
       setNotesDraft(j.notes || '');
@@ -127,7 +132,8 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
       const r = await fetch(`/api/admin/credit-portfolios/${portfolioId}/${name}`, {
         method: 'POST', headers: authHeaders(),
       });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 403) throw new Error('Accesso negato.');
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       setP(j.portfolio);
       setNotesDraft(j.portfolio?.notes || '');
@@ -145,7 +151,8 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify(vals),
     });
-    const j = await r.json();
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 403) { setError('Accesso negato.'); return; }
     if (!r.ok) { setError(j.error || `HTTP ${r.status}`); return; }
     // aggiorna la riga localmente + totale
     setP(prev => {
@@ -164,7 +171,8 @@ export default function CreditPortfolioDetail({ portfolioId }: { portfolioId: st
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes: notesDraft }),
       });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 403) throw new Error('Accesso negato.');
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       setNotesDirty(false);
       setNotice('Note salvate.');
