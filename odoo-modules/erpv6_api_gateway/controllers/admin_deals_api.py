@@ -39,6 +39,33 @@ class AdminDealsAPIController(ConsultantAPIController):
             return self._json_response({'error': 'Accesso negato'}, 403)
         return None
 
+    def _require_child_access(self, user, child, kind, mode='read'):
+        """07/10/2026 (C-security-audit-3b-bis): risale al deal padre
+        di una sotto-entita' (settlement, incasso, line, checklist,
+        contract-draft) e applica _require_deal_access.
+
+        kind:
+          'settlement' -> child.deal_id
+          'incasso'    -> child.settlement_id.deal_id
+          'line'       -> child.settlement_id.deal_id
+          'checklist'  -> child.deal_id
+          'contract_draft' -> eccezione: usa relation (helper diverso)
+        """
+        deal = None
+        if kind == 'settlement':
+            deal = child.deal_id
+        elif kind in ('incasso', 'line'):
+            s = getattr(child, 'settlement_id', None)
+            deal = s.deal_id if s else None
+        elif kind == 'checklist':
+            deal = child.deal_id
+        else:
+            return self._json_response(
+                {'error': 'Tipo sotto-entita non supportata: %s' % kind}, 500)
+        if not deal or not deal.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+        return self._require_deal_access(user, deal, mode=mode)
+
     def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
@@ -237,13 +264,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def registra_incasso(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         S = request.env['erpv6.deal.settlement'].sudo()
         s = S.browse(settlement_id)
         if not s.exists():
             return self._json_response({'error': 'Settlement non trovato'}, 404)
+        err403 = self._require_child_access(user, s, 'settlement', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -271,13 +302,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def delete_incasso(self, incasso_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         I = request.env['erpv6.deal.settlement.incasso'].sudo()
         i = I.browse(incasso_id)
         if not i.exists():
             return self._json_response({'error': 'Movimento non trovato'}, 404)
+        err403 = self._require_child_access(user, i, 'incasso', mode='write')
+        if err403:
+            return err403
         settlement = i.settlement_id
         try:
             i.unlink()
@@ -299,13 +334,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def set_pagamento_stato(self, line_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         L = request.env['erpv6.deal.settlement.line'].sudo()
         line = L.browse(line_id)
         if not line.exists():
             return self._json_response({'error': 'Linea non trovata'}, 404)
+        err403 = self._require_child_access(user, line, 'line', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -342,13 +381,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def get_pagamenti_summary(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         S = request.env['erpv6.deal.settlement'].sudo()
         s = S.browse(settlement_id)
         if not s.exists():
             return self._json_response({'error': 'Settlement non trovato'}, 404)
+        err403 = self._require_child_access(user, s, 'settlement', mode='write')
+        if err403:
+            return err403
         counts = {}
         totale_pagato = 0.0
         totale_da_pagare = 0.0
@@ -1318,13 +1361,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def approve_second_signature(self, line_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         L = request.env['erpv6.deal.settlement.line'].sudo()
         line = L.browse(line_id)
         if not line.exists():
             return self._json_response({'error': 'Linea non trovata'}, 404)
+        err403 = self._require_child_access(user, line, 'line', mode='write')
+        if err403:
+            return err403
         try:
             line.action_approva_seconda()
             request.env.cr.commit()
