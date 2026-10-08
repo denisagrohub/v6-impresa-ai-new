@@ -1,14 +1,10 @@
 "use client";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Lock, Mail, ArrowRight, AlertCircle } from "lucide-react";
 
 export default function UnifiedLoginPage() {
     const router = useRouter();
-    // 07/10/2026 (C-auth-401): se arrivi qui da un redirect del
-    // middleware/apiFetch (JWT scaduto), torna alla pagina originale
-    // dopo il login — ma solo se il ruolo lo consente (anti-open-redirect).
-    const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -78,7 +74,13 @@ export default function UnifiedLoginPage() {
             //  - se punta a /admin/* o /api/admin/*: solo admin/chief
             //  - se punta a /consultant/* o /api/consultant/*: admin/chief/consultant
             // Altrimenti fallback al default multi-ruolo.
-            const requested = searchParams.get('redirect');
+            // 07/10/2026 (C-auth-401): leggiamo ?redirect= da window
+            // (non useSearchParams) per evitare Suspense boundary in
+            // static generation. La pagina login è client-only, va bene.
+            let requested: string | null = null;
+            try {
+              requested = new URLSearchParams(window.location.search).get('redirect');
+            } catch {}
             const isAdminRole = roles.includes('admin') || CHIEF_PREFIXES.some(c => roles.includes(c));
             const isConsultantRole = isAdminRole || roles.includes('consultant');
             if (requested && requested.startsWith('/') && !requested.startsWith('//')) {
