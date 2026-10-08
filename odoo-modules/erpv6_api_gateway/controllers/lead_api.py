@@ -168,8 +168,25 @@ class LeadAPIController(APIBaseController):
         for wh in env['erpv6.webhook'].sudo().search([('events', '=', 'lead.created'), ('is_active', '=', True)]):
             wh.trigger({'event': 'lead.created', 'lead_id': lead.id, 'email': email})
 
+        # 08/10/2026 (C-security-lead-public): genera token intervista
+        # multi-fase. Il frontend lo salva in sessionStorage e lo
+        # rimanda nei PUT successivi (header X-Lead-Token).
+        edit_token = None
+        try:
+            if 'erpv6.lead.edit.token' in env:
+                tok_rec = env['erpv6.lead.edit.token'].sudo().generate(
+                    lead, purpose='interview')
+                edit_token = tok_rec.token
+        except Exception as e:
+            _logger.warning("Lead edit token generation failed: %s", e)
+
         self._log_api_call('/api/v1/leads', 'POST', None, 201, start_time)
-        return self._json_response({'id': lead.id, 'name': lead.name, 'funnel_started': funnel_started}, 201)
+        return self._json_response({
+            'id': lead.id,
+            'name': lead.name,
+            'funnel_started': funnel_started,
+            'edit_token': edit_token,  # 08/10/2026 C-security-lead-public
+        }, 201)
 
     @http.route('/api/v1/leads/<int:lead_id>', type='http', auth='none', methods=['PUT', 'OPTIONS'], csrf=False)
     def update_lead(self, lead_id, **kwargs):  # pylint: disable=unused-argument
@@ -228,6 +245,61 @@ class LeadAPIController(APIBaseController):
 
         self._log_api_call(f'/api/v1/leads/{lead_id}', 'PUT', None, 200, start_time)
         return self._json_response({'id': lead.id, 'name': lead.name, 'qualified': lead.sudo().type == 'opportunity'}, 200)
+
+    @http.route('/api/v1/leads/<int:lead_id>/request-edit',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def request_edit_link(self, lead_id, **kwargs):
+        """08/10/2026 (C-security-lead-public): genera token edit
+        e invia email al lead con link di conferma dati.
+
+        Protetto: solo consulente V6 owner del lead (create_uid == user.id)
+        o admin/chief. Il lead pubblico NON può chiamare questo endpoint.
+        """
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        lead = request.env['crm.lead'].sudo().browse(lead_id)
+        if not lead.exists():
+            return self._json_response({'error': 'Lead not found'}, 404)
+
+        # Check owner
+        is_admin_or_chief = (
+            user.has_group('base.group_system')
+            or user.has_group('erpv6_core.group_chief_projects')
+        )
+        is_owner = lead.create_uid and lead.create_uid.id == user.id
+        if not (is_admin_or_chief or is_owner):
+            return self._json_response(
+                {'error': 'Accesso negato: solo owner o admin'}, 403)
+
+        if 'erpv6.lead.edit.token' not in request.env:
+            return self._json_response(
+                {'error': 'Modulo token non disponibile'}, 501)
+
+        try:
+            tok = request.env['erpv6.lead.edit.token'].sudo().generate(
+                lead, purpose='edit')
+            sent = tok.send_edit_link_email()
+        except Exception as e:
+            _logger.exception('request_edit_link fallito per lead %s', lead_id)
+            return self._json_response({'error': str(e)}, 500)
+
+        self._log_api_call(
+            f'/api/v1/leads/{lead_id}/request-edit', 'POST',
+            user.id, 200, start_time)
+        return self._json_response({
+            'success': True,
+            'token_id': tok.id,  # NON esporre il token raw
+            'email_sent': bool(sent),
+            'email_to': lead.email_from,
+        })
 
     @http.route('/api/v1/leads/evaluate', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def evaluate_lead(self, **kwargs):  # pylint: disable=unused-argument
