@@ -1,3 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_base_user,User,model_erpv6_base,base.group_user,1,0,0,0
 access_base_manager,Manager,model_erpv6_base,base.group_system,1,1,1,1
+access_api_access_log_system,erpv6.api.access.log system,model_erpv6_api_access_log,base.group_system,1,1,1,1

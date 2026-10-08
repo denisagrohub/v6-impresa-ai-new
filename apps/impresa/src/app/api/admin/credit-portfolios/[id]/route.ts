@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callOdooAPI } from '@/lib/odoo-adapter';
-import { isOdooEnabled } from '@/config/system';
+import { isOdooEnabled, SYSTEM_CONFIG } from '@/config/system';
 
-function fwError(e: any) {
-  const msg = String(e?.message || 'Odoo non raggiungibile');
-  const m = msg.match(/ha risposto (\d{3})/);
-  return NextResponse.json({ error: msg }, { status: m ? parseInt(m[1], 10) : 502 });
+// 07/10/2026 (C-security-audit 3a-front): fetch diretto + preserve
+// status. Il proxy vecchio (callOdooAPI) lanciava su 403 e il
+// frontend vedeva "Odoo API ... ha risposto 403" invece di
+// "Accesso negato".
+
+function getBase() {
+  return (SYSTEM_CONFIG.ODOO.URL || '').replace(/\/$/, '');
 }
 
 export async function GET(request: NextRequest, ctx: { params: { id: string } }) {
@@ -13,11 +15,15 @@ export async function GET(request: NextRequest, ctx: { params: { id: string } })
   const auth = request.headers.get('authorization');
   if (!auth) return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
   try {
-    const r = await callOdooAPI(`/api/v1/admin/credit-portfolios/${ctx.params.id}`, {
-      method: 'GET', headers: { Authorization: auth },
-    });
-    return NextResponse.json(r.data);
-  } catch (e: any) { return fwError(e); }
+    const url = `${getBase()}/api/v1/admin/credit-portfolios/${ctx.params.id}`;
+    const headers: Record<string, string> = { Authorization: auth };
+    if (SYSTEM_CONFIG.ODOO.API_KEY) headers['X-API-Key'] = SYSTEM_CONFIG.ODOO.API_KEY;
+    const r = await fetch(url, { method: 'GET', headers });
+    const data = await r.json().catch(() => ({ error: 'Risposta non JSON' }));
+    return NextResponse.json(data, { status: r.status });
+  } catch (e: any) {
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 502 });
+  }
 }
 
 export async function PATCH(request: NextRequest, ctx: { params: { id: string } }) {
@@ -25,12 +31,16 @@ export async function PATCH(request: NextRequest, ctx: { params: { id: string } 
   const auth = request.headers.get('authorization');
   if (!auth) return NextResponse.json({ error: 'Sessione mancante' }, { status: 401 });
   try {
-    const body = await request.json();
-    const r = await callOdooAPI(`/api/v1/admin/credit-portfolios/${ctx.params.id}`, {
-      method: 'PATCH',
-      headers: { Authorization: auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    return NextResponse.json(r.data);
-  } catch (e: any) { return fwError(e); }
+    const body = await request.json().catch(() => ({}));
+    const url = `${getBase()}/api/v1/admin/credit-portfolios/${ctx.params.id}`;
+    const headers: Record<string, string> = {
+      Authorization: auth, 'Content-Type': 'application/json',
+    };
+    if (SYSTEM_CONFIG.ODOO.API_KEY) headers['X-API-Key'] = SYSTEM_CONFIG.ODOO.API_KEY;
+    const r = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(body) });
+    const data = await r.json().catch(() => ({ error: 'Risposta non JSON' }));
+    return NextResponse.json(data, { status: r.status });
+  } catch (e: any) {
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 502 });
+  }
 }

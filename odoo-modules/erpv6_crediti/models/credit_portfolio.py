@@ -24,6 +24,15 @@ class Erpv6CreditPortfolio(models.Model):
     _order = 'create_date desc'
     _rec_name = 'name'
 
+    # 07/10/2026 (C-security-audit FASE 2): ownership record-level.
+    # Popolato da backfill (relation_id.owner_user_id) o da create().
+    owner_user_id = fields.Many2one(
+        'res.users', string='Responsabile',
+        index=True, ondelete='set null',
+        help='Utente a cui appartiene il portfolio. Backfill da '
+             'relation_id.owner_user_id. Usato per record-level '
+             'authorization (C-security-audit).')
+
     name = fields.Char(string='Nome', required=True, index=True)
     # 04/10/2026 (C-crediti-1): tipo di certificato. Oggi solo
     # credit_tax (Superbonus ecc.). Quando arrivera' TEE/GO si

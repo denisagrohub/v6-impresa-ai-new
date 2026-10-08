@@ -19,6 +19,16 @@ class Erpv6CreditLine(models.Model):
         'erpv6.credit.portfolio', string='Portfolio',
         required=True, ondelete='cascade', index=True)
 
+    # 07/10/2026 (C-security-audit FASE 2): ownership record-level.
+    # Related storable da portfolio_id.owner_user_id: la riga eredita
+    # l'ownership del portfolio, senza backfill separato.
+    owner_user_id = fields.Many2one(
+        'res.users', string='Responsabile',
+        related='portfolio_id.owner_user_id',
+        store=True, index=True, readonly=True,
+        help='Ereditato dal portfolio. Usato per record-level '
+             'authorization (C-security-audit).')
+
     # 04/10/2026 (C-crediti-1): campo generico (era codice_tributo).
     # Per credit_tax e' il codice tributo AdE (6925, 7702, ...).
     codice = fields.Char(string='Codice', required=True, index=True)
