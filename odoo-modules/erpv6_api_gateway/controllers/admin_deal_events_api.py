@@ -29,7 +29,7 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
         except (ValueError, AttributeError):
             return s
 
-    def _event_to_dict(self, ev):
+    def _deal_event_to_dict(self, ev):
         """Serializza un evento per il frontend."""
         return {
             'id': ev.id,
@@ -79,14 +79,19 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
             return self._json_response({})
 
         start_time = time.time()
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         Deal = request.env['erpv6.deal'].sudo()
         deal = Deal.browse(deal_id)
         if not deal.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        _mode = 'read' if request.httprequest.method == 'GET' else 'write'
+        err403 = self._require_deal_access(user, deal, mode=_mode)
+        if err403:
+            return err403
 
         Event = request.env['erpv6.deal.event'].sudo()
 
@@ -94,7 +99,7 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
             events = Event.search([('deal_id', '=', deal_id)], order='event_date desc, id desc')
             return self._json_response({
                 'success': True,
-                'events': [self._event_to_dict(e) for e in events],
+                'events': [self._deal_event_to_dict(e) for e in events],
                 'total': len(events),
             })
 
@@ -134,7 +139,7 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
 
         self._log_api_call(f'/api/v1/admin/deals/{deal_id}/events', 'POST',
                            user.id, 200, start_time)
-        return self._json_response({'success': True, 'event': self._event_to_dict(ev)})
+        return self._json_response({'success': True, 'event': self._deal_event_to_dict(ev)})
 
     # ─────────────────────────────────────────────────────────────
     # PUT/DELETE  /api/v1/admin/deals/<deal_id>/events/<event_id>
@@ -147,14 +152,18 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
             return self._json_response({})
 
         start_time = time.time()
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         Event = request.env['erpv6.deal.event'].sudo()
         ev = Event.browse(event_id)
         if not ev.exists() or ev.deal_id.id != deal_id:
             return self._json_response({'error': 'Evento non trovato'}, 404)
+        err403 = self._require_deal_access(user, ev.deal_id, mode='write')
+        if err403:
+            return err403
 
         if request.httprequest.method == 'DELETE':
             ev.unlink()
@@ -182,7 +191,7 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
         if vals:
             ev.write(vals)
 
-        return self._json_response({'success': True, 'event': self._event_to_dict(ev)})
+        return self._json_response({'success': True, 'event': self._deal_event_to_dict(ev)})
 
     # ─────────────────────────────────────────────────────────────
     # GET  /api/v1/admin/deals/<deal_id>/snapshots
@@ -193,14 +202,18 @@ class AdminDealEventsAPIController(AdminDealsAPIController):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
 
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         Deal = request.env['erpv6.deal'].sudo()
         deal = Deal.browse(deal_id)
         if not deal.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, deal, mode='read')
+        if err403:
+            return err403
 
         snaps = deal.snapshot_ids.sorted('version', reverse=True)
         return self._json_response({

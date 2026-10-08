@@ -55,6 +55,39 @@ class ConsultantAPIController(APIBaseController):
             return self._json_response({'error': 'Accesso negato'}, 403)
         return None
 
+    def _get_visible_relation_ids(self, user):
+        """08/10/2026 (C-security-audit-3efghj): spostato da
+        ConsultantEmailAPIController per condivisione su admin_emails."""
+        if self._is_responsabile_o_admin(user):
+            return None
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        partner_id = user.partner_id.id
+        if not partner_id:
+            return []
+        my_nodes = Relation.search([('partner_id', '=', partner_id)])
+        if not my_nodes:
+            return []
+        ids = set()
+        for node in my_nodes:
+            ids.add(node.id)
+            if node.parent_id:
+                parent = node.parent_id
+                ids.add(parent.id)
+                siblings = Relation.search([('parent_id', '=', parent.id)])
+                ids.update(siblings.ids)
+        return sorted(ids)
+
+    def _can_access_email(self, user, log):
+        """True se user puo' accedere a questa email."""
+        if self._is_responsabile_o_admin(user):
+            return True
+        if hasattr(log, 'recipient_user_id') and log.recipient_user_id and log.recipient_user_id.id == user.id:
+            return True
+        visible_ids = self._get_visible_relation_ids(user) or []
+        if hasattr(log, 'relation_id') and log.relation_id and log.relation_id.id in visible_ids:
+            return True
+        return False
+
     def _not_installed(self, path, start_time):
         self._log_api_call(path, 'GET', None, 501, start_time)
         return self._json_response({'error': 'erpv6_production non installato'}, 501)
