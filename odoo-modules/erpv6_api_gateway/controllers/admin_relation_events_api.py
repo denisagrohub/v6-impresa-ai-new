@@ -63,14 +63,19 @@ class AdminRelationEventsAPIController(AdminDealsAPIController):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
         start_time = time.time()
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         Relation = request.env['erpv6.tracking.relation'].sudo()
         rel = Relation.browse(relation_id)
         if not rel.exists():
             return self._json_response({'error': 'Progetto non trovato'}, 404)
+        _mode = 'read' if request.httprequest.method == 'GET' else 'write'
+        err403 = self._require_relation_access(user, rel, mode=_mode)
+        if err403:
+            return err403
 
         Event = request.env['erpv6.deal.event'].sudo()
 
@@ -118,14 +123,18 @@ class AdminRelationEventsAPIController(AdminDealsAPIController):
     def relation_event_detail(self, relation_id, event_id, **kw):
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         Event = request.env['erpv6.deal.event'].sudo()
         ev = Event.browse(event_id)
         if not ev.exists() or ev.relation_id.id != relation_id:
             return self._json_response({'error': 'Evento non trovato'}, 404)
+        err403 = self._require_relation_access(user, ev.relation_id, mode='write')
+        if err403:
+            return err403
 
         if request.httprequest.method == 'DELETE':
             ev.unlink()
