@@ -415,13 +415,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_send_document(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         C = request.env['erpv6.deal.checklist'].sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -470,13 +474,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def get_checklist(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         Deal = request.env['erpv6.deal'].sudo()
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='read')
+        if err403:
+            return err403
         return self._json_response({
             'success': True,
             'checklist': [self._checklist_to_dict(c) for c in d.checklist_ids.sorted('sequence')],
@@ -491,13 +499,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_complete(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         C = request.env['erpv6.deal.checklist'].sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -518,13 +530,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_skip(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         C = request.env['erpv6.deal.checklist'].sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -545,13 +561,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_start(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         C = request.env['erpv6.deal.checklist'].sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         c.action_start()
         request.env.cr.commit()
         return self._json_response({
@@ -1302,9 +1322,10 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_preview_document(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         # 29/09/2026 (C6a fix): in API auth='none', request.env.uid puo'
         # essere None e request.env.user = recordset vuoto. with_user(user.id)
         # forza un singleton valido PRIMA di sudo(), altrimenti message_post()
@@ -1314,6 +1335,9 @@ class AdminDealsAPIController(ConsultantAPIController):
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         try:
             result = c.action_preview_document()
             request.env.cr.commit()
