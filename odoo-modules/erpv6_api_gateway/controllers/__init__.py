@@ -36,6 +36,11 @@ from . import admin_andon_api  # 04/10/2026 (C5-h)  # 04/10/2026 (C5-mail-whitel
 from . import admin_credits_api  # 05/10/2026 (C-crediti-1c)
 from . import typst_import_api
 from . import frontend_error_api
+# 08/10/2026 (C-security-audit-3bis): file esistevano ma non erano
+# importati -> route mai registrate (404 HTML dal website fallback).
+# Stesso pattern del fix bandi_api sopra.
+from . import methodology_api
+from . import validation_api
 
 # API Trasversali
 from . import user_api

@@ -174,6 +174,71 @@ class APIBaseController(http.Controller):
         print(f"DEBUG_IOC NO MATCH", flush=True)
         return False
 
+    def _is_responsabile_o_admin(self, user):
+        """08/10/2026 (C-security-audit-3bis): spostato da
+        ConsultantAPIController per uso comune (sign, tracking,
+        methodology, validation...)."""
+        return (
+            user.has_group('base.group_system')
+            or user.has_group('sales_team.group_sale_manager')
+            or user.has_group('erpv6_core.group_chief_projects')
+        )
+
+    def _check_ownership_or_admin(self, user, record,
+                                   relation_field=None,
+                                   partner_field=None):
+        """08/10/2026 (C-security-audit-3bis): helper generico.
+
+        Ritorna True se user puo' accedere al record:
+          1) admin/responsabile/chief -> True
+          2) create_uid == user -> True
+          3) record.<relation_field>.access_user_ids contiene user -> True
+          4) record.<partner_field>.user_ids contiene user -> True
+        """
+        if not user or not user.id or not record or not record.id:
+            return False
+        if self._is_responsabile_o_admin(user):
+            return True
+        if hasattr(record, 'create_uid') and record.create_uid and record.create_uid.id == user.id:
+            return True
+        if relation_field and hasattr(record, relation_field):
+            rel = getattr(record, relation_field, None)
+            if rel and hasattr(rel, 'access_user_ids'):
+                if user.id in (rel.access_user_ids.ids or []):
+                    return True
+        if partner_field and hasattr(record, partner_field):
+            partner = getattr(record, partner_field, None)
+            if partner and hasattr(partner, 'user_ids'):
+                if user.id in partner.user_ids.ids:
+                    return True
+        return False
+
+    def _require_record_access(self, user, record, model_name,
+                                relation_field=None,
+                                partner_field=None,
+                                mode='read'):
+        """Wrapper: _check_ownership_or_admin + log_access + 403."""
+        from odoo.http import request as _r
+        granted = self._check_ownership_or_admin(
+            user, record,
+            relation_field=relation_field,
+            partner_field=partner_field,
+        )
+        try:
+            _r.env['erpv6.api.access.log'].sudo().log_access(
+                user=user, route=_r.httprequest.path,
+                method=_r.httprequest.method,
+                model=model_name, record_id=record.id,
+                granted=granted,
+                reason='ok' if granted else 'denied_no_ownership',
+            )
+        except Exception:
+            pass
+        if not granted:
+            return self._json_response({'error': 'Accesso negato'}, 403)
+        return None
+
+
     def _log_api_call(self, endpoint, method, user_id, status_code, start_time):
         try:
             request.env['erpv6.api.log'].sudo().create({

@@ -20,6 +20,7 @@ class MethodologyAPIController(APIBaseController):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return error_response
+        request.update_env(user=user.id)
 
         try:
             if 'erpv6.pareto.analysis' not in request.env:
@@ -95,6 +96,7 @@ class MethodologyAPIController(APIBaseController):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return error_response
+        request.update_env(user=user.id)
 
         try:
             if 'erpv6.pareto.analysis' not in request.env:
@@ -105,6 +107,9 @@ class MethodologyAPIController(APIBaseController):
             if not analysis.exists():
                 self._log_api_call(f'/api/v1/methodology/pareto/{pareto_id}', 'GET', user.id, 404, start_time)
                 return self._json_response({'error': 'Pareto analysis not found'}, status=404)
+            err403 = self._require_record_access(user, analysis, 'erpv6.pareto.analysis', mode='read')
+            if err403:
+                return err403
 
             items_data = []
             for item in analysis.item_ids:
@@ -264,6 +269,7 @@ class MethodologyAPIController(APIBaseController):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
             return error_response
+        request.update_env(user=user.id)
 
         try:
             if 'erpv6.kairos.matrix' not in request.env:
@@ -274,6 +280,9 @@ class MethodologyAPIController(APIBaseController):
             if not matrix.exists():
                 self._log_api_call(f'/api/v1/methodology/kairos/{kairos_id}', 'GET', user.id, 404, start_time)
                 return self._json_response({'error': 'Kairos matrix not found'}, status=404)
+            err403 = self._require_record_access(user, matrix, 'erpv6.kairos.matrix', mode='read')
+            if err403:
+                return err403
 
             result = {
                 'id': matrix.id,

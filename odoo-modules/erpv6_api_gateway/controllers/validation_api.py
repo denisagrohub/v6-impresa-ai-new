@@ -89,6 +89,9 @@ class ValidationAPIController(APIBaseController):
             if not session.exists():
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}', 'GET', user.id, 404, start_time)
                 return self._json_response({'error': 'Session not found'}, status=404)
+            err403 = self._require_record_access(user, session, 'erpv6.validation.session', mode='read')
+            if err403:
+                return err403
 
             rounds_data = []
             for round_obj in session.round_ids:
@@ -196,6 +199,9 @@ class ValidationAPIController(APIBaseController):
             if not session.exists():
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}/start', 'POST', user.id, 404, start_time)
                 return self._json_response({'error': 'Session not found'}, status=404)
+            err403 = self._require_record_access(user, session, 'erpv6.validation.session', mode='write')
+            if err403:
+                return err403
 
             session.action_start_validation()
 
@@ -231,6 +237,9 @@ class ValidationAPIController(APIBaseController):
             if not session.exists():
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}/approve', 'POST', user.id, 404, start_time)
                 return self._json_response({'error': 'Session not found'}, status=404)
+            err403 = self._require_record_access(user, session, 'erpv6.validation.session', mode='write')
+            if err403:
+                return err403
 
             # with_user(user), non solo .sudo(): dentro action_human_approve()
             # self.env.user scrive human_reviewer_id -- su una route auth='none'
@@ -276,6 +285,9 @@ class ValidationAPIController(APIBaseController):
             if not session.exists():
                 self._log_api_call(f'/api/v1/validation/sessions/{session_id}/reject', 'POST', user.id, 404, start_time)
                 return self._json_response({'error': 'Session not found'}, status=404)
+            err403 = self._require_record_access(user, session, 'erpv6.validation.session', mode='write')
+            if err403:
+                return err403
 
             # with_user(user): stesso motivo del ramo approve sopra.
             session.with_user(user).action_human_reject(reason=reason)
