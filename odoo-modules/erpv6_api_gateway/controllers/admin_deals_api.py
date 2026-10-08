@@ -39,6 +39,51 @@ class AdminDealsAPIController(ConsultantAPIController):
             return self._json_response({'error': 'Accesso negato'}, 403)
         return None
 
+    def _require_child_access(self, user, child, kind, mode='read'):
+        """07/10/2026 (C-security-audit-3b-bis): risale al deal padre
+        di una sotto-entita' (settlement, incasso, line, checklist,
+        contract-draft) e applica _require_deal_access.
+
+        kind:
+          'settlement' -> child.deal_id
+          'incasso'    -> child.settlement_id.deal_id
+          'line'       -> child.settlement_id.deal_id
+          'checklist'  -> child.deal_id
+          'contract_draft' -> eccezione: usa relation (helper diverso)
+        """
+        deal = None
+        if kind == 'settlement':
+            deal = child.deal_id
+        elif kind in ('incasso', 'line'):
+            s = getattr(child, 'settlement_id', None)
+            deal = s.deal_id if s else None
+        elif kind == 'checklist':
+            deal = child.deal_id
+        else:
+            return self._json_response(
+                {'error': 'Tipo sotto-entita non supportata: %s' % kind}, 500)
+        if not deal or not deal.exists():
+            return self._json_response({'error': 'Deal non trovato'}, 404)
+        return self._require_deal_access(user, deal, mode=mode)
+
+    def _require_relation_access(self, user, relation, mode='read',
+                                  target_label='relation'):
+        """07/10/2026 (C-security-audit-3b-bis Step 4): record-level
+        check su erpv6.tracking.relation + audit log. Usato per
+        entita' senza deal padre (es. contract.draft -> project_id).
+        """
+        granted = check_record_access(user, relation, mode)
+        request.env['erpv6.api.access.log'].sudo().log_access(
+            user=user, route=request.httprequest.path,
+            method=request.httprequest.method,
+            model='erpv6.tracking.relation', record_id=relation.id,
+            granted=granted,
+            reason='ok' if granted else 'denied_no_ownership',
+        )
+        if not granted:
+            return self._json_response({'error': 'Accesso negato'}, 403)
+        return None
+
     def _check_admin_perm(self):
         user, error_response = self._authenticate(require_auth=True)
         if error_response:
@@ -237,13 +282,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def registra_incasso(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         S = request.env['erpv6.deal.settlement'].sudo()
         s = S.browse(settlement_id)
         if not s.exists():
             return self._json_response({'error': 'Settlement non trovato'}, 404)
+        err403 = self._require_child_access(user, s, 'settlement', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -271,13 +320,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def delete_incasso(self, incasso_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         I = request.env['erpv6.deal.settlement.incasso'].sudo()
         i = I.browse(incasso_id)
         if not i.exists():
             return self._json_response({'error': 'Movimento non trovato'}, 404)
+        err403 = self._require_child_access(user, i, 'incasso', mode='write')
+        if err403:
+            return err403
         settlement = i.settlement_id
         try:
             i.unlink()
@@ -299,13 +352,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def set_pagamento_stato(self, line_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         L = request.env['erpv6.deal.settlement.line'].sudo()
         line = L.browse(line_id)
         if not line.exists():
             return self._json_response({'error': 'Linea non trovata'}, 404)
+        err403 = self._require_child_access(user, line, 'line', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -342,13 +399,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def get_pagamenti_summary(self, settlement_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         S = request.env['erpv6.deal.settlement'].sudo()
         s = S.browse(settlement_id)
         if not s.exists():
             return self._json_response({'error': 'Settlement non trovato'}, 404)
+        err403 = self._require_child_access(user, s, 'settlement', mode='write')
+        if err403:
+            return err403
         counts = {}
         totale_pagato = 0.0
         totale_da_pagare = 0.0
@@ -372,13 +433,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_send_document(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         C = request.env['erpv6.deal.checklist'].sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -427,13 +492,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def get_checklist(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         Deal = request.env['erpv6.deal'].sudo()
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='read')
+        if err403:
+            return err403
         return self._json_response({
             'success': True,
             'checklist': [self._checklist_to_dict(c) for c in d.checklist_ids.sorted('sequence')],
@@ -448,13 +517,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_complete(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         C = request.env['erpv6.deal.checklist'].sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -475,13 +548,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_skip(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         C = request.env['erpv6.deal.checklist'].sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         try:
             body = json.loads(request.httprequest.data or b'{}')
         except (ValueError, TypeError):
@@ -502,13 +579,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_start(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         C = request.env['erpv6.deal.checklist'].sudo()
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         c.action_start()
         request.env.cr.commit()
         return self._json_response({
@@ -1219,12 +1300,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def deal_access_log(self, deal_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         Deal = request.env['erpv6.deal'].sudo()
-        if not Deal.browse(deal_id).exists():
+        d = Deal.browse(deal_id)
+        if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='read')
+        if err403:
+            return err403
         Log = request.env['erpv6.api.log'].sudo()
         # Endpoint del deal: '/api/v1/admin/deals/<id>' o varianti (variable,
         # freeze, checklist, settlements, send-to-sign). Filtro LIKE esatto
@@ -1259,9 +1345,10 @@ class AdminDealsAPIController(ConsultantAPIController):
     def checklist_preview_document(self, checklist_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         # 29/09/2026 (C6a fix): in API auth='none', request.env.uid puo'
         # essere None e request.env.user = recordset vuoto. with_user(user.id)
         # forza un singleton valido PRIMA di sudo(), altrimenti message_post()
@@ -1271,6 +1358,9 @@ class AdminDealsAPIController(ConsultantAPIController):
         c = C.browse(checklist_id)
         if not c.exists():
             return self._json_response({'error': 'Step non trovato'}, 404)
+        err403 = self._require_child_access(user, c, 'checklist', mode='write')
+        if err403:
+            return err403
         try:
             result = c.action_preview_document()
             request.env.cr.commit()
@@ -1288,13 +1378,23 @@ class AdminDealsAPIController(ConsultantAPIController):
     def delete_contract_draft(self, draft_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         Draft = request.env['erpv6.contract.draft'].with_user(user.id).sudo()
         d = Draft.browse(draft_id)
         if not d.exists():
             return self._json_response({'success': True, 'already_gone': True})
+        # 07/10/2026 (C-security-audit-3b-bis Step 4): contract.draft
+        # non ha deal padre, usa project_id -> tracking.relation.
+        if not d.project_id or not d.project_id.exists():
+            return self._json_response(
+                {'error': 'Contratto senza progetto, accesso negato'}, 403)
+        err403 = self._require_relation_access(
+            user, d.project_id, mode='write', target_label='contract_draft')
+        if err403:
+            return err403
         try:
             doc = d.document_id
             d.unlink()
@@ -1318,13 +1418,17 @@ class AdminDealsAPIController(ConsultantAPIController):
     def approve_second_signature(self, line_id, **kw):
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
         L = request.env['erpv6.deal.settlement.line'].sudo()
         line = L.browse(line_id)
         if not line.exists():
             return self._json_response({'error': 'Linea non trovata'}, 404)
+        err403 = self._require_child_access(user, line, 'line', mode='write')
+        if err403:
+            return err403
         try:
             line.action_approva_seconda()
             request.env.cr.commit()
@@ -1412,14 +1516,18 @@ class AdminDealsAPIController(ConsultantAPIController):
         start_time = time.time()
         if not request.db:
             return self._json_response({})
-        user, err = self._check_admin_perm()
+        user, err = self._authenticate(require_auth=True)
         if err:
             return err
+        request.update_env(user=user.id)
 
         Deal = request.env['erpv6.deal'].sudo()
         d = Deal.browse(deal_id)
         if not d.exists():
             return self._json_response({'error': 'Deal non trovato'}, 404)
+        err403 = self._require_deal_access(user, d, mode='write')
+        if err403:
+            return err403
 
         try:
             d.action_send_to_sign()
