@@ -28,11 +28,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'JSON non valido' }, { status: 400 });
     }
     const authHeader = request.headers.get('authorization');
+    // 08/10/2026 (C-security-lead-public): inoltro token intervista
+    const leadToken = request.headers.get('x-lead-token');
     try {
         const result = await callOdooAPI('/api/v1/interview/start', {
             method: 'POST',
             body: JSON.stringify(body),
-            headers: authHeader ? { Authorization: authHeader } : undefined,
+            headers: { ...(authHeader ? { Authorization: authHeader } : {}), ...(leadToken ? { 'X-Lead-Token': leadToken } : {}) },
         });
         if (!result?.success) {
             return NextResponse.json({ error: result?.error || 'Avvio intervista fallito' }, { status: 502 });

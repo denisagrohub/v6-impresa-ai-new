@@ -17,10 +17,16 @@ export async function POST(request: NextRequest) {
     } catch {
         return NextResponse.json({ error: 'JSON non valido' }, { status: 400 });
     }
+    // 08/10/2026 (C-security-lead-public): inoltro token intervista
+    const leadToken = request.headers.get('x-lead-token');
     try {
         const result = await callOdooAPI(
             '/api/v1/interview/upload',
-            { method: 'POST', body: JSON.stringify(body) },
+            {
+                method: 'POST',
+                body: JSON.stringify(body),
+                headers: leadToken ? { 'X-Lead-Token': leadToken } : undefined,
+            },
             { timeout: 20000 }
         );
         if (!result?.success) {

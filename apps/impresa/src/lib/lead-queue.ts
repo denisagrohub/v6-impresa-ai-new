@@ -103,7 +103,7 @@ export interface Lead {
 // Salva un lead (su Odoo o in coda locale). Non lancia mai: se anche il
 // fallback locale fallisce, il lead completo finisce comunque nei log
 // (console.error, recuperabili da Vercel) invece di sparire in un 500 muto.
-export async function saveLead(leadData: Record<string, any>, source: string): Promise<{ success: boolean; queued?: boolean; leadId?: number }> {
+export async function saveLead(leadData: Record<string, any>, source: string): Promise<{ success: boolean; queued?: boolean; leadId?: number; editToken?: string }> {
     const lead: Lead = {
         id: `lead-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date().toISOString(),
@@ -123,14 +123,15 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
 
             lead.synced = true;
             console.debug(`✅ Lead ${lead.id} salvato su Odoo`);
-            // id reale del crm.lead Odoo (result.data.id, vedi lead_api.py
-            // create_lead) - stessa estrazione gia' usata da
-            // createPartialLead qui sotto. Prima andava perso: il
-            // chiamante finale (submit completo di /intervista, quando la
-            // cattura anticipata non e' scattata) non aveva modo di sapere
-            // quale crm.lead fosse stato appena creato per proseguire
-            // verso /intervista/guidata con lo stesso lead.
-            return { success: true, queued: false, leadId: result?.data?.id ?? result?.id };
+            // 08/10/2026: estrai anche edit_token (creato da lead_api
+            // C-security-lead-public). Il frontend lo salva in
+            // sessionStorage per i PUT/POST intervista successivi.
+            return {
+                success: true,
+                queued: false,
+                leadId: result?.data?.id ?? result?.id,
+                editToken: result?.data?.edit_token ?? result?.edit_token,
+            };
         } catch (error) {
             console.error('⚠️ Odoo non disponibile, salvataggio in coda locale:', error);
             return await fallbackToQueue(lead);
@@ -146,7 +147,7 @@ export async function saveLead(leadData: Record<string, any>, source: string): P
 // dati minimi sono disponibili, così un abbandono a metà form non perde
 // tutto. Nessun fallback su coda locale qui - se fallisce (rete, Odoo giù),
 // la submitAnswers finale ricade comunque su saveLead() come sempre.
-export async function createPartialLead(leadData: Record<string, any>, source?: string): Promise<{ success: boolean; leadId?: number }> {
+export async function createPartialLead(leadData: Record<string, any>, source?: string): Promise<{ success: boolean; leadId?: number; editToken?: string }> {
     if (!isOdooEnabled()) {
         return { success: false };
     }
@@ -155,7 +156,14 @@ export async function createPartialLead(leadData: Record<string, any>, source?: 
             method: 'POST',
             body: JSON.stringify({ ...mapLeadDataForOdoo(leadData, source), qualified: false }),
         });
-        return { success: true, leadId: result?.data?.id ?? result?.id };
+        // 08/10/2026 (C-security-lead-public): estrai anche edit_token
+        // dal payload. Il frontend lo salva in sessionStorage e lo
+        // rimanda nei PUT/POST intervista via header X-Lead-Token.
+        return {
+            success: true,
+            leadId: result?.data?.id ?? result?.id,
+            editToken: result?.data?.edit_token ?? result?.edit_token,
+        };
     } catch (error) {
         console.debug('Cattura anticipata non riuscita (non bloccante):', error);
         return { success: false };

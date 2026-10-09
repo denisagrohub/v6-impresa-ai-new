@@ -80,6 +80,17 @@ export async function fetchInterviewProducts(): Promise<InterviewProduct[]> {
     return Array.isArray(body) ? body : [];
 }
 
+// 08/10/2026 (C-security-lead-public): legge token intervista da
+// sessionStorage. Best-effort: se non disponibile, header non inviato
+// (il backend risponderà 401 per lead_id senza token).
+function readLeadToken(): string | null {
+    try {
+        return sessionStorage.getItem('lead_edit_token');
+    } catch {
+        return null;
+    }
+}
+
 // name+email XOR lead_id, come /api/v1/interview/start (interview_api.py):
 // se lead_id e' presente riusa quel crm.lead esistente, altrimenti richiede
 // name+email per crearne uno nuovo.
@@ -94,11 +105,13 @@ export type StartInterviewParams =
 // sull'utente pubblico anonimo (comportamento invariato quando authToken e'
 // assente, es. /intervista pubblica).
 export async function startInterview(params: StartInterviewParams, authToken?: string): Promise<StartInterviewResult> {
+    const leadToken = readLeadToken();
     const response = await fetch('/api/interview-tree/start', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             ...(authToken ? { Authorization: `JWT ${authToken}` } : {}),
+            ...(leadToken ? { 'X-Lead-Token': leadToken } : {}),
         },
         body: JSON.stringify(params),
     });
@@ -111,9 +124,13 @@ export async function answerInterview(params: {
     value_text?: string;
     is_altro?: boolean;
 }): Promise<AnswerInterviewResult> {
+    const leadToken = readLeadToken();
     const response = await fetch('/api/interview-tree/answer', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            ...(leadToken ? { 'X-Lead-Token': leadToken } : {}),
+        },
         body: JSON.stringify(params),
     });
     return parseOrThrow(response);
@@ -130,9 +147,13 @@ export async function uploadInterviewDocument(params: {
     file_name: string;
     mimetype: string;
 }): Promise<{ attachment_id: number; file_name: string }> {
+    const leadToken = readLeadToken();
     const response = await fetch('/api/interview-tree/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            ...(leadToken ? { 'X-Lead-Token': leadToken } : {}),
+        },
         body: JSON.stringify(params),
     });
     return parseOrThrow(response);
