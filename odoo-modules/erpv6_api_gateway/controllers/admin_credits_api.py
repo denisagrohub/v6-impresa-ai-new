@@ -315,6 +315,113 @@ class AdminCreditsAPIController(ConsultantAPIController):
     # ═══════════════════════════════════════════════════════════════
     # GET /api/v1/admin/credit-portfolios/<id>/pdf
     # ═══════════════════════════════════════════════════════════════
+    @http.route('/api/v1/admin/credit-portfolios/from-attachment',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def create_portfolio_from_attachment(self, **kwargs):
+        """09/10/2026 (C-crediti-4): crea portfolio da PDF caricato.
+
+        Body: {attachment_id, relation_id}
+        - Idempotente: se esiste portfolio con stesso source_attachment_id
+          -> ritorna quello con is_new=False
+        - Chiama erpv6.credit.parser.parse_attachment
+        - Crea portfolio state='parsed' (o 'draft' se cedente non matchato)
+        """
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+        attachment_id = body.get('attachment_id')
+        relation_id = body.get('relation_id')
+        if not attachment_id or not relation_id:
+            return self._json_response(
+                {'error': 'attachment_id e relation_id obbligatori'}, 400)
+
+        # Check access su relation (write, deve poter creare portfolio)
+        Rel = request.env['erpv6.tracking.relation'].sudo().browse(int(relation_id))
+        if not Rel.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+        err403 = self._require_relation_access(user, Rel, mode='write')
+        if err403:
+            return err403
+
+        # Attachment
+        Att = request.env['ir.attachment'].sudo().browse(int(attachment_id))
+        if not Att.exists():
+            return self._json_response({'error': 'Allegato non trovato'}, 404)
+        if (Att.mimetype or '') != 'application/pdf':
+            return self._json_response(
+                {'error': 'Solo PDF supportati'}, 400)
+
+        P = request.env['erpv6.credit.portfolio'].sudo()
+
+        # Idempotenza
+        existing = P.search([('source_attachment_id', '=', Att.id)], limit=1)
+        if existing:
+            return self._json_response({
+                'ok': True,
+                'is_new': False,
+                'portfolio': self._portfolio_to_dict(existing, with_lines=True),
+            })
+
+        # Parser
+        parser = request.env['erpv6.credit.parser']
+        result = parser.parse_attachment(Att.id)
+        if not result or 'error' in result:
+            return self._json_response({
+                'error': 'PDF non riconosciuto',
+                'detail': (result or {}).get('error'),
+            }, 422)
+
+        # Cedente match (no auto-create)
+        cedente = P._match_cedente(result.get('cedente_nome'))
+        nome = result.get('cedente_nome') or Att.name or 'Senza nome'
+        state = 'parsed' if cedente else 'draft'
+
+        line_vals = [(0, 0, {
+            'codice': l.get('codice'),
+            'descrizione': l.get('descrizione'),
+            'tipologia': l.get('tipologia') or 'altro',
+            'anno': l.get('anno'),
+            'importo': l.get('importo'),
+            'categoria_cedibilita': l.get('categoria_cedibilita'),
+        }) for l in result.get('linee', [])]
+
+        p = P.create({
+            'name': nome[:200],
+            'cedente_id': cedente.id if cedente else False,
+            'mandatario_id': user.partner_id.id,
+            'relation_id': Rel.id,
+            'source_attachment_id': Att.id,
+            'file_pdf': Att.datas,
+            'file_pdf_name': Att.name,
+            'utenza_lavoro': result.get('utenza'),
+            'cf_commercialista': result.get('cf_commercialista'),
+            'state': state,
+            'line_ids': line_vals,
+        })
+
+        # Marca attachment come processato (idempotenza watcher)
+        if 'is_credit_processed' in Att._fields:
+            Att.is_credit_processed = True
+
+        # Audit log
+        self._log_kb_access('write', user=user, kb=None,
+                            details='credit_portfolio_from_att=%s' % Att.id) if hasattr(self, '_log_kb_access') else None
+
+        return self._json_response({
+            'ok': True,
+            'is_new': True,
+            'portfolio': self._portfolio_to_dict(p, with_lines=True),
+        }, 201)
+
     @http.route('/api/v1/admin/credit-portfolios/<int:pid>/pdf',
                 type='http', auth='none', methods=['GET', 'OPTIONS'],
                 csrf=False)
