@@ -417,24 +417,104 @@ class LeadAPIController(APIBaseController):
         }, 200)
 
     def _notify_lead_promotion(self, lead, ip, token_rec):
-        """08/10/2026: notifica Telegram su promozione da anonimo.
-        Best-effort, mai blocca il flusso."""
+        """08/10/2026 (C-security-lead-public-bis): notifica Telegram
+        al team su promozione lead da anonimo.
+
+        Best-effort: usa un SAVEPOINT per garantire che un errore
+        interno (SQL, crypto, HTTP) non abortisca la transazione
+        principale della request. Un fallimento della notifica NON
+        deve mai far cadere il PUT /leads che l'ha generata.
+
+        Bot: mode='operativo' (Susanna), non 'otp' (V6 Auth).
+        Chat: chat_id configurato sul bot (attualmente Denis 97483233).
+        Futuro: gruppo team dedicato (backlog).
+        """
         try:
-            Config = request.env.get('erpv6.agent.telegram.config')
-            if not Config:
-                return
-            bot = Config.sudo().search([('mode', '=', 'otp'), ('is_active', '=', True)], limit=1)
-            if not bot:
-                return
-            text = "🔔 Lead promosso da anonimo\nLead: %s (%s)\nEmail: %s\nIP: %s\nToken: %s" % (
-                lead.name, lead.id, lead.email_from or '-', ip,
-                'id=%s' % (token_rec.id if token_rec else 'n/a'))
-            # Uso un metodo generico se esiste, altrimenti skip
-            if hasattr(bot, '_send_otp_message'):
-                # Riuso (chat_id team: da definire in futuro)
-                pass
+            # Env SUPERUSER: auth='none' -> request.env.uid e' None, e
+            # crypto.audit.user_id e' NOT NULL -> la decrypt esplode.
+            from odoo import SUPERUSER_ID as _SUID
+            env_su = request.env(user=_SUID)
+            cr = env_su.cr
+            # Savepoint: se qualcosa dentro fallisce, rollback locale
+            # senza abortire la transazione esterna.
+            with cr.savepoint():
+                if 'erpv6.agent.telegram.config' not in env_su:
+                    _logger.warning(
+                        'Lead promotion notify: modello Telegram non installato, lead=%s',
+                        lead.id)
+                    return
+                Config = env_su['erpv6.agent.telegram.config'].sudo()
+                bot = Config.search([
+                    ('mode', '=', 'operativo'),
+                    ('is_active', '=', True),
+                ], limit=1)
+                if not bot:
+                    _logger.warning(
+                        'Lead promotion notify: nessun bot operativo attivo, lead=%s',
+                        lead.id)
+                    return
+                text = (
+                    "🔔 Lead promosso ad opportunity\n"
+                    "ID: %s\n"
+                    "Nome: %s\n"
+                    "Email: %s\n"
+                    "IP: %s\n"
+                    "Consulente assegnato: %s"
+                ) % (
+                    lead.id,
+                    lead.name or '-',
+                    lead.email_from or '-',
+                    ip or '-',
+                    lead.user_id.name if lead.user_id else '—',
+                )
+                bot.send_message(text)
+                _logger.info(
+                    'Lead promotion notify inviata: lead=%s bot=%s',
+                    lead.id, bot.name)
         except Exception:
-            _logger.debug('_notify_lead_promotion skipped')
+            _logger.exception(
+                '_notify_lead_promotion fallita: lead=%s', lead.id)
+
+    @http.route('/api/v1/leads/<int:lead_id>/public',
+                type='http', auth='none', methods=['GET', 'OPTIONS'],
+                csrf=False)
+    def get_lead_public(self, lead_id, **kwargs):
+        """08/10/2026 (C-security-lead-public-bis): pre-popola il form
+        /lead/<id>/edit. Ritorna SOLO email_from + phone previo token
+        edit valido. Il token NON viene consumato (monouso al PUT finale)."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+
+        from odoo import SUPERUSER_ID as _SUID
+        env = request.env(user=_SUID)
+        lead = env['crm.lead'].sudo().browse(lead_id)
+        if not lead.exists():
+            return self._json_response({'error': 'Lead not found'}, 404)
+
+        # Token obbligatorio + deve essere purpose=edit
+        if 'erpv6.lead.edit.token' not in env:
+            return self._json_response({'error': 'Modulo token non disponibile'}, 501)
+        raw = (request.httprequest.headers.get('X-Lead-Token') or '').strip()
+        if not raw:
+            return self._json_response({
+                'error': 'Token richiesto', 'code': 'token_required',
+            }, 401)
+        T = env['erpv6.lead.edit.token'].sudo()
+        ok, err, _rec = T.verify(raw, lead_id, 'edit')
+        if not ok:
+            return self._json_response({
+                'error': 'Token non valido', 'code': err,
+            }, 401)
+
+        self._log_api_call(
+            f'/api/v1/leads/{lead_id}/public', 'GET', None, 200, start_time)
+        return self._json_response({
+            'id': lead.id,
+            'name': lead.contact_name or lead.name or '',
+            'email_from': lead.email_from or '',
+            'phone': lead.phone or '',
+        })
 
     @http.route('/api/v1/leads/<int:lead_id>/request-edit',
                 type='http', auth='none', methods=['POST', 'OPTIONS'],
