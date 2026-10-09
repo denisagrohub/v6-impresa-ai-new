@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import {
     MessageSquare, Phone, Mail, FileText, TrendingUp, User, RefreshCw,
     StickyNote, Circle, Plus, X, Clock, ChevronDown, ChevronRight, Trash2,
+    ArrowUpRight, ArrowDownLeft,
 } from 'lucide-react';
+import { EmailPreviewModal } from './EmailPreviewModal';
 
 export type DealEvent = {
-    id: number;
+    id: number | string;
     eventType: string;
     eventDate: string | null;
     title: string;
@@ -18,6 +20,16 @@ export type DealEvent = {
     createdAt: string | null;
     attendees: { id: number; name: string; email?: string }[];
     changesApplied: Record<string, any>;
+    type?: 'email';
+    subject?: string;
+    sender?: string;
+    recipients?: string;
+    counterpart?: string;
+    direction?: 'inviata' | 'ricevuta';
+    date?: string | null;
+    isInternal?: boolean;
+    emailLogId?: number;
+    source?: 'winwin' | 'project';
 };
 
 export type DealSnapshot = {
@@ -54,7 +66,7 @@ const TYPE_META: Record<string, { icon: any; label: string; color: string }> = {
     altro:              { icon: Circle,        label: 'Altro',            color: 'bg-gray-100 text-gray-500' },
 };
 
-function fmtDate(s: string | null): string {
+function fmtDate(s: string | null | undefined): string {
     if (!s) return '—';
     const d = new Date(s.replace(' ', 'T') + (s.includes('Z') || s.includes('+') ? '' : 'Z'));
     return d.toLocaleString('it-IT', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -73,6 +85,10 @@ export function DealTimeline({ dealId, relationId, mode, authToken, onRefresh }:
     const [showNewEvent, setShowNewEvent] = useState(false);
     // 01/10/2026: collassata di default per non occupare l'intera pagina
     const [collapsed, setCollapsed] = useState(true);
+    // 09/10/2026 (C-email-project-1): modale dettaglio email
+    const [previewEmail, setPreviewEmail] = useState<
+        { emailLogId: number; source: 'winwin' | 'project' } | null
+    >(null);
 
     const baseUrl = mode === 'admin' ? '/api/admin' : '/api/consultant';
 
@@ -183,10 +199,23 @@ export function DealTimeline({ dealId, relationId, mode, authToken, onRefresh }:
             {!loading && !collapsed && events.length > 0 && (
                 <ol className="relative border-l-2 border-gray-100 ml-3 space-y-4 pb-2 max-h-[400px] overflow-y-auto">
                     {events.map((ev) => {
-                        const meta = TYPE_META[ev.eventType] || TYPE_META.altro;
+                        const isEmail = ev.type === 'email';
+                        const isInviata = ev.direction === 'inviata';
+                        const meta = isEmail
+                            ? { icon: Mail, label: isInviata ? 'Email inviata' : 'Email ricevuta',
+                                color: isInviata ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700' }
+                            : (TYPE_META[ev.eventType] || TYPE_META.altro);
                         const Icon = meta.icon;
+                        const displayDate = isEmail ? ev.date : ev.eventDate;
+                        const displayTitle = isEmail ? (ev.subject || '(nessun oggetto)') : ev.title;
                         return (
-                            <li key={ev.id} className="ml-6 relative group">
+                            <li
+                                key={String(ev.id)}
+                                className={`ml-6 relative group ${isEmail ? 'cursor-pointer' : ''}`}
+                                onClick={isEmail && ev.emailLogId && ev.source
+                                    ? () => setPreviewEmail({ emailLogId: ev.emailLogId!, source: ev.source! })
+                                    : undefined}
+                            >
                                 <span className={`absolute -left-[35px] top-1 w-6 h-6 rounded-full flex items-center justify-center ${meta.color}`}>
                                     <Icon size={12} />
                                 </span>
@@ -194,16 +223,25 @@ export function DealTimeline({ dealId, relationId, mode, authToken, onRefresh }:
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${meta.color}`}>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1 ${meta.color}`}>
+                                                    {isEmail && (isInviata ? <ArrowUpRight size={10} /> : <ArrowDownLeft size={10} />)}
                                                     {meta.label}
                                                 </span>
-                                                <span className="text-xs text-gray-500">{fmtDate(ev.eventDate)}</span>
-                                                {ev.visibility === 'internal' && (
+                                                <span className="text-xs text-gray-500">{fmtDate(displayDate)}</span>
+                                                {isEmail && ev.isInternal && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">interno</span>
+                                                )}
+                                                {!isEmail && ev.visibility === 'internal' && (
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">interno</span>
                                                 )}
                                             </div>
-                                            <div className="font-medium text-sm text-[#1a2744] mt-1">{ev.title}</div>
-                                            {ev.description && (
+                                            <div className="font-medium text-sm text-[#1a2744] mt-1">{displayTitle}</div>
+                                            {isEmail && ev.counterpart && (
+                                                <div className="text-xs text-gray-600 mt-1 break-all">
+                                                    {isInviata ? '→ ' : '← '}{ev.counterpart}
+                                                </div>
+                                            )}
+                                            {!isEmail && ev.description && (
                                                 <div className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{ev.description}</div>
                                             )}
                                             {ev.attendees.length > 0 && (
@@ -226,9 +264,9 @@ export function DealTimeline({ dealId, relationId, mode, authToken, onRefresh }:
                                                 da {ev.createdBy || 'sistema'}
                                             </div>
                                         </div>
-                                        {mode === 'admin' && (
+                                        {mode === 'admin' && !isEmail && typeof ev.id === 'number' && (
                                             <button
-                                                onClick={() => handleDelete(ev.id)}
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(ev.id as number); }}
                                                 className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
                                                 title="Elimina"
                                             >
@@ -287,6 +325,16 @@ export function DealTimeline({ dealId, relationId, mode, authToken, onRefresh }:
                     authToken={authToken}
                     onClose={() => setShowNewEvent(false)}
                     onSaved={() => { setShowNewEvent(false); load(); onRefresh?.(); }}
+                />
+            )}
+
+            {/* 09/10/2026 (C-email-project-1): modale dettaglio email */}
+            {previewEmail && (
+                <EmailPreviewModal
+                    emailLogId={previewEmail.emailLogId}
+                    source={previewEmail.source}
+                    authToken={authToken}
+                    onClose={() => setPreviewEmail(null)}
                 />
             )}
         </section>
