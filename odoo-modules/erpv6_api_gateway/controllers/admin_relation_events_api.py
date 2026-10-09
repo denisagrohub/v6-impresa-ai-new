@@ -13,6 +13,7 @@ from odoo import http
 from odoo.http import request
 
 from .admin_deals_api import AdminDealsAPIController
+from .lib.relation_events import build_relation_events
 
 _logger = logging.getLogger(__name__)
 
@@ -56,67 +57,6 @@ class AdminRelationEventsAPIController(AdminDealsAPIController):
             'changesApplied': ev.changes_applied or {},
         }
 
-    # ═══════════════════════════════════════════════════════════════
-    # 09/10/2026 (C-email-project-1): aggregazione email in timeline.
-    # Approccio dinamico (B): query email.log al volo, no duplicazione.
-    # Union winwin + project (complementari, 0 overlap verificato).
-    # ═══════════════════════════════════════════════════════════════
-
-    _EMAIL_EXCLUDE_SENDER_PREFIX = (
-        'noreply@', 'no-reply@', 'mailer-daemon@', 'postmaster@',
-    )
-    _EMAIL_EXCLUDE_SENDER_CONTAINS = (
-        'notification@', 'notifications@', 'kaizen', 'agent',
-    )
-    _EMAIL_EXCLUDE_ALIASES = ('noreply', 'no-reply', 'notification')
-
-    def _email_is_relevant(self, log):
-        """Filtri esclusione Q4 (09/10/2026)."""
-        sender = (getattr(log, 'sender_email', '') or '').lower()
-        if any(sender.startswith(p) for p in self._EMAIL_EXCLUDE_SENDER_PREFIX):
-            return False
-        if any(k in sender for k in self._EMAIL_EXCLUDE_SENDER_CONTAINS):
-            return False
-        alias = (getattr(log, 'matched_alias', '') or '').lower()
-        if alias in self._EMAIL_EXCLUDE_ALIASES:
-            return False
-        # recipient_user_id == 8 = V6 Auth bot (solo winwin)
-        rec = getattr(log, 'recipient_user_id', None)
-        if rec and rec.id == 8:
-            return False
-        return True
-
-    def _email_to_event_dict(self, log, source):
-        """Normalizza email.log in formato evento timeline."""
-        sender = getattr(log, 'sender_email', '') or ''
-        recipients = getattr(log, 'recipient_emails', '') or ''
-        direction = getattr(log, 'direction', '') or ''
-        # Counterpart: se ricevuta -> sender; se inviata -> primo recipient
-        if direction == 'ricevuta':
-            counterpart = sender
-        else:
-            counterpart = recipients.split(',')[0].strip() if recipients else ''
-        # is_internal: entrambi domini @v6impresa.it o @v6sviluppoimpresa.it
-        def _is_v6_addr(a):
-            a = (a or '').lower()
-            return '@v6impresa.it' in a or '@v6sviluppoimpresa.it' in a
-        is_internal = _is_v6_addr(sender) and _is_v6_addr(recipients)
-        date = getattr(log, 'create_date', None)
-        return {
-            'type': 'email',
-            'id': 'email-%s-%s' % (source, log.id),
-            'emailLogId': log.id,
-            'source': source,
-            'direction': direction,
-            'subject': getattr(log, 'name', '') or '(nessun oggetto)',
-            'sender': sender,
-            'recipients': recipients,
-            'counterpart': counterpart,
-            'date': self._iso_utc(date) if date else None,
-            'isInternal': is_internal,
-            'eventType': 'email_rilevante',
-        }
-
     @http.route('/api/v1/admin/relations/<int:relation_id>/events',
                 type='http', auth='none',
                 methods=['GET', 'POST', 'OPTIONS'], csrf=False)
@@ -141,34 +81,10 @@ class AdminRelationEventsAPIController(AdminDealsAPIController):
         Event = request.env['erpv6.deal.event'].sudo()
 
         if request.httprequest.method == 'GET':
-            events = Event.search([('relation_id', '=', relation_id)],
-                                  order='event_date desc, id desc')
-            event_dicts = [self._event_to_dict_relation(e) for e in events]
-
-            # 09/10/2026 (C-email-project-1): aggrega email collegate.
-            email_dicts = []
-            for model, source in (
-                ('erpv6.winwin.email.log', 'winwin'),
-                ('erpv6.project.email.log', 'project'),
-            ):
-                if model not in request.env:
-                    continue
-                Log = request.env[model].sudo()
-                logs = Log.search(
-                    [('relation_id', '=', relation_id)],
-                    order='create_date desc',
-                )
-                for log in logs:
-                    if not self._email_is_relevant(log):
-                        continue
-                    email_dicts.append(self._email_to_event_dict(log, source))
-
-            # Merge + sort per data
-            all_events = event_dicts + email_dicts
-            def _sort_key(x):
-                d = x.get('eventDate') or x.get('date') or ''
-                return d or ''
-            all_events.sort(key=_sort_key, reverse=True)
+            # 09/10/2026 (C-email-project-1-fix1): helper condiviso.
+            all_events, event_dicts, email_dicts = build_relation_events(
+                request.env, rel, self._iso_utc,
+            )
             return self._json_response({
                 'success': True,
                 'events': all_events,

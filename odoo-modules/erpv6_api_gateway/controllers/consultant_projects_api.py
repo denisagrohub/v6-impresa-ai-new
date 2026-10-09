@@ -26,6 +26,7 @@ _logger = logging.getLogger(__name__)
 
 
 from .consultant_api import ConsultantAPIController
+from .lib.relation_events import build_relation_events
 
 
 class ConsultantProjectsAPIController(ConsultantAPIController):
@@ -287,6 +288,48 @@ class ConsultantProjectsAPIController(ConsultantAPIController):
     # nello split V6. Distinto da /consultant/projects (che mostra solo
     # production order / crm.lead di consulenza).
     # ------------------------------------------------------------------
+
+    @http.route('/api/v1/consultant/projects/<int:relation_id>/events',
+                type='http', auth='none', methods=['GET', 'OPTIONS'],
+                csrf=False)
+    def consultant_project_events(self, relation_id, **kwargs):
+        """09/10/2026 (C-email-project-1-fix1): timeline evento+email
+        per consultant. Parallelo a /api/v1/admin/relations/<rid>/events.
+        Solo GET (write in backlog).
+
+        Check record-level via _require_relation_access (già esistente).
+        """
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        Relation = request.env['erpv6.tracking.relation'].sudo()
+        rel = Relation.browse(relation_id)
+        if not rel.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+
+        err403 = self._require_relation_access(user, rel, mode='read')
+        if err403:
+            return err403
+
+        all_events, event_dicts, email_dicts = build_relation_events(
+            request.env, rel, self._iso_utc,
+        )
+        self._log_api_call(
+            f'/api/v1/consultant/projects/{relation_id}/events',
+            'GET', user.id, 200, start_time)
+        return self._json_response({
+            'success': True,
+            'events': all_events,
+            'total': len(all_events),
+            'eventsCount': len(event_dicts),
+            'emailsCount': len(email_dicts),
+        })
 
     @http.route('/api/v1/consultant/partner-projects', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def get_consultant_partner_projects(self, **kwargs):  # pylint: disable=unused-argument
