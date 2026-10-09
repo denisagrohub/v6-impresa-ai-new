@@ -22,7 +22,7 @@ const questions = [
 
 type Answers = Partial<Record<(typeof questions)[number]['id'], string>>;
 
-async function createPartialLead(data: Record<string, unknown>): Promise<{ success: boolean; leadId?: number }> {
+async function createPartialLead(data: Record<string, unknown>): Promise<{ success: boolean; leadId?: number; editToken?: string }> {
   try {
     const response = await fetch('/api/leads', {
       method: 'POST',
@@ -30,7 +30,9 @@ async function createPartialLead(data: Record<string, unknown>): Promise<{ succe
       body: JSON.stringify({ source: 'intervista', data, partial: true }),
     });
     const body = await response.json().catch(() => null);
-    return response.ok && body?.success ? { success: true, leadId: body.leadId } : { success: false };
+    return response.ok && body?.success
+      ? { success: true, leadId: body.leadId, editToken: body.editToken }
+      : { success: false };
   } catch {
     return { success: false };
   }
@@ -64,6 +66,15 @@ function InterviewContent() {
       packageId,
       landing_source_code: sourceProdotto || undefined,
     });
+    // 08/10/2026 (C-security-lead-public): salva token intervista in
+    // sessionStorage. Sarà rimandato come header X-Lead-Token dal
+    // tree-client nelle chiamate /intervista/guidata (start/answer).
+    if (result.success && result.editToken) {
+      try {
+        sessionStorage.setItem('lead_edit_token', result.editToken);
+        sessionStorage.setItem('lead_id', String(result.leadId || ''));
+      } catch {}
+    }
     const guidataParams = new URLSearchParams();
     if (result.success && result.leadId) guidataParams.set('lead_id', String(result.leadId));
     if (finalAnswers.nome) guidataParams.set('name', finalAnswers.nome);

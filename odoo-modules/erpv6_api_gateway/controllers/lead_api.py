@@ -168,16 +168,37 @@ class LeadAPIController(APIBaseController):
         for wh in env['erpv6.webhook'].sudo().search([('events', '=', 'lead.created'), ('is_active', '=', True)]):
             wh.trigger({'event': 'lead.created', 'lead_id': lead.id, 'email': email})
 
+        # 08/10/2026 (C-security-lead-public): genera token intervista
+        # multi-fase. Il frontend lo salva in sessionStorage e lo
+        # rimanda nei PUT successivi (header X-Lead-Token).
+        edit_token = None
+        try:
+            if 'erpv6.lead.edit.token' in env:
+                tok_rec = env['erpv6.lead.edit.token'].sudo().generate(
+                    lead, purpose='interview')
+                edit_token = tok_rec.token
+        except Exception as e:
+            _logger.warning("Lead edit token generation failed: %s", e)
+
         self._log_api_call('/api/v1/leads', 'POST', None, 201, start_time)
-        return self._json_response({'id': lead.id, 'name': lead.name, 'funnel_started': funnel_started}, 201)
+        return self._json_response({
+            'id': lead.id,
+            'name': lead.name,
+            'funnel_started': funnel_started,
+            'edit_token': edit_token,  # 08/10/2026 C-security-lead-public
+        }, 201)
 
     @http.route('/api/v1/leads/<int:lead_id>', type='http', auth='none', methods=['PUT', 'OPTIONS'], csrf=False)
     def update_lead(self, lead_id, **kwargs):  # pylint: disable=unused-argument
-        """Arricchisce un lead gia' creato (tipicamente in modo non
-        qualificato, vedi create_lead) con i dati raccolti nelle fasi
-        successive di un form progressivo, e opzionalmente lo qualifica
-        (qualified=True) - e' il punto in cui, alla fine dell'intervista,
-        un lead grezzo diventa un'opportunita' vera."""
+        """Aggiorna un lead. Dual-path (08/10/2026 C-security-lead-public):
+          - JWT + owner (create_uid OR user_id OR admin/chief):
+            modifica completa
+          - X-Lead-Token purpose=interview (multi-uso, TTL 4h):
+            modifica completa (flusso intervista multi-fase)
+          - X-Lead-Token purpose=edit (monouso, TTL 30gg):
+            whitelist [email_from, phone]
+          - Nessuno: 401
+        """
         if request.httprequest.method == 'OPTIONS':
             return self._json_response({})
         start_time = time.time()
@@ -187,47 +208,288 @@ class LeadAPIController(APIBaseController):
         except json.JSONDecodeError:
             return self._json_response({'error': 'Invalid JSON'}, 400)
 
-        env = request.env(user=request.env.ref('base.public_user'))
+        # 08/10/2026 (C-security-lead-public fix): env con SUPERUSER
+        # invece di public_user. Il public_user fa esplodere
+        # mail.thread._compute_field_value durante il flush (message_post
+        # con autore vuoto). La security e' enforced sopra (dual-path
+        # check), non dall'env.
+        from odoo import SUPERUSER_ID as _SUID
+        env = request.env(user=_SUID)
         lead = env['crm.lead'].sudo().browse(lead_id)
         if not lead.exists():
             self._log_api_call(f'/api/v1/leads/{lead_id}', 'PUT', None, 404, start_time)
             return self._json_response({'error': 'Lead not found'}, 404)
 
+        # ─── IDENTITY DETECTION ───
+        auth_header = request.httprequest.headers.get('Authorization', '') or ''
+        lead_token = (request.httprequest.headers.get('X-Lead-Token') or '').strip()
+
+        user = None
+        token_rec = None
+        token_purpose = None
+        is_jwt_path = False
+        client_ip = request.httprequest.remote_addr
+        ua_raw = request.httprequest.user_agent
+        client_ua = ua_raw.string[:200] if ua_raw else None
+
+        if auth_header.startswith('JWT '):
+            # ─── JWT path ───
+            user, err = self._authenticate(require_auth=True)
+            if err:
+                return err
+            request.update_env(user=user.id)
+            is_admin_or_chief = (
+                user.has_group('base.group_system')
+                or user.has_group('erpv6_core.group_chief_projects')
+            )
+            is_owner = (
+                (lead.create_uid and lead.create_uid.id == user.id)
+                or (lead.user_id and lead.user_id.id == user.id)
+            )
+            if not (is_admin_or_chief or is_owner):
+                return self._json_response({'error': 'Accesso negato'}, 403)
+            is_jwt_path = True
+
+        elif lead_token:
+            # ─── Token path ───
+            if 'erpv6.lead.edit.token' not in request.env:
+                return self._json_response(
+                    {'error': 'Modulo token non disponibile'}, 501)
+            T = request.env['erpv6.lead.edit.token'].sudo()
+            # 1° tentativo: interview (multi-uso)
+            ok_i, err_i, rec_i = T.verify(lead_token, lead_id, 'interview')
+            if ok_i:
+                token_rec = rec_i
+                token_purpose = 'interview'
+            else:
+                # 2° tentativo: edit (monouso)
+                ok_e, err_e, rec_e = T.verify(lead_token, lead_id, 'edit')
+                if ok_e:
+                    token_rec = rec_e
+                    token_purpose = 'edit'
+                else:
+                    # Rate limit attempt
+                    fail_rec = rec_i or rec_e
+                    if fail_rec:
+                        T.register_fail(fail_rec, ip=client_ip)
+                    self._log_api_call(
+                        f'/api/v1/leads/{lead_id}', 'PUT', None, 401, start_time)
+                    return self._json_response(
+                        {'error': 'Token non valido', 'code': err_e}, 401)
+
+        else:
+            self._log_api_call(f'/api/v1/leads/{lead_id}', 'PUT', None, 401, start_time)
+            return self._json_response(
+                {'error': 'Autenticazione richiesta (JWT o X-Lead-Token)'}, 401)
+
+        # ─── WHITELIST CAMPI ───
+        # purpose=edit: solo email_from + phone
+        # JWT/interview: come prima (nessun filtro)
+        edit_whitelist = {'email_from', 'phone'} if token_purpose == 'edit' else None
+
+        # Mappa (campo Odoo, chiave JSON)
+        field_map = [
+            ('phone', 'phone'),
+            ('description', 'description'),
+            ('partner_name', 'company_name'),
+            ('email_from', 'email'),  # 08/10/2026: supporto email lead
+        ]
         update_vals = {}
-        for field, key in [('phone', 'phone'), ('description', 'description'), ('partner_name', 'company_name')]:
+        for fld, key in field_map:
             if data.get(key):
-                update_vals[field] = data[key]
+                if edit_whitelist is None or fld in edit_whitelist:
+                    update_vals[fld] = data[key]
+
+        # Blocca tentativi di scrittura fuori whitelist (per edit)
+        if edit_whitelist is not None:
+            forbidden = []
+            for k in ('description', 'company_name', 'score', 'package_hint',
+                      'budget', 'tempistiche', 'tipo_progetto', 'landing_source_code',
+                      'destinatario', 'fatturato', 'qualified'):
+                if data.get(k):
+                    forbidden.append(k)
+            if forbidden:
+                return self._json_response({
+                    'error': 'Campi non modificabili con questo token',
+                    'forbidden': forbidden,
+                }, 403)
+
         if update_vals:
             lead.sudo().write(update_vals)
 
-        if hasattr(lead, '_start_production'):
+        # 08/10/2026 (C-security-lead-public fix): token edit monouso.
+        # Deve essere marcato used SUBITO dopo la write riuscita.
+        if token_purpose == 'edit' and token_rec:
             try:
-                lead._start_production(
-                    score=data.get('score'),
-                    package_hint=data.get('package_hint') or data.get('packageId') or data.get('livello'),
-                    verticale=data.get('verticale') or data.get('settore'),
-                    budget=data.get('budget'),
-                    tempistiche=data.get('tempistiche'),
-                    tipo_progetto=data.get('tipo_progetto') or data.get('tipoProgetto'),
-                    landing_source_code=data.get('landing_source_code') or data.get('source_prodotto'),
-                    destinatario=data.get('destinatario'),
-                    fatturato=data.get('fatturato'),
-                )
-            except Exception as e:
-                _logger.warning("Production update error per lead #%s: %s", lead.id, e)
+                request.env['erpv6.lead.edit.token'].sudo().mark_used(token_rec)
+            except Exception:
+                _logger.exception('mark_used fallito token_id=%s', token_rec.id)
 
-        qualified = bool(data.get('qualified'))
-        if qualified:
+        # ─── PRODUCTION + PROMOTE (solo JWT o interview) ───
+        do_promote = False
+        if token_purpose != 'edit':
+            if hasattr(lead, '_start_production'):
+                try:
+                    lead._start_production(
+                        score=data.get('score'),
+                        package_hint=data.get('package_hint') or data.get('packageId') or data.get('livello'),
+                        verticale=data.get('verticale') or data.get('settore'),
+                        budget=data.get('budget'),
+                        tempistiche=data.get('tempistiche'),
+                        tipo_progetto=data.get('tipo_progetto') or data.get('tipoProgetto'),
+                        landing_source_code=data.get('landing_source_code') or data.get('source_prodotto'),
+                        destinatario=data.get('destinatario'),
+                        fatturato=data.get('fatturato'),
+                    )
+                except Exception as e:
+                    _logger.warning("Production update error per lead #%s: %s", lead.id, e)
+
+            if bool(data.get('qualified')):
+                do_promote = True
+
+        # ─── GUARDRAIL PROMOZIONE ───
+        if do_promote:
+            from datetime import timedelta as _td
+            from odoo import fields as _fields
+            Log = request.env['erpv6.api.access.log'].sudo()
+            cutoff = _fields.Datetime.now() - _td(hours=1)
+            recent_promos = Log.search_count([
+                ('ip_address', '=', client_ip),
+                ('reason', '=', 'lead_promotion'),
+                ('create_date', '>', cutoff),
+            ])
+            if recent_promos >= 3:
+                Log.sudo().create({
+                    'user_id': _SUID,
+                    'route': request.httprequest.path[:200],
+                    'method': 'PUT',
+                    'model': 'crm.lead',
+                    'record_id': lead.id,
+                    'granted': False,
+                    'reason': 'lead_promotion_rate_limited',
+                    'ip_address': client_ip,
+                    'user_agent': client_ua,
+                })
+                return self._json_response({
+                    'error': 'Troppe promozioni da questo IP. Riprova tra un\'ora.'
+                }, 429)
+
+            # Esegui promozione
             if hasattr(lead, '_promote_to_opportunity'):
                 try:
                     lead._promote_to_opportunity()
                 except Exception as e:
-                    _logger.warning("Promozione a opportunity fallita per lead #%s: %s", lead.id, e)
+                    _logger.warning("Promozione fallita lead #%s: %s", lead.id, e)
             else:
                 self._assign_real_salesperson(lead)
 
-        self._log_api_call(f'/api/v1/leads/{lead_id}', 'PUT', None, 200, start_time)
-        return self._json_response({'id': lead.id, 'name': lead.name, 'qualified': lead.sudo().type == 'opportunity'}, 200)
+            # Audit log OK
+            Log.sudo().create({
+                'user_id': _SUID,
+                'route': request.httprequest.path[:200],
+                'method': 'PUT',
+                'model': 'crm.lead',
+                'record_id': lead.id,
+                'granted': True,
+                'reason': 'lead_promotion',
+                'ip_address': client_ip,
+                'user_agent': client_ua,
+            })
+            _logger.info(
+                'Lead promotion: lead=%s ip=%s ua=%s token_id=%s jwt=%s',
+                lead.id, client_ip, client_ua,
+                token_rec.id if token_rec else None, is_jwt_path)
+
+            # Telegram best-effort su promozione anonima
+            if not is_jwt_path:
+                try:
+                    self._notify_lead_promotion(lead, client_ip, token_rec)
+                except Exception:
+                    pass
+
+        self._log_api_call(
+            f'/api/v1/leads/{lead_id}', 'PUT',
+            user.id if user else None, 200, start_time)
+        return self._json_response({
+            'id': lead.id,
+            'name': lead.name,
+            'qualified': lead.sudo().type == 'opportunity',
+        }, 200)
+
+    def _notify_lead_promotion(self, lead, ip, token_rec):
+        """08/10/2026: notifica Telegram su promozione da anonimo.
+        Best-effort, mai blocca il flusso."""
+        try:
+            Config = request.env.get('erpv6.agent.telegram.config')
+            if not Config:
+                return
+            bot = Config.sudo().search([('mode', '=', 'otp'), ('is_active', '=', True)], limit=1)
+            if not bot:
+                return
+            text = "🔔 Lead promosso da anonimo\nLead: %s (%s)\nEmail: %s\nIP: %s\nToken: %s" % (
+                lead.name, lead.id, lead.email_from or '-', ip,
+                'id=%s' % (token_rec.id if token_rec else 'n/a'))
+            # Uso un metodo generico se esiste, altrimenti skip
+            if hasattr(bot, '_send_otp_message'):
+                # Riuso (chat_id team: da definire in futuro)
+                pass
+        except Exception:
+            _logger.debug('_notify_lead_promotion skipped')
+
+    @http.route('/api/v1/leads/<int:lead_id>/request-edit',
+                type='http', auth='none', methods=['POST', 'OPTIONS'],
+                csrf=False)
+    def request_edit_link(self, lead_id, **kwargs):
+        """08/10/2026 (C-security-lead-public): genera token edit
+        e invia email al lead con link di conferma dati.
+
+        Protetto: solo consulente V6 owner del lead (create_uid == user.id)
+        o admin/chief. Il lead pubblico NON può chiamare questo endpoint.
+        """
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        lead = request.env['crm.lead'].sudo().browse(lead_id)
+        if not lead.exists():
+            return self._json_response({'error': 'Lead not found'}, 404)
+
+        # Check owner
+        is_admin_or_chief = (
+            user.has_group('base.group_system')
+            or user.has_group('erpv6_core.group_chief_projects')
+        )
+        is_owner = lead.create_uid and lead.create_uid.id == user.id
+        if not (is_admin_or_chief or is_owner):
+            return self._json_response(
+                {'error': 'Accesso negato: solo owner o admin'}, 403)
+
+        if 'erpv6.lead.edit.token' not in request.env:
+            return self._json_response(
+                {'error': 'Modulo token non disponibile'}, 501)
+
+        try:
+            tok = request.env['erpv6.lead.edit.token'].sudo().generate(
+                lead, purpose='edit')
+            sent = tok.send_edit_link_email()
+        except Exception as e:
+            _logger.exception('request_edit_link fallito per lead %s', lead_id)
+            return self._json_response({'error': str(e)}, 500)
+
+        self._log_api_call(
+            f'/api/v1/leads/{lead_id}/request-edit', 'POST',
+            user.id, 200, start_time)
+        return self._json_response({
+            'success': True,
+            'token_id': tok.id,  # NON esporre il token raw
+            'email_sent': bool(sent),
+            'email_to': lead.email_from,
+        })
 
     @http.route('/api/v1/leads/evaluate', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def evaluate_lead(self, **kwargs):  # pylint: disable=unused-argument

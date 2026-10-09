@@ -25,6 +25,31 @@ class InterviewAPIController(APIBaseController):
         self._log_api_call(path, 'GET', None, 501, start_time)
         return self._json_response({'error': 'Interview engine not installed'}, 501)
 
+    def _require_interview_token(self, lead):
+        """08/10/2026 (C-security-lead-public): valida X-Lead-Token
+        purpose=interview su lead_id. Ritorna None se OK, altrimenti
+        Response 401/403. Il token e' multi-uso (TTL 4h), valido per
+        l'intera sessione intervista.
+        """
+        if 'erpv6.lead.edit.token' not in request.env:
+            # Modulo non installato: fail-open (non rompiamo interviste
+            # legacy). Il chiamante puo' comunque procedere.
+            return None
+        raw = (request.httprequest.headers.get('X-Lead-Token') or '').strip()
+        if not raw:
+            return self._json_response({
+                'error': 'Token intervista richiesto',
+                'code': 'token_required',
+            }, 401)
+        T = request.env['erpv6.lead.edit.token'].sudo()
+        ok, err, _rec = T.verify(raw, lead.id, 'interview')
+        if not ok:
+            return self._json_response({
+                'error': 'Token intervista non valido',
+                'code': err,
+            }, 401)
+        return None
+
     @http.route('/api/v1/interview/products', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def list_products(self, **kwargs):  # pylint: disable=unused-argument
         """Radice della selezione: 'che tipo di prodotto ti interessa?'.
@@ -73,6 +98,12 @@ class InterviewAPIController(APIBaseController):
             lead = env['crm.lead'].sudo().browse(lead_id)
             if not lead.exists():
                 return self._json_response({'error': 'Lead not found'}, 404)
+            # 08/10/2026 (C-security-lead-public): valida X-Lead-Token.
+            # Chi ha creato il lead via createPartialLead ha il token;
+            # senza token -> 401 (previene IDOR su lead_id enumberabili).
+            err401 = self._require_interview_token(lead)
+            if err401:
+                return err401
         else:
             name = (data.get('name') or '').strip()
             email = (data.get('email') or '').strip()
@@ -143,6 +174,11 @@ class InterviewAPIController(APIBaseController):
         session = env['erpv6.interview.session'].sudo().browse(session_id)
         if not session.exists():
             return self._json_response({'error': 'Session not found'}, 404)
+        # 08/10/2026 (C-security-lead-public): valida token via session.lead_id
+        if session.lead_id:
+            err401 = self._require_interview_token(session.lead_id)
+            if err401:
+                return err401
 
         file_base64 = data.get('file_base64')
         file_name = data.get('file_name') or 'documento'
@@ -184,6 +220,11 @@ class InterviewAPIController(APIBaseController):
             return self._json_response({'error': 'Session not found'}, 404)
         if session.state != 'in_progress':
             return self._json_response({'error': 'Session not in progress'}, 400)
+        # 08/10/2026 (C-security-lead-public): valida token via session.lead_id
+        if session.lead_id:
+            err401 = self._require_interview_token(session.lead_id)
+            if err401:
+                return err401
 
         question = session.current_question_id
         option_id = data.get('option_id')
