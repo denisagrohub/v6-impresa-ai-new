@@ -436,6 +436,47 @@ class LeadAPIController(APIBaseController):
         except Exception:
             _logger.debug('_notify_lead_promotion skipped')
 
+    @http.route('/api/v1/leads/<int:lead_id>/public',
+                type='http', auth='none', methods=['GET', 'OPTIONS'],
+                csrf=False)
+    def get_lead_public(self, lead_id, **kwargs):
+        """08/10/2026 (C-security-lead-public-bis): pre-popola il form
+        /lead/<id>/edit. Ritorna SOLO email_from + phone previo token
+        edit valido. Il token NON viene consumato (monouso al PUT finale)."""
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        start_time = time.time()
+
+        from odoo import SUPERUSER_ID as _SUID
+        env = request.env(user=_SUID)
+        lead = env['crm.lead'].sudo().browse(lead_id)
+        if not lead.exists():
+            return self._json_response({'error': 'Lead not found'}, 404)
+
+        # Token obbligatorio + deve essere purpose=edit
+        if 'erpv6.lead.edit.token' not in env:
+            return self._json_response({'error': 'Modulo token non disponibile'}, 501)
+        raw = (request.httprequest.headers.get('X-Lead-Token') or '').strip()
+        if not raw:
+            return self._json_response({
+                'error': 'Token richiesto', 'code': 'token_required',
+            }, 401)
+        T = env['erpv6.lead.edit.token'].sudo()
+        ok, err, _rec = T.verify(raw, lead_id, 'edit')
+        if not ok:
+            return self._json_response({
+                'error': 'Token non valido', 'code': err,
+            }, 401)
+
+        self._log_api_call(
+            f'/api/v1/leads/{lead_id}/public', 'GET', None, 200, start_time)
+        return self._json_response({
+            'id': lead.id,
+            'name': lead.contact_name or lead.name or '',
+            'email_from': lead.email_from or '',
+            'phone': lead.phone or '',
+        })
+
     @http.route('/api/v1/leads/<int:lead_id>/request-edit',
                 type='http', auth='none', methods=['POST', 'OPTIONS'],
                 csrf=False)
