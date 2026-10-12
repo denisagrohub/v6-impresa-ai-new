@@ -306,32 +306,51 @@ class EmailHubAPIController(ConsultantAPIController):
     # 12/10/2026 (C-email-hub-1): dettaglio + reply + mark-read.
     # ═══════════════════════════════════════════════════════════════
 
-    def _resolve_reply_from(self, msg, log):
-        """Determina From/Sender/Reply-To per la risposta:
-        - Estrae il TO originale (email_to)
-        - Cerca mail.alias con alias_full_name == TO
-        - Se trovato: usa l'alias
-        - Altrimenti: fallback a denis.deste@v6impresa.it
+    def _resolve_reply_from(self, msg, log, user):
+        """12/10/2026 (fix C-email-hub-1): From/Reply-To per la risposta.
+
+        Ordine:
+          1. msg.model='erpv6.tracking.relation' -> relation.email_alias
+          2. log.relation_id.email_alias
+          3. Fallback: user.email_slug@v6impresa.it (firma personale)
+
+        Ritorna (from_addr, is_project_alias, relation_name).
         """
         env = request.env
-        to_field = ''
-        # Prova prima il log (può contenere recipient_emails)
-        if log and hasattr(log, 'recipient_emails'):
-            to_field = (log.recipient_emails or '').lower()
-        # Fallback: cerca nell'header del mail.message
-        if not to_field:
-            # In mail.message non c'è email_to diretto
-            pass
-        # Estrai primo indirizzo
-        import re as _re
-        m = _re.search(r'[\w\.\-\+]+@[\w\.\-]+', to_field)
-        candidate = m.group(0) if m else ''
-        if candidate:
+        relation = None
+        # Path 1: mail.message diretto a relation
+        if msg.model == 'erpv6.tracking.relation' and msg.res_id:
+            relation = env['erpv6.tracking.relation'].sudo().browse(msg.res_id)
+            if not relation.exists():
+                relation = None
+        # Path 2: log custom -> relation
+        if relation is None and log is not None:
+            rel = getattr(log, 'relation_id', None)
+            if rel and rel.exists():
+                relation = rel
+
+        if relation is not None and relation.email_alias:
+            alias_local = relation.email_alias.strip().lower()
             Alias = env['mail.alias'].sudo()
-            alias = Alias.search([('alias_full_name', '=', candidate)], limit=1)
-            if alias:
-                return candidate
-        return 'denis.deste@v6impresa.it'
+            candidates = Alias.search([
+                ('alias_name', '=', alias_local),
+                ('alias_model_id.model', '=', 'erpv6.tracking.relation'),
+            ])
+            chosen = None
+            for cand in candidates:
+                full = (cand.alias_full_name or '').lower()
+                if full.endswith('@v6impresa.it'):
+                    chosen = full
+                    break
+            if not chosen and candidates:
+                chosen = (candidates[0].alias_full_name or '').lower()
+            if not chosen:
+                chosen = '%s@v6impresa.it' % alias_local
+            return chosen, True, (relation.name or '')
+
+        # Fallback: slug utente
+        slug = getattr(user, 'email_slug', None) or 'denis.deste'
+        return '%s@v6impresa.it' % slug, False, ''
 
     @http.route('/api/v1/admin/email-hub/messages/<int:msg_id>',
                 type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
@@ -403,8 +422,9 @@ class EmailHubAPIController(ConsultantAPIController):
         log = self._get_linked_log(msg)
         content = self._get_content(msg, log)
 
-        # From/Sender = alias dell'email originale
-        from_addr = self._resolve_reply_from(msg, log)
+        # From/Sender = alias progetto o fallback slug utente
+        from_addr, is_project_alias, relation_name = self._resolve_reply_from(
+            msg, log, user)
         # Destinatario = chi ha inviato l'email originale
         import re as _re
         to_email = ''
@@ -412,11 +432,14 @@ class EmailHubAPIController(ConsultantAPIController):
         if m2:
             to_email = m2.group(0)
 
-        # Firma progetto
+        # Firma coerente: progetto vs personale
         project = self._resolve_project(msg)
-        signature = ''
-        if project:
-            signature = '<p style="color:#666;font-size:12px;">V6 Impresa — %s</p>' % (project.get('name') or '')
+        proj_name = relation_name or (project.get('name') if project else '') or ''
+        if is_project_alias and proj_name:
+            signature = '<p style="color:#666;font-size:12px;">V6 Impresa — %s</p>' % proj_name
+        else:
+            sig_name = user.partner_id.name or 'V6 Impresa'
+            signature = '<p style="color:#666;font-size:12px;">%s<br/>V6 Impresa</p>' % sig_name
         full_body = body_html + ('<br/><br/>' + signature if signature else '')
 
         # Threading: In-Reply-To + References
@@ -470,6 +493,7 @@ class EmailHubAPIController(ConsultantAPIController):
             'message_id': new_msg.id if new_msg else None,
             'from': from_addr,
             'to': to_email,
+            'is_project_alias': is_project_alias,
         })
 
     @http.route('/api/v1/admin/email-hub/messages/<int:msg_id>/mark-read',
