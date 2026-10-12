@@ -64,3 +64,4 @@ from . import access_requests_api  # 30/09/2026: catalogo playbook + opt-in
 # file ma mai importato in __init__.py -> Odoo non registrava le route,
 # il gateway rispondeva 404 HTML (fallback website). Fix: import esplicito.
 from . import bandi_api
+from . import email_hub_api  # 12/10/2026 (C-email-hub-1)
