@@ -5,8 +5,9 @@
     'summary': 'R2-enforcement: whitelist destinatari + test mode',
     'author': 'V6 Impresa AI',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail'],
+    'depends': ['base', 'mail', 'aeosv6_relation'],
     'data': [
+        'security/ir.model.access.csv',
         'data/ir_config_parameter_data.xml',
     ],
     'installable': True,

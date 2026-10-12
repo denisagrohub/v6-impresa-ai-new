@@ -9,5 +9,20 @@
             <field name="key">mail.test_whitelist</field>
             <field name="value">denis.deste@v6impresa.it,method@agrohubitalia.it</field>
         </record>
+
+        <!-- 12/10/2026 (C-email-settings-1): firma email -->
+        <record id="param_email_logo_enabled" model="ir.config_parameter">
+            <field name="key">email.logo_enabled</field>
+            <field name="value">True</field>
+        </record>
+        <record id="param_email_logo_max_height" model="ir.config_parameter">
+            <field name="key">email.logo_max_height</field>
+            <field name="value">80</field>
+        </record>
+        <record id="param_email_disclaimer_default" model="ir.config_parameter">
+            <field name="key">email.disclaimer_default</field>
+            <field name="value"><![CDATA[<hr style="border:none;border-top:1px solid #ccc;margin:20px 0 10px;"/>
+<p style="font-size:11px;color:#888;line-height:1.4;">Le informazioni contenute in questo messaggio e nei suoi allegati sono riservate e destinate esclusivamente al destinatario. Ogni divulgazione, copia o utilizzo non autorizzato è vietato.</p>]]></field>
+        </record>
     </data>
 </odoo>
