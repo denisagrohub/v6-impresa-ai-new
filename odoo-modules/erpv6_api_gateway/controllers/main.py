@@ -239,6 +239,35 @@ class APIBaseController(http.Controller):
         return None
 
 
+    def _append_email_signature(self, body_html, user=None, relation=None):
+        """12/10/2026 (C-email-settings-1): appende firma + logo +
+        disclaimer al body di una email user-initiated.
+
+        Ritorna (body_html, logo_attachment_or_None). Il chiamante
+        deve aggiungere il logo agli attachment_ids della mail.
+
+        Non usare per watcher/kaizen (email automatiche).
+        Best-effort: se il modulo erpv6_mail_guard non è installato,
+        ritorna (body_html, None).
+        """
+        try:
+            if 'erpv6.email.signature' not in request.env:
+                return body_html, None
+            if user is None:
+                user = request.env.user
+            Sign = request.env['erpv6.email.signature'].sudo()
+            result = Sign.build_signature(user, relation)
+            if not result:
+                return body_html, None
+            signature, logo_att = result
+            if not signature:
+                return body_html, logo_att
+            base = body_html or ''
+            return base + '<br/><br/>' + signature, logo_att
+        except Exception:
+            _logger.exception('_append_email_signature fallito')
+            return body_html, None
+
     def _log_api_call(self, endpoint, method, user_id, status_code, start_time):
         try:
             request.env['erpv6.api.log'].sudo().create({

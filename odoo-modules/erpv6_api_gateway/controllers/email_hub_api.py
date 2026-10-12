@@ -432,15 +432,17 @@ class EmailHubAPIController(ConsultantAPIController):
         if m2:
             to_email = m2.group(0)
 
-        # Firma coerente: progetto vs personale
-        project = self._resolve_project(msg)
-        proj_name = relation_name or (project.get('name') if project else '') or ''
-        if is_project_alias and proj_name:
-            signature = '<p style="color:#666;font-size:12px;">V6 Impresa — %s</p>' % proj_name
-        else:
-            sig_name = user.partner_id.name or 'V6 Impresa'
-            signature = '<p style="color:#666;font-size:12px;">%s<br/>V6 Impresa</p>' % sig_name
-        full_body = body_html + ('<br/><br/>' + signature if signature else '')
+        # 12/10/2026 (C-email-settings-1): firma a cascata
+        # (user > project > company) + logo + disclaimer.
+        relation_for_sig = None
+        if msg.model == 'erpv6.tracking.relation' and msg.res_id:
+            rel = request.env['erpv6.tracking.relation'].sudo().browse(msg.res_id)
+            if rel.exists():
+                relation_for_sig = rel
+        elif log is not None and getattr(log, 'relation_id', None):
+            relation_for_sig = log.relation_id
+        full_body, sig_logo_att = self._append_email_signature(
+            body_html, user=user, relation=relation_for_sig)
 
         # Threading: In-Reply-To + References
         orig_message_id = msg.message_id or ''
@@ -461,8 +463,8 @@ class EmailHubAPIController(ConsultantAPIController):
             'auto_delete': False,
             'headers': json.dumps(headers) if headers else False,
         }
-        if project and project.get('id'):
-            vals['reply_to'] = from_addr
+        if sig_logo_att:
+            vals['attachment_ids'] = [(4, sig_logo_att.id)]
         try:
             mail = Mail.create(vals)
             mail.send()

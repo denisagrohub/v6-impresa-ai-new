@@ -626,6 +626,15 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             existing_h['Bcc'] = ','.join([e.strip() for e in bcc.split(',') if e.strip()])
             reply_headers = existing_h
 
+        # 12/10/2026 (C-email-settings-1): firma a cascata
+        # (user > project > company) + logo + disclaimer.
+        _rel_sig = None
+        if relation_id:
+            _rel_sig = env['erpv6.tracking.relation'].sudo().browse(relation_id)
+            if not _rel_sig.exists():
+                _rel_sig = None
+        body, sig_logo_att = self._append_email_signature(body, user=user, relation=_rel_sig)
+
         # 23/09/2026: fix spam. Register autentica come catchall@v6impresa.it:
         # allineare il From al mittente tecnico e mettere l'alias consulente
         # in Reply-To. Gmail/Outlook vedono allineamento SMTP <-> From.
@@ -646,6 +655,8 @@ class ConsultantEmailAPIController(ConsultantAPIController):
             'auto_delete': False,
             'headers': json.dumps(reply_headers) if reply_headers else False,
         })
+        if sig_logo_att:
+            mail.write({'attachment_ids': [(4, sig_logo_att.id)]})
         try:
             # 07/10/2026 (C-email-fix-b): invio MANUALE dal composer
             # consulente -> bypassa la whitelist R2. Cron/agenti

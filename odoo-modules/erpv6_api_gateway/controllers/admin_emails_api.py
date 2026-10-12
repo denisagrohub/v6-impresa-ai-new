@@ -709,9 +709,13 @@ class AdminEmailsAPIController(ConsultantAPIController):
                         reply_to_addr = f'{user_slug}+{project_alias}@v6impresa.it'
 
             full_body = body_html.replace('\n', '<br/>') if body_html else ''
+            # 12/10/2026 (C-email-settings-1): firma a cascata + logo
+            # + disclaimer. Sostituisce il vecchio "Progetto: <nome>".
+            _rel_sig = None
             if relation_id:
-                Relation = request.env['erpv6.tracking.relation'].sudo().browse(relation_id)
-                full_body += f'<br/><br/><hr/><p style="color:#999;font-size:11px;">Progetto: <b>{Relation.name}</b></p>'
+                _rel_sig = request.env['erpv6.tracking.relation'].sudo().browse(relation_id)
+            full_body, sig_logo_att = self._append_email_signature(
+                full_body, user=user, relation=_rel_sig)
 
             Mail = request.env['mail.mail'].sudo()
             # Trova/crea partner per popolare recipient_ids
@@ -739,6 +743,9 @@ class AdminEmailsAPIController(ConsultantAPIController):
             }
             if attachment_ids:
                 vals['attachment_ids'] = [(4, int(aid)) for aid in attachment_ids]
+            if sig_logo_att:
+                vals.setdefault('attachment_ids', [])
+                vals['attachment_ids'].append((4, sig_logo_att.id))
 
             mail = Mail.create(vals)
             # 07/10/2026 (C-email-fix-b): invio MANUALE dall'utente
