@@ -136,6 +136,9 @@ class EmailHubAPIController(ConsultantAPIController):
             ('res_model', '=', 'mail.message'),
             ('res_id', '=', msg.id),
         ])
+        # 13/10/2026 (C-orchestrator-1 STEP B): link esplicito x_v6_*
+        x_proj = msg.x_v6_project_id if 'x_v6_project_id' in msg._fields else None
+        x_parte = msg.x_v6_parte_id if 'x_v6_parte_id' in msg._fields else None
         return {
             'id': msg.id,
             'subject': content['subject'],
@@ -153,6 +156,19 @@ class EmailHubAPIController(ConsultantAPIController):
             'log_id': log.id if log else None,
             'log_model': log._name if log else None,
             'thread_id': msg.parent_id.id if msg.parent_id else msg.id,
+            'x_v6_project_id': x_proj.id if x_proj else None,
+            'x_v6_project': ({
+                'id': x_proj.id,
+                'name': x_proj.name or '',
+                'partner_id': x_proj.partner_id.id if x_proj.partner_id else None,
+            } if x_proj else None),
+            'x_v6_parte_id': x_parte.id if x_parte else None,
+            'x_v6_parte': ({
+                'id': x_parte.id,
+                'name': x_parte.name or '',
+                'partner_id': x_parte.partner_id.id if x_parte.partner_id else None,
+                'partner_name': x_parte.partner_id.name if x_parte.partner_id else None,
+            } if x_parte else None),
         }
 
     def _base_domain(self, scope, user):

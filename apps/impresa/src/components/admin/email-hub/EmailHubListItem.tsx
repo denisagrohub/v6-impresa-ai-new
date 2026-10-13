@@ -20,6 +20,10 @@ export type Message = {
   log_id: number | null;
   log_model: string | null;
   thread_id: number;
+  x_v6_project_id: number | null;
+  x_v6_project: { id: number; name: string; partner_id: number | null } | null;
+  x_v6_parte_id: number | null;
+  x_v6_parte: { id: number; name: string; partner_id: number | null; partner_name: string | null } | null;
 };
 
 type Props = {
