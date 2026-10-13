@@ -61,7 +61,7 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
 
   if (!messageId) {
     return (
-      <aside className="w-[520px] shrink-0 border-l border-brand-border bg-brand-card overflow-y-auto email-hub-scroll">
+      <aside className="w-[640px] shrink-0 border-l border-brand-border bg-brand-card">
         <div className="h-full flex items-center justify-center p-8">
           <div className="text-center max-w-xs">
             <div className="w-14 h-14 rounded-2xl bg-brand-sand mx-auto mb-4 flex items-center justify-center">
@@ -100,7 +100,7 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
   const pc = m?.project ? projectColor(m.project.id) : null;
 
   return (
-    <aside className="w-[520px] shrink-0 border-l border-brand-border bg-brand-card shadow-hub-panel overflow-y-auto email-hub-scroll">
+    <aside className="w-[640px] shrink-0 border-l border-brand-border bg-brand-card shadow-hub-panel">
       {loading && (
         <div className="h-full flex items-center justify-center">
           <Loader2 size={20} className="animate-spin text-brand-muted" />
@@ -116,9 +116,9 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
       )}
 
       {!loading && !error && m && (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-0">
           {/* Header */}
-          <div className="p-5 border-b border-brand-border">
+          <div className="p-5 border-b border-brand-border shrink-0">
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex-1 min-w-0">
                 <h2 className="text-base font-bold text-brand-navy leading-snug">
@@ -171,7 +171,7 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
           </div>
 
           {/* Corpo */}
-          <div className="flex-1 overflow-y-auto email-hub-scroll p-5">
+          <div className="flex-1 overflow-y-auto email-hub-scroll p-5 min-h-0">
             <div
               className="prose prose-sm max-w-none text-brand-text"
               dangerouslySetInnerHTML={{ __html: (detail as any)?.body || '' }}
@@ -203,7 +203,7 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
           </div>
 
           {/* Intelligence panel Susanna (mock v1) */}
-          <div className="border-t border-brand-border bg-brand-sand/50">
+          <div className="border-t border-brand-border bg-brand-sand/50 shrink-0">
             <IntelligencePanel
               project={m.project}
               authorName={extractName(m.email_from) || extractEmail(m.email_from)}
@@ -212,7 +212,7 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
           </div>
 
           {/* Reply footer */}
-          <div className="border-t border-brand-border p-4 bg-brand-sand">
+          <div className="border-t border-brand-border p-4 bg-brand-sand shrink-0">
             {!replyOpen ? (
               <button
                 onClick={() => setReplyOpen(true)}
