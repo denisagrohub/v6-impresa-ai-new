@@ -16,6 +16,7 @@ import AndonFAB from "@/components/admin/andon/AndonFAB";
 const SKIP_PREFIXES = [
   '/admin/login',
   '/admin/mia-email',
+  '/admin/email-hub',
   '/admin/contracts',
   '/admin/firme',
   '/admin/documenti',

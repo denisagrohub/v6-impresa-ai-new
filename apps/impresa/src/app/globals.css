@@ -238,3 +238,21 @@ h1, h2, h3, h4, h5, h6 {
   text-decoration: underline dotted;
   text-decoration-color: #a8a29e;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   13/10/2026 (C-email-hub-2): scrollbar + focus ring email hub.
+   ═══════════════════════════════════════════════════════════════ */
+.email-hub-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.email-hub-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.email-hub-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.email-hub-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
