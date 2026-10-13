@@ -47,13 +47,27 @@ class MailMessage(models.Model):
             self.env['erpv6.tracking.relation'].sudo().search([]).ids
         )
         for m in self:
-            # 1. Email arrivata a un alias progetto (solo se relation esiste)
+            # 1. Email arrivata a un alias progetto (relation diretta)
             if m.model == 'erpv6.tracking.relation':
                 if m.res_id and m.res_id in existing_ids:
                     m.x_v6_project_id = m.res_id
                 else:
                     m.x_v6_project_id = False
-            # 2. Reply -> eredita da parent
+            # 2. Email nei log custom (winwin/project) -> log.relation_id
+            # 13/10/2026 (fix BUG label-progetto-diverso-dal-link):
+            # la lista mostra il progetto via log.relation_id, il compute
+            # deve fare lo stesso per coerenza.
+            elif m.model in ('erpv6.winwin.email.log',
+                             'erpv6.project.email.log'):
+                log = self.env[m.model].sudo().browse(m.res_id) if m.res_id else None
+                if log and log.exists() and log.relation_id \
+                        and log.relation_id.id in existing_ids:
+                    m.x_v6_project_id = log.relation_id.id
+                elif m.parent_id and m.parent_id.x_v6_project_id:
+                    m.x_v6_project_id = m.parent_id.x_v6_project_id
+                else:
+                    m.x_v6_project_id = False
+            # 3. Reply -> eredita da parent
             elif m.parent_id and m.parent_id.x_v6_project_id:
                 m.x_v6_project_id = m.parent_id.x_v6_project_id
             else:
