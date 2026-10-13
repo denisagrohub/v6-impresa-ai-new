@@ -1,10 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Loader2, Reply, Send, Paperclip, Download, X } from 'lucide-react';
+import { Loader2, Reply, Send, Paperclip, Download, X, Link2, AlertCircle, Pencil, FileText } from 'lucide-react';
 import { projectColor } from '@/lib/email-hub/colors';
 import { formatDateFull, extractEmail, extractName, formatSize } from '@/lib/email-hub/format';
 import EmailHubBadge from './EmailHubBadge';
-import IntelligencePanel from './IntelligencePanel';
+import EmailHubLinkProjectModal from './EmailHubLinkProjectModal';
 import { Message } from './EmailHubListItem';
 
 type Attachment = { id: number; name: string; size: number; mimetype: string };
@@ -19,9 +19,10 @@ type Props = {
   authHeaders: () => Record<string, string>;
   onClose: () => void;
   onReplied?: () => void;
+  onOpenGenerator?: (ctx: { project_id?: number; parte_id?: number; source_message_id?: number }) => void;
 };
 
-export default function EmailHubDetail({ messageId, authHeaders, onClose, onReplied }: Props) {
+export default function EmailHubDetail({ messageId, authHeaders, onClose, onReplied, onOpenGenerator }: Props) {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +31,22 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
   const [replyBody, setReplyBody] = useState('');
   const [sending, setSending] = useState(false);
   const [sentOk, setSentOk] = useState(false);
+  // 13/10/2026 (STEP C): link project modal
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const unlinkProject = async () => {
+    if (!messageId) return;
+    try {
+      await fetch(`/api/admin/emails/${messageId}/link-project`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      setReloadKey((k) => k + 1);
+    } catch { /* ignore */ }
+  };
+
+  const onLinkSaved = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
     if (!messageId) { setDetail(null); return; }
@@ -49,7 +66,7 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
       }
     })();
     return () => { cancelled = true; };
-  }, [messageId]);
+  }, [messageId, reloadKey]);
 
   // Mark-read automatico alla apertura
   useEffect(() => {
@@ -168,6 +185,82 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
                 </div>
               )}
             </div>
+
+            {/* 13/10/2026 (STEP C): 3 stati link progetto */}
+            <div className="mt-3">
+              {!m.x_v6_project_id && (
+                <div className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                  <span className="text-amber-800 flex-1">Non collegata a un progetto</span>
+                  <button
+                    onClick={() => setLinkModalOpen(true)}
+                    className="text-xs font-medium text-brand-navy hover:underline whitespace-nowrap"
+                  >
+                    🔗 Collega
+                  </button>
+                </div>
+              )}
+
+              {m.x_v6_project_id && !m.x_v6_parte_id && (
+                <div className="flex items-center gap-2 text-xs bg-brand-sand border border-brand-border rounded-lg px-3 py-2">
+                  <Link2 size={14} className="text-brand-navy shrink-0" />
+                  <span className="text-brand-text flex-1 truncate">
+                    <b>{m.x_v6_project?.name || `Progetto #${m.x_v6_project_id}`}</b>
+                  </span>
+                  <button
+                    onClick={() => setLinkModalOpen(true)}
+                    className="text-[11px] font-medium text-brand-navy hover:underline whitespace-nowrap inline-flex items-center gap-1"
+                  >
+                    <Pencil size={11} /> Assegna a parte
+                  </button>
+                  <button
+                    onClick={unlinkProject}
+                    className="text-brand-muted hover:text-red-600"
+                    title="Rimuovi link"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+
+              {m.x_v6_project_id && m.x_v6_parte_id && (
+                <div className="flex items-center gap-2 text-xs bg-brand-sand border border-brand-border rounded-lg px-3 py-2">
+                  <Link2 size={14} className="text-brand-navy shrink-0" />
+                  <span className="text-brand-text flex-1 truncate">
+                    <b>{m.x_v6_project?.name || `Progetto #${m.x_v6_project_id}`}</b>
+                    {m.x_v6_parte?.name && (
+                      <> · Parte: <b>{m.x_v6_parte.name}</b></>
+                    )}
+                  </span>
+                  {onOpenGenerator && (
+                    <button
+                      onClick={() => onOpenGenerator({
+                        project_id: m.x_v6_project_id ?? undefined,
+                        parte_id: m.x_v6_parte_id ?? undefined,
+                        source_message_id: m.id,
+                      })}
+                      className="text-brand-navy hover:text-brand-terracotta transition-colors"
+                      title="Genera documento per questa parte"
+                    >
+                      <FileText size={14} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setLinkModalOpen(true)}
+                    className="text-[11px] font-medium text-brand-navy hover:underline whitespace-nowrap inline-flex items-center gap-1"
+                  >
+                    <Pencil size={11} /> Cambia parte
+                  </button>
+                  <button
+                    onClick={unlinkProject}
+                    className="text-brand-muted hover:text-red-600"
+                    title="Rimuovi link"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Corpo */}
@@ -200,15 +293,6 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Intelligence panel Susanna (mock v1) */}
-          <div className="border-t border-brand-border bg-brand-sand/50 shrink-0">
-            <IntelligencePanel
-              project={m.project}
-              authorName={extractName(m.email_from) || extractEmail(m.email_from)}
-              subject={m.subject}
-            />
           </div>
 
           {/* Reply footer */}
@@ -255,6 +339,16 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
           </div>
         </div>
       )}
+
+      <EmailHubLinkProjectModal
+        open={linkModalOpen}
+        messageId={messageId}
+        currentProjectId={detail?.message?.x_v6_project_id ?? null}
+        currentParteId={detail?.message?.x_v6_parte_id ?? null}
+        authHeaders={authHeaders}
+        onClose={() => setLinkModalOpen(false)}
+        onSaved={onLinkSaved}
+      />
     </aside>
   );
 }

@@ -9,6 +9,7 @@ import EmailHubSidebar, { Scope, ProjectItem, PersonItem } from '@/components/ad
 import EmailHubList from '@/components/admin/email-hub/EmailHubList';
 import EmailHubDetail from '@/components/admin/email-hub/EmailHubDetail';
 import { Message } from '@/components/admin/email-hub/EmailHubListItem';
+import PackageGeneratorModal, { GeneratorContext } from '@/components/admin/orchestrator/PackageGeneratorModal';
 import { getAuthToken } from '@/components/deal/auth';
 
 const authHeaders = (): Record<string, string> => {
@@ -31,6 +32,9 @@ export default function EmailHubPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // 13/10/2026 (STEP D): modale generatore documenti
+  const [generatorOpen, setGeneratorOpen] = useState(false);
+  const [generatorCtx, setGeneratorCtx] = useState<GeneratorContext>({});
 
   // Debounce search
   useEffect(() => {
@@ -116,9 +120,20 @@ export default function EmailHubPage() {
             authHeaders={authHeaders}
             onClose={() => setSelectedId(null)}
             onReplied={() => { loadSidebar(); loadMessages(); }}
+            onOpenGenerator={(ctx) => {
+              setGeneratorCtx(ctx);
+              setGeneratorOpen(true);
+            }}
           />
         </div>
       </div>
+
+      <PackageGeneratorModal
+        open={generatorOpen}
+        context={generatorCtx}
+        authHeaders={authHeaders}
+        onClose={() => setGeneratorOpen(false)}
+      />
     </AdminLayout>
   );
 }

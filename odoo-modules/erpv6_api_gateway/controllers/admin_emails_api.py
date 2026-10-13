@@ -21,7 +21,7 @@ import json
 import logging
 import time
 
-from odoo import http
+from odoo import http, fields
 from odoo.http import request
 
 from .consultant_api import ConsultantAPIController
@@ -902,3 +902,135 @@ class AdminEmailsAPIController(ConsultantAPIController):
         except Exception as e:
             _logger.exception('Upload fallito')
             return self._json_response({'error': str(e)}, 500)
+
+
+    # ═══════════════════════════════════════════════════════════════
+    # 13/10/2026 (C-orchestrator-1 STEP B): link esplicito email->progetto
+    # ═══════════════════════════════════════════════════════════════
+
+    @http.route('/api/v1/admin/emails/<int:email_id>/link-project',
+                type='http', auth='none',
+                methods=['POST', 'OPTIONS'], csrf=False)
+    def link_project(self, email_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        try:
+            body = request.httprequest.get_json(force=True, silent=True) or {}
+        except Exception:
+            body = {}
+
+        project_id = body.get('project_id')
+        parte_id = body.get('parte_id')
+        if not project_id:
+            return self._json_response({'error': 'project_id obbligatorio'}, 400)
+
+        Rel = request.env['erpv6.tracking.relation'].sudo()
+        project = Rel.browse(int(project_id))
+        if not project.exists():
+            return self._json_response({'error': 'Progetto non trovato'}, 404)
+
+        parte = None
+        if parte_id:
+            parte = Rel.browse(int(parte_id))
+            if not parte.exists():
+                return self._json_response({'error': 'Parte non trovata'}, 404)
+            if parte.parent_id.id != project.id:
+                return self._json_response({
+                    'error': 'La parte selezionata non appartiene a questo progetto',
+                }, 400)
+
+        M = request.env['mail.message'].sudo()
+        msg = M.browse(int(email_id))
+        if not msg.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+
+        vals = {
+            'x_v6_project_id': project.id,
+            'x_v6_parte_id': parte.id if parte else False,
+            'x_v6_linked_by_id': user.id,
+            'x_v6_linked_at': fields.Datetime.now(),
+        }
+        msg.write(vals)
+
+        return self._json_response({
+            'ok': True,
+            'project': {'id': project.id, 'name': project.name or ''},
+            'parte': ({'id': parte.id, 'name': parte.name or ''} if parte else None),
+        })
+
+    @http.route('/api/v1/admin/emails/<int:email_id>/link-project',
+                type='http', auth='none',
+                methods=['DELETE', 'OPTIONS'], csrf=False)
+    def unlink_project(self, email_id, **kwargs):
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        M = request.env['mail.message'].sudo()
+        msg = M.browse(int(email_id))
+        if not msg.exists():
+            return self._json_response({'error': 'Email non trovata'}, 404)
+
+        msg.write({
+            'x_v6_project_id': False,
+            'x_v6_parte_id': False,
+            'x_v6_linked_by_id': False,
+            'x_v6_linked_at': False,
+        })
+        return self._json_response({'ok': True})
+
+    @http.route('/api/v1/admin/relations/tree',
+                type='http', auth='none',
+                methods=['GET', 'OPTIONS'], csrf=False)
+    def relations_tree(self, **kwargs):
+        """Ritorna albero progetti -> TUTTI discendenti (flat).
+        Ogni top-level ha un campo 'descendants' con tutti i nodi
+        sotto di esso (ricorsivo). Solo nodi con partner_id o con
+        almeno un discendente con partner_id vengono esposti come
+        'parti selezionabili'.
+        """
+        if request.httprequest.method == 'OPTIONS':
+            return self._json_response({})
+        user, err = self._authenticate(require_auth=True)
+        if err:
+            return err
+        request.update_env(user=user.id)
+
+        Rel = request.env['erpv6.tracking.relation'].sudo()
+
+        def collect_descendants(node, depth=0, max_depth=5):
+            out = []
+            if depth > max_depth:
+                return out
+            for c in node.child_ids:
+                out.append({
+                    'id': c.id,
+                    'name': c.name or '',
+                    'partner_id': c.partner_id.id if c.partner_id else None,
+                    'partner_name': c.partner_id.name if c.partner_id else None,
+                    'depth': depth + 1,
+                })
+                out.extend(collect_descendants(c, depth + 1, max_depth))
+            return out
+
+        projects = Rel.search([('parent_id', '=', False)], order='name')
+        out = []
+        for p in projects:
+            descendants = collect_descendants(p)
+            out.append({
+                'id': p.id,
+                'name': p.name or '',
+                'partner_id': p.partner_id.id if p.partner_id else None,
+                'partner_name': p.partner_id.name if p.partner_id else None,
+                'descendants': descendants,
+            })
+
+        return self._json_response({'success': True, 'projects': out})
