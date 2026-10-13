@@ -33,7 +33,7 @@ export default function EmailHubList({
     );
   }
   return (
-    <main className="flex-1 overflow-y-auto">
+    <main className="flex-1 overflow-y-auto email-hub-scroll">
       <div className="p-3 space-y-2">
         {messages.map((m) => (
           <EmailHubListItem

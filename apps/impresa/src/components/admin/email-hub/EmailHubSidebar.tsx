@@ -30,7 +30,7 @@ export default function EmailHubSidebar({
   ];
 
   return (
-    <aside className="w-[260px] shrink-0 border-r border-brand-border bg-brand-card overflow-y-auto">
+    <aside className="w-[260px] shrink-0 border-r border-brand-border bg-brand-card overflow-y-auto email-hub-scroll">
       <div className="p-3 space-y-5">
         {/* Scope */}
         <div>
