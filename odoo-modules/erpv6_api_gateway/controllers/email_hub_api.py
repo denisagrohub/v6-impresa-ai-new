@@ -109,7 +109,13 @@ class EmailHubAPIController(ConsultantAPIController):
         subject = msg.subject or (getattr(log, 'name', '') if log else '')
         email_from = msg.email_from or (getattr(log, 'sender_email', '') if log else '')
         email_to = (getattr(log, 'recipient_emails', '') if log else '') or ''
+        # Body: mail.message primario, fallback dal log custom
         body = msg.body or ''
+        if not body and log is not None:
+            body = (getattr(log, 'body', '')
+                    or getattr(log, 'body_html', '')
+                    or getattr(log, 'message_body', '')
+                    or '')
         return {
             'subject': subject or '(nessun oggetto)',
             'email_from': email_from or '',
@@ -388,9 +394,12 @@ class EmailHubAPIController(ConsultantAPIController):
             'size': a.file_size or 0, 'mimetype': a.mimetype or '',
         } for a in atts]
 
+        _log = self._get_linked_log(msg)
+        _content = self._get_content(msg, _log)
         return self._json_response({
             'success': True,
             'message': d,
+            'body': _content.get('body', ''),
             'thread': thread,
             'attachments': attachments,
         })
