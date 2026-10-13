@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Loader2, Reply, Send, Paperclip, Download, X, Link2, AlertCircle, Pencil } from 'lucide-react';
+import { Loader2, Reply, Send, Paperclip, Download, X, Link2, AlertCircle, Pencil, FileText } from 'lucide-react';
 import { projectColor } from '@/lib/email-hub/colors';
 import { formatDateFull, extractEmail, extractName, formatSize } from '@/lib/email-hub/format';
 import EmailHubBadge from './EmailHubBadge';
@@ -20,9 +20,10 @@ type Props = {
   authHeaders: () => Record<string, string>;
   onClose: () => void;
   onReplied?: () => void;
+  onOpenGenerator?: (ctx: { project_id?: number; parte_id?: number; source_message_id?: number }) => void;
 };
 
-export default function EmailHubDetail({ messageId, authHeaders, onClose, onReplied }: Props) {
+export default function EmailHubDetail({ messageId, authHeaders, onClose, onReplied, onOpenGenerator }: Props) {
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -281,6 +282,41 @@ export default function EmailHubDetail({ messageId, authHeaders, onClose, onRepl
               </div>
             )}
           </div>
+
+          {/* 13/10/2026 (STEP D): card Susanna -> Genera documento */}
+          {onOpenGenerator && (m.x_v6_project_id || m.x_v6_parte_id) && (
+            <div className="border-t border-brand-border bg-gradient-to-r from-brand-navy to-brand-terracotta p-[1px] shrink-0">
+              <div className="bg-white rounded-none p-3.5 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-navy to-brand-terracotta flex items-center justify-center shrink-0">
+                  <FileText size={14} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-brand-navy">
+                    Prepara documento per questa trattativa
+                  </div>
+                  <div className="text-[10px] text-brand-muted truncate">
+                    {m.x_v6_parte?.name
+                      ? `Parte: ${m.x_v6_parte.name}`
+                      : m.x_v6_project?.name
+                        ? `Progetto: ${m.x_v6_project.name}`
+                        : '—'}
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => onOpenGenerator({
+                      project_id: m.x_v6_project_id ?? undefined,
+                      parte_id: m.x_v6_parte_id ?? undefined,
+                      source_message_id: m.id,
+                    })}
+                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-white bg-brand-navy hover:bg-brand-navy/90 transition-colors"
+                  >
+                    Genera
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Intelligence panel Susanna (mock v1) */}
           <div className="border-t border-brand-border bg-brand-sand/50 shrink-0">
